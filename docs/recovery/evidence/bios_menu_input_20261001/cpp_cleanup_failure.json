@@ -1,0 +1,385 @@
+{
+  "status": "failed",
+  "scenario": "noncharacters",
+  "audio": "dummy",
+  "normal_entry_point": true,
+  "gameplay_seeded": false,
+  "startup_timing_gated": false,
+  "physical_keys": true,
+  "manual_input": false,
+  "whole_game_parity": false,
+  "exe_sha256": "f863dad775811437c8ebe3e5883b9d2c907202043b376a9854679f0fb24dae01",
+  "harness_sha256": "8c1882c6cec9accc19ed393c4536846b7564e45734ed298bbf0aec476b20accf",
+  "events": [
+    {
+      "kind": "key",
+      "key": "ctrl+1",
+      "seconds": 1.876032767992001
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+3",
+      "seconds": 1.9248886769928504
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+4",
+      "seconds": 1.9730549169762526
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+5",
+      "seconds": 2.0213875499903224
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+7",
+      "seconds": 2.070657303003827
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+8",
+      "seconds": 2.128462322987616
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+9",
+      "seconds": 2.1825357699999586
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+0",
+      "seconds": 2.2351228639890905
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+equal",
+      "seconds": 2.28561637797975
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+semicolon",
+      "seconds": 2.33455426999717
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+apostrophe",
+      "seconds": 2.3856037049845327
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+grave",
+      "seconds": 2.4380279329780024
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+comma",
+      "seconds": 2.4886443549767137
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+period",
+      "seconds": 2.5368272769846953
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+slash",
+      "seconds": 2.585842643980868
+    },
+    {
+      "kind": "keydown",
+      "key": "Control_L",
+      "seconds": 2.634575973992469
+    },
+    {
+      "kind": "keydown",
+      "key": "1",
+      "seconds": 2.6502769439830445
+    },
+    {
+      "kind": "keyup",
+      "key": "1",
+      "seconds": 3.5875259109889157
+    },
+    {
+      "kind": "keyup",
+      "key": "Control_L",
+      "seconds": 3.6020506089844275
+    },
+    {
+      "kind": "key",
+      "key": "F11",
+      "seconds": 3.6166369509883225
+    },
+    {
+      "kind": "key",
+      "key": "F12",
+      "seconds": 3.6525319399952423
+    },
+    {
+      "kind": "key",
+      "key": "shift+F11",
+      "seconds": 3.6917908229806926
+    },
+    {
+      "kind": "key",
+      "key": "shift+F12",
+      "seconds": 3.7423481500009075
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+F11",
+      "seconds": 3.7933573499904014
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+F12",
+      "seconds": 3.844917460985016
+    },
+    {
+      "kind": "key",
+      "key": "alt+F11",
+      "seconds": 3.894907453999622
+    },
+    {
+      "kind": "key",
+      "key": "alt+F12",
+      "seconds": 3.945107988984091
+    },
+    {
+      "kind": "key",
+      "key": "alt+Tab",
+      "seconds": 3.9960162439965643
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 4.047281168983318
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_0",
+      "code": 90,
+      "seconds": 4.0621727379912045
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 4.113101736991666
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 4.152474209986394
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_2",
+      "code": 88,
+      "seconds": 4.166839046985842
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_5",
+      "code": 84,
+      "seconds": 4.217557002004469
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_6",
+      "code": 85,
+      "seconds": 4.268260451994138
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 4.31894773899694
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "1",
+      "code": 10,
+      "seconds": 4.3563260569935665
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "1",
+      "code": 10,
+      "seconds": 4.629232921986841
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 4.693540251988452
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 4.85959057699074
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 5.024435511993943
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 5.189276208984666
+    }
+  ],
+  "captures": [
+    {
+      "name": "natural-typing-checkpoint",
+      "seconds": 1.8757069979910739,
+      "pixel_sha256": "262a264357582a0f87f81e27e2751990890d1c24f36fea2fe018a2198e05a621"
+    },
+    {
+      "name": "control-noncharacter-0",
+      "seconds": 1.9245117379759904,
+      "pixel_sha256": "262a264357582a0f87f81e27e2751990890d1c24f36fea2fe018a2198e05a621"
+    },
+    {
+      "name": "control-noncharacter-1",
+      "seconds": 1.972707665991038,
+      "pixel_sha256": "c0d68d27df5d334b33f1244a1e1a95ee9073e2009948767883e55800b87649af"
+    },
+    {
+      "name": "control-noncharacter-2",
+      "seconds": 2.0210304399952292,
+      "pixel_sha256": "c0d68d27df5d334b33f1244a1e1a95ee9073e2009948767883e55800b87649af"
+    },
+    {
+      "name": "control-noncharacter-3",
+      "seconds": 2.0702399149886332,
+      "pixel_sha256": "707b6b3f2e075c4917e107ca52bf3dde9a23b2a1624ee1b7d8ed1478a05b401f"
+    },
+    {
+      "name": "control-noncharacter-4",
+      "seconds": 2.128067921992624,
+      "pixel_sha256": "6e1c003cb3660dc9da8d883e05ba49218f2da0de8a512e806cc480bb5b2185ed"
+    },
+    {
+      "name": "control-noncharacter-5",
+      "seconds": 2.1821240699791815,
+      "pixel_sha256": "6e1c003cb3660dc9da8d883e05ba49218f2da0de8a512e806cc480bb5b2185ed"
+    },
+    {
+      "name": "control-noncharacter-6",
+      "seconds": 2.2347568919940386,
+      "pixel_sha256": "d1dc7a5d0a0edfb3b8cbbc4b519a4dd2af604b8bf2b46c098cb09c04b4a048de"
+    },
+    {
+      "name": "control-noncharacter-7",
+      "seconds": 2.2851924439892173,
+      "pixel_sha256": "4ea21c0d7191315319ec23a4e5b79489229368d1f24fd80abcfa41ccc4b3f872"
+    },
+    {
+      "name": "control-noncharacter-8",
+      "seconds": 2.334061556000961,
+      "pixel_sha256": "4ea21c0d7191315319ec23a4e5b79489229368d1f24fd80abcfa41ccc4b3f872"
+    },
+    {
+      "name": "control-noncharacter-9",
+      "seconds": 2.38521608299925,
+      "pixel_sha256": "b8e71f8831960e8eb5b13d170565c569abd0e3120cb4dff962b8efc070ea041f"
+    },
+    {
+      "name": "control-noncharacter-10",
+      "seconds": 2.4376425039954484,
+      "pixel_sha256": "63558d4316f1adba1d80070a4b8b4d2b2ea320b9e823debf0123ff3fa9e6c044"
+    },
+    {
+      "name": "control-noncharacter-11",
+      "seconds": 2.488261865975801,
+      "pixel_sha256": "5fc55b75ba9607445918d5631f56b08f64b5c2d43f79d5fd583506017249f98a"
+    },
+    {
+      "name": "control-noncharacter-12",
+      "seconds": 2.536480519978795,
+      "pixel_sha256": "5fc55b75ba9607445918d5631f56b08f64b5c2d43f79d5fd583506017249f98a"
+    },
+    {
+      "name": "control-noncharacter-13",
+      "seconds": 2.585457659995882,
+      "pixel_sha256": "112b16cc8284ea95dda6f0dbcfab2eb0af1256182d4eefeddf81998f8574f699"
+    },
+    {
+      "name": "control-noncharacter-14",
+      "seconds": 2.6341984320024494,
+      "pixel_sha256": "112b16cc8284ea95dda6f0dbcfab2eb0af1256182d4eefeddf81998f8574f699"
+    },
+    {
+      "name": "held-control-one",
+      "seconds": 3.5871630759793334,
+      "pixel_sha256": "105a4b89369608e1061abbd0a6702f3bd135fc947c0806f1ea8b01d80afe2704"
+    },
+    {
+      "name": "enhanced-F11",
+      "seconds": 3.652149624977028,
+      "pixel_sha256": "9b819065af370d48afb404505fcfc6250a85bff6ebc52cfa606ec7183e11153e"
+    },
+    {
+      "name": "enhanced-F12",
+      "seconds": 3.691399917996023,
+      "pixel_sha256": "50a8044d17ee6efd6b1cfae8db96bfe70c18e5e30d7804b5969ecdc7d3bff009"
+    },
+    {
+      "name": "enhanced-shift-F11",
+      "seconds": 3.741952494980069,
+      "pixel_sha256": "50a8044d17ee6efd6b1cfae8db96bfe70c18e5e30d7804b5969ecdc7d3bff009"
+    },
+    {
+      "name": "enhanced-shift-F12",
+      "seconds": 3.7929578789917286,
+      "pixel_sha256": "895b03535b5b5e72f138b970675cd3ba86d9b93c4f0b47c6027e047ae40ca1a0"
+    },
+    {
+      "name": "enhanced-ctrl-F11",
+      "seconds": 3.8445517270010896,
+      "pixel_sha256": "895b03535b5b5e72f138b970675cd3ba86d9b93c4f0b47c6027e047ae40ca1a0"
+    },
+    {
+      "name": "enhanced-ctrl-F12",
+      "seconds": 3.8945776339969598,
+      "pixel_sha256": "895b03535b5b5e72f138b970675cd3ba86d9b93c4f0b47c6027e047ae40ca1a0"
+    },
+    {
+      "name": "enhanced-alt-F11",
+      "seconds": 3.9447692559915595,
+      "pixel_sha256": "91a32dc6a3f79479b2e1524777cbfea86ef4acf9d1215a600fafa31f271b1a8c"
+    },
+    {
+      "name": "enhanced-alt-F12",
+      "seconds": 3.995602130977204,
+      "pixel_sha256": "91a32dc6a3f79479b2e1524777cbfea86ef4acf9d1215a600fafa31f271b1a8c"
+    },
+    {
+      "name": "alt-tab",
+      "seconds": 4.046884045994375,
+      "pixel_sha256": "46eee781189ea20a21506abb39af6ec352e8b7d62cd56fd1bed7028d99e33aff"
+    },
+    {
+      "name": "alt-zero-0",
+      "seconds": 4.152128788002301,
+      "pixel_sha256": "4bad72a624268bd7669388ac73f8d5e6c863f0f34059a9dac870c92592f828da"
+    },
+    {
+      "name": "alt-zero-256",
+      "seconds": 4.3558934569882695,
+      "pixel_sha256": "344c21f258e319a7380d944545dd34d0afd65194755ed2514f6672cdd9371187"
+    },
+    {
+      "name": "fresh-one-consumed-skip",
+      "seconds": 4.4288051999756135,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "fresh-one-intro",
+      "seconds": 4.693247969989898,
+      "pixel_sha256": "e76913893bbe655001976050c54106303eee3b48724c0cc1e4f822b1f32a1888"
+    }
+  ],
+  "error": "Command '['/dev/shm/lezac-main-menu-test-build-20260930/lezac_cpp']' timed out after 5 seconds",
+  "child_exit_code": 0
+}

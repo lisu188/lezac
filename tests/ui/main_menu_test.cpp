@@ -135,6 +135,77 @@ void checkMainMenuCharacters() {
             app::InputMapper::key(SDLK_RCTRL) == Key::RightControl,
             "menu Alt-Escape or physical fire keys changed");
 }
+
+void checkBufferedMenuInput() {
+    using namespace lezac;
+    using namespace ui;
+    const auto controlNoncharacters = {SDLK_1, SDLK_3, SDLK_4, SDLK_5, SDLK_7, SDLK_8,
+        SDLK_9, SDLK_0, SDLK_EQUALS, SDLK_SEMICOLON, SDLK_QUOTE, SDLK_BACKQUOTE,
+        SDLK_COMMA, SDLK_PERIOD, SDLK_SLASH};
+    for (auto code : controlNoncharacters) {
+        for (uint16_t modifiers : std::initializer_list<uint16_t>{KMOD_LCTRL, KMOD_RCTRL,
+                                   KMOD_CTRL | KMOD_SHIFT | KMOD_CAPS}) {
+            app::InputMapper input;
+            require(!app::InputMapper::isBufferedMenuKey(code, modifiers) &&
+                    !input.bufferedMenuKeyDown(code, modifiers), "Control noncharacter was buffered");
+        }
+        require(app::InputMapper::isBufferedMenuKey(code, KMOD_ALT | KMOD_CTRL),
+                "Alt priority was lost to Control noncharacter filtering");
+    }
+    for (auto code : {SDLK_2, SDLK_6, SDLK_MINUS}) {
+        app::InputMapper input;
+        require(input.bufferedMenuKeyDown(code, KMOD_CTRL) == Key::Unknown,
+                "valid Control character was mistaken for no input");
+    }
+    for (auto code : {SDLK_F11, SDLK_F12})
+        for (uint16_t modifiers : {KMOD_NONE, KMOD_SHIFT, KMOD_CTRL, KMOD_ALT}) {
+            app::InputMapper input;
+            require(!input.bufferedMenuKeyDown(code, modifiers), "enhanced function key reached legacy CRT");
+        }
+    app::InputMapper input;
+    require(!input.bufferedMenuKeyDown(SDLK_TAB, KMOD_ALT) &&
+            !input.bufferedMenuKeyDown(SDLK_RETURN, KMOD_ALT), "unbuffered Alt command accepted");
+
+    const SDL_Keycode digits[]{SDLK_KP_0, SDLK_KP_1, SDLK_KP_2, SDLK_KP_3, SDLK_KP_4,
+                              SDLK_KP_5, SDLK_KP_6, SDLK_KP_7, SDLK_KP_8, SDLK_KP_9};
+    for (int value = 0; value <= 511; ++value) {
+        app::InputMapper composed;
+        require(!composed.bufferedMenuKeyDown(SDLK_LALT, KMOD_ALT), "Alt make added a character");
+        for (const auto digit : {value / 100, value / 10 % 10, value % 10})
+            require(!composed.bufferedMenuKeyDown(digits[digit], KMOD_ALT | KMOD_CTRL | KMOD_SHIFT | KMOD_NUM),
+                    "Alt keypad character arrived before release");
+        require(!composed.bufferedMenuKeyUp(SDLK_KP_0), "keypad release committed Alt input");
+        const auto character = composed.bufferedMenuKeyUp(SDLK_LALT);
+        const uint8_t byte = static_cast<uint8_t>(value);
+        require(character.has_value() == (byte != 0) && (!character || static_cast<int>(*character) == byte),
+                "decimal byte accumulation, wrap or zero suppression changed");
+        require(!composed.bufferedMenuKeyUp(SDLK_LALT), "Alt character emitted twice");
+    }
+
+    auto languageDigits = [&](app::InputMapper& composed) {
+        for (auto code : {SDLK_KP_1, SDLK_KP_0, SDLK_KP_8})
+            require(!composed.bufferedMenuKeyDown(code, KMOD_ALT), "language digits leaked before release");
+    };
+    app::InputMapper overlapping;
+    overlapping.bufferedMenuKeyDown(SDLK_LALT, KMOD_LALT);
+    languageDigits(overlapping);
+    overlapping.bufferedMenuKeyDown(SDLK_RALT, KMOD_ALT);
+    require(overlapping.bufferedMenuKeyUp(SDLK_RALT) == Key::L, "first Alt release did not commit character");
+    require(overlapping.bufferedMenuKeyDown(SDLK_KP_1, KMOD_LALT | KMOD_NUM) == Key::One &&
+            !overlapping.bufferedMenuKeyUp(SDLK_LALT), "BIOS Alt flag did not clear on first release");
+    overlapping.bufferedMenuKeyDown(SDLK_RALT, KMOD_RALT);
+    languageDigits(overlapping);
+    require(overlapping.bufferedMenuKeyUp(SDLK_RALT) == Key::L, "new Alt sequence retained stale digits");
+    app::InputMapper interrupted;
+    interrupted.bufferedMenuKeyDown(SDLK_LALT, KMOD_ALT);
+    interrupted.bufferedMenuKeyDown(SDLK_KP_1, KMOD_ALT);
+    require(interrupted.bufferedMenuKeyDown(SDLK_a, KMOD_ALT) == Key::Unknown,
+            "Alt letter was mistaken for no input");
+    interrupted.bufferedMenuKeyDown(SDLK_KP_0, KMOD_ALT);
+    interrupted.bufferedMenuKeyDown(SDLK_KP_8, KMOD_ALT);
+    require(interrupted.bufferedMenuKeyUp(SDLK_LALT) == Key::L,
+            "buffered Alt letter cleared pending decimal digits");
+}
 }
 
 int main(int argc, char** argv) {
@@ -143,6 +214,7 @@ int main(int argc, char** argv) {
     try {
         checkMainMenuChoices();
         checkMainMenuCharacters();
+        checkBufferedMenuInput();
         for (const auto key : {SDLK_UNKNOWN, SDLK_LSHIFT, SDLK_RSHIFT, SDLK_LCTRL, SDLK_RCTRL,
                               SDLK_LALT, SDLK_RALT, SDLK_LGUI, SDLK_RGUI, SDLK_CAPSLOCK,
                               SDLK_NUMLOCKCLEAR, SDLK_SCROLLLOCK})
@@ -223,7 +295,8 @@ int main(int argc, char** argv) {
         }
         std::cout << "main_menu=ok cells=9 first_y=77 trail=5 languages=2 timing=1 consumed_keys=1 rollover=1 buffered_keys=1"
                      " ignored_choices=33 readiness_modes=3 consumed_enter=1 fresh_choices=2 accepted_choices=7"
-                     " character_translation=1 case_cancel=1 keypad_locks=1 legacy_aliases=3 physical_controls_unchanged=1\n";
+                     " character_translation=1 case_cancel=1 keypad_locks=1 legacy_aliases=3 physical_controls_unchanged=1"
+                     " control_noncharacters=15 enhanced_function_keys=2 alt_decimal_cases=512 alt_release=1 alt_overlap=1\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

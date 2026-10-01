@@ -114,8 +114,11 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy TMPDIR=/dev/shm \
 python3 -B tools/level1_results.py guard
 ```
 
-Replays create a unique child directory and preserve prior outputs. Native
-recapture requires a private Xvfb display and explicit process-memory and
+Replays create a unique child directory and preserve prior outputs.
+Comparison exports always include portable PPM pairs; PNG pairs are also
+written when Pillow is available. The registered replay test disables Python
+site packages, so comparison and evidence export need no third-party module.
+Native recapture requires a private Xvfb display and explicit process-memory and
 runtime-instrumentation approvals. Continuous native typing/skip behavior,
 physical 15ms presentation, acknowledgment and the first live Level 2 frame
 remain the next integration frontier. This result is not complete campaign,

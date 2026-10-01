@@ -10,6 +10,7 @@ import shutil
 import struct
 import uuid
 
+import frame_compare
 import level1_fidelity as fidelity
 import level1_original as original
 
@@ -201,9 +202,14 @@ def compare(cpp: Path, out: Path) -> dict:
             first = {"region": "results", "sample": index, "path": "$.rgb", "differing_pixels": pixels_changed}
         changed += pixels_changed
         if index in (0, 1, 20, 41):
-            from PIL import Image
-            Image.frombytes("RGB", (320, 200), expected["rgb"]).save(out / f"original_{index:02d}.png")
-            Image.frombytes("RGB", (320, 200), pixels).save(out / f"cpp_{index:02d}.png")
+            try:
+                from PIL import Image
+            except ImportError:
+                Image = None
+            for name, rgb in (("original", expected["rgb"]), ("cpp", pixels)):
+                frame_compare.write_ppm(out / f"{name}_{index:02d}.ppm", (320, 200, bytearray(rgb)))
+                if Image is not None:
+                    Image.frombytes("RGB", (320, 200), rgb).save(out / f"{name}_{index:02d}.png")
     report = {"status": "match" if first is None and changed == 0 else "diverged",
               "prefix_frames": frames, "prefix_states": states, "result_frames": len(native), "reel_steps": 41,
               "pixels": (frames + len(native)) * 64000, "differing_pixels": changed, "first_difference": first,

@@ -49,6 +49,7 @@ public:
     std::vector<uint8_t> decodeLevelPlane(const std::vector<uint8_t>& encoded, size_t outputSize);
     void updateRedPalette(uint16_t frame);
     void captureInitialPalette() { initialPalette_ = palette_; }
+    void resetHudObjectivesForLevel();
     void resetHudForLevel();
     void clearHudScores() { hudScores_ = {}; }
     void beginOriginalPlay(bool fromMenu);

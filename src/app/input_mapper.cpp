@@ -34,6 +34,31 @@ ui::Key InputMapper::key(SDL_Keycode key) {
     }
 }
 
+ui::Key InputMapper::mainMenuKey(SDL_Keycode code, uint16_t modifiers) {
+    const bool shift = (modifiers & KMOD_SHIFT) != 0;
+    const bool caps = (modifiers & KMOD_CAPS) != 0;
+    if (modifiers & KMOD_ALT) {
+        // CRT.ReadKey exposes the second extended byte as a menu character.
+        switch (code) {
+            case SDLK_F2: return ui::Key::I; // BIOS scan 0x69.
+            case SDLK_F5: return ui::Key::L; // BIOS scan 0x6c.
+            case SDLK_3: return ui::Key::Z;  // BIOS scan 0x7a.
+            default: return ui::Key::Unknown;
+        }
+    }
+    if (modifiers & KMOD_CTRL)
+        return code == SDLK_ESCAPE ? ui::Key::Escape : ui::Key::Unknown;
+    if (code >= SDLK_a && code <= SDLK_z && shift != caps) return ui::Key::Unknown;
+    if ((code == SDLK_1 || code == SDLK_2) && shift) return ui::Key::Unknown;
+    if (code == SDLK_KP_1 || code == SDLK_KP_2) {
+        const bool num = (modifiers & KMOD_NUM) != 0;
+        // Original physical-key captures select a digit with either flag set.
+        if (!num && !shift) return ui::Key::Unknown;
+        return code == SDLK_KP_1 ? ui::Key::One : ui::Key::Two;
+    }
+    return key(code);
+}
+
 gameplay::FrameControls InputMapper::controlsFromKeyboard(const uint8_t* keys, int playerCount) {
     gameplay::FrameControls controls;
     // Original banks at 1000:6175/61DE. Arrows remain a single-player alias.

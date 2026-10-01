@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <initializer_list>
 #include <stdexcept>
 
 namespace {
@@ -88,6 +89,52 @@ void checkMainMenuChoices() {
         }
     }
 }
+
+void checkMainMenuCharacters() {
+    using namespace lezac;
+    using namespace ui;
+    for (SDL_Keycode code = SDLK_a; code <= SDLK_z; ++code) {
+        const auto lower = static_cast<Key>(static_cast<int>(Key::A) + code - SDLK_a);
+        for (uint16_t modifiers : std::initializer_list<uint16_t>{KMOD_NONE, KMOD_LSHIFT, KMOD_RSHIFT, KMOD_CAPS,
+                                   KMOD_LSHIFT | KMOD_CAPS, KMOD_RSHIFT | KMOD_CAPS,
+                                   KMOD_LCTRL, KMOD_RCTRL, KMOD_LALT, KMOD_RALT,
+                                   KMOD_CTRL | KMOD_SHIFT | KMOD_CAPS, KMOD_ALT | KMOD_CAPS}) {
+            const bool uppercase = ((modifiers & KMOD_SHIFT) != 0) != ((modifiers & KMOD_CAPS) != 0);
+            const bool modified = (modifiers & (KMOD_CTRL | KMOD_ALT)) != 0;
+            require(app::InputMapper::mainMenuKey(code, modifiers) == (uppercase || modified ? Key::Unknown : lower),
+                    "main menu letter case/control translation");
+            require(app::InputMapper::key(code) == lower, "physical key mapping changed");
+        }
+    }
+    for (SDL_Keycode code : {SDLK_1, SDLK_2, SDLK_KP_1, SDLK_KP_2}) {
+        const bool keypad = code == SDLK_KP_1 || code == SDLK_KP_2;
+        const auto digit = code == SDLK_1 || code == SDLK_KP_1 ? Key::One : Key::Two;
+        for (uint16_t modifiers : std::initializer_list<uint16_t>{KMOD_NONE, KMOD_LSHIFT, KMOD_RSHIFT, KMOD_NUM,
+                                   KMOD_NUM | KMOD_LSHIFT, KMOD_NUM | KMOD_RSHIFT,
+                                   KMOD_CAPS, KMOD_CAPS | KMOD_NUM, KMOD_CAPS | KMOD_SHIFT,
+                                   KMOD_CAPS | KMOD_SHIFT | KMOD_NUM, KMOD_LCTRL, KMOD_RALT}) {
+            const bool shift = (modifiers & KMOD_SHIFT) != 0;
+            const bool numeric = keypad ? shift || ((modifiers & KMOD_NUM) != 0) : !shift;
+            const bool modified = (modifiers & (KMOD_CTRL | KMOD_ALT)) != 0;
+            require(app::InputMapper::mainMenuKey(code, modifiers) == (numeric && !modified ? digit : Key::Unknown),
+                    "main menu numeric/keypad translation");
+        }
+    }
+    for (uint16_t modifiers : std::initializer_list<uint16_t>{KMOD_LALT, KMOD_RALT, KMOD_ALT | KMOD_CTRL,
+                               KMOD_ALT | KMOD_SHIFT, KMOD_ALT | KMOD_CAPS}) {
+        require(app::InputMapper::mainMenuKey(SDLK_F2, modifiers) == Key::I &&
+                app::InputMapper::mainMenuKey(SDLK_F5, modifiers) == Key::L &&
+                app::InputMapper::mainMenuKey(SDLK_3, modifiers) == Key::Z,
+                "CRT extended-byte menu aliases changed");
+    }
+    for (uint16_t modifiers : {KMOD_NONE, KMOD_SHIFT, KMOD_CTRL, KMOD_CAPS})
+        require(app::InputMapper::mainMenuKey(SDLK_ESCAPE, modifiers) == Key::Escape,
+                "unmodified/shift/control Escape translation");
+    require(app::InputMapper::mainMenuKey(SDLK_ESCAPE, KMOD_ALT) == Key::Unknown &&
+            app::InputMapper::key(SDLK_KP_0) == Key::Keypad0 &&
+            app::InputMapper::key(SDLK_RCTRL) == Key::RightControl,
+            "menu Alt-Escape or physical fire keys changed");
+}
 }
 
 int main(int argc, char** argv) {
@@ -95,6 +142,7 @@ int main(int argc, char** argv) {
     using namespace ui;
     try {
         checkMainMenuChoices();
+        checkMainMenuCharacters();
         for (const auto key : {SDLK_UNKNOWN, SDLK_LSHIFT, SDLK_RSHIFT, SDLK_LCTRL, SDLK_RCTRL,
                               SDLK_LALT, SDLK_RALT, SDLK_LGUI, SDLK_RGUI, SDLK_CAPSLOCK,
                               SDLK_NUMLOCKCLEAR, SDLK_SCROLLLOCK})
@@ -174,7 +222,8 @@ int main(int argc, char** argv) {
             }
         }
         std::cout << "main_menu=ok cells=9 first_y=77 trail=5 languages=2 timing=1 consumed_keys=1 rollover=1 buffered_keys=1"
-                     " ignored_choices=33 readiness_modes=3 consumed_enter=1 fresh_choices=2 accepted_choices=7\n";
+                     " ignored_choices=33 readiness_modes=3 consumed_enter=1 fresh_choices=2 accepted_choices=7"
+                     " character_translation=1 case_cancel=1 keypad_locks=1 legacy_aliases=3 physical_controls_unchanged=1\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

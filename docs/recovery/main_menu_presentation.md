@@ -70,6 +70,11 @@ in `main_menu_choices_2026-10-01.md`. Unsupported ready-menu keys do not start a
 game or change the retained gameplay-background setting. This does not change
 their consumed fade/typing behavior or Enter's intro/name-entry semantics.
 
+The subsequent [character translation recovery](main_menu_characters_2026-10-01.md)
+covers case, Control/Alt, extended-byte aliases and keypad 1/2's observed
+lock/Shift selection rule. Other-page navigation and complete keyboard-buffer
+eligibility remain open.
+
 ## Ungated timing observation
 
 `evidence/main_menu_natural_20260930.json` preserves a second, successful

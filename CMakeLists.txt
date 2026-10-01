@@ -182,7 +182,7 @@ if(BUILD_TESTING)
     target_include_directories(lezac_main_menu_test PRIVATE ${SDL2_INCLUDE_DIRS})
     target_link_libraries(lezac_main_menu_test PRIVATE lezac_ui lezac_rendering)
     add_test(NAME main_menu_models COMMAND lezac_main_menu_test)
-    set_tests_properties(main_menu_models PROPERTIES PASS_REGULAR_EXPRESSION "main_menu=ok cells=9 first_y=77 trail=5 languages=2 timing=1 consumed_keys=1 rollover=1 buffered_keys=1 ignored_choices=33 readiness_modes=3 consumed_enter=1 fresh_choices=2 accepted_choices=7")
+    set_tests_properties(main_menu_models PROPERTIES PASS_REGULAR_EXPRESSION "main_menu=ok cells=9 first_y=77 trail=5 languages=2 timing=1 consumed_keys=1 rollover=1 buffered_keys=1 ignored_choices=33 readiness_modes=3 consumed_enter=1 fresh_choices=2 accepted_choices=7 character_translation=1 case_cancel=1 keypad_locks=1 legacy_aliases=3 physical_controls_unchanged=1")
     add_executable(lezac_ui_components_test tests/ui/ui_components_test.cpp)
     target_link_libraries(lezac_ui_components_test PRIVATE lezac_ui)
     add_test(NAME ui_components COMMAND lezac_ui_components_test)
@@ -273,6 +273,10 @@ if(BUILD_TESTING)
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_main_menu.py --self-check)
         set_tests_properties(main_menu_capture_self_check PROPERTIES
             PASS_REGULAR_EXPRESSION "main_menu_capture_self_check=ok windows=2 arena=4096 fade_zero=1 live=0")
+        add_test(NAME main_menu_character_evidence
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_main_menu_character_evidence.py)
+        set_tests_properties(main_menu_character_evidence PROPERTIES
+            PASS_REGULAR_EXPRESSION "main_menu_character_evidence=ok original_cases=16 failed_records=5 mutations=6 whole_game_parity=0")
         add_test(NAME source_guardrails_selftest
             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_source_guardrails.py)
         set_tests_properties(source_guardrails_selftest PROPERTIES
@@ -4787,7 +4791,7 @@ if(BUILD_TESTING)
                         --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/main-menu-live-checks)
             set_tests_properties(main_menu_live_xvfb PROPERTIES
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 60
-                PASS_REGULAR_EXPRESSION "main_menu_live=ok original_pixels=1 languages=2 queued_selection_consumed=1 escape_skips_consumed=1 fresh_start=1 fresh_exit=1 frames=8 audio=dummy modifiers_ignored=11 ignored_choices=14 held_return_cases=2")
+                PASS_REGULAR_EXPRESSION "main_menu_live=ok original_pixels=1 languages=2 queued_selection_consumed=1 escape_skips_consumed=1 fresh_start=1 fresh_exit=1 frames=14 audio=dummy modifiers_ignored=11 ignored_choices=25 held_return_cases=2 caps_shift_selected=1 alt_f5_selected=1 keypad_off_ignored=1 keypad_on_selected=1 keypad_num_shift_selected=1 keypad_shift_selected=1")
             add_test(NAME key_ownership_live_xvfb
                 COMMAND ${CMAKE_COMMAND} -E env SDL_AUDIODRIVER=dummy
                         ${XVFB_RUN_EXECUTABLE} -a ${Python3_EXECUTABLE}

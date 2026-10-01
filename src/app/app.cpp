@@ -23578,7 +23578,7 @@ private:
                          (isPlayer1FireKey(e.key.keysym.sym) ||
                           (playerCount_ > 1 && isPlayer2FireKey(e.key.keysym.sym)))) ||
                         shouldAcceptRepeatedUiKey(e.key.keysym.sym))) {
-                onKey(e.key.keysym.sym, running);
+                onKey(e.key.keysym.sym, running, e.key.keysym.mod);
             }
         }
     }
@@ -23787,7 +23787,7 @@ private:
         };
     }
 
-    void onKey(SDL_Keycode key, bool& running) {
+    void onKey(SDL_Keycode key, bool& running, uint16_t modifiers = KMOD_NONE) {
         if (((ui_.snapshot().menu && ui_.snapshot().page == MenuPage::Main) || levelFlow_.intro().active) &&
             !InputMapper::isBufferedMenuKey(key)) return;
         if (levelFlow_.intro().active) {
@@ -23806,7 +23806,9 @@ private:
         const uint32_t now = presentationMilliseconds();
         const bool menuSkip = ui_.snapshot().menu && ui_.snapshot().page == MenuPage::Main &&
                               !ui_.mainMenuProgress(now).waitingForKey;
-        ui_.onKey(InputMapper::key(key), running, levelIndex_, playerCount_, recordStore_, uiActions(), now);
+        const auto domainKey = ui_.snapshot().menu && ui_.snapshot().page == MenuPage::Main ?
+                               InputMapper::mainMenuKey(key, modifiers) : InputMapper::key(key);
+        ui_.onKey(domainKey, running, levelIndex_, playerCount_, recordStore_, uiActions(), now);
         if (menuSkip) SDL_FlushEvent(SDL_KEYDOWN);
     }
 

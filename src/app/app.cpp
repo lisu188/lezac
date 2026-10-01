@@ -22466,6 +22466,81 @@ public:
                   << " frame_inspection=1 frame_hash=" << std::hex << lastHash << std::dec << '\n';
     }
 
+    void debugPickupLandingOriginal(const std::string& fixturePath) {
+        if (std::filesystem::file_size(fixturePath) != 2798) {
+            throw std::runtime_error("pickup landing fixture size differs");
+        }
+        const auto data = readFile(fixturePath);
+        if (lezac::diagnostics::level1::fingerprint(data) != "cc9b3df95c102cc2") {
+            throw std::runtime_error("pickup landing fixture fingerprint differs");
+        }
+        size_t offset = 0;
+        auto take = [&](size_t count) { return lezac::resources::getBytes(data, offset, count); };
+        const auto magic = take(12);
+        if (std::string(magic.begin(), magic.end()) != "LEZACPICKUP1" ||
+            lezac::resources::getU16(data, offset) != 685 ||
+            lezac::resources::getU8(data, offset) != 26) {
+            throw std::runtime_error("invalid pickup landing fixture header");
+        }
+        const auto entrySeed = le32(take(4), 0);
+        const auto creationSeed = le32(take(4), 0);
+        const auto originalPlayer = take(38), originalVisual = take(8), descriptors = take(92 * 4);
+        const auto tiles = take(25), words = take(50);
+        load();
+        initSdl();
+        resetLevel(1);
+        ui_.setMenu(false);
+        transientActors_.clear();
+        player_.x = static_cast<float>(le16(originalVisual, 0));
+        player_.y = static_cast<float>(le16(originalVisual, 2));
+        player_.vx8 = static_cast<int16_t>(le16(originalPlayer, 6));
+        player_.vy8 = static_cast<int16_t>(le16(originalPlayer, 8));
+        player_.fracX = originalPlayer[10];
+        player_.fracY = originalPlayer[12];
+        player_.idleTicks = originalPlayer[2];
+        for (size_t cell = 0; cell < tiles.size(); ++cell) {
+            const int x = 3 + static_cast<int>(cell % 5), y = 45 + static_cast<int>(cell / 5);
+            tileRef(x, y) = tiles[cell];
+            level_.wordLayer[static_cast<size_t>(y) * level_.width + x] = le16(words, cell * 2);
+        }
+        randomSeed_ = entrySeed;
+        size_t actorStates = 0;
+        for (int sample = 0; sample < 26; ++sample) {
+            const auto frame = lezac::resources::getU16(data, offset);
+            if (frame != 685 + sample) throw std::runtime_error("pickup landing frames are not consecutive");
+            const auto expected = lezac::resources::getFixedRecords<46>(data, offset);
+            if (expected.size() > 2) throw std::runtime_error("unexpected pickup landing actor count");
+            logicTick_ = frame;
+            if (sample == 0) {
+                // Seeded pose/local-map probe; the source capture itself is continuous play.
+                updatePlayer(player_, false, false, false, false, 0);
+                if (randomSeed_ != creationSeed || transientActors_.size() != 2) {
+                    throw std::runtime_error("pickup landing creation or RNG differs");
+                }
+            } else {
+                updateTransientActors();
+            }
+            if (transientActors_.size() != expected.size()) {
+                throw std::runtime_error("pickup landing lifetime count differs");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                const std::vector<uint8_t> actor(expected[i].begin(), expected[i].begin() + 38);
+                const std::vector<uint8_t> visual(expected[i].begin() + 38, expected[i].end());
+                if (!transientMatchesOriginal(transientActors_[i], actor, visual, descriptors)) {
+                    throw std::runtime_error("pickup landing original actor differs at " + std::to_string(sample));
+                }
+                ++actorStates;
+            }
+        }
+        if (offset != data.size() || actorStates != 48 || !transientActors_.empty()) {
+            throw std::runtime_error("incomplete pickup landing replay");
+        }
+        const auto inspected = inspectRenderedFrame("pickup-landing-original");
+        std::cout << "pickup_landing_original=ok samples=26 actor_states=48 created=2 retired=1"
+                  << " initial_y=370 label_y=366,378 creation_rng=1 seeded_cpp=1 frame_inspection=1 frame_hash="
+                  << std::hex << inspected.hash << std::dec << '\n';
+    }
+
     void debugTransientActorLimits() {
         load();
         initSdl();
@@ -22499,6 +22574,32 @@ public:
         monsters_.resize(30);
         checkDraws(4, 0);
         monsters_.clear();
+        for (const auto& probe : std::array<std::array<int, 5>, 4>{{
+                 {{18, 560, 0, 16, 1}}, {{18, 128, 0, 18, 0}},
+                 {{18, 1800, 0, 16, 1}}, {{16, 0, 1, 18, 1}}}}) {
+            prepareAutoplayerMonsterFixtureLevel();
+            transientActors_.clear();
+            player_.x = 16;
+            player_.y = static_cast<float>(probe[0]);
+            player_.vy8 = static_cast<int16_t>(probe[1]);
+            for (int x = 0; x < level_.width; ++x) tileRef(x, 4) = probe[4] ? (probe[2] ? 0x50 : 2) : 0;
+            pickups();
+            lezac::core::TurboRandom expected(randomSeed_);
+            for (int i = 0; i < 4; ++i) expected.range(0, 200);
+            FrameControls controls;
+            controls.p1Down = probe[2] != 0;
+            updateWithControls(controls, 0.0f);
+            if (transientActors_.size() != 4 || randomSeed_ != expected.seed()) {
+                throw std::runtime_error("pickup origin changed allocation or RNG");
+            }
+            for (size_t i = 0; i < positions.size(); ++i) {
+                if (transientActors_[i].x != positions[i][0] ||
+                    transientActors_[i].y != probe[3] + positions[i][1] - 16) {
+                    throw std::runtime_error("pickup ignored the pre-integration local origin");
+                }
+            }
+        }
+        transientActors_.clear();
         spawnTransientActor(20, 20, -128, 80, 0x0a, 12);
         ui_.setPaused(true);
         const auto seed = randomSeed_;
@@ -22536,7 +22637,7 @@ public:
             throw std::runtime_error("camera shake preceded actor reward RNG");
         }
         std::cout << "transient_actor_limits=ok pickup_cap=14 shared_cap=30 clockwise_cells=4"
-                  << " rng_gate=1 pause=1 reset=1 render_rng=0 shake_after_actors=1 static_contract=1 frame_hash="
+                  << " rng_gate=1 pause=1 reset=1 render_rng=0 shake_after_actors=1 pickup_origin_cases=4 static_contract=1 frame_hash="
                   << std::hex << rendered.hash << std::dec << '\n';
     }
 
@@ -24446,7 +24547,6 @@ private:
             }
             refreshState2EffectEntry(player_, state2Visual_, state2Effect_);
         } else {
-            collectObjectiveTiles(player_, 1);
             updatePlayer(player_, controls.p1Left, controls.p1Right, p1Jump, p1Switch, 0, p1Down);
             updatePortalsAndTriggers(player_, portalCooldown_, triggerCooldown_, p1Down);
         }
@@ -24461,7 +24561,6 @@ private:
                 }
                 refreshState2EffectEntry(player2_, state2Visual2_, state2Effect2_);
             } else {
-                collectObjectiveTiles(player2_, 2);
                 updatePlayer(player2_, controls.p2Left, controls.p2Right, p2Jump, p2Switch, 19, p2Down);
                 updatePortalsAndTriggers(player2_, portalCooldown2_, triggerCooldown2_,
                                          p2Down);
@@ -24726,6 +24825,9 @@ private:
         // 1000:6BD5 uses the updated velocity and local drop/ground Y, before
         // terrain damage and integration. The non-player pass is already over.
         tryActivePlayerFireAt(player, x, y, spriteBase == 19 ? 2 : 1);
+        // 1000:6D98/6DAB use these locals after ground snap/drop, not the
+        // still-unmodified visual position. The four-cell scan stays cached.
+        collectObjectiveTiles(player, spriteBase == 19 ? 2 : 1, x, y);
         applyPlayerTerrainDamage(player, spriteBase == 19 ? energy2_ : energy_);
         integratePlayerMotion(player, x, y, edges);
     }
@@ -25011,6 +25113,10 @@ private:
     }
 
     void collectObjectiveTiles(const Player& player, uint8_t playerIndex) {
+        collectObjectiveTiles(player, playerIndex, static_cast<int>(player.x), static_cast<int>(player.y));
+    }
+
+    void collectObjectiveTiles(const Player& player, uint8_t playerIndex, int originX, int originY) {
         // 1000:6CB8..6DAA visits the cached actor interior clockwise. Scores
         // are DS:0002..0019, file 0xB192; consume/seeder are 5AFD / 370E.
         constexpr std::array<int, 12> scores{
@@ -25034,8 +25140,8 @@ private:
             if (pickupActorCount() < 14) {
                 // 1000:6D88..6DFA draws even if the shared allocator is full.
                 const auto vy8 = static_cast<int16_t>(-40 - randomRangeValue(0, 200));
-                spawnTransientActor(static_cast<int>(player.x) + (x == x0 ? -2 : 10),
-                    static_cast<int>(player.y) + (y == y0 ? -2 : 10), vy8,
+                spawnTransientActor(originX + (x == x0 ? -2 : 10),
+                    originY + (y == y0 ? -2 : 10), vy8,
                     pickupSprites[tile - 0x67], 0x0a, 12);
             }
         }
@@ -28314,6 +28420,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-transient-actor-limits") {
             app.debugTransientActorLimits();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-pickup-landing-original") {
+            app.debugPickupLandingOriginal(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-bomb-motion-original") {

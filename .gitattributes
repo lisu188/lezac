@@ -32,3 +32,5 @@ docs/recovery/evidence/level1_typing_2026-10-01/** -text
 tools/capture_original_level1_handoff.py -text
 tests/fixtures/level1_handoff/** -text
 docs/recovery/evidence/level1_handoff_2026-10-01/** -text
+tests/fixtures/pickup_landing_original.bin -text
+docs/recovery/evidence/pickup_landing_2026-10-01/** -text

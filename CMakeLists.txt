@@ -4652,12 +4652,20 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^flame_stress_lifecycle_fixture=ok lf=1 crlf=1 truncated_rejected=1 mutations_rejected=14 no_output_files=1")
 
+    add_test(NAME pickup_landing_original
+        COMMAND lezac_cpp --debug-pickup-landing-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/pickup_landing_original.bin)
+    set_tests_properties(pickup_landing_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^pickup_landing_original=ok samples=26 actor_states=48 created=2 retired=1 initial_y=370 label_y=366,378 creation_rng=1 seeded_cpp=1 frame_inspection=1")
+
     add_test(NAME transient_actor_limits
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-transient-actor-limits)
     set_tests_properties(transient_actor_limits PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
-        PASS_REGULAR_EXPRESSION "^transient_actor_limits=ok pickup_cap=14 shared_cap=30 clockwise_cells=4 rng_gate=1 pause=1 reset=1 render_rng=0 shake_after_actors=1 static_contract=1")
+        PASS_REGULAR_EXPRESSION "^transient_actor_limits=ok pickup_cap=14 shared_cap=30 clockwise_cells=4 rng_gate=1 pause=1 reset=1 render_rng=0 shake_after_actors=1 pickup_origin_cases=4 static_contract=1")
 
     add_test(NAME route_timing_evidence
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -4793,6 +4801,13 @@ if(BUILD_TESTING)
             "^two_player_hud_panel=ok split_views=2 p1_hud_visible=1 p1_world_visible=1 p2_hud_visible=1 p2_world_visible=1 objective_panel_visible=1 objective_panel_changed=1 panel_x=141 panel_w=37 p2_column_x=180 frame_inspection=1 original_art_claim=0")
 
     if(Python3_Interpreter_FOUND)
+        add_test(NAME pickup_landing_guard
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_pickup_landing_guard.py
+                --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/pickup_landing_guard_out)
+        set_tests_properties(pickup_landing_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 90 LABELS "original;evidence-guard;pickup"
+            PASS_REGULAR_EXPRESSION "^pickup_landing_guard=ok cases=5 rejected_before_replay=1 immutable_fixture=1 audio=dummy")
         foreach(level1_case walk bomb objective held_fire rapid_fire completion_gate)
             add_test(NAME level1_original_${level1_case}
                 COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

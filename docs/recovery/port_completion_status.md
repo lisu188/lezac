@@ -79,7 +79,12 @@ and RNG frozen until the final character delay. The subsequent
 spent ammunition through ordinary results/intro acknowledgments and restores
 the full level palette without resetting its animation phase. It matches
 twelve native Level 2 entry frames, 24 mapped states and both complete map
-planes. Longer Level 2 progression, typing skip/escape, two-player/English
+planes. A [longer pickup-landing route](pickup_landing_runtime_2026-10-01.md)
+matches 600 additional natural Level 2 frames and fixes the pickup indicator
+origin after ground snap/drop. It reaches player damage and structural collapse
+but no objective collection or level completion; its permanent regression is
+a small seeded C++ indicator-lifetime probe. Complete Level 2 progression,
+typing skip/escape, two-player/English
 native handoffs and physical presentation cadence remain open; these checks
 do not change the whole-game completion flags or provide an overall
 completion percentage.

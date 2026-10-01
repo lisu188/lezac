@@ -34,3 +34,6 @@ tests/fixtures/level1_handoff/** -text
 docs/recovery/evidence/level1_handoff_2026-10-01/** -text
 tests/fixtures/pickup_landing_original.bin -text
 docs/recovery/evidence/pickup_landing_2026-10-01/** -text
+tests/fixtures/walker_ledge_original.bin -text
+docs/recovery/evidence/walker_ledge_2026-10-01/** -text
+docs/recovery/evidence/walker_ledge_2026-10-01/focused_ctest.log -diff

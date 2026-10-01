@@ -18942,6 +18942,7 @@ public:
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().kind != 0x0c || monsters_.front().hp != 0 ||
             monsters_.front().stateTimer != corpseTicks ||
+            corpseSprite != kMonsterCorpseSpriteLeft ||
             gameRenderer_.monsterSpriteIndex(monsters_.front()) != corpseSprite ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             std::ostringstream oss;

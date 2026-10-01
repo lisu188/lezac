@@ -4423,7 +4423,7 @@ if(BUILD_TESTING)
     set_tests_properties(monster_bomb_kill_live PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^monster_bomb_kill_live=ok bomb_type=4 initial_hp=4 seeded_monster=1 flame_updates=14 corpse_sprite=48 corpse_ticks=50 delayed_reward=1 reward_sprite=61 killed=1 removed=1 reward=1 collected=1 score_delta=2000 frames_inspected=20 frame_inspection=1 original_runtime_claim=0 reward_motion_claim=0 visual_claim=0")
+            "^monster_bomb_kill_live=ok bomb_type=4 initial_hp=4 seeded_monster=1 flame_updates=14 corpse_sprite=47 corpse_ticks=50 delayed_reward=1 reward_sprite=61 killed=1 removed=1 reward=1 collected=1 score_delta=2000 frames_inspected=20 frame_inspection=1 original_runtime_claim=0 reward_motion_claim=0 visual_claim=0")
 
     add_test(NAME player_damage_death_live
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

@@ -108,6 +108,54 @@ fixture and corruption guard. The Release rebuild retains only the unrelated
 pre-existing debris diagnostic `snprintf` warning. Full exact-head platform
 test/package gates remain required before merge.
 
+The initial submitted head `88ae686f74424136f4a0c658c25c2c62af9c2d8c`
+failed one test on both platforms: `monster_bomb_kill_live` still expected
+corpse sprite 48 from the old synthetic walker path. All other Windows tests
+passed; Linux also explicitly skipped its generic UI test. The new original
+fixture and corruption guard passed on both. The failed CI is retained at
+https://github.com/lisu188/lezac/actions/runs/36880069386 and is not promoted
+to validated evidence.
+
+The recovered ledge rule changes the walker's direction in that synthetic
+explosion room. The native impact mapping at `1000:745B` selects sprite 47
+for non-positive VX and 48 for positive VX, independently of the animation
+band. The existing original-backed `monster_impact_sprites` regression covers
+both signs and zero. The bomb-kill probe now additionally pins the left corpse
+sprite internally, and its CTest contract expects exactly 47. This changes a
+synthetic expectation, not the production impact/damage mapping, and does not
+accept either sprite indiscriminately. Fresh full platform gates remain required.
+All eleven focused ledge, impact, corpse, bomb-kill and evidence-guard CTests
+passed in 4.57 seconds after this contract correction.
+
+## Longer Failed Route
+
+An additional ordinary-input attempt preserves the first 900 frames, then
+uses one large bomb, retreat and right movement toward the ground objective.
+On the initial submitted code it matches 1,200 native frames, 76,800,000 RGB
+pixels and 2,400 mapped boundaries, native frames 318 through 1517. A separate
+live kind-1 through kind-8 pose/motion/fraction/identity/AI audit also matches
+all 2,400 boundaries. No all-actor-byte or whole-DAC claim is made.
+
+This is a failed completion route in both versions: 211 structures are
+destroyed, no objective is collected, another objective tile is lost, and
+the player dies. Only two objective tiles remain when three are required.
+The shipped `ENGLISH.DOC` warns that losing enough objectives prevents
+re-entry and requires a level restart. Level 2 starts at X=64,Y=368, not
+on the upper roof shown in static world-map planning. This route must not
+be reused as a purported Level 2 completion path.
+
+Native extension SHA256 is
+`6825c8a3e7eb604dd5e523d99c1aff87d7ac84bceccb017ae6e10cd52c54d42e`.
+The full original stream remains at
+`/dev/shm/lezac-natural-level2-ground-objective-original-20261001-v1`;
+the C++ replay is losslessly archived at the corresponding `-cpp-` path
+plus `.tar.gz`, SHA256
+`0303eecd323c0a25cbc6ca81b82927de0161c8a2c0107dd1eda9ea14d5f5090d`.
+Its 593,272,366 raw bytes were removed only after every archived file was
+byte/hash verified and inactive/unchanged consumers were rechecked. Compact
+comparison, motion report, route, manifest and final screenshot pairs are
+retained with the other walker evidence. No completion flag was promoted.
+
 Compact reports, route, extraction metadata and original/negative/corrected
 screenshots are in `evidence/walker_ledge_2026-10-01/`. The copied extractor and
 motion audit are captured source provenance, not supported commands from that

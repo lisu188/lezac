@@ -27,6 +27,7 @@
 #include <iostream>
 #include <limits>
 #include <map>
+#include <optional>
 #include <regex>
 #include <set>
 #include <sstream>
@@ -588,7 +589,7 @@ public:
     App(const App&) = delete;
     App& operator=(const App&) = delete;
     void debugLevel1Replay(const std::string& routePath, const std::string& outDir, bool originalIntroWait = false,
-                           bool captureResultReels = false) {
+                           bool captureResultReels = false, bool captureResultTyping = false) {
         namespace trace = lezac::diagnostics::level1;
         const auto route = trace::readRoute(routePath);
         const char* json = std::getenv("LEZAC_LOAD_JSON_ASSETS");
@@ -601,7 +602,27 @@ public:
         std::ofstream output(joinPath(outDir, "trace.jsonl"));
         output.exceptions(std::ios::failbit | std::ios::badbit);
         std::ofstream results;
+        std::ofstream typing;
         uint32_t resultSamples = 0;
+        uint32_t typingSamples = 0;
+        if (captureResultTyping) {
+            typing.open(joinPath(outDir, "result_typing.jsonl"));
+            typing.exceptions(std::ios::failbit | std::ios::badbit);
+            typing << trace::object({{"kind", trace::quote("header")},
+                {"schema", trace::quote("lezac.level1.result-typing.v1")},
+                {"boundary", trace::quote("draw-before-delay")},
+                {"clock", trace::quote("scheduled-elapsed-ms")},
+                {"original_fidelity_claim", "false"}}) << '\n';
+            debugResultTypingObserver_ = [&](size_t line, uint32_t step, uint32_t elapsed) {
+                drawGame(elapsed);
+                const std::string name = "typing_" + trace::frameName(typingSamples);
+                writeArgbPpm(joinPath(outDir, name), fb_, kScreenW, kScreenH);
+                typing << trace::object({{"kind", trace::quote("sample")},
+                    {"sample", std::to_string(typingSamples++)}, {"line", std::to_string(line)},
+                    {"step", std::to_string(step)}, {"elapsed_ms", std::to_string(elapsed)},
+                    {"frame", trace::quote(name)}, {"state", level1TraceState()}}) << '\n';
+            };
+        }
         if (captureResultReels) {
             results.open(joinPath(outDir, "result_reels.jsonl"));
             results.exceptions(std::ios::failbit | std::ios::badbit);
@@ -721,12 +742,18 @@ public:
                 {"level1_route_complete", level2Playable ? "true" : "false"},
                 {"original_fidelity_claim", "false"}, {"port_functionally_complete", "false"}}) << '\n';
             output.flush();
+            if (captureResultTyping) {
+                typing << trace::object({{"kind", trace::quote("complete")},
+                    {"samples", std::to_string(typingSamples)}, {"original_fidelity_claim", "false"}}) << '\n';
+                typing.flush();
+            }
             if (captureResultReels) {
                 results << trace::object({{"kind", trace::quote("complete")},
                     {"samples", std::to_string(resultSamples)}, {"original_fidelity_claim", "false"}}) << '\n';
                 results.flush();
             }
         } catch (...) {
+            debugResultTypingObserver_ = {};
             debugResultReelObserver_ = {};
             debugActorPassObserver_ = {};
             replayKeyboard_ = nullptr;
@@ -735,6 +762,7 @@ public:
             recordStore_.setPath(oldRecordPath);
             throw;
         }
+        debugResultTypingObserver_ = {};
         debugActorPassObserver_ = {};
         debugResultReelObserver_ = {};
         replayKeyboard_ = nullptr;
@@ -23661,6 +23689,7 @@ private:
     const Palette& palette_ = presentation_.palette();
     std::function<void()> gameplayPresentation_;
     std::function<void(size_t)> debugResultReelObserver_;
+    std::function<void(size_t, uint32_t, uint32_t)> debugResultTypingObserver_;
     const Palette& backgroundPalette_ = assets_.backgroundPalette();
     const IndexedImage& background_ = assets_.background();
     const TileBank& tiles_ = assets_.tiles();
@@ -24476,7 +24505,7 @@ private:
             [this](size_t p) {
                 if (randomRangeValue(0, 4) > 2) requestSoundCursor(0x21, 10);
                 if (debugResultReelObserver_) debugResultReelObserver_(p);
-            });
+            }, debugResultTypingObserver_);
     }
 
     void finishLevelOutro() {
@@ -27712,7 +27741,7 @@ private:
         gameRenderer_.drawWorldView(worldRenderView(order), cameraPlayer, viewX, viewY, viewW, viewH);
     }
 
-    void drawGame() {
+    void drawGame(std::optional<uint32_t> outroElapsed = {}) {
         if (levelFlow_.outro().active) {
             fb_ = presentation_.resolveOutroBackdrop();
             canvas_.resetClip();
@@ -27723,7 +27752,7 @@ private:
         }
         // Keep the clock sample after painting the world/HUD, as in the original call boundary.
         if (levelFlow_.outro().active) {
-            gameRenderer_.drawLevelOutro({true, presentationMilliseconds() - levelFlow_.outro().startedAt,
+            gameRenderer_.drawLevelOutro({true, outroElapsed.value_or(presentationMilliseconds() - levelFlow_.outro().startedAt),
                                           levelOutroLines(), levelOutroSchedule()});
         }
         if (ui_.snapshot().paused) gameRenderer_.drawPauseOverlay();
@@ -27772,10 +27801,17 @@ int lezac::app::runApplication(int argc, char** argv) {
     try {
         App app;
         if (argc > 1 && std::string(argv[1]) == "--replay-level1") {
-            if (argc != 4 && !((argc == 5 || argc == 6) && std::string(argv[4]) == "--original-intro-wait" &&
-                              (argc != 6 || std::string(argv[5]) == "--result-reels")))
-                throw std::runtime_error("usage: --replay-level1 ROUTE OUTPUT_DIR [--original-intro-wait [--result-reels]]");
-            app.debugLevel1Replay(argv[2], argv[3], argc >= 5, argc == 6);
+            const char* usage = "usage: --replay-level1 ROUTE OUTPUT_DIR [--original-intro-wait [--result-reels] [--result-typing]]";
+            if (argc < 4 || argc > 7 || (argc >= 5 && std::string(argv[4]) != "--original-intro-wait"))
+                throw std::runtime_error(usage);
+            bool reels = false, typing = false;
+            for (int i = 5; i < argc; ++i) {
+                const std::string flag = argv[i];
+                if (flag == "--result-reels" && !reels) reels = true;
+                else if (flag == "--result-typing" && !typing) typing = true;
+                else throw std::runtime_error(usage);
+            }
+            app.debugLevel1Replay(argv[2], argv[3], argc >= 5, reels, typing);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--validate") {

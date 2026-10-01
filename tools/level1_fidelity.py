@@ -293,11 +293,13 @@ def source_version(root: Path) -> dict[str, Any]:
 
 
 def record(exe: Path, root: Path, route: Path, out: Path, timeout: float = 600,
-           original_intro_wait: bool = False, result_reels: bool = False) -> dict[str, Any]:
+           original_intro_wait: bool = False, result_reels: bool = False,
+           result_typing: bool = False) -> dict[str, Any]:
     exe, root, route, out = exe.resolve(), root.resolve(), route.resolve(), out.resolve()
     require(not out.exists(), "output already exists")
     require(exe.is_file(), "missing C++ executable")
     require(not result_reels or original_intro_wait, "result reels require the original intro wait")
+    require(not result_typing or original_intro_wait, "result typing requires the original intro wait")
     _, events = read_route(route)
     if original_intro_wait:
         require_original_intro_prelude(events)
@@ -310,6 +312,8 @@ def record(exe: Path, root: Path, route: Path, out: Path, timeout: float = 600,
         command.append("--original-intro-wait")
     if result_reels:
         command.append("--result-reels")
+    if result_typing:
+        command.append("--result-typing")
     result = subprocess.run(command, cwd=root, env=environment,
                             text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
     require(result.returncode == 0, f"C++ replay failed ({result.returncode}): {result.stderr.strip()}")
@@ -431,6 +435,7 @@ def main() -> int:
     capture.add_argument("--timeout", type=float, default=600)
     capture.add_argument("--original-intro-wait", action="store_true")
     capture.add_argument("--result-reels", action="store_true")
+    capture.add_argument("--result-typing", action="store_true")
     verify = commands.add_parser("validate")
     verify.add_argument("bundle", type=Path)
     diff = commands.add_parser("compare")
@@ -441,7 +446,8 @@ def main() -> int:
     try:
         if args.command == "record":
             require(math.isfinite(args.timeout) and 1 <= args.timeout <= 3600, "timeout must be 1..3600 seconds")
-            report = record(args.exe, args.root, args.route, args.out, args.timeout, args.original_intro_wait, args.result_reels)
+            report = record(args.exe, args.root, args.route, args.out, args.timeout, args.original_intro_wait,
+                            args.result_reels, args.result_typing)
         elif args.command == "validate":
             manifest = load_manifest(args.bundle)
             count = sum(1 for _ in trace_rows(args.bundle, manifest))

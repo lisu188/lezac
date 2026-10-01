@@ -36,7 +36,8 @@ public:
                      const std::function<void()>& preparePrelude,
                      const std::function<void(size_t, uint32_t)>& awardScore,
                      const std::function<void(size_t)>& advanceScore,
-                     const std::function<void(size_t)>& awardTick);
+                     const std::function<void(size_t)>& awardTick,
+                     const std::function<void(size_t, uint32_t, uint32_t)>& typingBoundary = {});
     void finishOutro(const std::function<void(size_t, uint32_t)>& awardScore);
 private:
     bool interactiveEnabled_ = false;

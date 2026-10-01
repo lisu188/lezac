@@ -192,7 +192,7 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_level_results_test PRIVATE lezac_ui)
     add_test(NAME level_results COMMAND lezac_level_results_test)
     set_tests_properties(level_results PROPERTIES PASS_REGULAR_EXPRESSION
-        "^level_results=ok count_bonus=1 whole_award=1 reel_steps=41 rng_draws=41 delayed_rng=1 batching=1 rollover=1 zero_bonus=1 word_wrap=1 original_runtime_claim=0")
+        "^level_results=ok count_bonus=1 whole_award=1 reel_steps=41 rng_draws=41 delayed_rng=1 typing_steps=89 typing_boundaries=1 batching=1 rollover=1 zero_bonus=1 word_wrap=1 original_runtime_claim=0")
     add_executable(lezac_core_primitives_test tests/core/core_primitives_test.cpp)
     target_link_libraries(lezac_core_primitives_test PRIVATE lezac_core)
     add_executable(lezac_hud_test tests/core/hud_test.cpp)
@@ -4811,6 +4811,20 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 240 LABELS "level1;original;fullframe;results"
             PASS_REGULAR_EXPRESSION "\"differing_pixels\": 0.*\"result_frames\": 42.*\"status\": \"match\"")
+        add_test(NAME level1_typing_original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_typing.py replay
+                    --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/level1_typing_original_out)
+        set_tests_properties(level1_typing_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 240 LABELS "level1;original;fullframe;results;typing"
+            PASS_REGULAR_EXPRESSION "\"differing_pixels\": 0.*\"status\": \"match\".*\"typing_frames\": 89")
+        add_test(NAME level1_typing_guard
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_typing.py guard)
+        set_tests_properties(level1_typing_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 60 LABELS "level1;original;evidence-guard;results;typing"
+            PASS_REGULAR_EXPRESSION "\"mutations_rejected\": 13.*\"samples\": 89.*\"status\": \"guarded\"")
         add_test(NAME level1_results_guard
             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_results.py guard)
         set_tests_properties(level1_results_guard PROPERTIES

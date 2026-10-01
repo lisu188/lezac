@@ -357,31 +357,36 @@ void GameRenderer::drawLevelOutro(const OutroView& outro) {
     const std::vector<OutroLine> lines = outro.lines;
     const std::vector<OutroSegment> segs = outro.segments;
     for (const OutroSegment& seg : segs) {
-        if (!seg.typing || seg.line < 0 || elapsed <= seg.start) continue;
+        if (!seg.typing || seg.line < 0 || elapsed < seg.start) continue;
         const OutroLine& line = lines[static_cast<size_t>(seg.line)];
-        size_t visible = line.text.size();
-        if (elapsed < seg.end) {
-            visible = std::min(
-                visible, static_cast<size_t>((elapsed - seg.start) /
-                                             kLevelIntroCharacterDelayMs));
-        }
+        const size_t steps = std::min(line.text.size() + kLevelOutroColorSpan,
+            static_cast<size_t>((elapsed - seg.start) / kLevelIntroCharacterDelayMs) + 1);
         // The 11px-cell headline uses the large font face; the 9px-cell
         // lines use the small face (measured against the original banner).
         const bool large = line.cell == 11;
-        int x = kScreenW / 2 -
+        const int startX = kScreenW / 2 -
                 static_cast<int>(line.text.size()) * line.cell / 2;
-        for (size_t i = 0; i < visible; ++i, x += line.cell) {
-            const int glyphIndex = text_.fontGlyphIndex(line.text[i], large);
-            if (glyphIndex < 0 ||
-                glyphIndex >= static_cast<int>(assets_.fontSprites().sprites.size())) {
-                continue;
+        // 146A pads both ends, recolors a five-column window, and paints a
+        // shadow only for its newest column. Replay the writes in native order.
+        for (size_t step = 0; step < steps; ++step) {
+            for (size_t column = 0; column < kLevelOutroColorSpan; ++column) {
+                const size_t paddedIndex = step + column;
+                if (paddedIndex < kLevelOutroColorSpan ||
+                    paddedIndex >= kLevelOutroColorSpan + line.text.size()) continue;
+                const size_t i = paddedIndex - kLevelOutroColorSpan;
+                const int x = startX + static_cast<int>(i) * line.cell;
+                const int glyphIndex = text_.fontGlyphIndex(line.text[i], large);
+                if (glyphIndex < 0 ||
+                    glyphIndex >= static_cast<int>(assets_.fontSprites().sprites.size())) {
+                    continue;
+                }
+                const Sprite& glyph = assets_.fontSprites().sprites[static_cast<size_t>(glyphIndex)];
+                if (column + 1 == kLevelOutroColorSpan && line.shadowColor != 0)
+                    text_.drawFontSprite(x - 1, line.y - 1, glyph,
+                        argb(presentation_.palette(), line.shadowColor), large);
+                text_.drawFontSprite(x, line.y, glyph,
+                    argb(presentation_.palette(), static_cast<uint8_t>(line.glyphColor - column)), large);
             }
-            const Sprite& glyph =
-                assets_.fontSprites().sprites[static_cast<size_t>(glyphIndex)];
-            text_.drawFontSprite(x - 1, line.y - 1, glyph,
-                           argb(presentation_.palette(), line.shadowColor), large);
-            text_.drawFontSprite(x, line.y, glyph,
-                           argb(presentation_.palette(), line.glyphColor), large);
         }
     }
 }

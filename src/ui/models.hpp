@@ -19,6 +19,7 @@ inline constexpr int kNameEntryCursorBoxH = 10;
 inline constexpr uint32_t kNameEntryCursorBackground = 0xff90ffb0u;
 inline constexpr uint32_t kNameEntryCursorForeground = 0xff000000u;
 inline constexpr uint32_t kLevelIntroCharacterDelayMs = 81;
+inline constexpr uint32_t kLevelOutroColorSpan = 5;
 inline constexpr int kLevelIntroCellAdvance = 11;
 inline constexpr int kLevelIntroTextY = 94;
 inline constexpr uint8_t kLevelIntroPaletteFirst = 176;
@@ -143,6 +144,7 @@ struct LevelOutroState {
     std::array<uint32_t, 2> reelSteps{{0, 0}};
     std::array<uint32_t, 2> advancedSteps{{0, 0}};
     std::array<uint32_t, 2> completedDelays{{0, 0}};
+    std::array<uint32_t, 5> typingSteps{};
     bool preludeApplied = false;
     bool typingSkipped = false;
     uint32_t typingSkipAt = 0;

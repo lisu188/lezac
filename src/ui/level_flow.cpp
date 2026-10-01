@@ -100,7 +100,7 @@ std::vector<OutroSegment> LevelFlow::levelOutroSchedule(bool italian) const {
     uint32_t t = 500;
     for (size_t k = 0; k < lines.size(); ++k) {
         const uint32_t dur =
-            static_cast<uint32_t>(lines[k].text.size()) *
+            (static_cast<uint32_t>(lines[k].text.size()) + kLevelOutroColorSpan) *
             kLevelIntroCharacterDelayMs;
         segs.push_back({t, t + dur, static_cast<int>(k), -1, true});
         t += dur;
@@ -162,7 +162,8 @@ void LevelFlow::updateOutro(uint32_t now, bool italian,
                            const std::function<void()>& preparePrelude,
                            const std::function<void(size_t, uint32_t)>& awardScore,
                            const std::function<void(size_t)>& advanceScore,
-                           const std::function<void(size_t)>& awardTick) {
+                           const std::function<void(size_t)>& awardTick,
+                           const std::function<void(size_t, uint32_t, uint32_t)>& typingBoundary) {
     if (!levelOutro_.active || levelOutro_.awaitKey) return;
     const uint32_t elapsed = now - levelOutro_.startedAt;
     if (elapsed >= 500 && !levelOutro_.preludeApplied) {
@@ -171,6 +172,17 @@ void LevelFlow::updateOutro(uint32_t now, bool italian,
     }
     const std::vector<OutroSegment> segs = levelOutroSchedule(italian);
     for (const OutroSegment& seg : segs) {
+        if (elapsed < seg.start) continue;
+        if (seg.typing) {
+            const size_t line = static_cast<size_t>(seg.line);
+            const uint32_t steps = std::min((seg.end - seg.start) / kLevelIntroCharacterDelayMs,
+                (elapsed - seg.start) / kLevelIntroCharacterDelayMs + 1);
+            while (levelOutro_.typingSteps[line] < steps) {
+                const uint32_t step = ++levelOutro_.typingSteps[line];
+                if (typingBoundary) typingBoundary(line, step, seg.start + (step - 1) * kLevelIntroCharacterDelayMs);
+            }
+            continue;
+        }
         if (seg.player < 0 || elapsed < seg.start) continue;
         const size_t p = static_cast<size_t>(seg.player);
         const int total = levelOutro_.destBonus + levelOutro_.bombBonus[p];

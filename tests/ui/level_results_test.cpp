@@ -19,6 +19,7 @@ struct ResultsRun {
     std::array<lezac::core::HudScoreReel, 2> reels{};
     lezac::core::TurboRandom random{3146821024u};
     std::vector<std::string> events;
+    std::vector<std::array<uint32_t, 3>> typing;
 
     explicit ResultsRun(uint32_t start = 0) {
         reels[0].setValue(scores[0]);
@@ -41,6 +42,8 @@ struct ResultsRun {
             [&](size_t) {
                 random.range(0, 4);
                 events.push_back("rng");
+            }, [&](size_t line, uint32_t step, uint32_t elapsed) {
+                typing.push_back({{static_cast<uint32_t>(line), step, elapsed}});
             });
     }
 
@@ -59,14 +62,28 @@ int main() {
     try {
         ResultsRun run;
         const auto start = run.awardStart();
+        require(start == 7709, "native 89 typing delays or initial pause changed");
         require(run.flow.outro().destBonus == 340 && run.flow.outro().bombBonus[0] == 4500,
                 "results confused destroyed-block count with percent");
         run.update(499);
+        require(run.typing.empty(), "typing began before the native prelude");
         require(!run.flow.outro().preludeApplied, "native results prelude bypassed the 500ms delay");
         run.update(500);
+        require(run.typing == std::vector<std::array<uint32_t, 3>>({{{0, 1, 500}}}),
+                "first empty padded window did not precede its delay");
+        run.update(580);
+        require(run.typing.size() == 1, "second native window preceded its 81ms delay");
+        run.update(581);
+        run.update(581);
+        require(run.typing.size() == 2 && run.typing.back() == std::array<uint32_t, 3>{{0, 2, 581}},
+                "duplicate updates repeated a typing boundary");
         require(run.flow.outro().preludeApplied, "native results prelude did not run after its delay");
         run.update(start - 1);
         require(run.scores[0] == 850 && run.events.empty(), "results awarded before the player line finished");
+        require(run.flow.outro().typingSteps == std::array<uint32_t, 5>{{23, 27, 16, 23, 0}},
+                "native padded typing loop bounds changed");
+        require(run.typing.size() == 89 && run.typing.back() == std::array<uint32_t, 3>{{3, 23, 7628}},
+                "last window or trailing character delay changed");
         run.update(start);
         require(run.scores[0] == 5690 && run.flow.outro().awarded[0] == 4840 &&
                 run.events == std::vector<std::string>({"score", "reel"}) &&
@@ -97,11 +114,12 @@ int main() {
         ResultsRun batched;
         batched.update(batched.flow.levelOutroSchedule(true).back().end);
         require(batched.scores == run.scores && batched.events == run.events &&
-                batched.random.seed() == run.random.seed() && batched.reels[0].current == run.reels[0].current,
+                batched.typing == run.typing && batched.random.seed() == run.random.seed() &&
+                batched.reels[0].current == run.reels[0].current,
                 "host batching changed native reel/RNG ordering");
         ResultsRun wrapped(UINT32_MAX - 100);
         wrapped.update(UINT32_MAX - 100 + wrapped.flow.levelOutroSchedule(true).back().end);
-        require(wrapped.events == run.events && wrapped.random.seed() == run.random.seed(),
+        require(wrapped.events == run.events && wrapped.typing == run.typing && wrapped.random.seed() == run.random.seed(),
                 "results clock rollover changed the sequence");
 
         lezac::ui::LevelFlow zero;
@@ -120,7 +138,7 @@ int main() {
         require(wordWrap.outro().destBonus == 65526 && wordWrap.outro().bombBonus[0] == -4744,
                 "native low-word destruction or signed bomb sum changed");
         std::cout << "level_results=ok count_bonus=1 whole_award=1 reel_steps=41 rng_draws=41"
-                     " delayed_rng=1 batching=1 rollover=1 zero_bonus=1 word_wrap=1 original_runtime_claim=0\n";
+                     " delayed_rng=1 typing_steps=89 typing_boundaries=1 batching=1 rollover=1 zero_bonus=1 word_wrap=1 original_runtime_claim=0\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

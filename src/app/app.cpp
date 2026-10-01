@@ -19341,6 +19341,7 @@ public:
             throw std::runtime_error("level outro debug could not complete level 1");
         }
         const uint32_t before = score_;
+        prepareHudObjectives();
         updateLevelCompletion();
         if (!levelFlow_.outro().active) {
             throw std::runtime_error("level outro did not activate on completion");
@@ -19390,6 +19391,76 @@ public:
                   << " awarded=" << awarded
                   << " key_advance=1 next_level=" << (levelIndex_ + 1)
                   << " original_runtime_claim=0\n";
+    }
+
+    void debugLevelCompletionGate() {
+        load();
+        initSdl();
+        resetLevel(0);
+        levelFlow_.setInteractiveEnabled(true);
+        levelFlow_.restoreIntro({});
+        ui_.setMenu(false);
+        replayClockEnabled_ = true;
+        replayMilliseconds_ = 1000;
+        replayPresentationOffset_ = 0;
+        collectAllObjectiveTilesForSmoke();
+        damageRequiredTilesForSmoke();
+        if (!isComplete() || !collapseQueue_.empty())
+            throw std::runtime_error("completion gate fixture did not reach raw thresholds");
+        logicTick_ = 29;
+        prepareHudObjectives();
+        updateLevelCompletion();
+        if (!presentation_.hudBonusComplete() || presentation_.hudDestructionComplete() ||
+            levelFlow_.outro().active || hudView().complete)
+            throw std::runtime_error("raw thresholds bypassed the original HUD latch");
+        logicTick_ = 30;
+        prepareHudObjectives();
+        collapseQueue_.push_back({});
+        updateLevelCompletion();
+        if (!presentation_.hudDestructionComplete() || levelFlow_.outro().active || hudView().complete)
+            throw std::runtime_error("completion did not wait for the collapse queue");
+        collapseQueue_.pop_back();
+        if (debrisQueue_.empty()) debrisQueue_.push_back({});
+        updateLevelCompletion();
+        if (!levelFlow_.outro().active || debrisQueue_.empty())
+            throw std::runtime_error("live debris incorrectly prevented the original completion gate");
+        bombs_.push_back({});
+        if (spawnerStates_.empty())
+            throw std::runtime_error("completion gate fixture has no spawner");
+        spawnerStates_[0].cooldown = 1;
+        pumpSoundLatch();
+        replayMilliseconds_ = 1100;
+        (void)prepareRenderState();
+        const auto frozen = level1TraceState();
+        const auto tiles = level_.tiles;
+        const auto words = level_.wordLayer;
+        const auto player = player_;
+        FrameControls movement;
+        movement.p1Right = movement.p1Jump = true;
+        for (int tick = 0; tick < 3; ++tick) {
+            updateWithControls(movement, 1.0f / 60.0f);
+            if (level1TraceState() != frozen)
+                throw std::runtime_error("direct update advanced gameplay during results");
+            tickAndPresent(1.0f / 60.0f);
+            if (level1TraceState() != frozen)
+                throw std::runtime_error("interactive update/presentation advanced gameplay during results");
+        }
+        const auto segments = levelOutroSchedule();
+        const auto award = std::find_if(segments.begin(), segments.end(),
+            [](const OutroSegment& segment) { return segment.player == 0; });
+        if (award == segments.end())
+            throw std::runtime_error("completion gate fixture has no result award");
+        const auto before = score_;
+        replayMilliseconds_ = levelFlow_.outro().startedAt + award->start + 15;
+        updateWithControls(movement, 1.0f / 60.0f);
+        if (score_ != before + 100 || logicTick_ != 30 || level_.tiles != tiles ||
+            level_.wordLayer != words || player_.x != player.x || player_.y != player.y ||
+            player_.animation.packed() != player.animation.packed() || bombs_.back().timer != 40 ||
+            spawnerStates_[0].cooldown != 1)
+            throw std::runtime_error("results award was lost or resumed gameplay");
+        replayClockEnabled_ = false;
+        std::cout << "level_completion_gate=ok cached_flags=1 collapse_wait=1 live_debris_allowed=1"
+                     " gameplay_frozen=1 results_award=1 original_runtime_claim=0\n";
     }
 
     // Verify the port's compatibility sound-hook cursor/priority map against
@@ -24188,6 +24259,11 @@ private:
 
     void updateWithControls(const FrameControls& controls, float dt) {
         if (ui_.snapshot().menu || ui_.snapshot().paused || levelFlow_.intro().active) return;
+        if (levelFlow_.outro().active) {
+            updateLevelOutro(presentationMilliseconds());
+            pumpSoundLatch();
+            return;
+        }
         ++logicTick_;
         prepareHudObjectives();
         if (gameplayPresentation_) gameplayPresentation_();
@@ -24265,7 +24341,8 @@ private:
     }
 
     void prepareHudObjectives() {
-        presentation_.prepareHudObjectives(static_cast<uint16_t>(logicTick_), collected_, destructionPercent());
+        presentation_.prepareHudObjectives(static_cast<uint16_t>(logicTick_), collected_, destructionPercent(),
+                                           level_.requiredBonus, level_.requiredDestruction);
     }
 
     void updateHudScores() {
@@ -24363,7 +24440,10 @@ private:
     }
 
     void updateLevelCompletion() {
-        if (isComplete()) {
+        const bool ready = levelFlow_.interactiveEnabled()
+            ? presentation_.hudBonusComplete() && presentation_.hudDestructionComplete() && collapseQueue_.empty()
+            : isComplete();
+        if (ready) {
             // Interactive play runs the recovered original completion-banner
             // sequence (typed lines, score count-up, key wait). The
             // deterministic test/autoplayer path keeps the immediate timed
@@ -27570,7 +27650,8 @@ private:
                 {{{presentation_.hudEnergy()[0], score_, lives_, presentation_.hudInventories()[0]},
                   {presentation_.hudEnergy()[1], score2_, lives2_, presentation_.hudInventories()[1]}}},
                 level_.objectiveTile, level_.requiredBonus, level_.requiredDestruction,
-                collected_, presentation_.hudDestructionPercent(), isComplete(), levelFlow_.outro().active,
+                collected_, presentation_.hudDestructionPercent(),
+                levelFlow_.interactiveEnabled() ? levelFlow_.outro().active : isComplete(), levelFlow_.outro().active,
                 presentation_.hudScores(), presentation_.hudColumnReady()};
     }
 
@@ -28211,6 +28292,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-level-outro") {
             app.debugLevelOutro(argc > 2 ? argv[2] : "");
+            return 0;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--debug-level-completion-gate") {
+            app.debugLevelCompletionGate();
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--capture-death-frames") {

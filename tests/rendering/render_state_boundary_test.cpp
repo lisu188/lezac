@@ -26,10 +26,10 @@ int main() {
     presentation.resetHudForLevel();
     // Explicit presentation transitions happen before painting, including a
     // partially animated score and an in-flight objective palette fade.
-    presentation.prepareHudObjectives(29, 1, 75);
+    presentation.prepareHudObjectives(29, 1, 75, 1, 100);
     if (presentation.hudDestructionPercent() != 0)
         throw std::runtime_error("HUD destruction sampled outside its 30-tick boundary");
-    presentation.prepareHudObjectives(30, 1, 75);
+    presentation.prepareHudObjectives(30, 1, 75, 1, 100);
     presentation.updateHudScores(2, {{123, 999}}, {{false, true}}, {{0, 0}});
     presentation.updateHudEnergy(0, 73, 1);
     presentation.updateHudEnergy(0, 11, 2);
@@ -83,16 +83,16 @@ int main() {
     const auto state = presentation.snapshot();
     // The original HUD samples the low 16-bit frame word, including wrap to
     // zero; the 32-bit application tick is not itself the modulo-30 clock.
-    presentation.prepareHudObjectives(static_cast<uint16_t>(65535u), 1, 90);
+    presentation.prepareHudObjectives(static_cast<uint16_t>(65535u), 1, 90, 1, 100);
     if (presentation.hudDestructionPercent() != 75)
         throw std::runtime_error("HUD sampled before frame-word wrap");
-    presentation.prepareHudObjectives(static_cast<uint16_t>(65536u), 1, 90);
+    presentation.prepareHudObjectives(static_cast<uint16_t>(65536u), 1, 90, 1, 100);
     if (presentation.hudDestructionPercent() != 90)
         throw std::runtime_error("HUD did not sample at frame-word wrap");
-    presentation.prepareHudObjectives(static_cast<uint16_t>(65550u), 1, 10);
+    presentation.prepareHudObjectives(static_cast<uint16_t>(65550u), 1, 10, 1, 100);
     if (presentation.hudDestructionPercent() != 90)
         throw std::runtime_error("HUD sampled the 32-bit tick instead of the frame word");
-    presentation.prepareHudObjectives(static_cast<uint16_t>(65566u), 1, 10);
+    presentation.prepareHudObjectives(static_cast<uint16_t>(65566u), 1, 10, 1, 100);
     if (presentation.hudDestructionPercent() != 10)
         throw std::runtime_error("HUD missed the next wrapped sampling boundary");
     presentation.restore(state);
@@ -128,6 +128,8 @@ int main() {
             actual.hudPreviousCollected != expected.hudPreviousCollected ||
             actual.hudPreviousDestruction != expected.hudPreviousDestruction ||
             actual.hudDestructionPercent != expected.hudDestructionPercent ||
+            actual.hudBonusComplete != expected.hudBonusComplete ||
+            actual.hudDestructionComplete != expected.hudDestructionComplete ||
             actual.originalPlayInitialized != expected.originalPlayInitialized ||
             actual.hudPaletteQueue.count != expected.hudPaletteQueue.count)
             throw std::runtime_error("HUD presentation snapshot changed");
@@ -150,6 +152,8 @@ int main() {
     };
     checkHud(state, after);
     presentation.resetHudForLevel();
+    if (presentation.hudBonusComplete() || presentation.hudDestructionComplete())
+        throw std::runtime_error("level reset retained completion flags");
     for (const auto& cached : presentation.hudInventories()) {
         if (cached.counts != gameplay::BombInventory{}.counts || cached.selected != gameplay::BombType::Small)
             throw std::runtime_error("level reset retained sampled ammunition");
@@ -185,5 +189,52 @@ int main() {
     level.tiles[0] = 33;
     if (presentation.backdropByte(60008, level.tiles) != 33)
         throw std::runtime_error("backdrop overflow no longer aliases the live map");
+    {
+        rendering::PresentationState objectives;
+        objectives.setPalette(assets.palette());
+        objectives.captureInitialPalette();
+        objectives.resetHudForLevel();
+        objectives.prepareHudObjectives(29, 1, 75, 1, 50);
+        if (!objectives.hudBonusComplete() || objectives.hudDestructionComplete())
+            throw std::runtime_error("completion bypassed the cached destruction percentage");
+        for (int tick = 0; tick < 35; ++tick) objectives.advanceHudPalette();
+        if (objectives.hudPaletteQueue().count != 0)
+            throw std::runtime_error("objective palette did not drain");
+        objectives.prepareHudObjectives(30, 1, 75, 1, 50);
+        const auto& queue = objectives.hudPaletteQueue();
+        if (!objectives.hudDestructionComplete() || queue.count != 2 ||
+            queue.entries[0].index != 246 || queue.entries[1].index != 224)
+            throw std::runtime_error("latched objectives did not request the border palette");
+        objectives.advanceHudPalette();
+        objectives.prepareHudObjectives(31, 0, 0, 1, 50);
+        if (!objectives.hudBonusComplete() || !objectives.hudDestructionComplete() ||
+            queue.count != 2 || queue.entries[0].current[0] != 61 || queue.entries[1].current[0] != 63)
+            throw std::runtime_error("completion latch or dirty-only border replacement changed");
+        objectives.advanceHudPalette();
+        objectives.prepareHudObjectives(32, 0, 0, 1, 50);
+        if (queue.entries[1].current[0] != 61)
+            throw std::runtime_error("unchanged objectives restarted the border fade");
+        const auto completed = objectives.snapshot();
+        objectives.resetHudForLevel();
+        if (objectives.hudBonusComplete() || objectives.hudDestructionComplete())
+            throw std::runtime_error("completion flags survived level reset");
+        objectives.restore(completed);
+        checkHud(completed, objectives.snapshot());
+        objectives.prepareHudObjectives(60, 0, 0, 1, 50);
+        if (!objectives.hudBonusComplete() || !objectives.hudDestructionComplete())
+            throw std::runtime_error("completion flags were cleared when counters dropped");
+        objectives.resetHudForLevel();
+        objectives.prepareHudObjectives(1, 0, 0, 0, 0);
+        if (!objectives.hudBonusComplete() || !objectives.hudDestructionComplete() ||
+            objectives.hudPaletteQueue().count != 2)
+            throw std::runtime_error("zero targets or full palette queue semantics changed");
+        for (int tick = 0; tick < 35; ++tick) objectives.advanceHudPalette();
+        objectives.prepareHudObjectives(2, 0, 0, 0, 0);
+        if (objectives.hudPaletteQueue().count != 0)
+            throw std::runtime_error("unchanged objectives invoked the native HUD helper");
+        objectives.prepareHudObjectives(3, 1, 0, 0, 0);
+        if (objectives.hudPaletteQueue().count != 2 || objectives.hudPaletteQueue().entries[1].index != 224)
+            throw std::runtime_error("dirty completed objectives did not request the border");
+    }
     std::cout << "render_state_boundary=ok repeat_pixels=1 nonblank=1 rng_unchanged=1 actor_order_unchanged=1 palette_unchanged=1 live_map_alias=1\n";
 }

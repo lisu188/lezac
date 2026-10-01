@@ -119,6 +119,8 @@ void PresentationState::resetHudForLevel() {
     hudPreviousCollected_ = 20000;
     hudPreviousDestruction_ = 200;
     hudDestructionPercent_ = 0;
+    hudBonusComplete_ = false;
+    hudDestructionComplete_ = false;
     for (int index : {224, 245, 246}) palette_[index] = initialPalette_[index];
 }
 
@@ -129,16 +131,24 @@ void PresentationState::beginOriginalPlay(bool fromMenu) {
     }
 }
 
-void PresentationState::prepareHudObjectives(uint16_t frame, int collected, int destructionPercent) {
+void PresentationState::prepareHudObjectives(uint16_t frame, int collected, int destructionPercent,
+                                             int requiredBonus, int requiredDestruction) {
     if ((frame % 30) == 0) hudDestructionPercent_ = destructionPercent;
+    // 79E8 calls 3184 only when an objective display is dirty.
+    if (collected == hudPreviousCollected_ && hudDestructionPercent_ == hudPreviousDestruction_) return;
     if (collected != hudPreviousCollected_) {
         hudPreviousCollected_ = collected;
         hudPaletteQueue_.request(245, {63, 63, 63}, {1, 1, 41});
+        if (collected >= requiredBonus) hudBonusComplete_ = true;
     }
     if (hudDestructionPercent_ != hudPreviousDestruction_) {
         hudPreviousDestruction_ = hudDestructionPercent_;
         hudPaletteQueue_.request(246, {63, 63, 63}, {1, 1, 41});
+        if (hudDestructionPercent_ >= requiredDestruction) hudDestructionComplete_ = true;
     }
+    // 325B requests the shared border whenever that dirty-only helper runs.
+    if (hudBonusComplete_ && hudDestructionComplete_)
+        hudPaletteQueue_.request(224, {63, 63, 63}, {1, 1, 41});
 }
 
 void PresentationState::updateHudScores(int playerCount, const std::array<uint32_t, 2>& scores,
@@ -195,7 +205,8 @@ void PresentationState::writeBackdropPrefix(const std::vector<uint8_t>& bytes) {
 PresentationSnapshot PresentationState::snapshot() const {
     return {palette_, backdropBuffer_, backdropPitch_, redPalettePhase_, backdropHeapPadding_, backdropMapTileCount_,
             initialPalette_, hudScores_, hudEnergy_, hudInventories_, hudPaletteQueue_, hudColumnReady_, hudPreviousCollected_,
-            hudPreviousDestruction_, hudDestructionPercent_, originalPlayInitialized_};
+            hudPreviousDestruction_, hudDestructionPercent_, originalPlayInitialized_,
+            hudBonusComplete_, hudDestructionComplete_};
 }
 
 void PresentationState::restore(const PresentationSnapshot& state) {
@@ -215,6 +226,8 @@ void PresentationState::restore(const PresentationSnapshot& state) {
     hudPreviousDestruction_ = state.hudPreviousDestruction;
     hudDestructionPercent_ = state.hudDestructionPercent;
     originalPlayInitialized_ = state.originalPlayInitialized;
+    hudBonusComplete_ = state.hudBonusComplete;
+    hudDestructionComplete_ = state.hudDestructionComplete;
 }
 
 }

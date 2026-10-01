@@ -128,6 +128,36 @@ key ownership and source/evidence guardrails. The two new tests took 49.07
 and 19.98 seconds respectively. Exact-head full CI and extracted-package
 checks are separate delivery gates, not campaign/release acceptance.
 
+### Startup Window Delivery Check
+
+The first PR head, `b37d17472a21b0f31acc733d5edf25b7e217c11f`, passed all
+567 Windows CTests and both extracted-package checks. Linux CI run
+`36853067690` passed 570 tests, skipped its generic UI test, and failed only
+`bios_menu_input_live_xvfb`. Its composition scenario received X11
+`BadWindow` at `X_SetInputFocus` for window `2097154`, before sending any
+keys or capturing frames. The failed log and artifact remain preserved.
+The precise cause of the disappearing startup window is not established.
+
+The BIOS input observer now searches only visible windows owned by its
+existing child PID and acquires focus and geometry inside the existing
+bounded startup wait. A no-match search or `BadWindow` causes rediscovery;
+other tool errors and timeouts still fail. It does not relaunch the child,
+extend the deadline, or change keyboard, pixel, typing-frame or game-state
+assertions. Failed subprocess diagnostics retain stderr. The registered
+`bios_menu_window_contract` checks ten acquisition/error cases using only
+the Python standard library.
+
+A local three-repeat batch was not fully successful: one BIOS repeat missed
+the transient typing frame, the buffered-menu observer rejected its reused
+output directory, and the main-menu observer missed the shift-keypad
+selection. The contract and key-ownership repeats passed. These failures
+remain failed and retained; host timing as an explanation is unproven.
+Fresh-directory runs subsequently passed the complete BIOS, buffered-menu
+and main-menu live checks with unchanged assertions and dummy audio. The
+main-menu check inspected fourteen rendered checkpoints. The ten-case
+window contract also passed independently and through CTest. Fresh full
+CI and package validation at the updated PR head are still required.
+
 ```sh
 env SDL_AUDIODRIVER=dummy TMPDIR=/dev/shm \
   python3 -S -B tools/level1_handoff.py replay --exe /path/to/lezac_cpp \

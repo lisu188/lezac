@@ -4819,6 +4819,11 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 240 LABELS "level1;original;fullframe;results;typing"
             PASS_REGULAR_EXPRESSION "\"differing_pixels\": 0.*\"status\": \"match\".*\"typing_frames\": 89")
+        add_test(NAME bios_menu_window_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_bios_menu_window.py)
+        set_tests_properties(bios_menu_window_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 30
+            PASS_REGULAR_EXPRESSION "bios_menu_window_contract=ok cases=10 ownership=pid visible=1 badwindow_only=1 no_game_restart=1")
         add_test(NAME level1_handoff_original
             COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                     ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_handoff.py replay

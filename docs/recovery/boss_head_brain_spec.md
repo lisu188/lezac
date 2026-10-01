@@ -5,8 +5,11 @@ now confirm the shared-clock/motion path and correct the production clock,
 sprite indexing and draw order. Subsequent [defeat traces](boss_defeat_runtime_2026-09-06.md)
 cover the fatal conversion chain, [small-bomb hits](boss_impact_runtime_2026-09-08.md)
 cover surviving-head links, and [largest-bomb traces](boss_mass_runtime_2026-09-08.md)
-cover doubled damage and player death/reentry waiting. Full-health natural
-victory and mixed-mass interactions remain open.
+cover doubled damage and player death/reentry waiting. The
+[controlled full-health combat capture](boss_active_combat_runtime_2026-10-01.md)
+adds ordinary firing and three input-driven reentries over 800 updates without
+reducing head health or planting a bomb. Full-health natural victory and
+mixed-mass interactions remain open.
 
 This is an instruction-level static control-flow map of the shipped routine,
 not yet a runtime-equivalence claim. The bytes were checked directly in
@@ -114,8 +117,10 @@ and orbital anchors use that visual coordinate.
 
 The static branch structure and constants above are pinned, but several
 semantic details still need wider live confirmation: all `1000:3A56` mass
-cases, full-health natural victory, two-player combat, and player death/reentry
-during combat. The nonfatal fixtures cover only the documented small-bomb seeds.
+cases, full-health natural victory and two-player combat. Player death/reentry
+during ordinary combat now has the controlled input-latch coverage linked above,
+not a natural movement route. The nonfatal fixtures cover only the documented
+small-bomb seeds.
 
 For lockstep validation, seed original `DS:1AFE` and port `randomSeed_`
 identically, hold player/input state constant, and capture the boss position,

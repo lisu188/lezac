@@ -308,7 +308,12 @@ reentry-wait states. It corrects death descriptor latching, the active sprite
 bank and waiting-player placement. Mixed flame masses, actual reentry input,
 long waits, longer natural combat and two-player interactions remain open. Unused post-defeat
 link bookkeeping and actual VGA palette/HUD comparison are not covered by
-these defeat fixtures.
+these defeat fixtures. The subsequent
+[controlled full-health combat replay](boss_active_combat_runtime_2026-10-01.md)
+adds 800 continuous updates without reducing head health or planting a bomb,
+with 22 ordinary shots, three fire-latch reentries and 12 exact normalized
+playfield views. This combines firing and death/reentry under the controlled
+case-boundary setup; it does not prove a natural campaign or full-health victory.
 
 - `natural_forward_debris_writeback_3d2d` — natural forward debris writeback
   at `1000:3D2D`. **Now OBSERVED; the blend formula remains open.**

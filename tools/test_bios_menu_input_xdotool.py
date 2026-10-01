@@ -80,9 +80,11 @@ def observe(exe, output, scenario, expected):
             xtst.XTestFakeKeyEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int, ctypes.c_ulong]
 
             def raw(name):
-                matches = [int(row.split()[1]) for row in mapping.splitlines() if name in row.split()[3:]]
+                # Xvfb has another decimal keysym outside the legacy keypad slot.
+                lookup = "KP_Delete" if name == "KP_Decimal" else name
+                matches = [int(row.split()[1]) for row in mapping.splitlines() if lookup in row.split()[3:]]
                 require(len(matches) == 1, "ambiguous physical key mapping: " + name)
-                result["events"].append(dict(kind="physical-keycode", key=name, code=matches[0],
+                result["events"].append(dict(kind="physical-keycode", key=name, lookup_keysym=lookup, code=matches[0],
                                              seconds=time.monotonic() - started))
                 display = x11.XOpenDisplay(env["DISPLAY"].encode())
                 require(display, "private X display unavailable")
@@ -100,6 +102,17 @@ def observe(exe, output, scenario, expected):
 
             def no_change(language, name):
                 require(full(language), name + " changed ready menu before Alt release")
+
+            def keypad_noncharacters(prefix, check):
+                for modifier, names in (("Alt_L", ("KP_Subtract", "KP_Add", "KP_Decimal", "KP_Multiply", "KP_Divide", "KP_Enter")),
+                                        ("Control_L", ("KP_Subtract", "KP_Add", "KP_Decimal", "KP_Multiply", "KP_Divide"))):
+                    key("keydown", modifier)
+                    try:
+                        for name in names:
+                            raw(name)
+                            check(prefix + "-" + modifier + "-" + name)
+                    finally:
+                        key("keyup", modifier)
 
             def compose(value, language):
                 key("keydown", "Alt_L")
@@ -153,6 +166,10 @@ def observe(exe, output, scenario, expected):
             elif scenario == "intro":
                 key("key", "ctrl+2")
                 capture("control-two-consumed-skip", wait(full, 3))
+            elif scenario == "keypad":
+                keypad_noncharacters("menu", no_skip)
+                raw("KP_Add")
+                capture("unmodified-plus-consumed-skip", wait(full, 3))
             else:
                 key("key", "space")
                 capture("space-consumed-skip", wait(full, 3))
@@ -182,6 +199,13 @@ def observe(exe, output, scenario, expected):
                 key("keyup", "Alt_L")
                 no_change("english", "second Alt release")
                 capture("second-alt-release-no-duplicate")
+                key("keydown", "Alt_L")
+                for name in ("KP_1", "KP_Subtract", "KP_Add", "KP_Multiply", "KP_Divide", "KP_Enter", "KP_Decimal", "KP_8"):
+                    raw(name)
+                    no_change("english", "keypad decimal composition")
+                capture("alt-decimal-held-no-character")
+                key("keyup", "Alt_L")
+                capture("alt-decimal-released-italian", wait(full))
 
             time.sleep(.2)
             raw("1")
@@ -205,6 +229,28 @@ def observe(exe, output, scenario, expected):
                 key("key", "Return")
                 wait(lambda: not intro(frame()), 3)
                 capture("fresh-return-gameplay")
+            elif scenario == "keypad":
+                def ignored_intro(name):
+                    image = capture(name)
+                    require(intro(image) and white(image) < 620, "keypad word skipped intro typing")
+
+                keypad_noncharacters("intro", ignored_intro)
+                key("keydown", "Control_L")
+                raw("KP_Enter")
+                key("keyup", "Control_L")
+                capture("control-keypad-enter-consumed-skip", wait(lambda: intro_frame() if white(frame()) == 620 else None, 3))
+                time.sleep(2.3)
+
+                def awaiting_intro(name):
+                    image = capture(name)
+                    require(intro(image) and white(image) == 620, "keypad word acknowledged intro wait")
+
+                keypad_noncharacters("intro-wait", awaiting_intro)
+                key("keydown", "Control_L")
+                raw("KP_Enter")
+                key("keyup", "Control_L")
+                wait(lambda: not intro(frame()), 3)
+                capture("fresh-control-keypad-enter-gameplay")
             for i in range(6):
                 key("key", "Escape")
                 time.sleep(2.3 if i == 0 else .2)
@@ -237,11 +283,12 @@ def main():
         args.out.mkdir(parents=True, exist_ok=True)
     output = Path(tempfile.mkdtemp(prefix="lezac-bios-menu-", dir=args.out))
     results = [observe(args.exe.resolve(), output / scenario, scenario, expected)
-               for scenario in ("noncharacters", "intro", "composition")]
+               for scenario in ("noncharacters", "intro", "composition", "keypad")]
     (output / "result.json").write_text(json.dumps(dict(status="observed", cases=results), indent=2) + "\n")
     print("bios_menu_live=ok control_noncharacters=15 enhanced_cases=8 alt_release=1 alt_modulo=1"
           " alt_zero=1 alt_overlap=1 intro_noncharacters=1 intro_release=1 normal_entry_point=1"
-          " audio=dummy gameplay_seeded=0 whole_game_parity=0 out=" + str(output))
+          " audio=dummy gameplay_seeded=0 whole_game_parity=0 keypad_alt=6 keypad_control=5"
+          " keypad_intro=1 alt_decimal_zero=1 out=" + str(output))
 
 
 if __name__ == "__main__":

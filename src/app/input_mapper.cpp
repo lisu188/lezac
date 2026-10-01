@@ -14,8 +14,16 @@ bool InputMapper::isBufferedMenuKey(SDL_Keycode key, uint16_t modifiers) {
             return false;
         default: break;
     }
+    if (modifiers & (KMOD_ALT | KMOD_CTRL)) {
+        switch (key) {
+            case SDLK_KP_MINUS: case SDLK_KP_PLUS: case SDLK_KP_PERIOD:
+            case SDLK_KP_MULTIPLY: case SDLK_KP_DIVIDE:
+                return false;
+            default: break;
+        }
+    }
     if (modifiers & KMOD_ALT) {
-        if (key == SDLK_TAB || key == SDLK_RETURN ||
+        if (key == SDLK_TAB || key == SDLK_RETURN || key == SDLK_KP_ENTER ||
             (key >= SDLK_KP_1 && key <= SDLK_KP_0)) return false;
     } else if (modifiers & KMOD_CTRL) {
         switch (key) {
@@ -38,8 +46,10 @@ std::optional<ui::Key> InputMapper::bufferedMenuKeyDown(SDL_Keycode code, uint16
     }
     if (altStateObserved_)
         modifiers = static_cast<uint16_t>((modifiers & ~KMOD_ALT) | (altHeld_ ? KMOD_LALT : 0));
-    if ((modifiers & KMOD_ALT) && code >= SDLK_KP_1 && code <= SDLK_KP_0) {
-        const int digit = code == SDLK_KP_0 ? 0 : code - SDLK_KP_1 + 1;
+    if ((modifiers & KMOD_ALT) &&
+        ((code >= SDLK_KP_1 && code <= SDLK_KP_0) || code == SDLK_KP_PERIOD)) {
+        // The observed BIOS also treats keypad decimal as an Alt zero digit.
+        const int digit = code == SDLK_KP_0 || code == SDLK_KP_PERIOD ? 0 : code - SDLK_KP_1 + 1;
         altAccumulator_ = static_cast<uint8_t>(altAccumulator_ * 10 + digit);
         return std::nullopt;
     }

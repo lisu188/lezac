@@ -1,0 +1,400 @@
+{
+  "status": "observed",
+  "scenario": "noncharacters",
+  "audio": "dummy",
+  "normal_entry_point": true,
+  "gameplay_seeded": false,
+  "startup_timing_gated": false,
+  "physical_keys": true,
+  "manual_input": false,
+  "whole_game_parity": false,
+  "exe_sha256": "f7ecfa1eefb12dba4fe11dfc480696d4cd0552fe554f0e77a09c753207f02c3f",
+  "harness_sha256": "d34e6329a5dd8b0f795018811598c2d64854b155a0960da4d967640be744ab58",
+  "events": [
+    {
+      "kind": "key",
+      "key": "ctrl+1",
+      "seconds": 1.8587025059969164
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+3",
+      "seconds": 1.9112672159972135
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+4",
+      "seconds": 1.9639689399919007
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+5",
+      "seconds": 2.0178129069972783
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+7",
+      "seconds": 2.070080514997244
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+8",
+      "seconds": 2.123441420000745
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+9",
+      "seconds": 2.1765389099891763
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+0",
+      "seconds": 2.2295654189947527
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+equal",
+      "seconds": 2.282984249002766
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+semicolon",
+      "seconds": 2.335868745984044
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+apostrophe",
+      "seconds": 2.3896033669880126
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+grave",
+      "seconds": 2.4425646669988055
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+comma",
+      "seconds": 2.4944830710010137
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+period",
+      "seconds": 2.5465772319876123
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+slash",
+      "seconds": 2.5968356640078127
+    },
+    {
+      "kind": "keydown",
+      "key": "Control_L",
+      "seconds": 2.648232289007865
+    },
+    {
+      "kind": "keydown",
+      "key": "1",
+      "seconds": 2.6634624839934986
+    },
+    {
+      "kind": "keyup",
+      "key": "1",
+      "seconds": 3.602380625990918
+    },
+    {
+      "kind": "keyup",
+      "key": "Control_L",
+      "seconds": 3.617471411009319
+    },
+    {
+      "kind": "key",
+      "key": "F11",
+      "seconds": 3.632269172987435
+    },
+    {
+      "kind": "key",
+      "key": "F12",
+      "seconds": 3.6734469539951533
+    },
+    {
+      "kind": "key",
+      "key": "shift+F11",
+      "seconds": 3.7148203589895274
+    },
+    {
+      "kind": "key",
+      "key": "shift+F12",
+      "seconds": 3.7678746779856738
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+F11",
+      "seconds": 3.8206105350109283
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+F12",
+      "seconds": 3.8724065409915056
+    },
+    {
+      "kind": "key",
+      "key": "alt+F11",
+      "seconds": 3.9260972309857607
+    },
+    {
+      "kind": "key",
+      "key": "alt+F12",
+      "seconds": 3.978597790002823
+    },
+    {
+      "kind": "key",
+      "key": "alt+Tab",
+      "seconds": 4.03206611200585
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 4.084818793984596
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_0",
+      "lookup_keysym": "KP_0",
+      "code": 90,
+      "seconds": 4.099738752993289
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 4.150597305007977
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 4.193008957983693
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_2",
+      "lookup_keysym": "KP_2",
+      "code": 88,
+      "seconds": 4.207808070001192
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_5",
+      "lookup_keysym": "KP_5",
+      "code": 84,
+      "seconds": 4.258796132984571
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_6",
+      "lookup_keysym": "KP_6",
+      "code": 85,
+      "seconds": 4.309786612982862
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 4.360713628993835
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "1",
+      "lookup_keysym": "1",
+      "code": 10,
+      "seconds": 4.402223730983678
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "1",
+      "lookup_keysym": "1",
+      "code": 10,
+      "seconds": 4.6789994789869525
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 4.748307643982116
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 7.063551250001183
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 7.278598934004549
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 7.493950850010151
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 7.708883031998994
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 7.923962561995722
+    }
+  ],
+  "captures": [
+    {
+      "name": "natural-typing-checkpoint",
+      "seconds": 1.8581466040050145,
+      "pixel_sha256": "262a264357582a0f87f81e27e2751990890d1c24f36fea2fe018a2198e05a621"
+    },
+    {
+      "name": "control-noncharacter-0",
+      "seconds": 1.910705396992853,
+      "pixel_sha256": "262a264357582a0f87f81e27e2751990890d1c24f36fea2fe018a2198e05a621"
+    },
+    {
+      "name": "control-noncharacter-1",
+      "seconds": 1.9633641289838124,
+      "pixel_sha256": "c0d68d27df5d334b33f1244a1e1a95ee9073e2009948767883e55800b87649af"
+    },
+    {
+      "name": "control-noncharacter-2",
+      "seconds": 2.0171994359989185,
+      "pixel_sha256": "707b6b3f2e075c4917e107ca52bf3dde9a23b2a1624ee1b7d8ed1478a05b401f"
+    },
+    {
+      "name": "control-noncharacter-3",
+      "seconds": 2.0694940719986334,
+      "pixel_sha256": "707b6b3f2e075c4917e107ca52bf3dde9a23b2a1624ee1b7d8ed1478a05b401f"
+    },
+    {
+      "name": "control-noncharacter-4",
+      "seconds": 2.122898378991522,
+      "pixel_sha256": "6e1c003cb3660dc9da8d883e05ba49218f2da0de8a512e806cc480bb5b2185ed"
+    },
+    {
+      "name": "control-noncharacter-5",
+      "seconds": 2.175987873983104,
+      "pixel_sha256": "d1dc7a5d0a0edfb3b8cbbc4b519a4dd2af604b8bf2b46c098cb09c04b4a048de"
+    },
+    {
+      "name": "control-noncharacter-6",
+      "seconds": 2.228975309000816,
+      "pixel_sha256": "d1dc7a5d0a0edfb3b8cbbc4b519a4dd2af604b8bf2b46c098cb09c04b4a048de"
+    },
+    {
+      "name": "control-noncharacter-7",
+      "seconds": 2.2823719209991395,
+      "pixel_sha256": "4ea21c0d7191315319ec23a4e5b79489229368d1f24fd80abcfa41ccc4b3f872"
+    },
+    {
+      "name": "control-noncharacter-8",
+      "seconds": 2.3352593469899148,
+      "pixel_sha256": "b8e71f8831960e8eb5b13d170565c569abd0e3120cb4dff962b8efc070ea041f"
+    },
+    {
+      "name": "control-noncharacter-9",
+      "seconds": 2.3890143489988986,
+      "pixel_sha256": "63558d4316f1adba1d80070a4b8b4d2b2ea320b9e823debf0123ff3fa9e6c044"
+    },
+    {
+      "name": "control-noncharacter-10",
+      "seconds": 2.4419462439836934,
+      "pixel_sha256": "5fc55b75ba9607445918d5631f56b08f64b5c2d43f79d5fd583506017249f98a"
+    },
+    {
+      "name": "control-noncharacter-11",
+      "seconds": 2.4938900920096785,
+      "pixel_sha256": "5fc55b75ba9607445918d5631f56b08f64b5c2d43f79d5fd583506017249f98a"
+    },
+    {
+      "name": "control-noncharacter-12",
+      "seconds": 2.5460188270080835,
+      "pixel_sha256": "112b16cc8284ea95dda6f0dbcfab2eb0af1256182d4eefeddf81998f8574f699"
+    },
+    {
+      "name": "control-noncharacter-13",
+      "seconds": 2.5962710059829988,
+      "pixel_sha256": "5223b8f1e9f35d25388061608c35675bcd23f187289b3f8d19c3bcb71b69654e"
+    },
+    {
+      "name": "control-noncharacter-14",
+      "seconds": 2.6476391929900274,
+      "pixel_sha256": "5223b8f1e9f35d25388061608c35675bcd23f187289b3f8d19c3bcb71b69654e"
+    },
+    {
+      "name": "held-control-one",
+      "seconds": 3.6016490499896463,
+      "pixel_sha256": "9b819065af370d48afb404505fcfc6250a85bff6ebc52cfa606ec7183e11153e"
+    },
+    {
+      "name": "enhanced-F11",
+      "seconds": 3.672748277982464,
+      "pixel_sha256": "50a8044d17ee6efd6b1cfae8db96bfe70c18e5e30d7804b5969ecdc7d3bff009"
+    },
+    {
+      "name": "enhanced-F12",
+      "seconds": 3.7142042350023985,
+      "pixel_sha256": "895b03535b5b5e72f138b970675cd3ba86d9b93c4f0b47c6027e047ae40ca1a0"
+    },
+    {
+      "name": "enhanced-shift-F11",
+      "seconds": 3.767290880990913,
+      "pixel_sha256": "895b03535b5b5e72f138b970675cd3ba86d9b93c4f0b47c6027e047ae40ca1a0"
+    },
+    {
+      "name": "enhanced-shift-F12",
+      "seconds": 3.8200897540082224,
+      "pixel_sha256": "895b03535b5b5e72f138b970675cd3ba86d9b93c4f0b47c6027e047ae40ca1a0"
+    },
+    {
+      "name": "enhanced-ctrl-F11",
+      "seconds": 3.8718189210048877,
+      "pixel_sha256": "91a32dc6a3f79479b2e1524777cbfea86ef4acf9d1215a600fafa31f271b1a8c"
+    },
+    {
+      "name": "enhanced-ctrl-F12",
+      "seconds": 3.925483651983086,
+      "pixel_sha256": "46eee781189ea20a21506abb39af6ec352e8b7d62cd56fd1bed7028d99e33aff"
+    },
+    {
+      "name": "enhanced-alt-F11",
+      "seconds": 3.9780726220051292,
+      "pixel_sha256": "46eee781189ea20a21506abb39af6ec352e8b7d62cd56fd1bed7028d99e33aff"
+    },
+    {
+      "name": "enhanced-alt-F12",
+      "seconds": 4.031540789990686,
+      "pixel_sha256": "4bad72a624268bd7669388ac73f8d5e6c863f0f34059a9dac870c92592f828da"
+    },
+    {
+      "name": "alt-tab",
+      "seconds": 4.084278934984468,
+      "pixel_sha256": "3270d164e678e0e6043252faf73e3020f78fff0822eaed1501ca09cb0621126a"
+    },
+    {
+      "name": "alt-zero-0",
+      "seconds": 4.1924363340076525,
+      "pixel_sha256": "48d4863c42cf1fb1c1d6459c6ce9270677c9658c8f6cfca246770db4b003826b"
+    },
+    {
+      "name": "alt-zero-256",
+      "seconds": 4.4016294979956,
+      "pixel_sha256": "b91c8d68933d393af295cb0511f296d43a4771c37ff6bd442d0903e10228f972"
+    },
+    {
+      "name": "fresh-one-consumed-skip",
+      "seconds": 4.478378428000724,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "fresh-one-intro",
+      "seconds": 4.747727109992411,
+      "pixel_sha256": "c39761fdfabac74921d02fd45785457263fa0a41cc629f6e7711e0c4c77538dd"
+    }
+  ],
+  "child_exit_code": 0
+}

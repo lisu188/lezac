@@ -166,6 +166,36 @@ void checkBufferedMenuInput() {
     require(!input.bufferedMenuKeyDown(SDLK_TAB, KMOD_ALT) &&
             !input.bufferedMenuKeyDown(SDLK_RETURN, KMOD_ALT), "unbuffered Alt command accepted");
 
+    const auto keypadOperators = {SDLK_KP_MINUS, SDLK_KP_PLUS, SDLK_KP_PERIOD,
+                                  SDLK_KP_MULTIPLY, SDLK_KP_DIVIDE, SDLK_KP_ENTER};
+    for (auto code : keypadOperators) {
+        for (uint16_t modifiers : std::initializer_list<uint16_t>{KMOD_LALT, KMOD_RALT,
+                                   KMOD_ALT | KMOD_CTRL | KMOD_SHIFT | KMOD_NUM}) {
+            app::InputMapper filtered;
+            require(!app::InputMapper::isBufferedMenuKey(code, modifiers) &&
+                    !filtered.bufferedMenuKeyDown(code, modifiers), "Alt keypad word reached legacy CRT");
+        }
+        for (uint16_t modifiers : std::initializer_list<uint16_t>{KMOD_LCTRL, KMOD_RCTRL,
+                                   KMOD_CTRL | KMOD_SHIFT | KMOD_NUM}) {
+            app::InputMapper filtered;
+            require(filtered.bufferedMenuKeyDown(code, modifiers).has_value() == (code == SDLK_KP_ENTER),
+                    "Control keypad filtering lost the Enter exception");
+        }
+        for (uint16_t modifiers : {KMOD_NONE, KMOD_SHIFT, KMOD_NUM}) {
+            app::InputMapper ordinary;
+            require(ordinary.bufferedMenuKeyDown(code, modifiers).has_value(),
+                    "unmodified keypad character was filtered");
+        }
+    }
+    app::InputMapper decimal;
+    decimal.bufferedMenuKeyDown(SDLK_LALT, KMOD_ALT);
+    decimal.bufferedMenuKeyDown(SDLK_KP_1, KMOD_ALT);
+    for (auto code : keypadOperators)
+        require(!decimal.bufferedMenuKeyDown(code, KMOD_ALT), "keypad interruption added a character");
+    decimal.bufferedMenuKeyDown(SDLK_KP_8, KMOD_ALT);
+    require(decimal.bufferedMenuKeyUp(SDLK_LALT) == Key::L,
+            "keypad decimal did not contribute zero or operator cleared pending digits");
+
     const SDL_Keycode digits[]{SDLK_KP_0, SDLK_KP_1, SDLK_KP_2, SDLK_KP_3, SDLK_KP_4,
                               SDLK_KP_5, SDLK_KP_6, SDLK_KP_7, SDLK_KP_8, SDLK_KP_9};
     for (int value = 0; value <= 511; ++value) {
@@ -296,7 +326,8 @@ int main(int argc, char** argv) {
         std::cout << "main_menu=ok cells=9 first_y=77 trail=5 languages=2 timing=1 consumed_keys=1 rollover=1 buffered_keys=1"
                      " ignored_choices=33 readiness_modes=3 consumed_enter=1 fresh_choices=2 accepted_choices=7"
                      " character_translation=1 case_cancel=1 keypad_locks=1 legacy_aliases=3 physical_controls_unchanged=1"
-                     " control_noncharacters=15 enhanced_function_keys=2 alt_decimal_cases=512 alt_release=1 alt_overlap=1\n";
+                     " control_noncharacters=15 enhanced_function_keys=2 alt_decimal_cases=512 alt_release=1 alt_overlap=1"
+                     " keypad_alt_filtered=6 keypad_control_filtered=5 alt_decimal_zero=1 control_keypad_enter=1\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

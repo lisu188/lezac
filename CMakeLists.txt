@@ -182,7 +182,7 @@ if(BUILD_TESTING)
     target_include_directories(lezac_main_menu_test PRIVATE ${SDL2_INCLUDE_DIRS})
     target_link_libraries(lezac_main_menu_test PRIVATE lezac_ui lezac_rendering)
     add_test(NAME main_menu_models COMMAND lezac_main_menu_test)
-    set_tests_properties(main_menu_models PROPERTIES PASS_REGULAR_EXPRESSION "main_menu=ok cells=9 first_y=77 trail=5 languages=2 timing=1 consumed_keys=1 rollover=1 buffered_keys=1 ignored_choices=33 readiness_modes=3 consumed_enter=1 fresh_choices=2 accepted_choices=7 character_translation=1 case_cancel=1 keypad_locks=1 legacy_aliases=3 physical_controls_unchanged=1 control_noncharacters=15 enhanced_function_keys=2 alt_decimal_cases=512 alt_release=1 alt_overlap=1")
+    set_tests_properties(main_menu_models PROPERTIES PASS_REGULAR_EXPRESSION "main_menu=ok cells=9 first_y=77 trail=5 languages=2 timing=1 consumed_keys=1 rollover=1 buffered_keys=1 ignored_choices=33 readiness_modes=3 consumed_enter=1 fresh_choices=2 accepted_choices=7 character_translation=1 case_cancel=1 keypad_locks=1 legacy_aliases=3 physical_controls_unchanged=1 control_noncharacters=15 enhanced_function_keys=2 alt_decimal_cases=512 alt_release=1 alt_overlap=1 keypad_alt_filtered=6 keypad_control_filtered=5 alt_decimal_zero=1 control_keypad_enter=1")
     add_executable(lezac_ui_components_test tests/ui/ui_components_test.cpp)
     target_link_libraries(lezac_ui_components_test PRIVATE lezac_ui)
     add_test(NAME ui_components COMMAND lezac_ui_components_test)
@@ -281,6 +281,10 @@ if(BUILD_TESTING)
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_bios_menu_input_evidence.py)
         set_tests_properties(bios_menu_input_evidence PROPERTIES
             PASS_REGULAR_EXPRESSION "bios_menu_evidence=ok originals=13 failed_records=4 cpp_physical_cases=3 sources=6 images=6 rejection_mutations=7 whole_game_parity=0 manual_input=0")
+        add_test(NAME legacy_keypad_evidence
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_legacy_keypad_evidence.py)
+        set_tests_properties(legacy_keypad_evidence PROPERTIES
+            PASS_REGULAR_EXPRESSION "legacy_keypad_evidence=ok originals=8 failed_records=7 cpp_live_cases=4 sources=4 images=8 rejection_mutations=10 whole_game_parity=0 manual_input=0")
         add_test(NAME source_guardrails_selftest
             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_source_guardrails.py)
         set_tests_properties(source_guardrails_selftest PROPERTIES
@@ -4787,7 +4791,7 @@ if(BUILD_TESTING)
                         --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/bios-menu-input-checks)
             set_tests_properties(bios_menu_input_live_xvfb PROPERTIES
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 180
-                PASS_REGULAR_EXPRESSION "bios_menu_live=ok control_noncharacters=15 enhanced_cases=8 alt_release=1 alt_modulo=1 alt_zero=1 alt_overlap=1 intro_noncharacters=1 intro_release=1 normal_entry_point=1 audio=dummy gameplay_seeded=0 whole_game_parity=0")
+                PASS_REGULAR_EXPRESSION "bios_menu_live=ok control_noncharacters=15 enhanced_cases=8 alt_release=1 alt_modulo=1 alt_zero=1 alt_overlap=1 intro_noncharacters=1 intro_release=1 normal_entry_point=1 audio=dummy gameplay_seeded=0 whole_game_parity=0 keypad_alt=6 keypad_control=5 keypad_intro=1 alt_decimal_zero=1")
             add_test(NAME buffered_menu_repeat_live_xvfb
                 COMMAND ${CMAKE_COMMAND} -E env SDL_AUDIODRIVER=dummy
                         ${XVFB_RUN_EXECUTABLE} -a ${Python3_EXECUTABLE} -B

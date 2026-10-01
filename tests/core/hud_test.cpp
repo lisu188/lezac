@@ -37,6 +37,10 @@ int main() {
 
         HudScoreReel score;
         check(score.value == 0 && score.phase == 2);
+        score.prepareTargets();
+        check(score.phase == 1 && score.stepsUntilSettled() == 1);
+        score.advance();
+        check(score.phase == 2 && score.stepsUntilSettled() == 0);
         score.setValue(12345678);
         score.advance();
         check(score.phase == 1);
@@ -46,6 +50,10 @@ int main() {
         check(score.current == score.target && score.phase == 1);
         score.advance();
         check(score.phase == 2);
+        const auto settled = score.current;
+        score.prepareTargets();
+        check(score.current == settled && score.phase == 1 && score.stepsUntilSettled() == 1);
+        score.advance();
         score.setValue(0);
         score.advance();
         check(score.target[0] == 0 && score.target[1] == 448 && score.current[0] == 528);

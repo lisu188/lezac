@@ -22,7 +22,7 @@ public:
         if (!world_.showBackground) {
             for (int y = 0; y < viewH; ++y) {
                 for (int x = 0; x < viewW; ++x) {
-                    canvas_.pixel(viewX + x, viewY + y, argb(presentation_.palette(), 0));
+                    canvas_.indexedPixel(viewX + x, viewY + y, 0, argb(presentation_.palette(), 0));
                 }
             }
             return;
@@ -32,7 +32,11 @@ public:
             const size_t n0 = static_cast<size_t>(camY / 8 + y) * presentation_.backdropPitch() +
                             camX / 4;
             for (int x = 0; x < viewW; ++x) {
-                canvas_.pixel(viewX + x, viewY + y, presentation_.backdropColor(presentation_.backdropByte(n0 + x, world_.level.tiles)));
+                const uint8_t index = presentation_.backdropByte(n0 + x, world_.level.tiles);
+                if (index >= 176 && index <= 214)
+                    canvas_.pixel(viewX + x, viewY + y, presentation_.backdropColor(index));
+                else
+                    canvas_.indexedPixel(viewX + x, viewY + y, index, presentation_.backdropColor(index));
             }
         }
     }
@@ -55,7 +59,7 @@ public:
     }
 
     void drawGame() {
-        std::fill(canvas_.pixels().begin(), canvas_.pixels().end(), argb(presentation_.palette(), 0));
+        canvas_.clear(argb(presentation_.palette(), 0));
         if (world_.playerCount > 1) {
             // The original two-player mode is a side-by-side split: each view
             // is a 152x152 viewport inside its own 160px-wide frame.
@@ -173,7 +177,7 @@ public:
                 for (int y = 0; y < 8; ++y) {
                     for (int x = 0; x < 8; ++x) {
                         uint8_t c = tile[y * 8 + x];
-                        if (c != 0) canvas_.pixel(px + x, py + y, argb(presentation_.palette(), c));
+                        if (c != 0) canvas_.indexedPixel(px + x, py + y, c, argb(presentation_.palette(), c));
                     }
                 }
             }
@@ -248,7 +252,7 @@ public:
             const auto& sprite = bank.sprites[static_cast<size_t>(index)];
             if (player.singlePixelSprite) {
                 if (!sprite.pixels.empty() && sprite.pixels.front()) {
-                    canvas_.pixel(x0, y0, argb(presentation_.palette(), sprite.pixels.front()));
+                    canvas_.indexedPixel(x0, y0, sprite.pixels.front(), argb(presentation_.palette(), sprite.pixels.front()));
                 }
             } else {
                 text_.drawSprite(sprite, x0, y0);

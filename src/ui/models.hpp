@@ -130,7 +130,7 @@ struct LevelIntroState {
 };
 
 // Level-completion banner sequence (original routine at file 0x24d3):
-// typed lines over the live gameplay frame, a score count-up per player, then
+// typed lines over the retained gameplay frame, a digit-reel loop per player, then
 // a blocking key wait before the level byte increments.
 struct LevelOutroState {
     bool active = false;
@@ -139,6 +139,11 @@ struct LevelOutroState {
     std::array<int, 2> bombBonus{{0, 0}};
     std::array<bool, 2> playerActive{{false, false}};
     std::array<int, 2> awarded{{0, 0}};
+    std::array<bool, 2> awardStarted{{false, false}};
+    std::array<uint32_t, 2> reelSteps{{0, 0}};
+    std::array<uint32_t, 2> advancedSteps{{0, 0}};
+    std::array<uint32_t, 2> completedDelays{{0, 0}};
+    bool preludeApplied = false;
     bool typingSkipped = false;
     uint32_t typingSkipAt = 0;
     bool awaitKey = false;

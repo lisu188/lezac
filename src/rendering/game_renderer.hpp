@@ -17,6 +17,7 @@ public:
     void drawWorldView(const WorldRenderView& world, const gameplay::Player& cameraPlayer,
                        int viewX, int viewY, int viewW, int viewH);
     void drawHud(const HudView& hud);
+    void drawResultScores(const HudView& hud, const std::array<bool, 2>& awarded);
     void drawMenu(const MenuView& menu);
     void drawLevelIntro(int levelIndex, const ui::LevelIntroPattern& pattern, size_t visibleCharacters);
     void drawLevelOutro(const OutroView& outro);

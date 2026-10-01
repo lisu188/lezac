@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
 
 namespace lezac::core {
 
@@ -35,17 +36,28 @@ struct HudScoreReel {
         }
     }
 
+    void prepareTargets() {
+        uint32_t remaining = value;
+        std::size_t digit = 0;
+        do {
+            target[digit++] = static_cast<uint16_t>((remaining % 10) * 64);
+            remaining /= 10;
+        } while (remaining != 0 && digit < 8);
+        phase = 1;
+    }
+
+    uint32_t stepsUntilSettled() const {
+        HudScoreReel next = *this;
+        for (uint32_t steps = 0; steps <= 81; ++steps) {
+            if (next.phase >= 2) return steps;
+            next.advance();
+        }
+        throw std::runtime_error("HUD score reel cannot settle within its native cycle");
+    }
+
     void advance() {
         if (phase >= 2) return;
-        if (phase == 0) {
-            uint32_t remaining = value;
-            std::size_t digit = 0;
-            do {
-                target[digit++] = static_cast<uint16_t>((remaining % 10) * 64);
-                remaining /= 10;
-            } while (remaining != 0 && digit < 8);
-            phase = 1;
-        }
+        if (phase == 0) prepareTargets();
         bool changed = false;
         for (std::size_t digit = 0; digit < current.size(); ++digit) {
             if (current[digit] == target[digit]) continue;

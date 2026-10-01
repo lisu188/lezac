@@ -63,11 +63,13 @@ void TextRenderer::drawFontSprite(int x, int y, const Sprite& glyph, uint32_t co
                 if (nativePalette) {
                     // Blit every glyph index through the game palette exactly as
                     // the original does (no recolour, no synthetic outline).
-                    canvas_.pixel(x + xx, y + yy, argb(palette_, px));
+                    canvas_.indexedPixel(x + xx, y + yy, px, argb(palette_, px));
                     continue;
                 }
-                canvas_.pixel(x + xx, y + yy,
-                      preservePalette && px != 1 ? argb(palette_, px) : color);
+                if (preservePalette && px != 1)
+                    canvas_.indexedPixel(x + xx, y + yy, px, argb(palette_, px));
+                else
+                    canvas_.pixel(x + xx, y + yy, color);
             }
         }
     }
@@ -121,7 +123,7 @@ void TextRenderer::drawSprite(const Sprite& sprite, int x0, int y0){
         for (int y = 0; y < sprite.height; ++y) {
             for (int x = 0; x < sprite.width; ++x) {
                 uint8_t c = sprite.pixels[static_cast<size_t>(y) * sprite.width + x];
-                if (c != 0) canvas_.pixel(x0 + x, y0 + y, argb(palette_, c));
+                if (c != 0) canvas_.indexedPixel(x0 + x, y0 + y, c, argb(palette_, c));
             }
         }
     }

@@ -10,6 +10,7 @@
 #include <vector>
 
 namespace lezac::rendering {
+class Canvas;
 
 struct PresentationSnapshot {
     resources::Palette palette{};
@@ -30,6 +31,9 @@ struct PresentationSnapshot {
     bool originalPlayInitialized = false;
     bool hudBonusComplete = false;
     bool hudDestructionComplete = false;
+    std::vector<uint32_t> outroBackdrop;
+    std::vector<uint8_t> outroIndices;
+    std::vector<uint8_t> outroIndexedPixels;
 };
 
 class PresentationState {
@@ -55,6 +59,11 @@ public:
     void updateHudEnergy(size_t player, uint16_t value, uint8_t globalState);
     void sampleHudInventory(size_t player, const gameplay::BombInventory& inventory, uint8_t globalState);
     void advanceHudPalette();
+    void beginResultScore(size_t player, uint32_t value);
+    void advanceResultScore(size_t player);
+    void freezeOutroBackdrop(const Canvas& canvas);
+    std::vector<uint32_t> resolveOutroBackdrop() const;
+    const std::vector<uint32_t>& outroBackdrop() const { return outroBackdrop_; }
     const std::array<core::HudScoreReel, 2>& hudScores() const { return hudScores_; }
     const std::array<core::HudEnergyBar, 2>& hudEnergy() const { return hudEnergy_; }
     const std::array<gameplay::BombInventory, 2>& hudInventories() const { return hudInventories_; }
@@ -86,6 +95,9 @@ private:
     bool originalPlayInitialized_ = false;
     bool hudBonusComplete_ = false;
     bool hudDestructionComplete_ = false;
+    std::vector<uint32_t> outroBackdrop_;
+    std::vector<uint8_t> outroIndices_;
+    std::vector<uint8_t> outroIndexedPixels_;
     std::vector<uint8_t> backdropBuffer_;
     int backdropPitch_ = 320;
     uint8_t redPalettePhase_ = 0;

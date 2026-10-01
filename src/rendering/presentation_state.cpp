@@ -1,5 +1,6 @@
 #include "rendering/presentation_state.hpp"
 #include "rendering/color.hpp"
+#include "rendering/canvas.hpp"
 #include "resources/palette.hpp"
 #include "resources/levels.hpp"
 #include <algorithm>
@@ -112,6 +113,9 @@ void PresentationState::updateRedPalette(uint16_t frame) {
 }
 
 void PresentationState::resetHudForLevel() {
+    outroBackdrop_.clear();
+    outroIndices_.clear();
+    outroIndexedPixels_.clear();
     hudPaletteQueue_ = {};
     hudColumnReady_ = {};
     hudEnergy_ = {};
@@ -166,6 +170,32 @@ void PresentationState::updateHudEnergy(size_t player, uint16_t value, uint8_t g
     if (globalState == 1) hudEnergy_.at(player).observe(value);
 }
 
+void PresentationState::beginResultScore(size_t player, uint32_t value) {
+    auto& reel = hudScores_.at(player);
+    reel.setValue(value);
+    reel.prepareTargets();
+}
+
+void PresentationState::advanceResultScore(size_t player) {
+    hudScores_.at(player).advance();
+    hudColumnReady_.at(player) = true;
+}
+
+void PresentationState::freezeOutroBackdrop(const Canvas& canvas) {
+    if (canvas.pixels().size() != kScreenW * kScreenH) throw std::runtime_error("results backdrop is not a full VGA frame");
+    outroBackdrop_ = canvas.pixels();
+    outroIndices_ = canvas.paletteIndices();
+    outroIndexedPixels_ = canvas.indexedPixels();
+}
+
+std::vector<uint32_t> PresentationState::resolveOutroBackdrop() const {
+    auto pixels = outroBackdrop_;
+    for (size_t i = 0; i < pixels.size(); ++i) {
+        if (outroIndexedPixels_.at(i)) pixels[i] = argb(palette_, outroIndices_.at(i));
+    }
+    return pixels;
+}
+
 void PresentationState::sampleHudInventory(size_t player, const gameplay::BombInventory& inventory, uint8_t globalState) {
     // 7C49..7C74 samples before state-2 refill and the player fire/switch pass.
     // Unchanged values preserve the original dirty-gated panel's pixels.
@@ -206,7 +236,7 @@ PresentationSnapshot PresentationState::snapshot() const {
     return {palette_, backdropBuffer_, backdropPitch_, redPalettePhase_, backdropHeapPadding_, backdropMapTileCount_,
             initialPalette_, hudScores_, hudEnergy_, hudInventories_, hudPaletteQueue_, hudColumnReady_, hudPreviousCollected_,
             hudPreviousDestruction_, hudDestructionPercent_, originalPlayInitialized_,
-            hudBonusComplete_, hudDestructionComplete_};
+            hudBonusComplete_, hudDestructionComplete_, outroBackdrop_, outroIndices_, outroIndexedPixels_};
 }
 
 void PresentationState::restore(const PresentationSnapshot& state) {
@@ -228,6 +258,9 @@ void PresentationState::restore(const PresentationSnapshot& state) {
     originalPlayInitialized_ = state.originalPlayInitialized;
     hudBonusComplete_ = state.hudBonusComplete;
     hudDestructionComplete_ = state.hudDestructionComplete;
+    outroBackdrop_ = state.outroBackdrop;
+    outroIndices_ = state.outroIndices;
+    outroIndexedPixels_ = state.outroIndexedPixels;
 }
 
 }

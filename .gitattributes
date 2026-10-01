@@ -3,6 +3,7 @@
 *.route text eol=lf
 .gitattributes text eol=lf
 tests/fixtures/level1_original/** -text
+tests/fixtures/level1_results/** -text
 tests/fixtures/startup_rng_original/** -text
 tests/fixtures/startup_held_fire_original/** -text
 tests/fixtures/main_menu_original/** -text
@@ -24,3 +25,4 @@ tests/fixtures/boss_active_combat_original_level7.txt.gz -text
 docs/recovery/evidence/boss_extended_combat_20261001/** -text
 tests/fixtures/boss_extended_combat_original_level7.txt.gz -text
 docs/recovery/evidence/level1_completion_gate_2026-10-01/** -text
+docs/recovery/evidence/level1_results_2026-10-01/** -text

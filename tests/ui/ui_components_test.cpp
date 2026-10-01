@@ -83,19 +83,28 @@ int main() {
                 flow.visibleLevelIntroCharacters(40) == levelIntroCaption(0).size(), "intro skip ended blocking wait");
         flow.beginIntro(1, pattern, 100);
         require(!flow.intro().typingSkipped && !flow.introWaitingForKey(100), "intro skip leaked to next level");
-        flow.beginOutro(0, 10, {{true, true}}, {{{{0, 2, 0, 0}}, {{0, 3, 0, 0}}}});
+        flow.beginOutro(0, 10, {{true, true}}, {{{{0, 2, 0, 0}}, {{0, 3, 0, 0}}}}, {{0, 0}}, {});
         const auto schedule = flow.levelOutroSchedule(true);
         events.clear();
         std::array<uint32_t, 2> scores{};
         auto award = [&](size_t player, uint32_t amount) {
             scores[player] += amount; events.push_back("score" + std::to_string(player));
         };
-        flow.updateOutro(schedule.back().end, true, award, [&] { events.push_back("rng"); });
-        require(scores == std::array<uint32_t, 2>{{300, 400}} &&
-                events == std::vector<std::string>({"score0", "rng", "score1", "rng"}),
+        flow.updateOutro(schedule.back().end, true, [] {}, award,
+                         [&](size_t player) { events.push_back("reel" + std::to_string(player)); },
+                         [&](size_t) { events.push_back("rng"); });
+        std::vector<std::string> expected;
+        for (size_t player = 0; player < 2; ++player) {
+            expected.push_back("score" + std::to_string(player));
+            for (uint32_t step = 0; step < flow.outro().reelSteps[player]; ++step) {
+                expected.push_back("reel" + std::to_string(player));
+                expected.push_back("rng");
+            }
+        }
+        require(scores == std::array<uint32_t, 2>{{300, 400}} && events == expected,
                 "outro award/RNG callback sequence changed");
         flow.finishOutro(award);
-        require(events.size() == 4 && !flow.outro().active, "outro awarded twice");
+        require(events == expected && !flow.outro().active, "outro awarded twice");
         std::cout << "ui_components=ok input=1 records=1 timing=1 callback_order=1 rng_order=1\n";
         return 0;
     } catch (const std::exception& error) {

@@ -1,0 +1,113 @@
+{
+  "status": "captured_candidate",
+  "audio": "dummy",
+  "requested_samples": 3200,
+  "requested_views": [
+    0,
+    1,
+    15,
+    16,
+    20,
+    39,
+    59,
+    99,
+    199,
+    399,
+    599,
+    799,
+    1599,
+    2399,
+    3199
+  ],
+  "transformations": {
+    "root": 1,
+    "views": 1,
+    "samples": 1,
+    "summary": 1,
+    "header": 1
+  },
+  "template_lf_sha256": "395e5baa223c8f228d0655de7f800f864173fd8f8708a935db8a3e4a4c8d012d",
+  "head_health_modified": false,
+  "seeded_bomb": false,
+  "physical_keyboard": false,
+  "natural_campaign": false,
+  "whole_game_parity": false,
+  "production_replay": false,
+  "sources": {
+    "generated/extended_boss_observer.py": {
+      "sha256": "d2ce01d5d624543d012f882e75ab2e37ac1f56fdcd09331cc22f790c17ac0173",
+      "file": "source_d2ce01d5d624543d012f882e75ab2e37ac1f56fdcd09331cc22f790c17ac0173.py.gz"
+    },
+    "build-codex-tmp/probe_boss_extended_combat_20261001.py": {
+      "sha256": "12c786e537d2e68024f53d2feb95339e663f0e4696b576db245b08821dd22aeb",
+      "file": "source_12c786e537d2e68024f53d2feb95339e663f0e4696b576db245b08821dd22aeb.py.gz"
+    },
+    "tools/capture_original_active_fire.py": {
+      "sha256": "e369efa0aa421441d03f179c3a9658990766248f3d31a334d313727689d919f8",
+      "file": "source_e369efa0aa421441d03f179c3a9658990766248f3d31a334d313727689d919f8.py.gz"
+    },
+    "tools/capture_original_behavior4_lockstep.py": {
+      "sha256": "357f53333a406801be17cbd6e73461ffc85e2f455b854c193b0bc82117c39a86",
+      "file": "source_357f53333a406801be17cbd6e73461ffc85e2f455b854c193b0bc82117c39a86.py.gz"
+    },
+    "tools/capture_original_bomb_fuses.py": {
+      "sha256": "729e8fbe649067fbfee3d9a647b9696d93ddb535570a8eb5664efdc0f7a5dccc",
+      "file": "source_729e8fbe649067fbfee3d9a647b9696d93ddb535570a8eb5664efdc0f7a5dccc.py.gz"
+    },
+    "tools/capture_original_boss_defeat.py": {
+      "sha256": "395e5baa223c8f228d0655de7f800f864173fd8f8708a935db8a3e4a4c8d012d",
+      "file": "source_395e5baa223c8f228d0655de7f800f864173fd8f8708a935db8a3e4a4c8d012d.py.gz"
+    },
+    "tools/capture_original_death_transients.py": {
+      "sha256": "a0fddeb9c3ce6426641739ac7bd558a4e7d253670df28ec1c8aead652b3e0ba9",
+      "file": "source_a0fddeb9c3ce6426641739ac7bd558a4e7d253670df28ec1c8aead652b3e0ba9.py.gz"
+    },
+    "tools/capture_original_player_walk.py": {
+      "sha256": "f2018738361457fb5d14d00b4eda966cfa2b61d64219316cfa0aae09544810e1",
+      "file": "source_f2018738361457fb5d14d00b4eda966cfa2b61d64219316cfa0aae09544810e1.py.gz"
+    },
+    "tools/capture_original_render_boundary.py": {
+      "sha256": "1f0d7d3786a11fdd3ec5c95ae55263e12189621a162aaeb1d79d5c6d9df04364",
+      "file": "source_1f0d7d3786a11fdd3ec5c95ae55263e12189621a162aaeb1d79d5c6d9df04364.py.gz"
+    },
+    "tools/seed_original_level.py": {
+      "sha256": "b2e6a4fc80e6e612718baf10ff4aabc8e2c438524f5d24547b9a97fd483551fe",
+      "file": "source_b2e6a4fc80e6e612718baf10ff4aabc8e2c438524f5d24547b9a97fd483551fe.py.gz"
+    }
+  },
+  "owned_dosbox": [
+    {
+      "pid": 605554,
+      "returncode": 0
+    }
+  ],
+  "initial_assets": {
+    "LEZAC.EXE": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+    "BOMOMIMK.SPR": "08dfd0e59ba191c52af2529bdfa140fd15a57829f0c6c13bbb78e156769ac0d1",
+    "BOMPAL.PAL": "f2559164074ca529ba6c275a9831b11c6da9e6317f09b3d9228c299d6f8f8319",
+    "LIVELS.SCH": "d8b553871014108515d6af05b0853de8ccc22e4d3e44d63533ba1167fdc8c7b2",
+    "PROEFS.SON": "b5bc702a27ac85554cc76a62fced07567921b07d5c16f2027a62fbc956df701d",
+    "CARO.CAR": "949cce4db6071d6675a291c978d725c6e4ee1730b2c7a428bc1c8a8185cbd8d8",
+    "SFONLEF.ZBG": "b1b7cc03122510318c1a3670f151712406e9e3fa60aabd8fb558320766c3835c",
+    "FONTS.SPR": "f65aa9bbba2a66ee69f1b279a32c448e36012feb53441fbbb8e64e31bee87a0e",
+    "PROVA.SPR": "d6d6b634f8613251f6e82e9a15c5c68e2be437892bfa25c53eb4bcd9094188b7",
+    "GRAN.MST": "3f0cf17706d557ca863d6e39bfa6641fba777a88815ba3f0a22e5ac89e0e39e2",
+    "RECS.DAT": "27197ebb56fb339e4d41baf6ad5282cd79bb66b642c81ae406e607a263c80eb8",
+    "SETUP.LOG": "4c86cd7436be442663b10b1425bbcd7a179b7955b67c23632bf20a8180144a14",
+    "ENGLISH.DOC": "e2fd2f2521b0277f2fca0c8f2a265408412542932bb6e977bf1ab3d0aabdfed9",
+    "ITALIANO.DOC": "5ea7481d3179e60b6f1229aa114dc4b47c95f7c1200c7888ad5c259f161317c1"
+  },
+  "head_before_warmup": {
+    "raw": "1e0601100400c7009000cf009000050403000100000628282807090101040076060c551b0a00",
+    "lives": 1,
+    "hp": 10
+  },
+  "hooks_restored": true,
+  "observer_exit_code": 0,
+  "elapsed_seconds": 357.2162968860066,
+  "child_cleanup": "established_seeder_finally_terminates_owned_dosbox",
+  "observed_samples": 3200,
+  "trace_sha256": "1e5425c095ac833b577647d63b6aebd3a8803fbc6eef348ac7903f951ee27ce9",
+  "completion": "complete cases=1 samples=3200 views=15",
+  "head_conversion_sample": 1714
+}

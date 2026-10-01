@@ -8,8 +8,10 @@ cover surviving-head links, and [largest-bomb traces](boss_mass_runtime_2026-09-
 cover doubled damage and player death/reentry waiting. The
 [controlled full-health combat capture](boss_active_combat_runtime_2026-10-01.md)
 adds ordinary firing and three input-driven reentries over 800 updates without
-reducing head health or planting a bomb. Full-health natural victory and
-mixed-mass interactions remain open.
+reducing head health or planting a bomb. The subsequent
+[controlled full-health defeat](boss_extended_combat_runtime_2026-10-01.md)
+matches 3,200 updates through fatal conversion, explosion and cleanup.
+Natural campaign victory and mixed-mass interactions remain open.
 
 This is an instruction-level static control-flow map of the shipped routine,
 not yet a runtime-equivalence claim. The bytes were checked directly in

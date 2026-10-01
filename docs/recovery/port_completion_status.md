@@ -314,6 +314,13 @@ adds 800 continuous updates without reducing head health or planting a bomb,
 with 22 ordinary shots, three fire-latch reentries and 12 exact normalized
 playfield views. This combines firing and death/reentry under the controlled
 case-boundary setup; it does not prove a natural campaign or full-health victory.
+The separate [extended full-health replay](boss_extended_combat_runtime_2026-10-01.md)
+now covers a controlled boss defeat and cleanup across 3,200 continuous updates:
+96 ordinary shots, ten fire-latch reentries, all seven fatal conversions at
+sample 1,714, complete boss-bomb cleanup at 1,833, and 15 matching normalized
+views. This removes the missing controlled full-health defeat evidence, but
+does not establish natural campaign/level completion, ordinary starting
+reserves, physical keyboard input or actual VGA/HUD fidelity.
 
 - `natural_forward_debris_writeback_3d2d` — natural forward debris writeback
   at `1000:3D2D`. **Now OBSERVED; the blend formula remains open.**

@@ -11,6 +11,7 @@ using namespace resources;
 using namespace ui;
 
 namespace {
+constexpr int kHudScoreY = kScreenH - 24;
 // CARO.CAR tile index used by the reconstructed bottom HUD: the fixed
 // destruction-target star (verified from the original HUD icon renderer, which
 // blits 8x8 CARO tiles, not BOMOMIMK sprites, for the objective icons).
@@ -57,7 +58,7 @@ public:
         for (int ty = 0; ty < 8; ++ty) {
             for (int tx = 0; tx < 8; ++tx) {
                 uint8_t c = tile[ty * 8 + tx];
-                if (c != 0) canvas_.pixel(dx + tx, dy + ty, argb(presentation_.palette(), c));
+                if (c != 0) canvas_.indexedPixel(dx + tx, dy + ty, c, argb(presentation_.palette(), c));
             }
         }
         return true;
@@ -83,7 +84,8 @@ public:
             if (source + 64 > assets_.tiles().pixels.size()) throw std::runtime_error("HUD score atlas overread");
             for (int row = 0; row < 8; ++row) {
                 for (int column = 0; column < 8; ++column) {
-                    canvas_.pixel(x + (8 - digit) * 9 + column, y + row, argb(presentation_.palette(), assets_.tiles().pixels[source + row * 8 + column]));
+                    const uint8_t index = assets_.tiles().pixels[source + row * 8 + column];
+                    canvas_.indexedPixel(x + (8 - digit) * 9 + column, y + row, index, argb(presentation_.palette(), index));
                 }
             }
         }
@@ -125,7 +127,7 @@ public:
         // frame (182,182,182) surrounds the yellow (255,255,85) on all sides.
         canvas_.rect(xoff, y0 + 10, 102, 3, kGrey);
         if (energy.painted) {
-            canvas_.rect(xoff + 1, y0 + 11, 100, 1, argb(presentation_.palette(), 1));
+            canvas_.indexedRect(xoff + 1, y0 + 11, 100, 1, 1, argb(presentation_.palette(), 1));
             canvas_.rect(xoff + 1, y0 + 11, energy.fill, 1, kYellow);
         }
 
@@ -136,7 +138,7 @@ public:
         canvas_.rect(xoff, y0 + 18, 88, 17, kCyan);
         canvas_.rect(xoff + 1, y0 + 19, 86, 15, kBlue);
         (void)score;
-        drawHudScore(xoff, y0 + 22, hud_.scoreReels[xoff == 0 ? 0 : 1]);
+        drawHudScore(xoff, kHudScoreY, hud_.scoreReels[xoff == 0 ? 0 : 1]);
 
         // The stored count is already the original reserve byte: two at a
         // fresh start, zero on the last playable life, and -1 when out.
@@ -200,7 +202,7 @@ public:
         // Centre panel: bomb-count and objective (destruction target) tallies.
         // The original panel spans y0+6..y0+44 (measured 160-198 on level 1),
         // taller than the earlier 34px box.
-        canvas_.rect(141, y0 + 6, 37, 39, argb(presentation_.palette(), 224));
+        canvas_.indexedRect(141, y0 + 6, 37, 39, 224, argb(presentation_.palette(), 224));
         canvas_.rect(141, y0 + 6, 37, 1, kCyan);
         canvas_.rect(141, y0 + 44, 37, 1, kCyan);
         canvas_.rect(141, y0 + 6, 1, 39, kCyan);
@@ -219,9 +221,9 @@ public:
         // (measured against the original level-1 frame).
         // Each icon sits in an 8x8 black well framed by a 1px darker-blue border
         // (4,4,166) against the panel blue (measured: 36px frame per box).
-        canvas_.rect(143, y0 + 11, 10, 10, argb(presentation_.palette(), 245));
+        canvas_.indexedRect(143, y0 + 11, 10, 10, 245, argb(presentation_.palette(), 245));
         canvas_.rect(144, y0 + 12, 8, 8, kBlack);
-        canvas_.rect(143, y0 + 27, 10, 10, argb(presentation_.palette(), 246));
+        canvas_.indexedRect(143, y0 + 27, 10, 10, 246, argb(presentation_.palette(), 246));
         canvas_.rect(144, y0 + 28, 8, 8, kBlack);
         if (!drawHudTile8(144, y0 + 12, hud_.objectiveTile)) {
             canvas_.rect(144, y0 + 12, 8, 8, kYellow);
@@ -272,6 +274,14 @@ private:
 
 void GameRenderer::drawHud(const HudView& hud) {
     HudPainter(canvas_, text_, assets_, presentation_, *this, hud).drawHud();
+}
+
+void GameRenderer::drawResultScores(const HudView& hud, const std::array<bool, 2>& awarded) {
+    HudPainter painter(canvas_, text_, assets_, presentation_, *this, hud);
+    for (int player = 0; player < hud.playerCount; ++player) {
+        if (awarded[static_cast<size_t>(player)])
+            painter.drawHudScore(player == 0 ? 0 : 180, kHudScoreY, hud.scoreReels[static_cast<size_t>(player)]);
+    }
 }
 
 }

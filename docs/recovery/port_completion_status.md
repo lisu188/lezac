@@ -69,9 +69,12 @@ The [2026-10-01 Level 1 completion-gate recovery](level1_completion_gate_runtime
 fixes premature results entry, dirty-only objective palette requests, and
 gameplay ticking during results. An ordinary-input route with default reserves
 matches 305 full original frames and 610 mapped states through the native
-empty-collapse gate. Continuous results-to-Level-2 handoff evidence remains
-open; this does not change the whole-game completion flags or provide an
-overall completion percentage.
+empty-collapse gate. The subsequent [results-reel recovery](level1_results_runtime_2026-10-01.md)
+matches 42 native loop-boundary frames, the whole bonus award, digit reels,
+and delayed RNG draws while gameplay remains frozen. Continuous typing,
+physical presentation cadence, and results-to-Level-2 handoff evidence remain
+open; these checks do not change the whole-game completion flags or provide
+an overall completion percentage.
 
 The [two-player key-ownership recovery](key_ownership_runtime_2026-09-19.md)
 checks 84 original physical-key samples and fixes reversed P1/P2 movement

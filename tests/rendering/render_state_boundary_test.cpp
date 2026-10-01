@@ -124,7 +124,9 @@ int main() {
         throw std::runtime_error("rendering mutated simulation/presentation state");
     auto checkHud = [](const rendering::PresentationSnapshot& expected,
                        const rendering::PresentationSnapshot& actual) {
-        if (actual.hudColumnReady != expected.hudColumnReady ||
+        if (actual.outroBackdrop != expected.outroBackdrop || actual.outroIndices != expected.outroIndices ||
+            actual.outroIndexedPixels != expected.outroIndexedPixels ||
+            actual.hudColumnReady != expected.hudColumnReady ||
             actual.hudPreviousCollected != expected.hudPreviousCollected ||
             actual.hudPreviousDestruction != expected.hudPreviousDestruction ||
             actual.hudDestructionPercent != expected.hudDestructionPercent ||
@@ -235,6 +237,37 @@ int main() {
         objectives.prepareHudObjectives(3, 1, 0, 0, 0);
         if (objectives.hudPaletteQueue().count != 2 || objectives.hudPaletteQueue().entries[1].index != 224)
             throw std::runtime_error("dirty completed objectives did not request the border");
+    }
+    {
+        rendering::Canvas retained;
+        retained.clear(0xff112233u);
+        retained.setClip(4, 4, 6, 6);
+        retained.indexedPixel(3, 4, 7, 0xff112233u);
+        retained.indexedPixel(4, 4, 7, 0xff112233u);
+        retained.indexedPixel(5, 4, 8, 0xff112233u);
+        retained.indexedRect(4, 5, 2, 1, 9, 0xff112233u);
+        retained.pixel(5, 5, 0xff112233u);
+        auto colors = presentation.palette();
+        colors[7] = {255, 0, 0}; colors[8] = {0, 255, 0}; colors[9] = {0, 0, 255};
+        presentation.setPalette(colors);
+        presentation.freezeOutroBackdrop(retained);
+        const auto saved = presentation.snapshot();
+        const auto recolored = presentation.resolveOutroBackdrop();
+        if (recolored[4 * 320 + 3] != 0xff112233u || recolored[4 * 320 + 4] != 0xffff0000u ||
+            recolored[4 * 320 + 5] != 0xff00ff00u || recolored[5 * 320 + 4] != 0xff0000ffu ||
+            recolored[5 * 320 + 5] != 0xff112233u || retained.pixels()[4 * 320 + 4] != 0xff112233u)
+            throw std::runtime_error("retained frame lost clipped indexed colors or recolored fixed RGB");
+        retained.clear(0);
+        if (std::any_of(retained.indexedPixels().begin(), retained.indexedPixels().end(),
+                        [](uint8_t indexed) { return indexed != 0; }))
+            throw std::runtime_error("canvas clear retained stale palette indices");
+        presentation.resetHudForLevel();
+        if (!presentation.outroBackdrop().empty())
+            throw std::runtime_error("level reset retained the results frame");
+        presentation.restore(saved);
+        checkHud(saved, presentation.snapshot());
+        if (presentation.resolveOutroBackdrop() != recolored)
+            throw std::runtime_error("snapshot restore lost indexed results colors");
     }
     std::cout << "render_state_boundary=ok repeat_pixels=1 nonblank=1 rng_unchanged=1 actor_order_unchanged=1 palette_unchanged=1 live_map_alias=1\n";
 }

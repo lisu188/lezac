@@ -587,7 +587,8 @@ public:
     App() = default;
     App(const App&) = delete;
     App& operator=(const App&) = delete;
-    void debugLevel1Replay(const std::string& routePath, const std::string& outDir, bool originalIntroWait = false) {
+    void debugLevel1Replay(const std::string& routePath, const std::string& outDir, bool originalIntroWait = false,
+                           bool captureResultReels = false) {
         namespace trace = lezac::diagnostics::level1;
         const auto route = trace::readRoute(routePath);
         const char* json = std::getenv("LEZAC_LOAD_JSON_ASSETS");
@@ -599,6 +600,24 @@ public:
         std::filesystem::create_directories(outDir);
         std::ofstream output(joinPath(outDir, "trace.jsonl"));
         output.exceptions(std::ios::failbit | std::ios::badbit);
+        std::ofstream results;
+        uint32_t resultSamples = 0;
+        if (captureResultReels) {
+            results.open(joinPath(outDir, "result_reels.jsonl"));
+            results.exceptions(std::ios::failbit | std::ios::badbit);
+            results << trace::object({{"kind", trace::quote("header")},
+                {"schema", trace::quote("lezac.level1.result-reels.v1")},
+                {"boundary", trace::quote("prepared-score-then-after-delayed-rng")},
+                {"original_fidelity_claim", "false"}}) << '\n';
+            debugResultReelObserver_ = [&](size_t player) {
+                drawGame();
+                const std::string name = "result_" + trace::frameName(resultSamples);
+                writeArgbPpm(joinPath(outDir, name), fb_, kScreenW, kScreenH);
+                results << trace::object({{"kind", trace::quote("sample")},
+                    {"sample", std::to_string(resultSamples++)}, {"player", std::to_string(player + 1)},
+                    {"frame", trace::quote(name)}, {"state", level1TraceState()}}) << '\n';
+            };
+        }
         trace::Fields assets;
         for (const char* file : {"LEZAC.EXE", "LIVELS.SCH", "CARO.CAR", "BOMOMIMK.SPR", "PROVA.SPR",
              "FONTS.SPR", "BOMPAL.PAL", "SFONLEF.ZBG", "PROEFS.SON", "GRAN.MST", "RECS.DAT"})
@@ -702,7 +721,13 @@ public:
                 {"level1_route_complete", level2Playable ? "true" : "false"},
                 {"original_fidelity_claim", "false"}, {"port_functionally_complete", "false"}}) << '\n';
             output.flush();
+            if (captureResultReels) {
+                results << trace::object({{"kind", trace::quote("complete")},
+                    {"samples", std::to_string(resultSamples)}, {"original_fidelity_claim", "false"}}) << '\n';
+                results.flush();
+            }
         } catch (...) {
+            debugResultReelObserver_ = {};
             debugActorPassObserver_ = {};
             replayKeyboard_ = nullptr;
             replayClockEnabled_ = false;
@@ -711,6 +736,7 @@ public:
             throw;
         }
         debugActorPassObserver_ = {};
+        debugResultReelObserver_ = {};
         replayKeyboard_ = nullptr;
         replayClockEnabled_ = false;
         replayPresentationOffset_ = 0;
@@ -19342,6 +19368,7 @@ public:
         }
         const uint32_t before = score_;
         prepareHudObjectives();
+        inspectRenderedFrame("level-outro-before");
         updateLevelCompletion();
         if (!levelFlow_.outro().active) {
             throw std::runtime_error("level outro did not activate on completion");
@@ -19421,6 +19448,7 @@ public:
             throw std::runtime_error("completion did not wait for the collapse queue");
         collapseQueue_.pop_back();
         if (debrisQueue_.empty()) debrisQueue_.push_back({});
+        inspectRenderedFrame("completion-gate-before");
         updateLevelCompletion();
         if (!levelFlow_.outro().active || debrisQueue_.empty())
             throw std::runtime_error("live debris incorrectly prevented the original completion gate");
@@ -19453,7 +19481,10 @@ public:
         const auto before = score_;
         replayMilliseconds_ = levelFlow_.outro().startedAt + award->start + 15;
         updateWithControls(movement, 1.0f / 60.0f);
-        if (score_ != before + 100 || logicTick_ != 30 || level_.tiles != tiles ||
+        const uint32_t resultAward = static_cast<uint32_t>(levelFlow_.outro().destBonus + levelFlow_.outro().bombBonus[0]);
+        if (score_ != before + resultAward || presentation_.hudScores()[0].value != score_ ||
+            levelFlow_.outro().advancedSteps[0] != 2 || levelFlow_.outro().completedDelays[0] != 1 ||
+            logicTick_ != 30 || level_.tiles != tiles ||
             level_.wordLayer != words || player_.x != player.x || player_.y != player.y ||
             player_.animation.packed() != player.animation.packed() || bombs_.back().timer != 40 ||
             spawnerStates_[0].cooldown != 1)
@@ -23629,6 +23660,7 @@ private:
     lezac::rendering::PresentationState presentation_;
     const Palette& palette_ = presentation_.palette();
     std::function<void()> gameplayPresentation_;
+    std::function<void(size_t)> debugResultReelObserver_;
     const Palette& backgroundPalette_ = assets_.backgroundPalette();
     const IndexedImage& background_ = assets_.background();
     const TileBank& tiles_ = assets_.tiles();
@@ -24413,24 +24445,38 @@ private:
 
     // Sequential phase boundaries in ms since the outro started: an initial
     // 500ms pause, each line typed at the original 81ms/char, and after each
-    // per-player line a score count-up (100 points per 15ms tick, matching
-    // the original's 15ms Delay per step) plus a 200ms pause.
+    // per-player line a digit-reel animation (15ms per advance) plus a 200ms pause.
 
     std::vector<OutroSegment> levelOutroSchedule() const {
         return levelFlow_.levelOutroSchedule(ui_.snapshot().italian);
     }
 
     void beginLevelOutro() {
-        levelFlow_.beginOutro(presentationMilliseconds(), destructionPercent(),
+        presentation_.freezeOutroBackdrop(canvas_);
+        levelFlow_.beginOutro(presentationMilliseconds(), destroyed_,
             {{!playerDead_ || lives_ >= 0, playerCount_ > 1 && (!player2Dead_ || lives2_ >= 0)}},
-            {{bombInventory_.counts, bombInventory2_.counts}});
-        requestSoundCursor(0x3d, 10);
+            {{bombInventory_.counts, bombInventory2_.counts}}, {{score_, score2_}}, presentation_.hudScores());
     }
 
     void updateLevelOutro(uint32_t now) {
         levelFlow_.updateOutro(now, ui_.snapshot().italian,
-            [this](size_t p, uint32_t delta) { (p == 0 ? score_ : score2_) += delta; },
-            [this] { if (randomRangeValue(0, 4) > 2) requestSoundCursor(0x21, 10); });
+            [this] {
+                auto palette = presentation_.palette();
+                palette[255] = {vga6To8(31), vga6To8(31), vga6To8(31)};
+                presentation_.setPalette(palette);
+                requestSoundCursor(0x3d, 10);
+            },
+            [this](size_t p, uint32_t delta) {
+                auto& score = p == 0 ? score_ : score2_;
+                score += delta;
+                presentation_.beginResultScore(p, score);
+                if (debugResultReelObserver_) debugResultReelObserver_(p);
+            },
+            [this](size_t p) { presentation_.advanceResultScore(p); },
+            [this](size_t p) {
+                if (randomRangeValue(0, 4) > 2) requestSoundCursor(0x21, 10);
+                if (debugResultReelObserver_) debugResultReelObserver_(p);
+            });
     }
 
     void finishLevelOutro() {
@@ -27667,8 +27713,14 @@ private:
     }
 
     void drawGame() {
-        const auto order = prepareRenderState();
-        gameRenderer_.drawGame(worldRenderView(order), hudView());
+        if (levelFlow_.outro().active) {
+            fb_ = presentation_.resolveOutroBackdrop();
+            canvas_.resetClip();
+            gameRenderer_.drawResultScores(hudView(), levelFlow_.outro().awardStarted);
+        } else {
+            const auto order = prepareRenderState();
+            gameRenderer_.drawGame(worldRenderView(order), hudView());
+        }
         // Keep the clock sample after painting the world/HUD, as in the original call boundary.
         if (levelFlow_.outro().active) {
             gameRenderer_.drawLevelOutro({true, presentationMilliseconds() - levelFlow_.outro().startedAt,
@@ -27720,9 +27772,10 @@ int lezac::app::runApplication(int argc, char** argv) {
     try {
         App app;
         if (argc > 1 && std::string(argv[1]) == "--replay-level1") {
-            if (argc != 4 && !(argc == 5 && std::string(argv[4]) == "--original-intro-wait"))
-                throw std::runtime_error("usage: --replay-level1 ROUTE OUTPUT_DIR [--original-intro-wait]");
-            app.debugLevel1Replay(argv[2], argv[3], argc == 5);
+            if (argc != 4 && !((argc == 5 || argc == 6) && std::string(argv[4]) == "--original-intro-wait" &&
+                              (argc != 6 || std::string(argv[5]) == "--result-reels")))
+                throw std::runtime_error("usage: --replay-level1 ROUTE OUTPUT_DIR [--original-intro-wait [--result-reels]]");
+            app.debugLevel1Replay(argv[2], argv[3], argc >= 5, argc == 6);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--validate") {

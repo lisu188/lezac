@@ -74,10 +74,15 @@ matches 42 native loop-boundary frames, the whole bonus award, digit reels,
 and delayed RNG draws while gameplay remains frozen. The subsequent
 [unskipped typing recovery](level1_typing_runtime_2026-10-01.md) matches 89 native
 draw-before-delay windows and their five-column color/shadow writes, with score
-and RNG frozen until the final character delay. Typing skip/escape, physical
-presentation cadence, and results-to-Level-2 handoff evidence remain
-open; these checks do not change the whole-game completion flags or provide
-an overall completion percentage.
+and RNG frozen until the final character delay. The subsequent
+[natural handoff recovery](level1_handoff_runtime_2026-10-01.md) carries the
+spent ammunition through ordinary results/intro acknowledgments and restores
+the full level palette without resetting its animation phase. It matches
+twelve native Level 2 entry frames, 24 mapped states and both complete map
+planes. Longer Level 2 progression, typing skip/escape, two-player/English
+native handoffs and physical presentation cadence remain open; these checks
+do not change the whole-game completion flags or provide an overall
+completion percentage.
 
 The [two-player key-ownership recovery](key_ownership_runtime_2026-09-19.md)
 checks 84 original physical-key samples and fixes reversed P1/P2 movement

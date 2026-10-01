@@ -6,6 +6,7 @@ namespace lezac::app {
 class InputMapper {
 public:
     static ui::Key key(SDL_Keycode key);
+    static ui::Key mainMenuKey(SDL_Keycode key, uint16_t modifiers);
     static bool isBufferedMenuKey(SDL_Keycode key);
     static gameplay::FrameControls controlsFromKeyboard(const uint8_t* keys, int playerCount);
 };

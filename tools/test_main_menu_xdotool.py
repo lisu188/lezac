@@ -2,6 +2,7 @@
 """Check original-backed menu pixels and physical keys through the normal SDL app."""
 
 import argparse
+import ctypes
 import json
 import os
 from pathlib import Path
@@ -76,9 +77,39 @@ def main():
                 events.append(dict(keys=keys, seconds=time.monotonic() - started))
                 xdo("key", "--delay", "0", *keys)
 
+            def keypad_one(shift=False):
+                mapping = subprocess.check_output(["xmodmap", "-pke"], text=True, env=env, timeout=5)
+                matches = [row.split()[1] for row in mapping.splitlines() if "KP_End" in row.split() and
+                           "KP_1" in row.split()]
+                require(len(matches) == 1, "ambiguous private keypad mapping")
+                events.append(dict(kind="physical-keycode", key="KP_1", code=matches[0],
+                                   shift=shift, seconds=time.monotonic() - started))
+                x11 = ctypes.CDLL("libX11.so.6")
+                xtst = ctypes.CDLL("libXtst.so.6")
+                x11.XOpenDisplay.argtypes = [ctypes.c_char_p]
+                x11.XOpenDisplay.restype = ctypes.c_void_p
+                x11.XFlush.argtypes = [ctypes.c_void_p]
+                x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
+                xtst.XTestFakeKeyEvent.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_int, ctypes.c_ulong]
+                display = x11.XOpenDisplay(env["DISPLAY"].encode())
+                require(display, "private X display unavailable")
+                try:
+                    if shift:
+                        xdo("keydown", "Shift_L")
+                    # xdotool's keysym translation can release Shift for numeric keypad codes.
+                    for down in (1, 0):
+                        require(xtst.XTestFakeKeyEvent(display, int(matches[0]), down, 0), "raw keypad event failed")
+                        x11.XFlush(display)
+                        time.sleep(.04)
+                finally:
+                    if shift:
+                        xdo("keyup", "Shift_L")
+                    x11.XCloseDisplay(display)
+
             def ignored_choices(language):
                 expected_pixels = expected[language + "-full"][len(HEADER):]
-                for value in ("Return", "KP_Enter", "s", "space", "F5", "Prior", "Next"):
+                for value in ("Return", "KP_Enter", "s", "space", "F5", "Prior", "Next",
+                              "shift+l", "ctrl+l", "alt+l", "shift+1", "shift+2"):
                     key(value)
                     time.sleep(.1)
                     observed = pixels()
@@ -111,12 +142,20 @@ def main():
                     capture("unexpected-modifier-" + modifier, observed)
                 require(observed != expected["italian-full"][len(HEADER):],
                         "standalone modifier skipped menu typing: " + modifier)
+            key("Caps_Lock")  # Restore lowercase input after the standalone lock check.
             _, frame = wait_frame(["italian-full"])
             capture("italian-full", frame)
             # Full pixels precede readiness by the final character delay.
             time.sleep(.15)
             ignored_choices("italian")
+            key("Caps_Lock")
             key("l")
+            time.sleep(.1)
+            frame = pixels()
+            capture("italian-caps-choice-ignored", frame)
+            require(frame == expected["italian-full"][len(HEADER):], "Caps Lock L changed ready menu")
+            key("shift+l")
+            key("Caps_Lock")
             time.sleep(.12)
             key("1")  # Fade skip, including the final 22 ms delay.
             time.sleep(.12)
@@ -133,33 +172,49 @@ def main():
             _, frame = wait_frame(["english-full"], 3)
             capture("english-queued-selection-consumed", frame)
             ignored_choices("english")
-            key("l")
+            key("alt+F5")
             time.sleep(.12)
             key("Escape")
             time.sleep(.12)
             key("Escape")
             _, frame = wait_frame(["italian-full"], 3)
             capture("italian-escape-skips-consumed", frame)
-            key("1")
-            time.sleep(.15)
+            key("Num_Lock")
+            keypad_one()
+            time.sleep(.1)
             frame = pixels()
-            require(frame != expected["italian-full"][len(HEADER):] and len(set(frame)) > 8,
-                    "fresh player selection did not leave the menu")
-            capture("fresh-selection-intro", frame)
-            key("Return")
-            time.sleep(.15)
-            key("Return")
-            time.sleep(.15)
-            key("Escape")
-            time.sleep(.12)
-            key("Escape")
-            time.sleep(.12)
-            key("Escape")
-            _, frame = wait_frame(["italian-full"], 3)
-            capture("game-return-menu", frame)
+            capture("italian-keypad-off-ignored", frame)
+            require(frame == expected["italian-full"][len(HEADER):], "keypad with Num Lock off selected players")
+            num_on = False
+            for name, num, shift in (("num", True, False), ("num-shift", True, True),
+                                     ("shift", False, True)):
+                if num != num_on:
+                    key("Num_Lock")
+                    num_on = num
+                keypad_one(shift)
+                time.sleep(.15)
+                frame = pixels()
+                require(frame != expected["italian-full"][len(HEADER):] and len(set(frame)) > 8,
+                        "fresh keypad selection did not leave the menu: " + name)
+                capture("fresh-" + name + "-selection-intro", frame)
+                key("Return")
+                time.sleep(.15)
+                key("Return")
+                time.sleep(.15)
+                key("Escape")
+                time.sleep(.12)
+                key("Escape")
+                time.sleep(.12)
+                key("Escape")
+                _, frame = wait_frame(["italian-full"], 3)
+                capture(name + "-game-return-menu", frame)
+                time.sleep(.15)
             key("Escape")
             require(child.wait(timeout=5) == 0, "fresh Escape failed to exit")
-            result.update(status="observed", modifiers_ignored=11, ignored_choices=14, held_return_cases=2)
+            require(len(captures) == 14, "main menu physical capture count")
+            result.update(status="observed", modifiers_ignored=11, ignored_choices=25, held_return_cases=2,
+                          caps_shift_selected=True, alt_f5_selected=True, keypad_off_ignored=True,
+                          keypad_on_selected=True, keypad_num_shift_selected=True, keypad_shift_selected=True)
         except Exception as error:
             result.update(status="failed", error=str(error))
             raise
@@ -174,7 +229,7 @@ def main():
             result["child_exit_code"] = child.returncode
             name = "result.json" if result["status"] == "observed" else "failure.json"
             (output / name).write_text(json.dumps(result, indent=2) + "\n")
-    print("main_menu_live=ok original_pixels=1 languages=2 queued_selection_consumed=1 escape_skips_consumed=1 fresh_start=1 fresh_exit=1 frames=8 audio=dummy modifiers_ignored=11 ignored_choices=14 held_return_cases=2")
+    print("main_menu_live=ok original_pixels=1 languages=2 queued_selection_consumed=1 escape_skips_consumed=1 fresh_start=1 fresh_exit=1 frames=14 audio=dummy modifiers_ignored=11 ignored_choices=25 held_return_cases=2 caps_shift_selected=1 alt_f5_selected=1 keypad_off_ignored=1 keypad_on_selected=1 keypad_num_shift_selected=1 keypad_shift_selected=1")
 
 
 if __name__ == "__main__":

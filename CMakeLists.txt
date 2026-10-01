@@ -4455,7 +4455,7 @@ if(BUILD_TESTING)
     set_tests_properties(level_intro PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^level_intro=ok stripes=7 palette=176-182 exact_hash=0x85e10db60f7e89f9 exact_pixels=55025 caption_pixels=980 delay_ms=81 level_varies=1 live_flow=1 input_skip=1 escape_ack=1 blocking_wait=1 inventory_carry=1 selection_reset=1 new_game_refill=1 same_level_carry=1 two_player_inventory=1 palette_reload=256 red_phase_preserved=1 frame_inspection=1")
+            "^level_intro=ok stripes=7 palette=176-182 exact_hash=0x85e10db60f7e89f9 exact_pixels=55025 caption_pixels=980 delay_ms=81 level_varies=1 live_flow=1 input_skip=1 escape_ack=1 blocking_wait=1 inventory_carry=1 selection_reset=1 new_game_refill=1 same_level_carry=1 two_player_inventory=1 palette_reload=256 red_phase_preserved=1 energy_carry=1 new_game_energy=1 same_level_energy=1 two_player_energy=1 objectives_before_intro=1 hud_repaint_after_ack=1 frame_inspection=1")
 
     add_test(NAME sound_hook_evidence
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

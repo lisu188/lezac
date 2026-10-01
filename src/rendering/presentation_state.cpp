@@ -112,6 +112,16 @@ void PresentationState::updateRedPalette(uint16_t frame) {
     if (redPalettePhase_ > 63) redPalettePhase_ = 20;
 }
 
+void PresentationState::resetHudObjectivesForLevel() {
+    // 2AFF..2BD2 reset objectives before the intro without clearing fade entries.
+    hudPaletteQueue_.count = 0;
+    hudPreviousCollected_ = 20000;
+    hudPreviousDestruction_ = 200;
+    hudDestructionPercent_ = 0;
+    hudBonusComplete_ = false;
+    hudDestructionComplete_ = false;
+}
+
 void PresentationState::resetHudForLevel() {
     outroBackdrop_.clear();
     outroIndices_.clear();
@@ -120,11 +130,7 @@ void PresentationState::resetHudForLevel() {
     hudColumnReady_ = {};
     hudEnergy_ = {};
     hudInventories_ = {};
-    hudPreviousCollected_ = 20000;
-    hudPreviousDestruction_ = 200;
-    hudDestructionPercent_ = 0;
-    hudBonusComplete_ = false;
-    hudDestructionComplete_ = false;
+    resetHudObjectivesForLevel();
     for (int index : {224, 245, 246}) palette_[index] = initialPalette_[index];
 }
 

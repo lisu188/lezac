@@ -23527,6 +23527,25 @@ public:
         bombInventory_.counts = {17, 0, 2, 3};
         bombInventory2_.counts = {18, 1, 3, 4};
         bombInventory_.selected = bombInventory2_.selected = BombType::Super;
+        energy_ = 73;
+        energy2_ = 41;
+        auto requireEnergy = [&](int first, int second) {
+            if (energy_ != first || energy2_ != second)
+                throw std::runtime_error("level setup energy reset/carryover mismatch");
+        };
+        auto dirtyObjectives = [&] {
+            collected_ = 3;
+            destroyed_ = 243;
+            presentation_.prepareHudObjectives(30, 3, 61, 3, 60);
+        };
+        auto requireObjectiveReset = [&] {
+            if (collected_ != 0 || destroyed_ != 0 || presentation_.hudPreviousCollected() != 20000 ||
+                presentation_.hudPreviousDestruction() != 200 || presentation_.hudDestructionPercent() != 0 ||
+                presentation_.hudBonusComplete() || presentation_.hudDestructionComplete() ||
+                presentation_.hudPaletteQueue().count != 0)
+                throw std::runtime_error("level setup retained objectives during the intro");
+        };
+        dirtyObjectives();
         auto requireInventory = [&](const std::array<int, 4>& first, const std::array<int, 4>& second) {
             if (bombInventory_.counts != first || bombInventory2_.counts != second ||
                 bombInventory_.selected != BombType::Small || bombInventory2_.selected != BombType::Small)
@@ -23539,6 +23558,8 @@ public:
             throw std::runtime_error("interactive menu start did not begin level intro");
         }
         requireInventory(BombInventory{}.counts, BombInventory{}.counts);
+        requireEnergy(100, 100);
+        requireObjectiveReset();
         requirePalette();
         const uint32_t logicBefore = logicTick_;
         updateWithControls(FrameControls{}, 1.0f / 60.0f);
@@ -23563,15 +23584,25 @@ public:
         processEvents(running);
         if (levelFlow_.intro().active) throw std::runtime_error("level intro acknowledgement failed");
         requireInventory(BombInventory{}.counts, BombInventory{}.counts);
+        requireEnergy(100, 100);
 
         const std::array<int, 4> carried1{199, 7, 5, 2}, carried2{198, 9, 4, 1};
         bombInventory_.counts = carried1;
         bombInventory2_.counts = carried2;
         bombInventory_.selected = BombType::Large;
         bombInventory2_.selected = BombType::Super;
+        energy_ = 90;
+        energy2_ = 41;
+        presentation_.updateHudEnergy(0, 90, 1);
+        presentation_.updateHudEnergy(1, 41, 1);
+        dirtyObjectives();
         dirtyPalette();
         beginLevelForPlay(1);
         requireInventory(carried1, carried2);
+        requireEnergy(90, 41);
+        requireObjectiveReset();
+        if (presentation_.hudEnergy()[0].cached != 90 || presentation_.hudEnergy()[1].cached != 41)
+            throw std::runtime_error("intro prematurely cleared the previous energy cache");
         requirePalette();
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
@@ -23583,8 +23614,16 @@ public:
         if (levelFlow_.intro().active || !bombs_.empty())
             throw std::runtime_error("level intro acknowledgement key leaked into gameplay");
         requireInventory(carried1, carried2);
+        requireEnergy(90, 41);
+        if (presentation_.hudEnergy()[0].cached != 255 || presentation_.hudEnergy()[1].cached != 255)
+            throw std::runtime_error("intro acknowledgment did not invalidate energy repaint caches");
+        energy_ = 7;
+        energy2_ = 12;
+        dirtyObjectives();
         dirtyPalette();
         beginLevelForPlay(2);
+        requireEnergy(7, 12);
+        requireObjectiveReset();
         requirePalette();
         pushKeyDown(SDLK_ESCAPE);
         processEvents(running);
@@ -23596,11 +23635,17 @@ public:
             throw std::runtime_error("level intro Escape did not acknowledge the intro");
         }
         requireInventory(carried1, carried2);
+        requireEnergy(7, 12);
         bombInventory_.selected = bombInventory2_.selected = BombType::Super;
+        energy_ = 26;
+        energy2_ = 11;
+        dirtyObjectives();
         dirtyPalette();
         pushKeyDown(SDLK_F5);
         processEvents(running);
         requireInventory(carried1, carried2);
+        requireEnergy(26, 11);
+        requireObjectiveReset();
         requirePalette();
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
@@ -23609,10 +23654,14 @@ public:
         if (levelFlow_.intro().active || levelIndex_ != 2)
             throw std::runtime_error("same-level restart acknowledgement failed");
         requireInventory(carried1, carried2);
+        requireEnergy(26, 11);
         levelFlow_.setInteractiveEnabled(false);
+        energy_ = 3;
+        energy2_ = 0;
         dirtyPalette();
         beginLevelForPlay(2);
         requireInventory(carried1, carried2);
+        requireEnergy(3, 0);
         requirePalette();
         ui_.setMenu(true);
         dirtyPalette();
@@ -23621,6 +23670,7 @@ public:
         if (levelFlow_.intro().active || ui_.snapshot().menu || playerCount_ != 2 || levelIndex_ != 0)
             throw std::runtime_error("two-player new game did not reset through the menu");
         requireInventory(BombInventory{}.counts, BombInventory{}.counts);
+        requireEnergy(100, 100);
         requirePalette();
         replayClockEnabled_ = false;
 
@@ -23637,6 +23687,8 @@ public:
                   << " level_varies=1 live_flow=1 input_skip=1 escape_ack=1 blocking_wait=1"
                   << " inventory_carry=1 selection_reset=1 new_game_refill=1 same_level_carry=1 two_player_inventory=1"
                   << " palette_reload=256 red_phase_preserved=1"
+                  << " energy_carry=1 new_game_energy=1 same_level_energy=1 two_player_energy=1"
+                  << " objectives_before_intro=1 hud_repaint_after_ack=1"
                   << " frame_inspection=1\n";
     }
 
@@ -24235,6 +24287,8 @@ private:
         if (ui_.snapshot().menu) {
             bombInventory_ = {};
             bombInventory2_ = {};
+            // 2F30/2F35 refill energy only on the new-game path.
+            energy_ = energy2_ = 100;
         }
         // 1000:2AF2 resets selection on reload; 2F69 initializes counts only for a new game.
         bombInventory_.selected = bombInventory2_.selected = BombType::Small;
@@ -24253,6 +24307,8 @@ private:
             const auto words = decodePlane(level_.encodedWords, level_.wordLayer.size() * 2);
             for (size_t i = 0; i < level_.wordLayer.size(); ++i) level_.wordLayer[i] = le16(words, i * 2);
         }
+        collected_ = destroyed_ = 0;
+        presentation_.resetHudObjectivesForLevel();
         // 1000:2BF9 reloads all of BOMPAL before generating the intro, without resetting DS:79AD.
         presentation_.setPalette(assets_.palette());
         LevelIntroPattern pattern = makeLevelIntroPattern();
@@ -24269,11 +24325,14 @@ private:
         const int countdown1 = reentryTimer_, countdown2 = reentryTimer2_;
         const uint8_t fallback = noActivePlayerTicks_;
         const auto counts1 = bombInventory_.counts, counts2 = bombInventory2_.counts;
+        const int carriedEnergy1 = energy_, carriedEnergy2 = energy2_;
         Level decodedLevel = std::move(level_);
         resetLevel(index);
         level_ = std::move(decodedLevel);
         bombInventory_.counts = counts1;
         bombInventory2_.counts = counts2;
+        energy_ = carriedEnergy1;
+        energy2_ = carriedEnergy2;
         logicTick_ = frame;
         reentryTimer_ = countdown1;
         reentryTimer2_ = countdown2;

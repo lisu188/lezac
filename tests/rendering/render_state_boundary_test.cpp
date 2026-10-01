@@ -153,6 +153,22 @@ int main() {
         }
     };
     checkHud(state, after);
+    auto introState = state;
+    introState.hudPaletteQueue.count = 0;
+    introState.hudPreviousCollected = 20000;
+    introState.hudPreviousDestruction = 200;
+    introState.hudDestructionPercent = 0;
+    introState.hudBonusComplete = false;
+    introState.hudDestructionComplete = false;
+    presentation.resetHudObjectivesForLevel();
+    checkHud(introState, presentation.snapshot());
+    for (size_t i = 0; i < 256; ++i) {
+        const auto& expected = state.palette[i];
+        const auto& actual = presentation.palette()[i];
+        if (actual.r != expected.r || actual.g != expected.g || actual.b != expected.b)
+            throw std::runtime_error("pre-intro objective reset changed the palette");
+    }
+    presentation.restore(state);
     presentation.resetHudForLevel();
     if (presentation.hudBonusComplete() || presentation.hudDestructionComplete())
         throw std::runtime_error("level reset retained completion flags");
@@ -253,6 +269,10 @@ int main() {
         presentation.freezeOutroBackdrop(retained);
         const auto saved = presentation.snapshot();
         const auto recolored = presentation.resolveOutroBackdrop();
+        presentation.resetHudObjectivesForLevel();
+        if (presentation.resolveOutroBackdrop() != recolored)
+            throw std::runtime_error("pre-intro reset cleared the frozen results frame");
+        presentation.restore(saved);
         if (recolored[4 * 320 + 3] != 0xff112233u || recolored[4 * 320 + 4] != 0xffff0000u ||
             recolored[4 * 320 + 5] != 0xff00ff00u || recolored[5 * 320 + 4] != 0xff0000ffu ||
             recolored[5 * 320 + 5] != 0xff112233u || retained.pixels()[4 * 320 + 4] != 0xff112233u)

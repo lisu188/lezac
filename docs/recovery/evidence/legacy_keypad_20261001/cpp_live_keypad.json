@@ -1,0 +1,577 @@
+{
+  "status": "observed",
+  "scenario": "keypad",
+  "audio": "dummy",
+  "normal_entry_point": true,
+  "gameplay_seeded": false,
+  "startup_timing_gated": false,
+  "physical_keys": true,
+  "manual_input": false,
+  "whole_game_parity": false,
+  "exe_sha256": "f7ecfa1eefb12dba4fe11dfc480696d4cd0552fe554f0e77a09c753207f02c3f",
+  "harness_sha256": "d34e6329a5dd8b0f795018811598c2d64854b155a0960da4d967640be744ab58",
+  "events": [
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 1.920319216005737
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Subtract",
+      "lookup_keysym": "KP_Subtract",
+      "code": 82,
+      "seconds": 1.935258898010943
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Add",
+      "lookup_keysym": "KP_Add",
+      "code": 86,
+      "seconds": 2.0180092570080888
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Decimal",
+      "lookup_keysym": "KP_Delete",
+      "code": 91,
+      "seconds": 2.096523618994979
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Multiply",
+      "lookup_keysym": "KP_Multiply",
+      "code": 63,
+      "seconds": 2.1740319849923253
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Divide",
+      "lookup_keysym": "KP_Divide",
+      "code": 106,
+      "seconds": 2.2497578019974753
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Enter",
+      "lookup_keysym": "KP_Enter",
+      "code": 104,
+      "seconds": 2.3254782930016518
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 2.4022285499959253
+    },
+    {
+      "kind": "keydown",
+      "key": "Control_L",
+      "seconds": 2.4171062509994954
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Subtract",
+      "lookup_keysym": "KP_Subtract",
+      "code": 82,
+      "seconds": 2.4318571180047
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Add",
+      "lookup_keysym": "KP_Add",
+      "code": 86,
+      "seconds": 2.5083468839875422
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Decimal",
+      "lookup_keysym": "KP_Delete",
+      "code": 91,
+      "seconds": 2.5861440309963655
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Multiply",
+      "lookup_keysym": "KP_Multiply",
+      "code": 63,
+      "seconds": 2.6641916960070375
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Divide",
+      "lookup_keysym": "KP_Divide",
+      "code": 106,
+      "seconds": 2.7408825290040113
+    },
+    {
+      "kind": "keyup",
+      "key": "Control_L",
+      "seconds": 2.818696447997354
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Add",
+      "lookup_keysym": "KP_Add",
+      "code": 86,
+      "seconds": 2.8334701269923244
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "1",
+      "lookup_keysym": "1",
+      "code": 10,
+      "seconds": 3.1107549860025756
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 3.1803331749979407
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Subtract",
+      "lookup_keysym": "KP_Subtract",
+      "code": 82,
+      "seconds": 3.1957031300116796
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Add",
+      "lookup_keysym": "KP_Add",
+      "code": 86,
+      "seconds": 3.2637188539956696
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Decimal",
+      "lookup_keysym": "KP_Delete",
+      "code": 91,
+      "seconds": 3.3346294059883803
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Multiply",
+      "lookup_keysym": "KP_Multiply",
+      "code": 63,
+      "seconds": 3.4037397610081825
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Divide",
+      "lookup_keysym": "KP_Divide",
+      "code": 106,
+      "seconds": 3.4733973119873554
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Enter",
+      "lookup_keysym": "KP_Enter",
+      "code": 104,
+      "seconds": 3.5426122630015016
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 3.6117641020100564
+    },
+    {
+      "kind": "keydown",
+      "key": "Control_L",
+      "seconds": 3.626646418008022
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Subtract",
+      "lookup_keysym": "KP_Subtract",
+      "code": 82,
+      "seconds": 3.6414649829966947
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Add",
+      "lookup_keysym": "KP_Add",
+      "code": 86,
+      "seconds": 3.708380333991954
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Decimal",
+      "lookup_keysym": "KP_Delete",
+      "code": 91,
+      "seconds": 3.7751355709915515
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Multiply",
+      "lookup_keysym": "KP_Multiply",
+      "code": 63,
+      "seconds": 3.8445911169983447
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Divide",
+      "lookup_keysym": "KP_Divide",
+      "code": 106,
+      "seconds": 3.913460304000182
+    },
+    {
+      "kind": "keyup",
+      "key": "Control_L",
+      "seconds": 3.983258867985569
+    },
+    {
+      "kind": "keydown",
+      "key": "Control_L",
+      "seconds": 3.99808113698964
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Enter",
+      "lookup_keysym": "KP_Enter",
+      "code": 104,
+      "seconds": 4.012980967992917
+    },
+    {
+      "kind": "keyup",
+      "key": "Control_L",
+      "seconds": 4.063948806986446
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 6.402016857988201
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Subtract",
+      "lookup_keysym": "KP_Subtract",
+      "code": 82,
+      "seconds": 6.416951571009122
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Add",
+      "lookup_keysym": "KP_Add",
+      "code": 86,
+      "seconds": 6.487600785010727
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Decimal",
+      "lookup_keysym": "KP_Delete",
+      "code": 91,
+      "seconds": 6.553909715003101
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Multiply",
+      "lookup_keysym": "KP_Multiply",
+      "code": 63,
+      "seconds": 6.620603549003135
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Divide",
+      "lookup_keysym": "KP_Divide",
+      "code": 106,
+      "seconds": 6.688691855990328
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Enter",
+      "lookup_keysym": "KP_Enter",
+      "code": 104,
+      "seconds": 6.7553613079944625
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 6.825794454984134
+    },
+    {
+      "kind": "keydown",
+      "key": "Control_L",
+      "seconds": 6.8409441050025634
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Subtract",
+      "lookup_keysym": "KP_Subtract",
+      "code": 82,
+      "seconds": 6.857537403004244
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Add",
+      "lookup_keysym": "KP_Add",
+      "code": 86,
+      "seconds": 6.925671492004767
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Decimal",
+      "lookup_keysym": "KP_Delete",
+      "code": 91,
+      "seconds": 6.993954351986758
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Multiply",
+      "lookup_keysym": "KP_Multiply",
+      "code": 63,
+      "seconds": 7.062684559990885
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Divide",
+      "lookup_keysym": "KP_Divide",
+      "code": 106,
+      "seconds": 7.130638575996272
+    },
+    {
+      "kind": "keyup",
+      "key": "Control_L",
+      "seconds": 7.197929996007588
+    },
+    {
+      "kind": "keydown",
+      "key": "Control_L",
+      "seconds": 7.212357426993549
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Enter",
+      "lookup_keysym": "KP_Enter",
+      "code": 104,
+      "seconds": 7.226808620995143
+    },
+    {
+      "kind": "keyup",
+      "key": "Control_L",
+      "seconds": 7.277806886006147
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 7.3186118619923946
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 9.633553807012504
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 9.848846232984215
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 10.064069315005327
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 10.280083296005614
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 10.49558570299996
+    }
+  ],
+  "captures": [
+    {
+      "name": "natural-typing-checkpoint",
+      "seconds": 1.9195804269984365,
+      "pixel_sha256": "262a264357582a0f87f81e27e2751990890d1c24f36fea2fe018a2198e05a621"
+    },
+    {
+      "name": "menu-Alt_L-KP_Subtract",
+      "seconds": 2.017353323986754,
+      "pixel_sha256": "c0d68d27df5d334b33f1244a1e1a95ee9073e2009948767883e55800b87649af"
+    },
+    {
+      "name": "menu-Alt_L-KP_Add",
+      "seconds": 2.09596554300515,
+      "pixel_sha256": "707b6b3f2e075c4917e107ca52bf3dde9a23b2a1624ee1b7d8ed1478a05b401f"
+    },
+    {
+      "name": "menu-Alt_L-KP_Decimal",
+      "seconds": 2.1734860859869514,
+      "pixel_sha256": "6e1c003cb3660dc9da8d883e05ba49218f2da0de8a512e806cc480bb5b2185ed"
+    },
+    {
+      "name": "menu-Alt_L-KP_Multiply",
+      "seconds": 2.248980982985813,
+      "pixel_sha256": "d1dc7a5d0a0edfb3b8cbbc4b519a4dd2af604b8bf2b46c098cb09c04b4a048de"
+    },
+    {
+      "name": "menu-Alt_L-KP_Divide",
+      "seconds": 2.324906147987349,
+      "pixel_sha256": "4ea21c0d7191315319ec23a4e5b79489229368d1f24fd80abcfa41ccc4b3f872"
+    },
+    {
+      "name": "menu-Alt_L-KP_Enter",
+      "seconds": 2.4016606049844995,
+      "pixel_sha256": "b8e71f8831960e8eb5b13d170565c569abd0e3120cb4dff962b8efc070ea041f"
+    },
+    {
+      "name": "menu-Control_L-KP_Subtract",
+      "seconds": 2.5077655159984715,
+      "pixel_sha256": "63558d4316f1adba1d80070a4b8b4d2b2ea320b9e823debf0123ff3fa9e6c044"
+    },
+    {
+      "name": "menu-Control_L-KP_Add",
+      "seconds": 2.5854402059921995,
+      "pixel_sha256": "5fc55b75ba9607445918d5631f56b08f64b5c2d43f79d5fd583506017249f98a"
+    },
+    {
+      "name": "menu-Control_L-KP_Decimal",
+      "seconds": 2.663576015998842,
+      "pixel_sha256": "112b16cc8284ea95dda6f0dbcfab2eb0af1256182d4eefeddf81998f8574f699"
+    },
+    {
+      "name": "menu-Control_L-KP_Multiply",
+      "seconds": 2.7403006090025883,
+      "pixel_sha256": "5223b8f1e9f35d25388061608c35675bcd23f187289b3f8d19c3bcb71b69654e"
+    },
+    {
+      "name": "menu-Control_L-KP_Divide",
+      "seconds": 2.818205401999876,
+      "pixel_sha256": "28da798555783e3fcec84b94722db73f49258416a6364797b6d55258a88514c1"
+    },
+    {
+      "name": "unmodified-plus-consumed-skip",
+      "seconds": 2.9101069970056415,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "fresh-one-intro",
+      "seconds": 3.1798055160033982,
+      "pixel_sha256": "b69c167973dc46e4c256c89220053d081a9765522bb8dc83c5f29d190ed8f3a7"
+    },
+    {
+      "name": "intro-Alt_L-KP_Subtract",
+      "seconds": 3.2630043989920523,
+      "pixel_sha256": "691a540dc96cfb1ba374d9af05ffd3029792b4517124c347d41db188d9db3a3e"
+    },
+    {
+      "name": "intro-Alt_L-KP_Add",
+      "seconds": 3.3338227980129886,
+      "pixel_sha256": "f917e2f980d4cece2f4e7218a7b0185d61950803192ce501d01fee0cfceec034"
+    },
+    {
+      "name": "intro-Alt_L-KP_Decimal",
+      "seconds": 3.4029096369922627,
+      "pixel_sha256": "5175199d322019e2f8922c7c9eddf5aaa565c7c8b43b44f8f389ec38535c4a54"
+    },
+    {
+      "name": "intro-Alt_L-KP_Multiply",
+      "seconds": 3.4725388209917583,
+      "pixel_sha256": "52e03a822f0a6255f877611473547c86fc4e5f7f2f19cbeb153a8508bb6532da"
+    },
+    {
+      "name": "intro-Alt_L-KP_Divide",
+      "seconds": 3.5417762500001118,
+      "pixel_sha256": "d986549b936b0702ec0b23c29dc75c75da760d394d90ad42a36b77fe1f8e53b2"
+    },
+    {
+      "name": "intro-Alt_L-KP_Enter",
+      "seconds": 3.6110370219976176,
+      "pixel_sha256": "d986549b936b0702ec0b23c29dc75c75da760d394d90ad42a36b77fe1f8e53b2"
+    },
+    {
+      "name": "intro-Control_L-KP_Subtract",
+      "seconds": 3.707488520012703,
+      "pixel_sha256": "0f085dd76bcebd277a30439969ec3f85e8451bf305531f8f18d243f1fdbe8474"
+    },
+    {
+      "name": "intro-Control_L-KP_Add",
+      "seconds": 3.774366233003093,
+      "pixel_sha256": "c85b154312f1cd02a32e559d04218748edf470b74be1dad7158fa39add917070"
+    },
+    {
+      "name": "intro-Control_L-KP_Decimal",
+      "seconds": 3.8438608330034185,
+      "pixel_sha256": "c85b154312f1cd02a32e559d04218748edf470b74be1dad7158fa39add917070"
+    },
+    {
+      "name": "intro-Control_L-KP_Multiply",
+      "seconds": 3.9127660790109076,
+      "pixel_sha256": "c85b154312f1cd02a32e559d04218748edf470b74be1dad7158fa39add917070"
+    },
+    {
+      "name": "intro-Control_L-KP_Divide",
+      "seconds": 3.9825343349948525,
+      "pixel_sha256": "d8d1320454bb9bb4bc11ccb1dcf568690af90698df55a9972cd8c91823d9006a"
+    },
+    {
+      "name": "control-keypad-enter-consumed-skip",
+      "seconds": 4.10146401298698,
+      "pixel_sha256": "c87d02a2c58bc5a4129b83d9a84a75fa5e0ac2dd72935a6e8e22341223545b1e"
+    },
+    {
+      "name": "intro-wait-Alt_L-KP_Subtract",
+      "seconds": 6.486674929998117,
+      "pixel_sha256": "c87d02a2c58bc5a4129b83d9a84a75fa5e0ac2dd72935a6e8e22341223545b1e"
+    },
+    {
+      "name": "intro-wait-Alt_L-KP_Add",
+      "seconds": 6.553273478988558,
+      "pixel_sha256": "c87d02a2c58bc5a4129b83d9a84a75fa5e0ac2dd72935a6e8e22341223545b1e"
+    },
+    {
+      "name": "intro-wait-Alt_L-KP_Decimal",
+      "seconds": 6.619801944005303,
+      "pixel_sha256": "c87d02a2c58bc5a4129b83d9a84a75fa5e0ac2dd72935a6e8e22341223545b1e"
+    },
+    {
+      "name": "intro-wait-Alt_L-KP_Multiply",
+      "seconds": 6.687939436000306,
+      "pixel_sha256": "c87d02a2c58bc5a4129b83d9a84a75fa5e0ac2dd72935a6e8e22341223545b1e"
+    },
+    {
+      "name": "intro-wait-Alt_L-KP_Divide",
+      "seconds": 6.754687751003075,
+      "pixel_sha256": "c87d02a2c58bc5a4129b83d9a84a75fa5e0ac2dd72935a6e8e22341223545b1e"
+    },
+    {
+      "name": "intro-wait-Alt_L-KP_Enter",
+      "seconds": 6.825116921012523,
+      "pixel_sha256": "c87d02a2c58bc5a4129b83d9a84a75fa5e0ac2dd72935a6e8e22341223545b1e"
+    },
+    {
+      "name": "intro-wait-Control_L-KP_Subtract",
+      "seconds": 6.924855694000144,
+      "pixel_sha256": "c87d02a2c58bc5a4129b83d9a84a75fa5e0ac2dd72935a6e8e22341223545b1e"
+    },
+    {
+      "name": "intro-wait-Control_L-KP_Add",
+      "seconds": 6.993164971994702,
+      "pixel_sha256": "c87d02a2c58bc5a4129b83d9a84a75fa5e0ac2dd72935a6e8e22341223545b1e"
+    },
+    {
+      "name": "intro-wait-Control_L-KP_Decimal",
+      "seconds": 7.061984755011508,
+      "pixel_sha256": "c87d02a2c58bc5a4129b83d9a84a75fa5e0ac2dd72935a6e8e22341223545b1e"
+    },
+    {
+      "name": "intro-wait-Control_L-KP_Multiply",
+      "seconds": 7.1299239009968005,
+      "pixel_sha256": "c87d02a2c58bc5a4129b83d9a84a75fa5e0ac2dd72935a6e8e22341223545b1e"
+    },
+    {
+      "name": "intro-wait-Control_L-KP_Divide",
+      "seconds": 7.197311811003601,
+      "pixel_sha256": "c87d02a2c58bc5a4129b83d9a84a75fa5e0ac2dd72935a6e8e22341223545b1e"
+    },
+    {
+      "name": "fresh-control-keypad-enter-gameplay",
+      "seconds": 7.318156913999701,
+      "pixel_sha256": "943c56f242a26dbf054bf9880a64b27128fc9dd27e78fb6d4740f71f681c101c"
+    }
+  ],
+  "child_exit_code": 0
+}

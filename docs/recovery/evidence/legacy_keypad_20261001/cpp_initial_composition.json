@@ -1,0 +1,278 @@
+{
+  "status": "failed",
+  "scenario": "composition",
+  "audio": "dummy",
+  "normal_entry_point": true,
+  "gameplay_seeded": false,
+  "startup_timing_gated": false,
+  "physical_keys": true,
+  "manual_input": false,
+  "whole_game_parity": false,
+  "exe_sha256": "f7ecfa1eefb12dba4fe11dfc480696d4cd0552fe554f0e77a09c753207f02c3f",
+  "harness_sha256": "bb1ae66c7aa5efef1dcc3da08793c8dd60790be173e05a59a8dce458d22daf88",
+  "events": [
+    {
+      "kind": "key",
+      "key": "space",
+      "seconds": 1.8441731549974065
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 2.0890072220063303
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_1",
+      "code": 87,
+      "seconds": 2.1054255600029137
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_0",
+      "code": 90,
+      "seconds": 2.162792952003656
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_8",
+      "code": 80,
+      "seconds": 2.219433199992636
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 2.306268574000569
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 15.947638309997274
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_3",
+      "code": 89,
+      "seconds": 15.962422446988057
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_6",
+      "code": 85,
+      "seconds": 16.018851950997487
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_4",
+      "code": 83,
+      "seconds": 16.0752962520055
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 16.131792144995416
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 30.044243375014048
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_0",
+      "code": 90,
+      "seconds": 30.05979443198885
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 30.116589242010377
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 30.186681919993134
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_2",
+      "code": 88,
+      "seconds": 30.201851905992953
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_5",
+      "code": 84,
+      "seconds": 30.258903654990718
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_6",
+      "code": 85,
+      "seconds": 30.31523495799047
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 30.371790801989846
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 30.443177292996552
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_7",
+      "code": 79,
+      "seconds": 30.45791253799689
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_6",
+      "code": 85,
+      "seconds": 30.514911192993168
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 30.572648114000913
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 30.642887049994897
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_1",
+      "code": 87,
+      "seconds": 30.658376145001967
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_0",
+      "code": 90,
+      "seconds": 30.715929356985725
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_8",
+      "code": 80,
+      "seconds": 30.772213949996512
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_R",
+      "seconds": 30.82935193099547
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_R",
+      "seconds": 30.84406474098796
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_1",
+      "code": 87,
+      "seconds": 44.34223389800172
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_0",
+      "code": 90,
+      "seconds": 44.39864488001331
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_8",
+      "code": 80,
+      "seconds": 44.45726224698592
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 44.51371127800667
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 44.57822583100642
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_1",
+      "code": 87,
+      "seconds": 44.59515195799759
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Subtract",
+      "code": 82,
+      "seconds": 44.65219044999685
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Add",
+      "code": 86,
+      "seconds": 44.70916432599188
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Multiply",
+      "code": 63,
+      "seconds": 44.76568290698924
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Divide",
+      "code": 106,
+      "seconds": 44.82287349100807
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_Enter",
+      "code": 104,
+      "seconds": 44.878942973999074
+    }
+  ],
+  "captures": [
+    {
+      "name": "natural-typing-checkpoint",
+      "seconds": 1.8438086500100326,
+      "pixel_sha256": "262a264357582a0f87f81e27e2751990890d1c24f36fea2fe018a2198e05a621"
+    },
+    {
+      "name": "space-consumed-skip",
+      "seconds": 1.8884775119950064,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "alt-108-held-no-character",
+      "seconds": 2.3059044439869467,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "alt-108-released-english",
+      "seconds": 15.747086543007754,
+      "pixel_sha256": "1ba172f477005a57a01132e42042e54a5d1454f5b7361ceba9cab8b36a715b58"
+    },
+    {
+      "name": "alt-364-wrapped-italian",
+      "seconds": 29.843654489988694,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "first-alt-release-english",
+      "seconds": 44.14144950400805,
+      "pixel_sha256": "1ba172f477005a57a01132e42042e54a5d1454f5b7361ceba9cab8b36a715b58"
+    },
+    {
+      "name": "second-alt-release-no-duplicate",
+      "seconds": 44.57766712299781,
+      "pixel_sha256": "1ba172f477005a57a01132e42042e54a5d1454f5b7361ceba9cab8b36a715b58"
+    }
+  ],
+  "error": "ambiguous physical key mapping: KP_Decimal",
+  "child_exit_code": 0
+}

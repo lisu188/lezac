@@ -28,6 +28,8 @@ struct PresentationSnapshot {
     int hudPreviousDestruction = 200;
     int hudDestructionPercent = 0;
     bool originalPlayInitialized = false;
+    bool hudBonusComplete = false;
+    bool hudDestructionComplete = false;
 };
 
 class PresentationState {
@@ -46,7 +48,8 @@ public:
     void resetHudForLevel();
     void clearHudScores() { hudScores_ = {}; }
     void beginOriginalPlay(bool fromMenu);
-    void prepareHudObjectives(uint16_t frame, int collected, int destructionPercent);
+    void prepareHudObjectives(uint16_t frame, int collected, int destructionPercent,
+                              int requiredBonus, int requiredDestruction);
     void updateHudScores(int playerCount, const std::array<uint32_t, 2>& scores,
                          const std::array<bool, 2>& dead, const std::array<int, 2>& deathTimers);
     void updateHudEnergy(size_t player, uint16_t value, uint8_t globalState);
@@ -60,6 +63,8 @@ public:
     int hudPreviousCollected() const { return hudPreviousCollected_; }
     int hudPreviousDestruction() const { return hudPreviousDestruction_; }
     int hudDestructionPercent() const { return hudDestructionPercent_; }
+    bool hudBonusComplete() const { return hudBonusComplete_; }
+    bool hudDestructionComplete() const { return hudDestructionComplete_; }
     uint32_t backdropColor(uint8_t index) const;
     uint8_t backdropByte(size_t offset, const std::vector<uint8_t>& liveTiles) const;
     PresentationSnapshot snapshot() const;
@@ -79,6 +84,8 @@ private:
     int hudPreviousDestruction_ = 200;
     int hudDestructionPercent_ = 0;
     bool originalPlayInitialized_ = false;
+    bool hudBonusComplete_ = false;
+    bool hudDestructionComplete_ = false;
     std::vector<uint8_t> backdropBuffer_;
     int backdropPitch_ = 320;
     uint8_t redPalettePhase_ = 0;

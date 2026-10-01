@@ -23,6 +23,7 @@ EXPECTED = {
     "objective": (237, "57c305f8c8277e72419b473b62e2db3c4d2e90040e24e049241f0d876e6fec77"),
     "held_fire": (497, "29fc2da3226326443e8990f85be601bbdb4acf693fc5bef09d8e50737484252f"),
     "rapid_fire": (297, "28d7f1ba6f8164d417cf85cce910d3abbd9108469e241aeb63e40bbe7408b6f8"),
+    "completion_gate": (305, "18c029dcc107cf95b088a914cf60aa05fd30fbaf26501e3b2367ee91cd96ace8"),
 }
 EXE: Path | None = None
 
@@ -39,6 +40,20 @@ def pinned_fixture(name: str, path: Path | None = None) -> None:
     fidelity.require(header["source_sha256"] == expected["source_sha256"], "capture source provenance changed")
     fidelity.require(header["settings"]["ticks"] - original.PREFIX_TICKS == EXPECTED[name][0], "original route length changed")
     fidelity.require(original.fingerprint(path) == expected["canonical_sha256"] == EXPECTED[name][1], "original observations differ from pinned independent capture")
+
+
+def completion_gate_timing(rows: list[dict]) -> None:
+    observations = [row for row in rows if row.get("phase") in ("present", "post_update") and row["tick"] >= 4]
+    fidelity.require(len(observations) == 610, "incomplete completion-gate observations")
+    for row in observations:
+        expected = row["tick"] == 308 and row["phase"] == "post_update"
+        state = row["state"]
+        fidelity.require(bool(state["flow"][4]) == expected, "results started outside the original completion gate")
+        fidelity.require(state["logic_tick"] == row["tick"] - 3, "completion route gameplay clock changed")
+        if expected:
+            fidelity.require(not state["collapse"] and len(state["debris"]) == 37,
+                             "completion did not use the empty-collapse/live-debris boundary")
+    fidelity.require(rows[-1]["level1_route_complete"] is False, "gate-only route unexpectedly claims a level handoff")
 
 
 class OriginalTests(unittest.TestCase):
@@ -180,6 +195,61 @@ class OriginalTests(unittest.TestCase):
         self.assertEqual(panel(272), panel(273))
         self.assertNotEqual(panel(273), panel(274))
 
+    def test_original_completion_flags_and_collapse_gate(self):
+        image = original.check_executable(ROOT / "LEZAC.EXE")
+        for offset, instructions in {
+            0x79E8: "a0b5793a06b6797509a188203b068a207406680fcbe884b7",
+            0x2BA9: "c7067e20c700",  # inclusive debris index starts at 199
+            0x31D6: "837efe007f0a31c08946fec606c57901",
+            0x323B: "31c08946fec606c67901",
+            0x324D: "803ec579007416803ec67900740f6ae0bfb21a1e57bfae1a1e57e82bd2",
+            0x8283: "803ec579007425803ec67900741e833e8020007517",
+        }.items():
+            with self.subTest(offset=hex(offset)):
+                self.assertEqual(image[offset:offset + len(instructions) // 2].hex(), instructions)
+        pinned_fixture("completion_gate")
+        samples = {row["cpp_tick"]: row for row in original.reference_rows(FIXTURES / "completion_gate")
+                   if row["kind"] == "sample"}
+        eligible = []
+        previous = [0, 0]
+        for tick, sample in samples.items():
+            raw = bytes.fromhex(sample["post"]["globals"])
+            flags = list(raw[0x25:0x27])
+            progress = bytes.fromhex(sample["post"]["progress"])
+            self.assertTrue(all(current >= before for current, before in zip(flags, previous)))
+            previous = flags
+            if flags == [1, 1] and original.word(progress, 10) == 0:
+                eligible.append(tick)
+        self.assertEqual(eligible, [308])
+        for tick, flags, percent, collapse in ((273, [1, 0], 40, 3), (303, [1, 1], 51, 3),
+                                               (307, [1, 1], 51, 2), (308, [1, 1], 51, 0)):
+            raw = samples[tick]["post"]
+            globals_ = bytes.fromhex(raw["globals"])
+            progress = bytes.fromhex(raw["progress"])
+            self.assertEqual((list(globals_[0x25:0x27]), globals_[0x15], original.word(progress, 10)),
+                             (flags, percent, collapse))
+            self.assertEqual(original.word(progress, 8), 236)
+            self.assertEqual(original.word(bytes.fromhex(raw["destruction"]), 2), 34)
+
+    def test_completion_timing_rejects_early_late_and_live_collapse(self):
+        if EXE is None:
+            self.skipTest("--exe required")
+        candidate = self.root / "gate-cpp"
+        fidelity.record(EXE, ROOT, FIXTURES / "completion_gate/route.txt", candidate, original_intro_wait=True)
+        report = original.compare(FIXTURES / "completion_gate", candidate)
+        self.assertEqual((report["status"], report["frames"], report["states"], report["differing_pixels"]),
+                         ("match", 305, 610, 0))
+        rows = list(fidelity.trace_rows(candidate))
+        completion_gate_timing(rows)
+        for tick, active, live_collapse in ((273, 1, False), (308, 0, False), (308, 1, True)):
+            changed = copy.deepcopy(rows)
+            row = next(row for row in changed if row.get("phase") == "post_update" and row["tick"] == tick)
+            row["state"]["flow"][4] = active
+            if live_collapse:
+                row["state"]["collapse"].append([0] * 15)
+            with self.subTest(tick=tick, active=active, live_collapse=live_collapse), self.assertRaises(ValueError):
+                completion_gate_timing(changed)
+
     def test_capture_rejects_inconsistent_evidence(self):
         mutations = []
         def case(change):
@@ -289,13 +359,15 @@ def main() -> int:
             output = Path(directory) / "cpp"
             fidelity.record(EXE, ROOT, FIXTURES / args.case / "route.txt", output, original_intro_wait=True)
             report = original.compare(FIXTURES / args.case, output)
+            if args.case == "completion_gate":
+                completion_gate_timing(list(fidelity.trace_rows(output)))
             print(json.dumps(report, sort_keys=True))
             fidelity.require(report["status"] == "match", "original Level 1 divergence")
             print(f"level1_original=ok case={args.case} frames={report['frames']} pixels={report['pixels']} differing_pixels=0")
         return 0
     result = unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromTestCase(OriginalTests))
     if result.wasSuccessful() and not result.skipped:
-        print(f"level1_original_guard=ok tests={result.testsRun} mutations=16 fullframe=1 late_validation=1")
+        print(f"level1_original_guard=ok tests={result.testsRun} mutations=19 fullframe=1 late_validation=1 completion_gate=1")
         return 0
     return 1
 

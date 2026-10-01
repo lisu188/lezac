@@ -4736,6 +4736,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^level_outro=ok lines=4 delay_ms=81 dest_bonus=510 bomb_bonus=5000 awarded=5510 key_advance=1 next_level=2 original_runtime_claim=0")
 
+    add_test(NAME level_completion_gate
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-level-completion-gate)
+    set_tests_properties(level_completion_gate PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^level_completion_gate=ok cached_flags=1 collapse_wait=1 live_debris_allowed=1 gameplay_frozen=1 results_award=1 original_runtime_claim=0")
+
     add_test(NAME all_levels_render
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-all-levels-render)
@@ -4779,7 +4787,7 @@ if(BUILD_TESTING)
             "^two_player_hud_panel=ok split_views=2 p1_hud_visible=1 p1_world_visible=1 p2_hud_visible=1 p2_world_visible=1 objective_panel_visible=1 objective_panel_changed=1 panel_x=141 panel_w=37 p2_column_x=180 frame_inspection=1 original_art_claim=0")
 
     if(Python3_Interpreter_FOUND)
-        foreach(level1_case walk bomb objective held_fire rapid_fire)
+        foreach(level1_case walk bomb objective held_fire rapid_fire completion_gate)
             add_test(NAME level1_original_${level1_case}
                 COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                         ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_level1_original.py
@@ -4796,7 +4804,7 @@ if(BUILD_TESTING)
         set_tests_properties(level1_original_guard PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 180 LABELS "level1;original;evidence-guard"
-            PASS_REGULAR_EXPRESSION "level1_original_guard=ok tests=10 mutations=16 fullframe=1 late_validation=1")
+            PASS_REGULAR_EXPRESSION "level1_original_guard=ok tests=12 mutations=19 fullframe=1 late_validation=1 completion_gate=1")
 
         add_test(NAME level1_replay
             COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

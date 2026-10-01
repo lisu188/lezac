@@ -14142,6 +14142,34 @@ public:
             if (ui_.snapshot().paused || ui_.snapshot().menu || levelFlow_.intro().active)
                 throw std::runtime_error("gameplay command repeat policy changed");
         }
+        auto pushAltRelease = [&] {
+            SDL_Event event{};
+            event.type = SDL_KEYUP;
+            event.key.type = SDL_KEYUP;
+            event.key.keysym.sym = SDLK_LALT;
+            if (SDL_PushEvent(&event) < 0) throw std::runtime_error(SDL_GetError());
+        };
+        auto queueAltChoice = [&] {
+            pushKeyDown(SDLK_SPACE);
+            pushKeyDown(SDLK_LALT, false, KMOD_LALT);
+            pushKeyDown(SDLK_KP_4, false, KMOD_LALT);
+            pushKeyDown(SDLK_KP_9, false, KMOD_LALT);
+        };
+        ui_.setMenu(true);
+        ui_.beginMainMenu(0);
+        queueAltChoice();
+        pushAltRelease();
+        processEvents(running);
+        if (!ui_.snapshot().menu || !ui_.snapshot().mainMenu.textSkipped || levelFlow_.intro().active)
+            throw std::runtime_error("queued Alt release escaped the consumed typing skip");
+        ui_.beginMainMenu(0);
+        queueAltChoice();
+        processEvents(running);
+        pushAltRelease();
+        processEvents(running);
+        if (ui_.snapshot().menu || !levelFlow_.intro().active || playerCount_ != 1)
+            throw std::runtime_error("queued typing skip lost still-held Alt accumulation");
+        levelFlow_.restoreIntro({});
         ui_.setMenu(true);
         ui_.beginMainMenu(0);
         pushKeyDown(SDLK_ESCAPE, true);
@@ -14153,7 +14181,8 @@ public:
         if (running) throw std::runtime_error("later repeated Escape did not exit the settled menu");
         replayClockEnabled_ = false;
         std::cout << "buffered_menu_repeat=ok players=2 consumed_menu_skip=1 consumed_intro_skip=1 later_repeat_ack=1"
-                  << " modifiers_ignored=1 gameplay_commands_unchanged=1 escape_repeat=1 frame_inspection=1\n";
+                  << " modifiers_ignored=1 gameplay_commands_unchanged=1 escape_repeat=1 frame_inspection=1"
+                  << " queued_alt_release_consumed=1 pending_alt_preserved=1\n";
     }
 
     void debugHeldFireLive(const std::string& outDir, SDL_Keycode observedKey = SDLK_n) {
@@ -23455,6 +23484,7 @@ private:
     UiController ui_;
     RecordStore recordStore_;
     LevelFlow levelFlow_;
+    InputMapper inputMapper_;
     AssetCatalog assets_;
     lezac::rendering::PresentationState presentation_;
     const Palette& palette_ = presentation_.palette();
@@ -23572,6 +23602,8 @@ private:
             } else if (e.type == SDL_KEYUP) {
                 if (isPlayer1FireKey(e.key.keysym.sym)) reentryFire1_ = false;
                 if (isPlayer2FireKey(e.key.keysym.sym)) reentryFire2_ = false;
+                const auto character = inputMapper_.bufferedMenuKeyUp(e.key.keysym.sym);
+                if (character && usesBufferedMenuInput()) onUiKey(*character, running);
             } else if (e.type == SDL_KEYDOWN &&
                        (!e.key.repeat ||
                         (!ui_.snapshot().menu && !ui_.snapshot().paused && !levelFlow_.intro().active && !levelFlow_.outro().active &&
@@ -23579,24 +23611,49 @@ private:
                           (playerCount_ > 1 && isPlayer2FireKey(e.key.keysym.sym)))) ||
                         shouldAcceptRepeatedUiKey(e.key.keysym.sym))) {
                 onKey(e.key.keysym.sym, running, e.key.keysym.mod);
+            } else if (e.type == SDL_KEYDOWN) {
+                inputMapper_.bufferedMenuKeyDown(e.key.keysym.sym, e.key.keysym.mod);
             }
         }
     }
 
     bool shouldAcceptRepeatedUiKey(SDL_Keycode key) const {
         // CRT.ReadKey accepts future typematic characters after queued keys are drained.
-        if (InputMapper::isBufferedMenuKey(key) &&
-            ((ui_.snapshot().menu && ui_.snapshot().page == MenuPage::Main) || levelFlow_.intro().active)) return true;
+        if (usesBufferedMenuInput()) return true;
         return ui_.shouldAcceptRepeatedNameEntryKey(InputMapper::key(key));
     }
 
-    void pushKeyDown(SDL_Keycode key, bool repeat = false) {
+    bool usesBufferedMenuInput() const {
+        return (ui_.snapshot().menu && ui_.snapshot().page == MenuPage::Main) || levelFlow_.intro().active;
+    }
+
+    void flushBufferedMenuKeys() {
+        // Drain characters while retaining the already-arrived BIOS modifier/Alt state.
+        SDL_Event keys[64];
+        int count;
+        while ((count = SDL_PeepEvents(keys, 64, SDL_GETEVENT, SDL_KEYDOWN, SDL_KEYUP)) > 0) {
+            for (int i = 0; i < count; ++i) {
+                const auto& event = keys[i];
+                if (event.type == SDL_KEYDOWN) {
+                    inputMapper_.bufferedMenuKeyDown(event.key.keysym.sym, event.key.keysym.mod);
+                } else {
+                    inputMapper_.bufferedMenuKeyUp(event.key.keysym.sym);
+                    if (isPlayer1FireKey(event.key.keysym.sym)) reentryFire1_ = false;
+                    if (isPlayer2FireKey(event.key.keysym.sym)) reentryFire2_ = false;
+                }
+            }
+        }
+        if (count < 0) throw std::runtime_error(SDL_GetError());
+    }
+
+    void pushKeyDown(SDL_Keycode key, bool repeat = false, uint16_t modifiers = KMOD_NONE) {
         SDL_Event e{};
         e.type = SDL_KEYDOWN;
         e.key.type = SDL_KEYDOWN;
         e.key.state = SDL_PRESSED;
         e.key.repeat = repeat ? 1 : 0;
         e.key.keysym.sym = key;
+        e.key.keysym.mod = modifiers;
         e.key.keysym.scancode = SDL_GetScancodeFromKey(key);
         if (SDL_PushEvent(&e) < 0) {
             throw std::runtime_error(SDL_GetError());
@@ -23788,13 +23845,17 @@ private:
     }
 
     void onKey(SDL_Keycode key, bool& running, uint16_t modifiers = KMOD_NONE) {
-        if (((ui_.snapshot().menu && ui_.snapshot().page == MenuPage::Main) || levelFlow_.intro().active) &&
-            !InputMapper::isBufferedMenuKey(key)) return;
+        const auto character = inputMapper_.bufferedMenuKeyDown(key, modifiers);
+        if (usesBufferedMenuInput() && !character) return;
+        onUiKey(usesBufferedMenuInput() ? *character : InputMapper::key(key), running);
+    }
+
+    void onUiKey(Key domainKey, bool& running) {
         if (levelFlow_.intro().active) {
             if (levelFlow_.introWaitingForKey(presentationMilliseconds())) finishLevelIntro();
             else {
                 levelFlow_.skipIntroTyping();
-                SDL_FlushEvent(SDL_KEYDOWN);
+                flushBufferedMenuKeys();
             }
             return;
         }
@@ -23806,10 +23867,8 @@ private:
         const uint32_t now = presentationMilliseconds();
         const bool menuSkip = ui_.snapshot().menu && ui_.snapshot().page == MenuPage::Main &&
                               !ui_.mainMenuProgress(now).waitingForKey;
-        const auto domainKey = ui_.snapshot().menu && ui_.snapshot().page == MenuPage::Main ?
-                               InputMapper::mainMenuKey(key, modifiers) : InputMapper::key(key);
         ui_.onKey(domainKey, running, levelIndex_, playerCount_, recordStore_, uiActions(), now);
-        if (menuSkip) SDL_FlushEvent(SDL_KEYDOWN);
+        if (menuSkip) flushBufferedMenuKeys();
     }
 
     bool isPlayer1FireKey(SDL_Keycode key) const {

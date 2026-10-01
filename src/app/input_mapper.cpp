@@ -1,6 +1,7 @@
 #include "app/input_mapper.hpp"
+#include <utility>
 namespace lezac::app {
-bool InputMapper::isBufferedMenuKey(SDL_Keycode key) {
+bool InputMapper::isBufferedMenuKey(SDL_Keycode key, uint16_t modifiers) {
     // Modifiers and locks do not add a character to the original BIOS buffer.
     switch (key) {
         case SDLK_UNKNOWN:
@@ -9,10 +10,51 @@ bool InputMapper::isBufferedMenuKey(SDL_Keycode key) {
         case SDLK_LALT: case SDLK_RALT:
         case SDLK_LGUI: case SDLK_RGUI:
         case SDLK_CAPSLOCK: case SDLK_NUMLOCKCLEAR: case SDLK_SCROLLLOCK:
+        case SDLK_F11: case SDLK_F12:
             return false;
-        default:
-            return true;
+        default: break;
     }
+    if (modifiers & KMOD_ALT) {
+        if (key == SDLK_TAB || key == SDLK_RETURN ||
+            (key >= SDLK_KP_1 && key <= SDLK_KP_0)) return false;
+    } else if (modifiers & KMOD_CTRL) {
+        switch (key) {
+            case SDLK_1: case SDLK_3: case SDLK_4: case SDLK_5:
+            case SDLK_7: case SDLK_8: case SDLK_9: case SDLK_0:
+            case SDLK_EQUALS: case SDLK_SEMICOLON: case SDLK_QUOTE:
+            case SDLK_BACKQUOTE: case SDLK_COMMA: case SDLK_PERIOD: case SDLK_SLASH:
+                return false;
+            default: break;
+        }
+    }
+    return true;
+}
+
+std::optional<ui::Key> InputMapper::bufferedMenuKeyDown(SDL_Keycode code, uint16_t modifiers) {
+    if (code == SDLK_LALT || code == SDLK_RALT) {
+        altStateObserved_ = true;
+        altHeld_ = true;
+        return std::nullopt;
+    }
+    if (altStateObserved_)
+        modifiers = static_cast<uint16_t>((modifiers & ~KMOD_ALT) | (altHeld_ ? KMOD_LALT : 0));
+    if ((modifiers & KMOD_ALT) && code >= SDLK_KP_1 && code <= SDLK_KP_0) {
+        const int digit = code == SDLK_KP_0 ? 0 : code - SDLK_KP_1 + 1;
+        altAccumulator_ = static_cast<uint8_t>(altAccumulator_ * 10 + digit);
+        return std::nullopt;
+    }
+    if (!isBufferedMenuKey(code, modifiers)) return std::nullopt;
+    return mainMenuKey(code, modifiers);
+}
+
+std::optional<ui::Key> InputMapper::bufferedMenuKeyUp(SDL_Keycode code) {
+    if (code != SDLK_LALT && code != SDLK_RALT) return std::nullopt;
+    // The observed BIOS clears its one Alt flag on either release, not the last.
+    altStateObserved_ = true;
+    altHeld_ = false;
+    const uint8_t character = std::exchange(altAccumulator_, 0);
+    if (character == 0) return std::nullopt;
+    return static_cast<ui::Key>(character);
 }
 ui::Key InputMapper::key(SDL_Keycode key) {
     if (key >= SDLK_a && key <= SDLK_z) return static_cast<ui::Key>(static_cast<int>(ui::Key::A) + key - SDLK_a);

@@ -1,0 +1,277 @@
+{
+  "status": "observed",
+  "scenario": "composition",
+  "audio": "dummy",
+  "normal_entry_point": true,
+  "gameplay_seeded": false,
+  "startup_timing_gated": false,
+  "physical_keys": true,
+  "manual_input": false,
+  "whole_game_parity": false,
+  "exe_sha256": "7e83d43c39db5d06c9888361a7ba8d0f825e57253a87569ff5f6a0e8a7a746ac",
+  "harness_sha256": "4690cdc92c0fbe2f6f272cc8df333549059789b3fd50232e78d303d86fc8d82f",
+  "events": [
+    {
+      "kind": "key",
+      "key": "space",
+      "seconds": 1.8966225019830745
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 2.133924882975407
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_1",
+      "code": 87,
+      "seconds": 2.1483663029794116
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_0",
+      "code": 90,
+      "seconds": 2.2020836809824686
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_8",
+      "code": 80,
+      "seconds": 2.2557482959819026
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 2.3306116469902918
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 16.01105800300138
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_3",
+      "code": 89,
+      "seconds": 16.02957611999591
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_6",
+      "code": 85,
+      "seconds": 16.083573988988064
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_4",
+      "code": 83,
+      "seconds": 16.13748357098666
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 16.191298913996434
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 30.089425741985906
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_0",
+      "code": 90,
+      "seconds": 30.104082138976082
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 30.15814981298172
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 30.22820551597397
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_2",
+      "code": 88,
+      "seconds": 30.24279355898034
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_5",
+      "code": 84,
+      "seconds": 30.300284790981095
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_6",
+      "code": 85,
+      "seconds": 30.354272262979066
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 30.41065314298612
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 30.478899087989703
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_7",
+      "code": 79,
+      "seconds": 30.493381484993733
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_6",
+      "code": 85,
+      "seconds": 30.549006914981874
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 30.60496154197608
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 30.674780211993493
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_1",
+      "code": 87,
+      "seconds": 30.68948584998725
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_0",
+      "code": 90,
+      "seconds": 30.745036524982424
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_8",
+      "code": 80,
+      "seconds": 30.79932468899642
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_R",
+      "seconds": 30.853545502992347
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_R",
+      "seconds": 30.868088791001355
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_1",
+      "code": 87,
+      "seconds": 44.50098526198417
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_0",
+      "code": 90,
+      "seconds": 44.55505462898873
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_8",
+      "code": 80,
+      "seconds": 44.60929688098258
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 44.663653917988995
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "1",
+      "code": 10,
+      "seconds": 44.903838178986916
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 44.97268988797441
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 47.287144197995076
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 47.501774479984306
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 47.7165834219777
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 47.93123391299741
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 48.14601774897892
+    }
+  ],
+  "captures": [
+    {
+      "name": "natural-typing-checkpoint",
+      "seconds": 1.8963272359978873,
+      "pixel_sha256": "262a264357582a0f87f81e27e2751990890d1c24f36fea2fe018a2198e05a621"
+    },
+    {
+      "name": "space-consumed-skip",
+      "seconds": 1.933615148998797,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "alt-108-held-no-character",
+      "seconds": 2.330357497994555,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "alt-108-released-english",
+      "seconds": 15.81066072799149,
+      "pixel_sha256": "1ba172f477005a57a01132e42042e54a5d1454f5b7361ceba9cab8b36a715b58"
+    },
+    {
+      "name": "alt-364-wrapped-italian",
+      "seconds": 29.889061195979593,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "first-alt-release-english",
+      "seconds": 44.30033912797808,
+      "pixel_sha256": "1ba172f477005a57a01132e42042e54a5d1454f5b7361ceba9cab8b36a715b58"
+    },
+    {
+      "name": "second-alt-release-no-duplicate",
+      "seconds": 44.70331392198568,
+      "pixel_sha256": "1ba172f477005a57a01132e42042e54a5d1454f5b7361ceba9cab8b36a715b58"
+    },
+    {
+      "name": "fresh-one-intro",
+      "seconds": 44.97223683199263,
+      "pixel_sha256": "705fde37d758cd73ee4b11e2ea7b553fa6e9938bed44005058da308182ce7e6d"
+    }
+  ],
+  "child_exit_code": 0
+}

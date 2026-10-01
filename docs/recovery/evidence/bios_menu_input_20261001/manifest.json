@@ -1,0 +1,202 @@
+{
+  "cases": {
+    "alt_chord_failure": {
+      "raw_directory": "/dev/shm/lezac-original-alt-interruption-language-20261001",
+      "record": "alt_chord_failure.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "failed"
+    },
+    "alt_interruption": {
+      "raw_directory": "/dev/shm/lezac-original-alt-raw-interruption-language-20261001",
+      "record": "alt_interruption.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "observed"
+    },
+    "alt_language": {
+      "raw_directory": "/dev/shm/lezac-original-main-alt-keypad-language-20261001",
+      "record": "alt_language.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "observed"
+    },
+    "alt_modulo": {
+      "raw_directory": "/dev/shm/lezac-original-alt-modulo-language-20261001",
+      "record": "alt_modulo.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "observed"
+    },
+    "alt_one": {
+      "raw_directory": "/dev/shm/lezac-original-main-alt-keypad-one-typing-20261001",
+      "record": "alt_one.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "observed"
+    },
+    "alt_overlap": {
+      "raw_directory": "/dev/shm/lezac-original-alt-overlap-following-keypad-20261001",
+      "record": "alt_overlap.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "observed"
+    },
+    "alt_release": {
+      "raw_directory": "/dev/shm/lezac-original-alt-two-release-language-20261001",
+      "record": "alt_release.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "observed"
+    },
+    "alt_tab": {
+      "raw_directory": "/dev/shm/lezac-original-alt-tab-typing-20261001",
+      "record": "alt_tab.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "observed"
+    },
+    "alt_zero": {
+      "raw_directory": "/dev/shm/lezac-original-alt-zero-overflow-typing-20261001",
+      "record": "alt_zero.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "observed"
+    },
+    "control_noncharacters": {
+      "raw_directory": "/dev/shm/lezac-original-main-control-noncharacters-20261001",
+      "record": "control_noncharacters.json",
+      "source": "source_25937c28a85481307add201e6d627d7b17a7ac4c94bf900cc886de5b637f8a71.py.gz",
+      "status": "observed"
+    },
+    "control_one": {
+      "raw_directory": "/dev/shm/lezac-original-main-ctrl-one-typing-20261001",
+      "record": "control_one.json",
+      "source": "source_a5576223031df64f400a9c3b0f35c35f3f0edaf8a5b38173176e4362061909f8.py.gz",
+      "status": "observed"
+    },
+    "control_two": {
+      "raw_directory": "/dev/shm/lezac-original-main-ctrl-two-typing-settled-20261001",
+      "record": "control_two.json",
+      "source": "source_25937c28a85481307add201e6d627d7b17a7ac4c94bf900cc886de5b637f8a71.py.gz",
+      "status": "observed"
+    },
+    "control_two_transitional_failure": {
+      "raw_directory": "/dev/shm/lezac-original-main-ctrl-two-typing-20261001",
+      "record": "control_two_transitional_failure.json",
+      "source": "source_70b2c6f738f76eb0358b7daa84308fdd5c98b2a82f5ef7658e846d2aedc19bc0.py.gz",
+      "status": "failed"
+    },
+    "control_valid": {
+      "raw_directory": "/dev/shm/lezac-original-control-valid-typing-20261001",
+      "record": "control_valid.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "observed"
+    },
+    "cpp_cleanup_failure": {
+      "raw_directory": "/dev/shm/lezac-bios-menu-physical-20261001/lezac-bios-menu-59_bcs62/noncharacters",
+      "record": "cpp_cleanup_failure.json",
+      "source": "source_8c1882c6cec9accc19ed393c4536846b7564e45734ed298bbf0aec476b20accf.py.gz",
+      "status": "failed"
+    },
+    "cpp_composition": {
+      "raw_directory": "/dev/shm/lezac-bios-menu-physical-20261001/lezac-bios-menu-soat01ft/composition",
+      "record": "cpp_composition.json",
+      "source": "source_4690cdc92c0fbe2f6f272cc8df333549059789b3fd50232e78d303d86fc8d82f.py.gz",
+      "status": "observed"
+    },
+    "cpp_control_one_negative": {
+      "raw_directory": "/dev/shm/lezac-cpp-main-ctrl-one-typing-negative-20261001",
+      "record": "cpp_control_one_negative.json",
+      "source": "source_a5576223031df64f400a9c3b0f35c35f3f0edaf8a5b38173176e4362061909f8.py.gz",
+      "status": "failed"
+    },
+    "cpp_intro": {
+      "raw_directory": "/dev/shm/lezac-bios-menu-physical-20261001/lezac-bios-menu-soat01ft/intro",
+      "record": "cpp_intro.json",
+      "source": "source_4690cdc92c0fbe2f6f272cc8df333549059789b3fd50232e78d303d86fc8d82f.py.gz",
+      "status": "observed"
+    },
+    "cpp_noncharacters": {
+      "raw_directory": "/dev/shm/lezac-bios-menu-physical-20261001/lezac-bios-menu-soat01ft/noncharacters",
+      "record": "cpp_noncharacters.json",
+      "source": "source_4690cdc92c0fbe2f6f272cc8df333549059789b3fd50232e78d303d86fc8d82f.py.gz",
+      "status": "observed"
+    },
+    "enhanced_functions": {
+      "raw_directory": "/dev/shm/lezac-original-main-enhanced-function-typing-20261001",
+      "record": "enhanced_functions.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "observed"
+    }
+  },
+  "files": {
+    "alt_chord_failure.json": "0fb2d2a87adeb8ef4ba83cdd83b7b87142970d1c77a5fc11edee90e7b34fa537",
+    "alt_interruption.json": "da9d3a5c375ae8bd19e0d2c03f672d47545e1d5cb8436bf04e6da1b359523ea7",
+    "alt_language.json": "d9925276fe4d2ca1ec8613b5eafa6e1ea8496b817ad6d065a801895e62cbbb7b",
+    "alt_modulo.json": "63500b9a3f8f7cc439a8cf35fe3ae4df45fde67b01c35d0b9e2930099f22883e",
+    "alt_one.json": "6774ef558a210a234cd2e7740105b1f234651066544c9254e3c98f6e331ffc2c",
+    "alt_overlap.json": "da14bffd7b100054dbd60c6c9372f49753a0944e05ac2647784145a9d7ac0184",
+    "alt_release.json": "654bfc9d793466b46f4db06389fbab5c360fd8c080022456fb661a1daa28227a",
+    "alt_tab.json": "a4580f4326b2f6736948aa165d1e6f4cdee42f39feec6697e5fbb483061f3233",
+    "alt_zero.json": "72e6d08ee882fb8b99fe841790e62ca9a1736f44a74a9e93440171d7382383cd",
+    "control_noncharacters.json": "731000e4dd79154ce694390abe944d6a5cb2af530589a144c845c0234b109f4f",
+    "control_one.json": "99be0038b9595dabd7332dc34718e66842179aa3d1fb98ee690ba98d677e2172",
+    "control_two.json": "154c07265cb5f9662beb61006fc653a7a3cebc2cd09bab0b0b036d6d6ae7c363",
+    "control_two_transitional_failure.json": "fdec12aecf83eb46f41429d0f52dd5dce062aa15319973c6d7acd679e225de13",
+    "control_valid.json": "6b862da261310bae161733ca02fef71631d9e4e989c4241aa888dbd778efba83",
+    "cpp_cleanup_failure.json": "1e5ba74075120409aeec3b4f8020c30d063b69135cf42e95e4dee9f2a64768f0",
+    "cpp_composition.json": "ae966918c92013e7a204d63892e08aaf6f3961f36190778068ad24923cd04663",
+    "cpp_control_fixed.png": "3c03a4e0483d42bea33854839a18a1db84de08d12ecc4aebf40607338f253dc9",
+    "cpp_control_negative.png": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+    "cpp_control_one_negative.json": "b366a641a6f4f17dd3a1213c51471a18246430fca87bd721660a729c5af16f0d",
+    "cpp_english.png": "fa9ffb0c37712fd63d627876a5fbf32063654fda17027a9329cd7116e32350d8",
+    "cpp_intro.json": "17f070f1e0310ace9db0083e70414cc8e80383abe9d18dbeb32e080d776fee0f",
+    "cpp_intro_consumed.png": "5f8905a4790892ad7ea68519e87d7392c096fab2614645b86d996fd149b7e229",
+    "cpp_noncharacters.json": "67d889f58c55b670ebca8fd1fc5578096c5f9483f4ce3719cc0b2da8def94f0a",
+    "enhanced_functions.json": "72b48ca3240f8c1fc999625479a7938978aa3c106183e3fab5ccc0246abfb449",
+    "original_control_ignored.png": "52196111a83ee6aa72afb9be566270eee68ccdc37c43d4e54f523f88df4fdfb6",
+    "original_english.png": "fa9ffb0c37712fd63d627876a5fbf32063654fda17027a9329cd7116e32350d8",
+    "producer.py.gz": "745bcc670d9b9f31c379791a529239cb835a9c4e0866006c6f5377cf4b2dd9f7",
+    "source_25937c28a85481307add201e6d627d7b17a7ac4c94bf900cc886de5b637f8a71.py.gz": "9ead456aa5d68134a8df5e6798961d4d52ef9972bf5ca4c1781268ed1cc53363",
+    "source_4690cdc92c0fbe2f6f272cc8df333549059789b3fd50232e78d303d86fc8d82f.py.gz": "f2b3237584fca141fc44e6de4f1dafaff24778a7f4f0003594e0920f00a70ff4",
+    "source_70b2c6f738f76eb0358b7daa84308fdd5c98b2a82f5ef7658e846d2aedc19bc0.py.gz": "3933b210049aa289e89bb8722e99e7610fa410b27495e8b7dcb5a8224a71ea68",
+    "source_8c1882c6cec9accc19ed393c4536846b7564e45734ed298bbf0aec476b20accf.py.gz": "f472d05049c2d812feffa81a45bb769903be1df1badb4c862ec82f098d8ca322",
+    "source_a5576223031df64f400a9c3b0f35c35f3f0edaf8a5b38173176e4362061909f8.py.gz": "faffd0d04f98db47aaf2df6acf9e51b90fe6cdd3f7c06750389ff3da1d082bde",
+    "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz": "3be05fe115d41232c18114f8ad9f56518ea56518f8ae8a0a29d78a17faafb738"
+  },
+  "images": {
+    "cpp_control_fixed": {
+      "capture": "control-noncharacter-0",
+      "case": "cpp_noncharacters",
+      "file": "cpp_control_fixed.png",
+      "pixel_sha256": "262a264357582a0f87f81e27e2751990890d1c24f36fea2fe018a2198e05a621"
+    },
+    "cpp_control_negative": {
+      "capture": "after-choice-0.2",
+      "case": "cpp_control_one_negative",
+      "file": "cpp_control_negative.png",
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    "cpp_english": {
+      "capture": "alt-108-released-english",
+      "case": "cpp_composition",
+      "file": "cpp_english.png",
+      "pixel_sha256": "1ba172f477005a57a01132e42042e54a5d1454f5b7361ceba9cab8b36a715b58"
+    },
+    "cpp_intro_consumed": {
+      "capture": "intro-alt-release-consumed-skip",
+      "case": "cpp_intro",
+      "file": "cpp_intro_consumed.png",
+      "pixel_sha256": "c39ac7d19f46e456e8458eaff239fa97e76bc709eb2055b31be006ed07495b6a"
+    },
+    "original_control_ignored": {
+      "capture": "after-choice-0.2",
+      "case": "control_noncharacters",
+      "file": "original_control_ignored.png",
+      "pixel_sha256": "03ee73f743e657977cfa5a94c9e65d9496dae6f8393da35acd3e29175cd47599"
+    },
+    "original_english": {
+      "capture": "english-ready-control",
+      "case": "alt_language",
+      "file": "original_english.png",
+      "pixel_sha256": "1ba172f477005a57a01132e42042e54a5d1454f5b7361ceba9cab8b36a715b58"
+    }
+  },
+  "manual_input": false,
+  "original_exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "producer_sha256": "ab7db02ec49c45424934df66d11253c19628d7812f6c904580a19014d553e24c",
+  "schema": 1,
+  "whole_game_parity": false
+}

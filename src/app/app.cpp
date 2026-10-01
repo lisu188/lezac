@@ -16326,18 +16326,8 @@ public:
             throw std::runtime_error("behavior 3 landing changed");
         }
 
-        // Landing at a NON-TILE-ALIGNED y, which is what pins the ORDER of the
-        // recovered steps rather than just their content. The original runs
-        // gravity/landing before the vx seed and the behaviour-3 ledge probe
-        // (image 0x716e..0x7200), and that probe derives its tile row from
-        // monster.y -- so on the landing tick it must see the SNAPPED y.
-        // Here the walker arrives at y = 31 (y % 8 == 7) over a floor that
-        // continues. Snapped first, the probe reads row (24+17)/8 = 5, the
-        // floor, and the walker keeps going. Unsnapped it reads row
-        // (31+17)/8 = 6, empty space below the floor, and falsely reverses.
-        // Every other landing in this suite is tile-aligned, where the two
-        // rows coincide, so without this case the ordering is unguarded:
-        // reverting it leaves all 388 tests green.
+        // The native scan caches (y >> 3) + 2 before landing. Masking y to
+        // its tile boundary preserves that row, including off-grid landings.
         prepareMonsterMotionDebugLevel(false);
         monsters_.clear();
         ActiveMonster misaligned = walker;
@@ -16385,6 +16375,34 @@ public:
             ledgeWalker.x != 39 || ledgeWalker.fracX != 0 ||
             ledgeWalker.animStart != 43 || ledgeWalker.animEnd != 44) {
             throw std::runtime_error("behavior 3 ledge turn changed");
+        }
+
+        const std::array<std::array<int, 4>, 16> ledgeCases{{
+            {{0x25, 0x25, 256, 256}}, {{0x25, 0x25, -256, -256}},
+            {{1, 1, 256, 256}}, {{0x4d, 0x52, 256, 256}},
+            {{0x52, 0x4d, -256, -256}}, {{0x4c, 0x4c, 256, 256}},
+            {{0, 2, 256, 256}}, {{2, 0, 256, -256}},
+            {{0, 2, -256, 256}}, {{2, 0, -256, -256}},
+            {{0, 0, 256, 256}}, {{0, 0, -256, -256}},
+            {{0x53, 2, -256, 256}}, {{2, 0xff, 256, -256}},
+            {{0x6e, 0x6e, 256, 256}}, {{0x60, 0x52, -256, 256}}
+        }};
+        for (const auto& probe : ledgeCases) {
+            prepareMonsterMotionDebugLevel(false);
+            monsters_.clear();
+            tileRef(4, 5) = static_cast<uint8_t>(probe[0]);
+            tileRef(7, 5) = static_cast<uint8_t>(probe[1]);
+            level_.wordLayer[5 * level_.width + 4] = 1;
+            level_.wordLayer[5 * level_.width + 7] = 1;
+            ActiveMonster candidate = walker;
+            candidate.vx8 = static_cast<int16_t>(probe[2]);
+            monsters_.push_back(candidate);
+            updateMonsters(0.0f);
+            const auto& result = monsters_.front();
+            if (result.vx8 != probe[3] || result.vy8 != 0 || result.y != 24 ||
+                result.x != 40 + probe[3] / 256) {
+                throw std::runtime_error("walker ledge tile-class or direction rule differs");
+            }
         }
 
         prepareMonsterMotionDebugLevel(false);
@@ -16437,6 +16455,7 @@ public:
                   << " b3_ledge_vy=" << ledgeWalker.vy8
                   << " b3_ledge_frame=" << static_cast<int>(ledgeWalker.animStart)
                   << '-' << static_cast<int>(ledgeWalker.animEnd)
+                  << " b3_ledge_cases=" << ledgeCases.size()
                   << " b4_chase_vx=" << flyer.vx8
                   << " b4_chase_vy=" << flyer.vy8
                   << " b4_timer=" << flyer.motionTimer
@@ -22541,6 +22560,87 @@ public:
                   << std::hex << inspected.hash << std::dec << '\n';
     }
 
+    void debugWalkerLedgeOriginal(const std::string& fixturePath) {
+        if (std::filesystem::file_size(fixturePath) != 2193) {
+            throw std::runtime_error("walker ledge fixture size differs");
+        }
+        const auto data = readFile(fixturePath);
+        if (lezac::diagnostics::level1::fingerprint(data) != "406056142da0e279") {
+            throw std::runtime_error("walker ledge fixture fingerprint differs");
+        }
+        size_t offset = 0;
+        auto take = [&](size_t count) { return lezac::resources::getBytes(data, offset, count); };
+        const auto magic = take(12);
+        if (std::string(magic.begin(), magic.end()) != "LEZACLEDGE01" ||
+            lezac::resources::getU16(data, offset) != 572 || lezac::resources::getU8(data, offset) != 32) {
+            throw std::runtime_error("invalid walker ledge fixture header");
+        }
+        const auto seed = le32(take(4), 0);
+        const auto rect = take(8), tiles = take(72), words = take(144), descriptors = take(92 * 4);
+        const auto entry = take(46);
+        load();
+        initSdl();
+        resetLevel(1);
+        ui_.setMenu(false);
+        monsters_.clear();
+        for (size_t i = 0; i < tiles.size(); ++i) {
+            const int x = le16(rect, 0) + static_cast<int>(i % le16(rect, 4));
+            const int y = le16(rect, 2) + static_cast<int>(i / le16(rect, 4));
+            if (tileAt(x, y) != tiles[i] || wordAt(x, y) != le16(words, i * 2)) {
+                throw std::runtime_error("walker local map differs from the shipped level");
+            }
+        }
+        ActiveMonster monster;
+        monster.kind = entry[0];
+        monster.behavior = entry[21];
+        monster.hotspotY = entry[20];
+        monster.x = le16(entry, 38);
+        monster.y = le16(entry, 40) - monster.hotspotY;
+        monster.vx8 = static_cast<int16_t>(le16(entry, 6));
+        monster.vy8 = static_cast<int16_t>(le16(entry, 8));
+        monster.fracX = entry[10]; monster.fracY = entry[12];
+        monster.ai0 = le16(entry, 14); monster.ai1 = le16(entry, 16); monster.ai2 = le16(entry, 18);
+        monster.hp = entry[36] + 1;
+        monster.hasSpawner = entry[37] != 0; monster.spawnerIndex = entry[37] - 1;
+        monster.animCursor = entry[22] - 1; monster.animStart = entry[23] - 1; monster.animEnd = entry[24] - 1;
+        monster.animTick = entry[25]; monster.animDelay = entry[26]; monster.animMode = entry[27];
+        monster.animStep = static_cast<int8_t>(entry[28]);
+        auto spriteIndex = [&](const std::vector<uint8_t>& packet) {
+            for (size_t i = 1; i < descriptors.size() / 4; ++i) {
+                if (std::equal(packet.begin() + 42, packet.end(), descriptors.begin() + i * 4)) return static_cast<int>(i - 1);
+            }
+            throw std::runtime_error("unknown walker sprite descriptor");
+        };
+        monster.animFrame = static_cast<uint8_t>(spriteIndex(entry));
+        monsters_.push_back(monster);
+        randomSeed_ = seed;
+        for (int sample = 0; sample < 32; ++sample) {
+            const auto frame = lezac::resources::getU16(data, offset);
+            const auto expected = take(46);
+            if (frame != 572 + sample) throw std::runtime_error("walker frames are not consecutive");
+            logicTick_ = frame;
+            // Only this seeded walker advances; the source route has no state injections.
+            updateMonsters(0.0f);
+            if (monsters_.size() != 1 || randomSeed_ != seed) throw std::runtime_error("walker probe changed allocation or RNG");
+            const auto& m = monsters_.front();
+            if (m.x != le16(expected, 38) || m.y + m.hotspotY != le16(expected, 40) ||
+                m.vx8 != static_cast<int16_t>(le16(expected, 6)) || m.vy8 != static_cast<int16_t>(le16(expected, 8)) ||
+                m.fracX != le16(expected, 10) || m.fracY != le16(expected, 12) || m.kind != expected[0] ||
+                m.behavior != expected[21] || m.hotspotY != expected[20] || m.hp - 1 != expected[36] ||
+                m.ai0 != le16(expected, 14) || m.ai1 != le16(expected, 16) || m.ai2 != le16(expected, 18) ||
+                m.animCursor + 1 != expected[22] || m.animStart + 1 != expected[23] || m.animEnd + 1 != expected[24] ||
+                m.animTick != expected[25] || m.animDelay != expected[26] || m.animMode != expected[27] ||
+                m.animStep != static_cast<int8_t>(expected[28]) || gameRenderer_.monsterSpriteIndex(m) != spriteIndex(expected)) {
+                throw std::runtime_error("original walker ledge state differs at " + std::to_string(sample));
+            }
+        }
+        if (offset != data.size()) throw std::runtime_error("trailing walker fixture bytes");
+        const auto inspected = inspectRenderedFrame("walker-ledge-original");
+        std::cout << "walker_ledge_original=ok samples=32 first_frame=572 final_frame=603 local_map_unchanged=1"
+                  << " motion=1 fractions=1 animation=1 seeded_cpp=1 natural_source=1 frame_inspection=1 frame_hash="
+                  << std::hex << inspected.hash << std::dec << '\n';
+    }
+
     void debugTransientActorLimits() {
         load();
         initSdl();
@@ -25226,7 +25326,7 @@ private:
             tileRef(x, 5) = 2;   // floor: solid on every edge under both predicates
         }
         if (ledgeAhead) {
-            tileRef(6, 5) = 0;   // hole: passable under both predicates
+            tileRef(7, 5) = 0;   // cached below-right edge for actor column 5
         }
         playerCount_ = 1;
         playerDead_ = false;
@@ -25474,12 +25574,17 @@ private:
                 monster.vx8 = monster.vx8 > 0 ? speed : static_cast<int16_t>(-speed);
                 monster.facingDirty = true;
             }
-            float probeX = monster.x + (monster.vx8 < 0 ? -2.0f : 15.0f);
-            if (!solidPixel(probeX, monster.y + 17.0f)) {
-                monster.vx8 = -monster.vx8;
-                // The original sets the reselect flag whenever either
-                // below-edge cell stops being bottom-solid (1000:723D).
-                monster.facingDirty = true;
+            // 1000:7203..727D reads DS:2054/2057 from the cached 4x4 scan.
+            // Landing masks within the same tile row, so these coordinates
+            // remain the pre-integration cells, independent of word tags.
+            const int column = (monster.x + 4) >> 3;
+            const int row = (monster.y >> 3) + 2;
+            const bool leftMissing = !solidTileBottom(static_cast<uint8_t>(tileAt(column - 1, row)));
+            const bool rightMissing = !solidTileBottom(static_cast<uint8_t>(tileAt(column + 2, row)));
+            if (leftMissing || rightMissing) monster.facingDirty = true;
+            if (!(leftMissing && rightMissing) &&
+                ((monster.vx8 < 0 && leftMissing) || (monster.vx8 >= 0 && rightMissing))) {
+                monster.vx8 = static_cast<int16_t>(-monster.vx8);
             }
         }
     }
@@ -28424,6 +28529,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-pickup-landing-original") {
             app.debugPickupLandingOriginal(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-walker-ledge-original") {
+            app.debugWalkerLedgeOriginal(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-bomb-motion-original") {

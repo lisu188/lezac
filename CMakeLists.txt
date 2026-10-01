@@ -4085,7 +4085,7 @@ if(BUILD_TESTING)
     set_tests_properties(monster_motion_model PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "monster_motion_model=ok carry_pos=11 carry_frac=4 neg_pos=9 neg_frac=254 b3_init_vx=0 b3_init_frame=43-44 b3_fall_zero_dx=11/11 b3_fall_vy=704 b3_land_vy=0 b3_land_y=24 b3_land_fracy=128 b3_land_vx=256 b3_misaligned_fall_y=31 b3_misaligned_land_y=24 b3_misaligned_land_vx=256 b3_ledge_vx=-256 b3_ledge_vy=0 b3_ledge_frame=43-44 b4_chase_vx=512 b4_chase_vy=0 b4_timer=6 b4_frame=39-41")
+            "monster_motion_model=ok carry_pos=11 carry_frac=4 neg_pos=9 neg_frac=254 b3_init_vx=0 b3_init_frame=43-44 b3_fall_zero_dx=11/11 b3_fall_vy=704 b3_land_vy=0 b3_land_y=24 b3_land_fracy=128 b3_land_vx=256 b3_misaligned_fall_y=31 b3_misaligned_land_y=24 b3_misaligned_land_vx=256 b3_ledge_vx=-256 b3_ledge_vy=0 b3_ledge_frame=43-44 b3_ledge_cases=16 b4_chase_vx=512 b4_chase_vy=0 b4_timer=6 b4_frame=39-41")
 
     add_test(NAME walker_turn_points
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -4660,6 +4660,14 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^pickup_landing_original=ok samples=26 actor_states=48 created=2 retired=1 initial_y=370 label_y=366,378 creation_rng=1 seeded_cpp=1 frame_inspection=1")
 
+    add_test(NAME walker_ledge_original
+        COMMAND lezac_cpp --debug-walker-ledge-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/walker_ledge_original.bin)
+    set_tests_properties(walker_ledge_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^walker_ledge_original=ok samples=32 first_frame=572 final_frame=603 local_map_unchanged=1 motion=1 fractions=1 animation=1 seeded_cpp=1 natural_source=1 frame_inspection=1")
+
     add_test(NAME transient_actor_limits
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-transient-actor-limits)
     set_tests_properties(transient_actor_limits PROPERTIES
@@ -4808,6 +4816,13 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 90 LABELS "original;evidence-guard;pickup"
             PASS_REGULAR_EXPRESSION "^pickup_landing_guard=ok cases=5 rejected_before_replay=1 immutable_fixture=1 audio=dummy")
+        add_test(NAME walker_ledge_guard
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_walker_ledge_guard.py
+                --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/walker_ledge_guard_out)
+        set_tests_properties(walker_ledge_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 90 LABELS "original;evidence-guard;monster"
+            PASS_REGULAR_EXPRESSION "^walker_ledge_guard=ok cases=5 rejected_before_replay=1 immutable_fixture=1 audio=dummy")
         foreach(level1_case walk bomb objective held_fire rapid_fire completion_gate)
             add_test(NAME level1_original_${level1_case}
                 COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

@@ -83,7 +83,13 @@ planes. A [longer pickup-landing route](pickup_landing_runtime_2026-10-01.md)
 matches 600 additional natural Level 2 frames and fixes the pickup indicator
 origin after ground snap/drop. It reaches player damage and structural collapse
 but no objective collection or level completion; its permanent regression is
-a small seeded C++ indicator-lifetime probe. Complete Level 2 progression,
+a small seeded C++ indicator-lifetime probe. A subsequent
+[walker ledge recovery](walker_ledge_runtime_2026-10-01.md) extends the route to
+900 Level 2 frames and fixes an off-screen monster turn concealed by the
+earlier camera coverage. The RGB, mapped-state and newly decoded monster-motion
+projections match; a 32-frame seeded walker probe provides the permanent
+regression. This route destroys 87 structures but collects no objective and
+loses one objective tile, so it is not a Level 2 finish. Complete Level 2 progression,
 typing skip/escape, two-player/English
 native handoffs and physical presentation cadence remain open; these checks
 do not change the whole-game completion flags or provide an overall

@@ -740,6 +740,18 @@ if(BUILD_TESTING)
             ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
             TIMEOUT 180
             PASS_REGULAR_EXPRESSION "boss_active_combat_fixture=ok samples=800 views=12 shots=22 reentries=3 keys=66 newline_variants=2 mutations_rejected=19 silent_children=1 whole_game_parity=0")
+        add_test(NAME boss_extended_combat_evidence
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_boss_extended_combat_evidence.py)
+        set_tests_properties(boss_extended_combat_evidence PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "boss_extended_combat_evidence=ok samples=3200 views=15 shots=96 reentries=10 keys=266 defeat=1714 cleanup=1833 sealed_replay=1 live_replay=0 whole_game_parity=0")
+        add_test(NAME boss_extended_combat_original
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_boss_extended_combat_evidence.py --exe $<TARGET_FILE:lezac_cpp>)
+        set_tests_properties(boss_extended_combat_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+            TIMEOUT 180
+            PASS_REGULAR_EXPRESSION "boss_extended_combat_fixture=ok samples=3200 views=15 shots=96 reentries=10 keys=266 newline_variants=2 mutations_rejected=16 silent_children=1 whole_game_parity=0")
         add_test(NAME reentry_wait_original_evidence
             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_reentry_wait_evidence.py --self-test)
         set_tests_properties(reentry_wait_original_evidence PROPERTIES

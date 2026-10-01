@@ -1959,12 +1959,13 @@ public:
                   << " actual_dac=1 frame_wrap=1 byte_wrap=1 seeded_scene=1 natural_route=0 whole_game_parity=0\n";
     }
 
-    enum class BossReplay { Continuous, Defeat, Impact, Mass, Reentry, ZeroReserve, FireReentry, ActiveCombat };
+    enum class BossReplay { Continuous, Defeat, Impact, Mass, Reentry, ZeroReserve, FireReentry, ActiveCombat, ExtendedCombat };
 
     void debugBossContinuousOriginal(const std::string& fixture, const std::string& outDir, BossReplay mode = BossReplay::Continuous) {
         load(); initSdl();
         const auto normalizedPalette = palette_;
-        const bool activeCombat = mode == BossReplay::ActiveCombat;
+        const bool extendedCombat = mode == BossReplay::ExtendedCombat;
+        const bool activeCombat = mode == BossReplay::ActiveCombat || extendedCombat;
         const bool zeroReserve = mode == BossReplay::ZeroReserve;
         const bool fireReentry = mode == BossReplay::FireReentry;
         const bool activeCount = zeroReserve || fireReentry;
@@ -1976,16 +1977,18 @@ public:
         const bool flameProbe = bombProbe || activeCombat;
         const bool headMayDisappear = defeat || activeCombat;
         const int seededWeapon = mass ? 3 : 0;
-        const std::string replay = activeCombat ? "boss_active_combat" : reentry ? "boss_reentry" : mass ? "boss_mass" : (impact ? "boss_impact" : (defeat ? "boss_defeat" : "boss_continuous"));
+        const std::string replay = extendedCombat ? "boss_extended_combat" : activeCombat ? "boss_active_combat" : reentry ? "boss_reentry" : mass ? "boss_mass" : (impact ? "boss_impact" : (defeat ? "boss_defeat" : "boss_continuous"));
         const std::vector<std::string> names = activeCombat ? std::vector<std::string>{"latched_fire_even"} : reentry ? std::vector<std::string>{fireReentry ? "fire_reentry_even" : zeroReserve ? "zero_reserve_even" : "massive_even"} : mass ? std::vector<std::string>{"massive_even", "massive_odd"} :
             impact ? std::vector<std::string>{"hit_even", "hit_odd"} :
             defeat ? std::vector<std::string>{"defeat_even", "defeat_odd"} :
             std::vector<std::string>{"idle_phase", "approach", "clock_wrap"};
-        const std::vector<int> viewSamples = activeCombat ? std::vector<int>{0, 1, 15, 16, 20, 39, 59, 99, 199, 399, 599, 799} : fireReentry ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 100, 101, 102, 119, 139} : reentry ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179, 199, 239, 259, 279, 319, 379, 419} : bombProbe ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179} :
+        const std::vector<int> viewSamples = extendedCombat ? std::vector<int>{0, 1, 15, 16, 20, 39, 59, 99, 199, 399, 599, 799, 1599, 2399, 3199} : activeCombat ? std::vector<int>{0, 1, 15, 16, 20, 39, 59, 99, 199, 399, 599, 799} : fireReentry ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 100, 101, 102, 119, 139} : reentry ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179, 199, 239, 259, 279, 319, 379, 419} : bombProbe ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179} :
             std::vector<int>{0, 1, 15, 16, 28, 57, 99, 139, 179, 199};
-        const int samplesPerCase = activeCombat ? 800 : fireReentry ? 140 : reentry ? 420 : bombProbe ? 180 : 200;
+        const int samplesPerCase = extendedCombat ? 3200 : activeCombat ? 800 : fireReentry ? 140 : reentry ? 420 : bombProbe ? 180 : 200;
+        const size_t expectedCombatKeys = extendedCombat ? 266 : 66;
         bool heldCombatFire = false;
         size_t combatKeys = 0, bombStates = 0, combatShots = 0, combatReentries = 0;
+        int combatDefeatSample = -1, combatCleanupSample = -1;
         bool keyRecorded = false;
         std::string name;
         int stage = 0, caseIndex = 0, sample = 0, firstFrame = 0, views = 0;
@@ -2143,7 +2146,9 @@ public:
                             bomb.owner != 1 || !bomb.moving) fail("combat bomb mismatch");
                         ++index; ++bombStates; continue;
                     }
-                    if (entry.kind != SharedActorKind::Effect || (!bombProbe && raw[1] != index + 2) ||
+                    // Converted boss slots retain visual order independently of actor order.
+                    // The sorted visual-slot comparison above still checks every entry.
+                    if (entry.kind != SharedActorKind::Effect || (!flameProbe && raw[1] != index + 2) ||
                         !transientMatchesOriginal(transientActors_[entry.index], raw, v, descriptors)) fail("route effect mismatch");
                     ++index; ++effectStates; continue;
                 }
@@ -2232,7 +2237,7 @@ public:
             if (tag.find('=') != std::string::npos) row = std::istringstream(line);
             std::map<std::string, std::string> f;
             while (row >> token) { const auto eq = token.find('='); if (eq == std::string::npos || !f.emplace(token.substr(0, eq), token.substr(eq + 1)).second) fail("invalid fields"); }
-            if (tag == "capture=" + (activeCombat ? replay : reentry ? "boss_mass" : replay) + (bombProbe ? "_probe_v1" : "_original_v1")) {
+            if (tag == "capture=" + (activeCombat ? replay : reentry ? "boss_mass" : replay) + (extendedCombat ? "_candidate_v1" : bombProbe ? "_probe_v1" : "_original_v1")) {
                 if (stage || f.size() != (activeCombat || mass ? 10u : (bombProbe ? 9u : 7u)) || f.at("level") != "7" || f.at("temp_copy") != "1" || f.at("seeded_case_boundary") != "1" ||
                     f.at("per_tick_actor_seed") != "0" || (!flameProbe && f.at("observed_backdrop") != "1") || f.at("natural_campaign") != "0" ||
                     (activeCombat && (f.at("head_health_modified") != "0" || f.at("seeded_bomb") != "0" || f.at("latched_input") != "1" || f.at("physical_keyboard") != "0")) ||
@@ -2317,6 +2322,11 @@ public:
                 bool sampledFire = false;
                 if (activeCombat) debugActorPassObserver_ = [&] { sampledFire = !playerDead_ && reentryFire1_; };
                 updateWithControls(controls, 1.0f / 60.0f);
+                if (extendedCombat && bossDefeated_) {
+                    if (combatDefeatSample < 0) combatDefeatSample = sample;
+                    if (combatCleanupSample < 0 && std::none_of(monsters_.begin(), monsters_.end(),
+                        [](const ActiveMonster& monster) { return monster.alive && monster.bossDebris; })) combatCleanupSample = sample;
+                }
                 if (activeCombat) {
                     debugActorPassObserver_ = {};
                     combatReentries += wasDead && !playerDead_;
@@ -2372,7 +2382,8 @@ public:
             } else fail("unknown record");
         }
         if (!complete) fail("missing completion");
-        if (activeCombat && (combatKeys != 66 || heldCombatFire || !combatShots || !combatReentries || !pendingBoundaries.empty())) fail("incomplete combat input coverage");
+        if (activeCombat && (combatKeys != expectedCombatKeys || heldCombatFire || !combatShots || !combatReentries || !pendingBoundaries.empty())) fail("incomplete combat input coverage");
+        if (extendedCombat && (combatDefeatSample < 0 || combatCleanupSample <= combatDefeatSample || !bossDefeated_)) fail("incomplete boss defeat/cleanup coverage");
         if (restartReentry && (replayResets != 1 || introRecords != 1 || !pendingBoundaries.empty() || boundaryCounts !=
             std::map<std::string, int>{{"fallback_increment", 230}, {"fallback_promote", 1}, {"level_init", 1}, {"intro_wait", 1}, {"intro_ack", 1}})) fail("incomplete shared restart coverage");
         if (fireReentry && (!keyRecorded || playerDead_ || dyingStates != kDeathStateTicks || waitingStates == 0 ||
@@ -2387,6 +2398,7 @@ public:
         if (mass || activeCombat) std::cout << " player_dying_states=" << dyingStates << " player_waiting_states=" << waitingStates;
         if (reentry) std::cout << " shared_counter_steps=" << boundaryCounts["fallback_increment"] << " restarts=" << replayResets << " zero_reserve=" << zeroReserve << " input_reentry=" << (fireReentry || activeCombat);
         if (activeCombat) std::cout << " key_events=" << combatKeys << " bomb_states=" << bombStates << " shots=" << combatShots << " reentries=" << combatReentries << " head_health_modified=0 seeded_bomb=0 physical_keyboard=0";
+        if (extendedCombat) std::cout << " defeat_sample=" << combatDefeatSample << " cleanup_sample=" << combatCleanupSample;
         std::cout << '\n';
     }
 
@@ -28278,6 +28290,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-active-combat-original") {
             app.debugBossContinuousOriginal(argv[2], argc > 3 ? argv[3] : "", App::BossReplay::ActiveCombat);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-boss-extended-combat-original") {
+            app.debugBossContinuousOriginal(argv[2], argc > 3 ? argv[3] : "", App::BossReplay::ExtendedCombat);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-impact-original") {

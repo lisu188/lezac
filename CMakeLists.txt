@@ -4455,7 +4455,7 @@ if(BUILD_TESTING)
     set_tests_properties(level_intro PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^level_intro=ok stripes=7 palette=176-182 exact_hash=0x85e10db60f7e89f9 exact_pixels=55025 caption_pixels=980 delay_ms=81 level_varies=1 live_flow=1 input_skip=1 escape_ack=1 blocking_wait=1 frame_inspection=1")
+            "^level_intro=ok stripes=7 palette=176-182 exact_hash=0x85e10db60f7e89f9 exact_pixels=55025 caption_pixels=980 delay_ms=81 level_varies=1 live_flow=1 input_skip=1 escape_ack=1 blocking_wait=1 inventory_carry=1 selection_reset=1 new_game_refill=1 same_level_carry=1 two_player_inventory=1 palette_reload=256 red_phase_preserved=1 frame_inspection=1")
 
     add_test(NAME sound_hook_evidence
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -4819,6 +4819,25 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 240 LABELS "level1;original;fullframe;results;typing"
             PASS_REGULAR_EXPRESSION "\"differing_pixels\": 0.*\"status\": \"match\".*\"typing_frames\": 89")
+        add_test(NAME bios_menu_window_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_bios_menu_window.py)
+        set_tests_properties(bios_menu_window_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 30
+            PASS_REGULAR_EXPRESSION "bios_menu_window_contract=ok cases=10 ownership=pid visible=1 badwindow_only=1 no_game_restart=1")
+        add_test(NAME level1_handoff_original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_handoff.py replay
+                    --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/level1_handoff_original_out)
+        set_tests_properties(level1_handoff_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 240 LABELS "level1;original;fullframe;handoff"
+            PASS_REGULAR_EXPRESSION "\"differing_pixels\": 0.*\"level2_frames\": 12.*\"level2_states\": 24.*\"status\": \"match\"")
+        add_test(NAME level1_handoff_guard
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_handoff.py guard)
+        set_tests_properties(level1_handoff_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 90 LABELS "level1;original;evidence-guard;handoff"
+            PASS_REGULAR_EXPRESSION "\"cpp_mutations_rejected\": 9.*\"frames\": 12.*\"mutations_rejected\": 30.*\"native_mutations_rejected\": 21.*\"status\": \"guarded\"")
         add_test(NAME level1_typing_guard
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_typing.py guard)
         set_tests_properties(level1_typing_guard PROPERTIES

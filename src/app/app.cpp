@@ -23307,12 +23307,37 @@ public:
         replayClockEnabled_ = true;
         replayMilliseconds_ = 0;
         bool running = true;
+        auto dirtyPalette = [&] {
+            Palette dirty{};
+            dirty.fill({12, 34, 56});
+            presentation_.setPalette(dirty);
+            presentation_.restoreRedPalettePhase(34);
+        };
+        auto requirePalette = [&] {
+            for (size_t i = 0; i < palette_.size(); ++i) {
+                if (argb(palette_, i) != argb(assets_.palette(), i))
+                    throw std::runtime_error("level reload did not restore the full asset palette");
+            }
+            if (presentation_.redPalettePhase() != 34)
+                throw std::runtime_error("level reload reset the red palette animation phase");
+        };
+        dirtyPalette();
+        bombInventory_.counts = {17, 0, 2, 3};
+        bombInventory2_.counts = {18, 1, 3, 4};
+        bombInventory_.selected = bombInventory2_.selected = BombType::Super;
+        auto requireInventory = [&](const std::array<int, 4>& first, const std::array<int, 4>& second) {
+            if (bombInventory_.counts != first || bombInventory2_.counts != second ||
+                bombInventory_.selected != BombType::Small || bombInventory2_.selected != BombType::Small)
+                throw std::runtime_error("level intro inventory reset/carryover mismatch");
+        };
         pushKeyDown(SDLK_1);
         processEvents(running);
         if (!levelFlow_.intro().active || ui_.snapshot().menu || levelIndex_ != 0 ||
             visibleLevelIntroCharacters(levelFlow_.intro().startedAt) != 1) {
             throw std::runtime_error("interactive menu start did not begin level intro");
         }
+        requireInventory(BombInventory{}.counts, BombInventory{}.counts);
+        requirePalette();
         const uint32_t logicBefore = logicTick_;
         updateWithControls(FrameControls{}, 1.0f / 60.0f);
         if (logicTick_ != logicBefore) {
@@ -23335,8 +23360,17 @@ public:
         pushKeyDown(SDLK_RETURN);
         processEvents(running);
         if (levelFlow_.intro().active) throw std::runtime_error("level intro acknowledgement failed");
+        requireInventory(BombInventory{}.counts, BombInventory{}.counts);
 
+        const std::array<int, 4> carried1{199, 7, 5, 2}, carried2{198, 9, 4, 1};
+        bombInventory_.counts = carried1;
+        bombInventory2_.counts = carried2;
+        bombInventory_.selected = BombType::Large;
+        bombInventory2_.selected = BombType::Super;
+        dirtyPalette();
         beginLevelForPlay(1);
+        requireInventory(carried1, carried2);
+        requirePalette();
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
         if (!levelFlow_.intro().active || !levelFlow_.intro().typingSkipped || !bombs_.empty()) {
@@ -23346,7 +23380,10 @@ public:
         processEvents(running);
         if (levelFlow_.intro().active || !bombs_.empty())
             throw std::runtime_error("level intro acknowledgement key leaked into gameplay");
+        requireInventory(carried1, carried2);
+        dirtyPalette();
         beginLevelForPlay(2);
+        requirePalette();
         pushKeyDown(SDLK_ESCAPE);
         processEvents(running);
         if (!levelFlow_.intro().active || !levelFlow_.intro().typingSkipped || ui_.snapshot().menu)
@@ -23356,7 +23393,33 @@ public:
         if (levelFlow_.intro().active || ui_.snapshot().menu || levelIndex_ != 2) {
             throw std::runtime_error("level intro Escape did not acknowledge the intro");
         }
+        requireInventory(carried1, carried2);
+        bombInventory_.selected = bombInventory2_.selected = BombType::Super;
+        dirtyPalette();
+        pushKeyDown(SDLK_F5);
+        processEvents(running);
+        requireInventory(carried1, carried2);
+        requirePalette();
+        pushKeyDown(SDLK_SPACE);
+        processEvents(running);
+        pushKeyDown(SDLK_SPACE);
+        processEvents(running);
+        if (levelFlow_.intro().active || levelIndex_ != 2)
+            throw std::runtime_error("same-level restart acknowledgement failed");
+        requireInventory(carried1, carried2);
         levelFlow_.setInteractiveEnabled(false);
+        dirtyPalette();
+        beginLevelForPlay(2);
+        requireInventory(carried1, carried2);
+        requirePalette();
+        ui_.setMenu(true);
+        dirtyPalette();
+        pushKeyDown(SDLK_2);
+        processEvents(running);
+        if (levelFlow_.intro().active || ui_.snapshot().menu || playerCount_ != 2 || levelIndex_ != 0)
+            throw std::runtime_error("two-player new game did not reset through the menu");
+        requireInventory(BombInventory{}.counts, BombInventory{}.counts);
+        requirePalette();
         replayClockEnabled_ = false;
 
         std::cout << "level_intro=ok stripes=7"
@@ -23370,6 +23433,8 @@ public:
                   << (kCapturedBluePixels + kCapturedWhitePixels)
                   << " delay_ms=" << kLevelIntroCharacterDelayMs
                   << " level_varies=1 live_flow=1 input_skip=1 escape_ack=1 blocking_wait=1"
+                  << " inventory_carry=1 selection_reset=1 new_game_refill=1 same_level_carry=1 two_player_inventory=1"
+                  << " palette_reload=256 red_phase_preserved=1"
                   << " frame_inspection=1\n";
     }
 
@@ -23965,6 +24030,12 @@ private:
         // Original level advance jumps to file 0x7f4c, past the new-game clock reset.
         levelIntroFrame_ = ui_.snapshot().menu ? 0 : logicTick_;
         presentation_.beginOriginalPlay(ui_.snapshot().menu);
+        if (ui_.snapshot().menu) {
+            bombInventory_ = {};
+            bombInventory2_ = {};
+        }
+        // 1000:2AF2 resets selection on reload; 2F69 initializes counts only for a new game.
+        bombInventory_.selected = bombInventory2_.selected = BombType::Small;
         if (levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("level_init");
         levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
         level_ = levels_[levelIndex_];
@@ -23980,6 +24051,8 @@ private:
             const auto words = decodePlane(level_.encodedWords, level_.wordLayer.size() * 2);
             for (size_t i = 0; i < level_.wordLayer.size(); ++i) level_.wordLayer[i] = le16(words, i * 2);
         }
+        // 1000:2BF9 reloads all of BOMPAL before generating the intro, without resetting DS:79AD.
+        presentation_.setPalette(assets_.palette());
         LevelIntroPattern pattern = makeLevelIntroPattern();
         levelFlow_.beginIntro(levelIndex_, std::move(pattern), presentationMilliseconds());
         if (levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("intro_wait");
@@ -23993,9 +24066,12 @@ private:
         const uint32_t frame = levelIntroFrame_;
         const int countdown1 = reentryTimer_, countdown2 = reentryTimer2_;
         const uint8_t fallback = noActivePlayerTicks_;
+        const auto counts1 = bombInventory_.counts, counts2 = bombInventory2_.counts;
         Level decodedLevel = std::move(level_);
         resetLevel(index);
         level_ = std::move(decodedLevel);
+        bombInventory_.counts = counts1;
+        bombInventory2_.counts = counts2;
         logicTick_ = frame;
         reentryTimer_ = countdown1;
         reentryTimer2_ = countdown2;

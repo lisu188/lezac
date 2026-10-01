@@ -29,3 +29,6 @@ docs/recovery/evidence/level1_results_2026-10-01/** -text
 tools/capture_original_level1_typing.py -text
 tests/fixtures/level1_typing/** -text
 docs/recovery/evidence/level1_typing_2026-10-01/** -text
+tools/capture_original_level1_handoff.py -text
+tests/fixtures/level1_handoff/** -text
+docs/recovery/evidence/level1_handoff_2026-10-01/** -text

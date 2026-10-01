@@ -13,6 +13,21 @@ import time
 from check_main_menu_fixture import HEADER, ROOT, load_fixture, require, sha
 
 
+def acquire_window(pid, xdo):
+    try:
+        windows = xdo("search", "--onlyvisible", "--pid", str(pid), "--name", "Larax").split()
+        if not windows:
+            return None
+        window = windows[-1]
+        xdo("windowfocus", "--sync", window)
+        geometry = dict(line.split("=", 1) for line in xdo("getwindowgeometry", "--shell", window).splitlines())
+        return window, geometry
+    except subprocess.CalledProcessError as error:
+        if (error.cmd[1] == "search" and error.returncode == 1) or "BadWindow" in (error.stderr or ""):
+            return None
+        raise
+
+
 def observe(exe, output, scenario, expected):
     from PIL import Image, ImageGrab
     output.mkdir()
@@ -26,7 +41,8 @@ def observe(exe, output, scenario, expected):
         child = subprocess.Popen([str(exe)], cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT)
         try:
             def xdo(*args):
-                return subprocess.check_output(["xdotool", *args], env=env, text=True, timeout=5).strip()
+                return subprocess.check_output(["xdotool", *args], env=env, text=True, timeout=5,
+                                               stderr=subprocess.PIPE).strip()
 
             def wait(predicate, timeout=20):
                 deadline = time.monotonic() + timeout
@@ -38,15 +54,8 @@ def observe(exe, output, scenario, expected):
                     time.sleep(.005)
                 raise RuntimeError("buffered keyboard observation timed out")
 
-            def discover():
-                try:
-                    return xdo("search", "--pid", str(child.pid), "--name", "Larax").split()[-1]
-                except (subprocess.CalledProcessError, IndexError):
-                    return None
-
-            window = wait(discover)
-            xdo("windowfocus", "--sync", window)
-            geometry = dict(line.split("=", 1) for line in xdo("getwindowgeometry", "--shell", window).splitlines())
+            # A startup XID may disappear between discovery and focus.
+            window, geometry = wait(lambda: acquire_window(child.pid, xdo))
             x, y, w, h = (int(geometry[key]) for key in ("X", "Y", "WIDTH", "HEIGHT"))
             require((w, h) == (960, 600), "normal app window geometry")
 
@@ -258,6 +267,8 @@ def observe(exe, output, scenario, expected):
             result["status"] = "observed"
         except Exception as error:
             result.update(status="failed", error=str(error))
+            if isinstance(error, subprocess.CalledProcessError):
+                result["command_stderr"] = error.stderr
             raise
         finally:
             if child.poll() is None:

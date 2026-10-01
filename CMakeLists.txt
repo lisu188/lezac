@@ -722,6 +722,24 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             ENVIRONMENT "SDL_AUDIODRIVER=dummy"
             PASS_REGULAR_EXPRESSION "boss_mass_capture_self_check=ok windows=50 cases=1 samples=420 live=0")
+        add_test(NAME boss_active_combat_capture_contract
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_boss_defeat.py --active-combat --self-check)
+        set_tests_properties(boss_active_combat_capture_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "boss_active_combat_capture_self_check=ok windows=48 cases=1 samples=800 live=0")
+        add_test(NAME boss_active_combat_evidence
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_boss_active_combat_evidence.py)
+        set_tests_properties(boss_active_combat_evidence PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "boss_active_combat_evidence=ok samples=800 views=12 shots=22 reentries=3 keys=66 sealed_replay=1 live_replay=0 whole_game_parity=0")
+        add_test(NAME boss_active_combat_original
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_boss_active_combat_evidence.py --exe $<TARGET_FILE:lezac_cpp>)
+        set_tests_properties(boss_active_combat_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+            TIMEOUT 180
+            PASS_REGULAR_EXPRESSION "boss_active_combat_fixture=ok samples=800 views=12 shots=22 reentries=3 keys=66 newline_variants=2 mutations_rejected=19 silent_children=1 whole_game_parity=0")
         add_test(NAME reentry_wait_original_evidence
             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_reentry_wait_evidence.py --self-test)
         set_tests_properties(reentry_wait_original_evidence PROPERTIES

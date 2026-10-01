@@ -19,3 +19,5 @@ docs/recovery/evidence/main_menu_characters_20261001/** -text
 docs/recovery/evidence/main_menu_characters_20261001/focused_ctest.log -diff
 docs/recovery/evidence/bios_menu_input_20261001/** -text
 docs/recovery/evidence/legacy_keypad_20261001/** -text
+docs/recovery/evidence/boss_active_combat_20261001/** -text
+tests/fixtures/boss_active_combat_original_level7.txt.gz -text

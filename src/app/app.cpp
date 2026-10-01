@@ -1959,28 +1959,33 @@ public:
                   << " actual_dac=1 frame_wrap=1 byte_wrap=1 seeded_scene=1 natural_route=0 whole_game_parity=0\n";
     }
 
-    enum class BossReplay { Continuous, Defeat, Impact, Mass, Reentry, ZeroReserve, FireReentry };
+    enum class BossReplay { Continuous, Defeat, Impact, Mass, Reentry, ZeroReserve, FireReentry, ActiveCombat };
 
     void debugBossContinuousOriginal(const std::string& fixture, const std::string& outDir, BossReplay mode = BossReplay::Continuous) {
         load(); initSdl();
         const auto normalizedPalette = palette_;
+        const bool activeCombat = mode == BossReplay::ActiveCombat;
         const bool zeroReserve = mode == BossReplay::ZeroReserve;
         const bool fireReentry = mode == BossReplay::FireReentry;
         const bool activeCount = zeroReserve || fireReentry;
         const bool restartReentry = mode == BossReplay::Reentry || zeroReserve;
-        const bool reentry = restartReentry || fireReentry;
-        const bool mass = mode == BossReplay::Mass || reentry;
+        const bool reentry = restartReentry || fireReentry || activeCombat;
+        const bool mass = mode == BossReplay::Mass || (reentry && !activeCombat);
         const bool defeat = mode == BossReplay::Defeat, impact = mode == BossReplay::Impact || mass;
         const bool bombProbe = defeat || impact;
+        const bool flameProbe = bombProbe || activeCombat;
+        const bool headMayDisappear = defeat || activeCombat;
         const int seededWeapon = mass ? 3 : 0;
-        const std::string replay = reentry ? "boss_reentry" : mass ? "boss_mass" : (impact ? "boss_impact" : (defeat ? "boss_defeat" : "boss_continuous"));
-        const std::vector<std::string> names = reentry ? std::vector<std::string>{fireReentry ? "fire_reentry_even" : zeroReserve ? "zero_reserve_even" : "massive_even"} : mass ? std::vector<std::string>{"massive_even", "massive_odd"} :
+        const std::string replay = activeCombat ? "boss_active_combat" : reentry ? "boss_reentry" : mass ? "boss_mass" : (impact ? "boss_impact" : (defeat ? "boss_defeat" : "boss_continuous"));
+        const std::vector<std::string> names = activeCombat ? std::vector<std::string>{"latched_fire_even"} : reentry ? std::vector<std::string>{fireReentry ? "fire_reentry_even" : zeroReserve ? "zero_reserve_even" : "massive_even"} : mass ? std::vector<std::string>{"massive_even", "massive_odd"} :
             impact ? std::vector<std::string>{"hit_even", "hit_odd"} :
             defeat ? std::vector<std::string>{"defeat_even", "defeat_odd"} :
             std::vector<std::string>{"idle_phase", "approach", "clock_wrap"};
-        const std::vector<int> viewSamples = fireReentry ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 100, 101, 102, 119, 139} : reentry ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179, 199, 239, 259, 279, 319, 379, 419} : bombProbe ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179} :
+        const std::vector<int> viewSamples = activeCombat ? std::vector<int>{0, 1, 15, 16, 20, 39, 59, 99, 199, 399, 599, 799} : fireReentry ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 100, 101, 102, 119, 139} : reentry ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179, 199, 239, 259, 279, 319, 379, 419} : bombProbe ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179} :
             std::vector<int>{0, 1, 15, 16, 28, 57, 99, 139, 179, 199};
-        const int samplesPerCase = fireReentry ? 140 : reentry ? 420 : bombProbe ? 180 : 200;
+        const int samplesPerCase = activeCombat ? 800 : fireReentry ? 140 : reentry ? 420 : bombProbe ? 180 : 200;
+        bool heldCombatFire = false;
+        size_t combatKeys = 0, bombStates = 0, combatShots = 0, combatReentries = 0;
         bool keyRecorded = false;
         std::string name;
         int stage = 0, caseIndex = 0, sample = 0, firstFrame = 0, views = 0;
@@ -2044,7 +2049,7 @@ public:
             });
             if (number(fields.at("count")) != static_cast<int>(ordered.size()) ||
                 number(fields.at("visuals")) != static_cast<int>(ordered.size() + 2) || fields.at("link_count") != "6" ||
-                (!defeat && monsters_.size() != 7) || bossLinks_.size() != 6 ||
+                (!headMayDisappear && monsters_.size() != 7) || bossLinks_.size() != 6 ||
                 (seed && ordered.size() != static_cast<size_t>(bombProbe ? 8 : 7))) fail("actor/link count got=" + std::to_string(ordered.size()));
             const auto rng = bytes(fields.at("rng"), 4);
             const uint32_t random = le16(rng, 0) | (static_cast<uint32_t>(le16(rng, 2)) << 16);
@@ -2078,21 +2083,38 @@ public:
             if ((resetFrame ? 255 : playerDead_ && deathStateTimer_ == kDeathStateTicks ? deathObjectiveCount : energy_) != number(fields.at("energy")) || lives_ != number(fields.at("lives"))) fail("player cached energy/lives mismatch");
             if (reentry && (number(fields.at("fallback")) != noActivePlayerTicks_ || number(fields.at("resets")) != replayResets ||
                 (activeCount && fields.at("active_players") != "1"))) fail("shared fallback state mismatch");
+            if (activeCombat) {
+                const auto ammo = bytes(fields.at("ammo"), 8), weapons = bytes(fields.at("weapons"), 2), latches = bytes(fields.at("latches"), 2);
+                bytes(fields.at("normalized"), 5);
+                if (seed) {
+                    std::copy(ammo.begin(), ammo.begin() + 4, bombInventory_.counts.begin());
+                    std::copy(ammo.begin() + 4, ammo.end(), bombInventory2_.counts.begin());
+                    if (weapons[0] < 1 || weapons[0] > 4 || weapons[1] < 1 || weapons[1] > 4) fail("invalid weapon seed");
+                    bombInventory_.selected = static_cast<BombType>(weapons[0] - 1);
+                    bombInventory2_.selected = static_cast<BombType>(weapons[1] - 1);
+                    reentryFire1_ = latches[0]; reentryFire2_ = latches[1];
+                }
+                if (fields.at("active_players") != "1" ||
+                    !std::equal(ammo.begin(), ammo.begin() + 4, bombInventory_.counts.begin()) ||
+                    !std::equal(ammo.begin() + 4, ammo.end(), bombInventory2_.counts.begin()) ||
+                    weapons[0] != bombTypeIndex(bombInventory_.selected) + 1 || weapons[1] != bombTypeIndex(bombInventory2_.selected) + 1 ||
+                    latches[0] != reentryFire1_ || latches[1] != reentryFire2_) fail("combat inventory/latch mismatch");
+            }
             if (!seed && playerDead_) { if (pendingLifeLoss_) ++dyingStates; else ++waitingStates; }
             const auto links = bytes(fields.at("links"), 96);
             for (size_t i = 0; i < bossLinks_.size(); ++i) {
                 auto& link = bossLinks_[i]; const size_t at = i * 16;
-                if ((!defeat || !bossDefeated_) && (link.targetVisual != links[at] || link.selfVisual != links[at + 1] || link.gain != links[at + 2] || link.mode != links[at + 3] ||
+                if ((!headMayDisappear || !bossDefeated_) && (link.targetVisual != links[at] || link.selfVisual != links[at + 1] || link.gain != links[at + 2] || link.mode != links[at + 3] ||
                     link.radiusX != links[at + 4] || link.radiusY != links[at + 5] || link.offX != static_cast<int16_t>(le16(links, at + 7)) ||
                     link.offY != static_cast<int16_t>(le16(links, at + 9)) || link.biasY != static_cast<int8_t>(links[at + 15]))) fail("link constructor mismatch");
                 if (seed) { link.phase = links[at + 6]; link.outX = static_cast<int16_t>(le16(links, at + 11)); link.outY = static_cast<int16_t>(le16(links, at + 13)); }
                 // Defeated actors no longer consume links. Their stale original
                 // visual-slot bookkeeping is retained as provenance, not replayed.
-                if ((!defeat || !bossDefeated_) && (link.phase != links[at + 6] || link.outX != static_cast<int16_t>(le16(links, at + 11)) || link.outY != static_cast<int16_t>(le16(links, at + 13)))) {
+                if ((!headMayDisappear || !bossDefeated_) && (link.phase != links[at + 6] || link.outX != static_cast<int16_t>(le16(links, at + 11)) || link.outY != static_cast<int16_t>(le16(links, at + 13)))) {
                     fail("link " + std::to_string(i) + " output got=" + std::to_string(link.outX) + "," + std::to_string(link.outY) +
                          " wanted=" + std::to_string(static_cast<int16_t>(le16(links, at + 11))) + "," + std::to_string(static_cast<int16_t>(le16(links, at + 13))));
                 }
-                if (!seed && (!defeat || !bossDefeated_)) ++linkStates;
+                if (!seed && (!headMayDisappear || !bossDefeated_)) ++linkStates;
             }
             std::istringstream input(fields.at("actors")); std::string record; size_t index = 0;
             while (fields.at("actors") != "-" && std::getline(input, record, ',')) {
@@ -2112,15 +2134,25 @@ public:
                     ++index; continue;
                 }
                 if (entry.kind != SharedActorKind::Monster) {
+                    if (activeCombat && entry.kind == SharedActorKind::Bomb) {
+                        const auto& bomb = bombs_[entry.index];
+                        if (raw[0] != bombTypeIndex(bomb.type) + 13 || raw[2] != (bomb.timer + 1) / 2 || raw[21] != 2 ||
+                            raw[20] != bombHeightOffset(bomb.type) || le16(raw, 6) != static_cast<uint16_t>(bomb.vx8) ||
+                            le16(raw, 8) != static_cast<uint16_t>(bomb.vy8) || le16(raw, 10) != bomb.fracX || le16(raw, 12) != bomb.fracY ||
+                            le16(v, 0) != bomb.pixelX || le16(v, 2) != bomb.pixelY || spriteIndex(v) != static_cast<int>(bombProfile(bomb.type).spriteBase) ||
+                            bomb.owner != 1 || !bomb.moving) fail("combat bomb mismatch");
+                        ++index; ++bombStates; continue;
+                    }
                     if (entry.kind != SharedActorKind::Effect || (!bombProbe && raw[1] != index + 2) ||
                         !transientMatchesOriginal(transientActors_[entry.index], raw, v, descriptors)) fail("route effect mismatch");
                     ++index; ++effectStates; continue;
                 }
                 auto& m = monsters_[entry.index];
-                if (m.kind != raw[0] || (!defeat && m.bossVisual != raw[1]) || m.behavior != raw[21]) fail("actor constructor mismatch");
+                if (m.kind != raw[0] || (!headMayDisappear && m.bossVisual != raw[1]) || m.behavior != raw[21]) fail("actor constructor mismatch");
                 if (m.bossGroup != (m.bossVisual == 6 ? le16(raw, 18) : raw[37])) fail("boss owner mismatch");
                 if (seed) {
                     if (bombProbe && index == 0 && (raw[36] != 0 || raw[2] != (impact ? 1 : 0))) fail("head health seed contradicts provenance");
+                    if (activeCombat && index == 0 && (raw[2] != 1 || raw[36] != 10)) fail("head health seed contradicts provenance");
                     if (m.animMode != raw[27] || (raw[27] == 0 && m.animFrame != spriteIndex(v)) || (raw[27] != 0 &&
                         (m.animStart + 1 != raw[23] || m.animEnd + 1 != raw[24] || m.animDelay != raw[26]))) fail("boss animation constructor mismatch");
                     m.hotspotY = static_cast<int8_t>(raw[20]); m.x = le16(v, 0); m.y = le16(v, 2) - m.hotspotY;
@@ -2147,7 +2179,7 @@ public:
                 ++index; if (!seed) ++actorStates;
             }
             if (index != ordered.size()) fail("incomplete actor records");
-            if (bombProbe) {
+            if (flameProbe) {
                 bytes(fields.at("globals"), 58);
                 std::istringstream flames(fields.at("flames")); size_t i = 0;
                 while (fields.at("flames") != "-" && std::getline(flames, record, ',')) {
@@ -2200,9 +2232,10 @@ public:
             if (tag.find('=') != std::string::npos) row = std::istringstream(line);
             std::map<std::string, std::string> f;
             while (row >> token) { const auto eq = token.find('='); if (eq == std::string::npos || !f.emplace(token.substr(0, eq), token.substr(eq + 1)).second) fail("invalid fields"); }
-            if (tag == "capture=" + (reentry ? "boss_mass" : replay) + (bombProbe ? "_probe_v1" : "_original_v1")) {
-                if (stage || f.size() != (mass ? 10u : (bombProbe ? 9u : 7u)) || f.at("level") != "7" || f.at("temp_copy") != "1" || f.at("seeded_case_boundary") != "1" ||
-                    f.at("per_tick_actor_seed") != "0" || (!bombProbe && f.at("observed_backdrop") != "1") || f.at("natural_campaign") != "0" ||
+            if (tag == "capture=" + (activeCombat ? replay : reentry ? "boss_mass" : replay) + (bombProbe ? "_probe_v1" : "_original_v1")) {
+                if (stage || f.size() != (activeCombat || mass ? 10u : (bombProbe ? 9u : 7u)) || f.at("level") != "7" || f.at("temp_copy") != "1" || f.at("seeded_case_boundary") != "1" ||
+                    f.at("per_tick_actor_seed") != "0" || (!flameProbe && f.at("observed_backdrop") != "1") || f.at("natural_campaign") != "0" ||
+                    (activeCombat && (f.at("head_health_modified") != "0" || f.at("seeded_bomb") != "0" || f.at("latched_input") != "1" || f.at("physical_keyboard") != "0")) ||
                     (mass && f.at("seeded_weapon") != "3") ||
                     (bombProbe && (f.at("seeded_head_hp") != "0" || f.at("seeded_head_lives") != (impact ? "1" : "0") || f.at("seeded_bomb") != "1"))) fail("invalid provenance");
                 for (int i = 0; i < 7; ++i) resetLevel(i); stage = 1;
@@ -2221,14 +2254,14 @@ public:
                     if (descriptors[at] != s.width || descriptors[at + 1] != s.height || le16(descriptors, at + 2) != offset) fail("sprite bank mismatch"); offset += s.width * s.height; }
                 stage = 4;
             } else if (tag == "case") {
-                if (stage != 4 || caseIndex >= static_cast<int>(names.size()) || f.size() != (reentry ? (activeCount ? 19u : 18u) : bombProbe ? 16u : 14u) || f.at("name") != names[caseIndex]) fail("invalid case");
+                if (stage != 4 || caseIndex >= static_cast<int>(names.size()) || f.size() != (activeCombat ? 23u : reentry ? (activeCount ? 19u : 18u) : bombProbe ? 16u : 14u) || f.at("name") != names[caseIndex]) fail("invalid case");
                 name = f.at("name"); firstFrame = number(f.at("frame")); sample = 0;
                 if (firstFrame != (caseIndex == 2 ? 65520 : 100 + caseIndex)) fail("invalid clock seed");
                 registers(f.at("regs"), 1);
                 for (int i = 0; i < 7; ++i) resetLevel(i);
                 ui_.setMenu(false); levelFlow_.setIntroActiveForFixture(false); playerCount_ = 1;
                 level_.tiles = originalMap; presentation_.writeBackdropPrefix(originalBackdrop);
-                if (bombProbe) for (size_t i = 0; i < level_.wordLayer.size(); ++i) level_.wordLayer[i] = le16(originalWords, i * 2);
+                if (flameProbe) for (size_t i = 0; i < level_.wordLayer.size(); ++i) level_.wordLayer[i] = le16(originalWords, i * 2);
                 for (auto& spawner : spawnerStates_) { spawner.remaining = 0; spawner.availableSlots = 0; }
                 logicTick_ = firstFrame - 1;
                 if (bombProbe) { Bomb bomb; bomb.type = static_cast<BombType>(seededWeapon); bomb.actorOrder = claimActorOrder(); bombs_.push_back(bomb); }
@@ -2243,6 +2276,14 @@ public:
                     le16(regs, 10) != (intro ? 0x3ff2 : 0x3ffe)) fail("boundary registers");
                 bytes(f.at("p2"), 38);  // Inactive P2 record is original provenance, not a gameplay comparison.
                 pendingBoundaries.push_back(f);
+            } else if (activeCombat && tag == "key") {
+                const int next = number(f.at("next_sample"));
+                const bool fire = next >= 16 && (next - 16) % 24 == 0;
+                if (stage != 5 || sample != next || number(f.at("sample")) != sample - 1 || f.size() != 6 ||
+                    f.at("address") != "1b7b" || f.at("after_render") != "1" || fire == heldCombatFire ||
+                    bytes(f.at("before"), 1)[0] != reentryFire1_ || bytes(f.at("value"), 1)[0] != fire)
+                    fail("invalid combat key event");
+                heldCombatFire = fire; reentryFire1_ = fire; ++combatKeys;
             } else if (fireReentry && tag == "key") {
                 if (stage != 5 || keyRecorded || sample != 100 || f != std::map<std::string, std::string>{
                     {"sample", "100"}, {"address", "1b7b"}, {"value", "01"}, {"after_state_prepass", "1"}}) fail("invalid reentry key");
@@ -2254,14 +2295,16 @@ public:
                 if (std::filesystem::path(file).filename().string() != file || file.find('\\') != std::string::npos) fail("invalid intro filename");
                 bytes(f.at("sha256"), 32); ++introRecords;
             } else if (tag == "tick") {
-                if (stage != 5 || sample >= samplesPerCase || f.size() != (reentry ? (activeCount ? 22u : 21u) : bombProbe ? 19u : 17u) || number(f.at("sample")) != sample || number(f.at("frame")) != (firstFrame + sample + 1) % 65536) fail("nonconsecutive tick");
+                if (stage != 5 || sample >= samplesPerCase || f.size() != (activeCombat ? 26u : reentry ? (activeCount ? 22u : 21u) : bombProbe ? 19u : 17u) || number(f.at("sample")) != sample || number(f.at("frame")) != (firstFrame + sample + 1) % 65536) fail("nonconsecutive tick");
                 const bool reenterNow = fireReentry && keyRecorded && sample == 101;
-                if (playerDead_ && !reenterNow) {
+                if (activeCombat) {
+                    if (f.at("input_regs") != "-") registers(f.at("input_regs"), 2);
+                } else if (playerDead_ && !reenterNow) {
                     if (f.at("input_regs") != "-") fail("unexpected input during death");
                 } else registers(f.at("input_regs"), 2);
                 registers(f.at("regs"), 3);
                 const std::string control = name == "approach" && sample < 100 ? "left" : (name == "approach" && sample < 140 ? "right" : "idle");
-                if (f.at("control") != control) fail("input mismatch");
+                if (activeCombat ? (f.at("control") != "fire" && f.at("control") != "idle") : f.at("control") != control) fail("input mismatch");
                 FrameControls controls; controls.p1Left = control == "left"; controls.p1Right = control == "right";
                 controls.p1Reenter = reenterNow;
                 const int oldHp = impact ? monsters_[0].bossHpByte : 0;
@@ -2269,7 +2312,19 @@ public:
                 deathObjectiveCount = remainingObjectiveTiles();
                 const int generation = levelResetGeneration_;
                 boundaryIndex = 0;
+                const bool wasDead = playerDead_;
+                const int oldAmmo = bombInventory_.counts[bombTypeIndex(bombInventory_.selected)];
+                bool sampledFire = false;
+                if (activeCombat) debugActorPassObserver_ = [&] { sampledFire = !playerDead_ && reentryFire1_; };
                 updateWithControls(controls, 1.0f / 60.0f);
+                if (activeCombat) {
+                    debugActorPassObserver_ = {};
+                    combatReentries += wasDead && !playerDead_;
+                    combatShots += std::max(0, oldAmmo - bombInventory_.counts[bombTypeIndex(bombInventory_.selected)]);
+                    if (f.at("input_regs") != "-" &&
+                        (bytes(f.at("normalized"), 5) != std::vector<uint8_t>{0, 0, 0, static_cast<uint8_t>(sampledFire), 0} ||
+                         (f.at("control") == "fire") != sampledFire)) fail("normalized combat input mismatch");
+                }
                 if (boundaryIndex != pendingBoundaries.size()) fail("missing lifecycle boundary");
                 pendingBoundaries.clear();
                 resetFrame = generation != levelResetGeneration_;
@@ -2317,6 +2372,7 @@ public:
             } else fail("unknown record");
         }
         if (!complete) fail("missing completion");
+        if (activeCombat && (combatKeys != 66 || heldCombatFire || !combatShots || !combatReentries || !pendingBoundaries.empty())) fail("incomplete combat input coverage");
         if (restartReentry && (replayResets != 1 || introRecords != 1 || !pendingBoundaries.empty() || boundaryCounts !=
             std::map<std::string, int>{{"fallback_increment", 230}, {"fallback_promote", 1}, {"level_init", 1}, {"intro_wait", 1}, {"intro_ack", 1}})) fail("incomplete shared restart coverage");
         if (fireReentry && (!keyRecorded || playerDead_ || dyingStates != kDeathStateTicks || waitingStates == 0 ||
@@ -2328,8 +2384,9 @@ public:
                   << " actor_states=" << actorStates << " link_states=" << linkStates
                   << " effect_states=" << effectStates << " views=" << views << " compared_pixels=" << compared << " different_pixels=0 seeded_case_boundary=1 per_tick_actor_seed=0 whole_game_parity=0";
         if (impact) std::cout << " damage_updates=" << damageUpdates << " life_losses=" << lifeLosses << " flame_states=" << flameStates;
-        if (mass) std::cout << " player_dying_states=" << dyingStates << " player_waiting_states=" << waitingStates;
-        if (reentry) std::cout << " shared_counter_steps=" << boundaryCounts["fallback_increment"] << " restarts=" << replayResets << " zero_reserve=" << zeroReserve << " input_reentry=" << fireReentry;
+        if (mass || activeCombat) std::cout << " player_dying_states=" << dyingStates << " player_waiting_states=" << waitingStates;
+        if (reentry) std::cout << " shared_counter_steps=" << boundaryCounts["fallback_increment"] << " restarts=" << replayResets << " zero_reserve=" << zeroReserve << " input_reentry=" << (fireReentry || activeCombat);
+        if (activeCombat) std::cout << " key_events=" << combatKeys << " bomb_states=" << bombStates << " shots=" << combatShots << " reentries=" << combatReentries << " head_health_modified=0 seeded_bomb=0 physical_keyboard=0";
         std::cout << '\n';
     }
 
@@ -28217,6 +28274,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-defeat-original") {
             app.debugBossContinuousOriginal(argv[2], argc > 3 ? argv[3] : "", App::BossReplay::Defeat);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-boss-active-combat-original") {
+            app.debugBossContinuousOriginal(argv[2], argc > 3 ? argv[3] : "", App::BossReplay::ActiveCombat);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-impact-original") {

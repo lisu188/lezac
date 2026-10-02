@@ -4578,6 +4578,8 @@ public:
             debugAutoplayerMonsterBombReward(scenario);
         } else if (scenario == "monster_behavior3_multihit") {
             debugAutoplayerMonsterBehavior3Multihit(scenario);
+        } else if (scenario == "monster_static_facing") {
+            debugAutoplayerMonsterStaticFacing(scenario);
         } else if (scenario == "monster_behavior4_chase") {
             debugAutoplayerMonsterBehavior4Chase(scenario);
         } else if (scenario == "monster_spawner_cycle") {
@@ -25510,32 +25512,68 @@ private:
         }
     }
 
-    // Recovered original facing reselection (1000:7286 vx<0 -> actor+0x03 set,
-    // 1000:72DA vx>0 -> actor+0x04 set; vx==0 selects neither). It rewrites
-    // the range and resets the animation CURSOR to the range base
-    // (1000:72CE..72D8 `mov al,es:[di+1]; mov es:[di],al`) WITHOUT touching
-    // the visible frame or the tick counter, so the flip appears at the next
-    // animation boundary and -- cursor stepping base+1 -- enters on the HIGH
-    // member of the new pair (capture: 7/7 flips visible at the next mod-4
-    // boundary, 9/9 entering high). The reset is unconditional on flagged
-    // ticks even when the set is unchanged; that is what produces the two
-    // observed repeat-gap-8 boundaries in walker B's stream.
+    void debugAutoplayerMonsterStaticFacing(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(2);
+        monsters_.clear();
+        // Native Level 3 sample 345 before the actor update (DS:78C2 = 3015).
+        ActiveMonster captured;
+        captured.kind = 4;
+        captured.behavior = 3;
+        captured.x = 643;
+        captured.y = 136;
+        captured.vx8 = -264;
+        captured.fracX = 160;
+        captured.ai0 = 264;
+        captured.hp = 5;
+        captured.animCursor = captured.animFrame = captured.animStart = 53;
+        captured.animEnd = 55;
+        captured.animTick = captured.animDelay = 2;
+        captured.animMode = 1;
+        captured.animStep = 1;
+        captured.actorOrder = 1;
+        monsters_.push_back(captured);
+        logicTick_ = 3015;
+        updateMonsters(1.0f / 60.0f);
+        const auto& observed = monsters_.at(0);
+        if (observed.x != 644 || observed.y != 136 || observed.vx8 != 264 ||
+            observed.vy8 != 0 || observed.fracX != 168 || observed.fracY != 0 ||
+            observed.hp != 5 || observed.animCursor != 53 || observed.animFrame != 54 ||
+            observed.animStart != 53 || observed.animEnd != 55 || observed.animTick != 0 ||
+            observed.animDelay != 2 || observed.animMode != 1 || observed.animStep != 1) {
+            throw std::runtime_error("static walker native facing boundary mismatch");
+        }
+        int cases = 1;
+        for (uint8_t kind : {2, 3, 4}) {
+            for (int16_t velocity : {int16_t{-264}, int16_t{264}, int16_t{0}}) {
+                ActiveMonster monster;
+                const auto range = monsterFrameRange(kind);
+                monster.kind = kind;
+                monster.vx8 = velocity;
+                monster.animStart = static_cast<uint8_t>(range[0]);
+                monster.animEnd = static_cast<uint8_t>(range[1]);
+                monster.animCursor = monster.animEnd;
+                monster.animFrame = static_cast<uint8_t>(monster.animStart + 1);
+                monster.animTick = 2;
+                reselectWalkerFacing(monster);
+                if (monster.animCursor != (velocity == 0 ? monster.animEnd : monster.animStart) ||
+                    monster.animFrame != monster.animStart + 1 || monster.animTick != 2 ||
+                    monster.animStart != range[0] || monster.animEnd != range[1]) {
+                    throw std::runtime_error("static walker facing latch mismatch");
+                }
+                ++cases;
+            }
+        }
+        std::cout << "autoplayer=ok scenario=" << scenario << " seeded_cases=" << cases
+                  << " native_boundary=345 cursor_reset=1 visible_latched=1 natural_campaign_claim=0\n";
+    }
+
+    // Original 1000:7286/72DA selects the range by nonzero VX and resets its
+    // cursor without changing the visible frame or counter. This also applies
+    // to static ranges: Level 3 kind 4 sample 345 resets {53,55} after a ledge turn.
     void reselectWalkerFacing(ActiveMonster& monster) {
         if (monster.vx8 == 0) return;
-        // Facing reselection only exists for kinds with DISTINCT left/right
-        // pairs. For direction-independent kinds -- e.g. the shipped kind-4
-        // behavior-3 actors on levels 3 and 6, whose range is a static
-        // {53,55} -- a terrain event must stay the no-op it was before this
-        // helper existed, not rewind their animation. Note the guard is on
-        // the KIND's table, not on whether this call changes the range: the
-        // capture adjudicates that a kind-1 wall tick re-selecting the SAME
-        // pair still resets the cursor (walker B, frame 907: dropping the
-        // same-range reset diverges there), so same-range resets are real
-        // evidenced behavior for directional kinds.
-        if (monsterDirectionalFrameRange(monster.kind, -0x0100) ==
-            monsterDirectionalFrameRange(monster.kind, 0x0100)) {
-            return;
-        }
         auto frames = monsterDirectionalFrameRange(monster.kind, monster.vx8);
         monster.animStart = static_cast<uint8_t>(frames[0]);
         monster.animEnd = static_cast<uint8_t>(frames[1]);

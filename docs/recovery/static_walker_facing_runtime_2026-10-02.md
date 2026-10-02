@@ -84,6 +84,18 @@ all eight focused monster tests passed. The four existing motion/turn/ledge
 tests also passed. These 12 local checks do not substitute for full platform
 CI, extracted-package validation or whole-game release acceptance.
 
+## Retention
+
+The complete corrected replay was losslessly archived with every file's bytes,
+hash and inventory verified against the inactive raw directory before that
+redundant copy was removed. Its 1,592,253,622 raw bytes are retained in a
+68,668,633-byte archive with SHA256
+`ea2f01e5dd325d8db75ff5287dc8917db4015182b90c4e8cc0c4073471c9dece`.
+The archive remains RAM-only, not a durable backing-disk backup. The original
+900-frame capture remains retained, and its complete decoded native stream
+was independently byte-checked against the previously retained compact stream.
+The failed comparison and unfixed regression diagnostics remain separate.
+
 ## Remaining Scope
 
 The native capture also retains differing DOS clock bytes. Gameplay comparison

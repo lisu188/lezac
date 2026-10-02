@@ -1055,6 +1055,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^autoplayer=ok scenario=monster_behavior3_multihit moved_px=[0-9]+ first_hit_hp=1 second_hit_kill=1 reward_collected=1 score_delta=[0-9]+ frame_inspection=1")
 
+    add_test(NAME autoplayer_monster_static_facing_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer monster_static_facing)
+    set_tests_properties(autoplayer_monster_static_facing_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=monster_static_facing seeded_cases=10 native_boundary=345 cursor_reset=1 visible_latched=1 natural_campaign_claim=0")
+
     add_test(NAME autoplayer_monster_behavior4_chase_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-autoplayer monster_behavior4_chase)

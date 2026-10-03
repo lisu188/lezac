@@ -4050,6 +4050,8 @@ public:
                     "frame sequence level-3 behavior-4 spawn fields mismatched");
             }
             capture("030_level3_behavior4_spawned");
+        } else if (scenario == "monster_behavior4_player_states") {
+            debugAutoplayerMonsterBehavior4PlayerStates(scenario, capture);
         } else if (scenario == "monster_behavior4_target_selection") {
             pushKeyDown(SDLK_2);
             processEvents(running);
@@ -4590,6 +4592,8 @@ public:
             debugAutoplayerMonsterSpawnerBehavior4Level3(scenario);
         } else if (scenario == "monster_behavior4_target_selection") {
             debugAutoplayerMonsterBehavior4TargetSelection(scenario);
+        } else if (scenario == "monster_behavior4_player_states") {
+            debugAutoplayerMonsterBehavior4PlayerStates(scenario);
         } else if (scenario == "boss_level7") {
             debugAutoplayerBossLevel7(scenario);
         } else if (scenario == "collapse_playback_route") {
@@ -6232,6 +6236,162 @@ public:
                   << " level=3 spawner_index=" << (spawnerIndex + 1)
                   << " initial_target=2 retarget_p1=1 retarget_p2=1"
                   << " frame_inspection=1\n";
+    }
+
+    void debugAutoplayerMonsterBehavior4PlayerStates(
+        const std::string& scenario,
+        const std::function<void(const std::string&)>& capture = {}) {
+        if (!capture) {
+            load();
+            initSdl();
+        }
+        auto inspect = [&](const std::string& label) {
+            if (capture) capture(label);
+            else inspectRenderedFrame(label);
+        };
+        for (const auto& level : levels_) {
+            for (const auto& spawner : level.monsterSpawners) {
+                const int maximum = spawner.param2Base + std::max(0, static_cast<int>(spawner.param2Range) - 1);
+                if (spawner.spawnArg == 4 && maximum >= 6000) {
+                    throw std::runtime_error("behavior-4 shipped threshold reaches inactive target sentinel");
+                }
+            }
+        }
+        struct TargetCase {
+            const char* name;
+            int p1State, p2State, p1x, p1y, p2x, p2y, vx8, vy8;
+            bool random;
+            bool p1Pending = false, p2Pending = false;
+            int players = 2;
+        };
+        // Original stack-preserving capture F, SHA256
+        // 3f8d7e2d3c14e5dd424e8eadea2735c11b5cd6ba9d02455f3349c145a99e4941.
+        // These are seeded, empty-terrain decisions, not a natural route.
+        const std::array<TargetCase, 24> cases{{
+            {"p1_nearer", 1, 1, 346, 96, 296, 96, 271, 0, false},
+            {"p2_nearer", 1, 1, 376, 96, 326, 96, -271, 0, false},
+            {"tie_horizontal", 1, 1, 356, 96, 316, 96, 271, 0, false},
+            {"tie_diagonal", 1, 1, 356, 106, 326, 116, 242, 121, false},
+            {"p1_state2_p2_active", 2, 1, 346, 96, 316, 96, -271, 0, false},
+            {"p1_out_p2_alive", 0, 1, 346, 96, 316, 96, -271, 0, false},
+            {"p2_state2_p1_active", 1, 2, 346, 96, 316, 96, 271, 0, false},
+            {"p2_out_p1_alive", 1, 0, 346, 96, 316, 96, 271, 0, false},
+            {"threshold_equality", 1, 1, 411, 96, 456, 96, -244, 66, true},
+            {"negative_diagonal", 1, 1, 296, 76, 456, 96, -242, -121, false},
+            {"both_state2", 2, 2, 346, 96, 316, 96, -244, 66, true},
+            {"p1_state2_p2_out", 2, 0, 346, 96, 316, 96, -244, 66, true},
+            {"both_out", 0, 0, 346, 96, 316, 96, -244, 66, true},
+            {"p1_pending_p2_active", 1, 1, 346, 96, 316, 96, 271, 0, false, true},
+            {"p2_pending_p1_active", 1, 1, 376, 96, 326, 96, -271, 0, false, false, true},
+            {"both_pending", 1, 1, 346, 96, 316, 96, 271, 0, false, true, true},
+            {"p1_pending_p2_waiting", 1, 2, 346, 96, 316, 96, 271, 0, false, true},
+            {"p1_waiting_p2_pending", 2, 1, 346, 96, 316, 96, -271, 0, false, false, true},
+            {"p1_out_p2_pending", 0, 1, 346, 96, 316, 96, -271, 0, false, false, true},
+            {"p1_pending_p2_out", 1, 0, 346, 96, 316, 96, 271, 0, false, true},
+            {"one_player_pending", 1, 0, 346, 96, 336, 96, 271, 0, false, true, false, 1},
+            {"one_player_waiting", 2, 0, 346, 96, 336, 96, -244, 66, true, false, false, 1},
+            {"one_player_out", 0, 0, 346, 96, 336, 96, -244, 66, true, false, false, 1},
+            {"one_player_ignores_p2", 1, 0, 376, 96, 336, 96, 271, 0, false, false, false, 1},
+        }};
+        auto resetScene = [&] {
+            resetLevel(0);
+            ui_.setMenu(false);
+            levelFlow_.setIntroActiveForFixture(false);
+            spawnerStates_.clear();
+            monsters_.clear();
+            std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+            std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+            // Keep the real death gate open despite the empty fixture terrain.
+            collected_ = level_.requiredBonus;
+            playerCount_ = 2;
+            ActiveMonster monster;
+            monster.kind = 2; monster.behavior = 4; monster.hp = 255;
+            monster.x = 336; monster.y = 96;
+            monster.ai0 = 14; monster.ai1 = 271; monster.ai2 = 75;
+            monster.actorOrder = claimActorOrder();
+            initializeMonsterMotion(monster);
+            monsters_.push_back(monster);
+            logicTick_ = 419;
+            randomSeed_ = 0x12345678;
+        };
+        auto seedPlayer = [&](uint8_t marker, int state, int x, int y, bool pending) {
+            const bool second = marker == 2;
+            Player& player = second ? player2_ : player_;
+            player.x = static_cast<float>(x); player.y = static_cast<float>(y);
+            player.vx = 0; player.vy = 0;
+            (second ? lives2_ : lives_) = state == 0 ? -1 : 2;
+            (second ? player2Dead_ : playerDead_) = state != 1 || pending;
+            (second ? pendingLifeLoss2_ : pendingLifeLoss_) = pending;
+            (second ? reentryTimer2_ : reentryTimer_) = pending ? kDeathStateTicks : 1000;
+            (second ? deathStateTimer2_ : deathStateTimer_) = pending ? kDeathStateTicks : 0;
+        };
+        int inspected = 0;
+        for (const auto& test : cases) {
+            resetScene();
+            playerCount_ = test.players;
+            seedPlayer(1, test.p1State, test.p1x, test.p1y, test.p1Pending);
+            seedPlayer(2, test.p2State, test.p2x, test.p2y, test.p2Pending);
+            int boundaries = 0;
+            debugActorPassObserver_ = [&] {
+                const auto& monster = monsters_.front();
+                if (originalPlayerState(1) != test.p1State || originalPlayerState(2) != test.p2State ||
+                    monster.vx8 != test.vx8 || monster.vy8 != test.vy8 ||
+                    randomSeed_ != (test.random ? 2046801342u : 0x12345678u) ||
+                    monster.x * 256 + monster.fracX != 336 * 256 + test.vx8 ||
+                    monster.y * 256 + monster.fracY != 96 * 256 + test.vy8) {
+                    throw std::runtime_error("behavior-4 production target case mismatch: " + std::string(test.name));
+                }
+                ++boundaries;
+            };
+            updateWithControls({}, 1.0f / 60.0f);
+            debugActorPassObserver_ = {};
+            if (boundaries != 1 || logicTick_ != 420) throw std::runtime_error("behavior-4 target boundary not reached");
+            inspect("autoplayer-b4-state-" + std::string(test.name));
+            ++inspected;
+        }
+
+        // Drive both deaths through damage drain, countdown and reentry rather
+        // than equating the dead booleans with the original inactive flags.
+        resetScene();
+        seedPlayer(1, 1, 346, 96, false);
+        seedPlayer(2, 1, 316, 96, false);
+        energy_ = energy2_ = 0;
+        queuePlayerDamage(1); queuePlayerDamage(2);
+        updateWithControls({}, 1.0f / 60.0f);
+        if (!playerDead_ || !player2Dead_ || !pendingLifeLoss_ || !pendingLifeLoss2_ ||
+            originalPlayerState(1) != 1 || originalPlayerState(2) != 1 || !reentryGate_) {
+            throw std::runtime_error("behavior-4 death did not retain active original states");
+        }
+        for (int tick = 0; tick < kDeathStateTicks; ++tick) updateWithControls({}, 1.0f / 60.0f);
+        if (originalPlayerState(1) != 2 || originalPlayerState(2) != 2 ||
+            pendingLifeLoss_ || pendingLifeLoss2_ || lives_ != 1 || lives2_ != 1) {
+            throw std::runtime_error("behavior-4 death countdown did not reach waiting states");
+        }
+        // Inspect the steering boundary while both genuinely await reentry.
+        logicTick_ = 419; randomSeed_ = 0x12345678;
+        int waitingBoundaries = 0;
+        debugActorPassObserver_ = [&] {
+            const auto& monster = monsters_.front();
+            if (originalPlayerState(1) != 2 || originalPlayerState(2) != 2 ||
+                monster.vx8 != -244 || monster.vy8 != 66 || randomSeed_ != 2046801342u) {
+                throw std::runtime_error("behavior-4 real waiting lifecycle did not select random motion");
+            }
+            ++waitingBoundaries;
+        };
+        updateWithControls({}, 1.0f / 60.0f);
+        debugActorPassObserver_ = {};
+        FrameControls reenter;
+        reenter.p1Reenter = true;
+        updateWithControls(reenter, 1.0f / 60.0f);
+        if (waitingBoundaries != 1 || playerDead_ || originalPlayerState(1) != 1 ||
+            !player2Dead_ || originalPlayerState(2) != 2) {
+            throw std::runtime_error("behavior-4 lifecycle did not reenter only player 1");
+        }
+        inspect("autoplayer-b4-state-lifecycle-reentry");
+        if (!capture) std::cout << "autoplayer=ok scenario=" << scenario
+                  << " original_cases=13 pending_and_absent_cases=11 production_boundaries=24"
+                  << " lifecycle_death_wait_reentry=1 frame_inspections=" << inspected + 1
+                  << " natural_campaign_claim=0\n";
     }
 
     void debugAutoplayerCollapsePlaybackRoute(const std::string& scenario) {
@@ -25599,11 +25759,26 @@ private:
 
     void retargetMonster(ActiveMonster& monster) {
         int16_t speed = retargetSpeed8(monster);
-        const Player& target = nearestPlayer(monster.x, monster.y);
-        double dx = static_cast<int>(target.x) - monster.x;
-        double dy = static_cast<int>(target.y) - monster.y;
+        // 1000:63F6..654E admits only original state 1, including pending
+        // death. Shipped thresholds are below the inactive X sentinel 6000;
+        // captured both-inactive states therefore take the random branch.
+        const Player* target = nullptr;
+        double distance = 0;
+        for (uint8_t marker : {uint8_t{1}, uint8_t{2}}) {
+            if (originalPlayerState(marker) != 1) continue;
+            const Player& candidate = marker == 1 ? player_ : player2_;
+            const double candidateDistance =
+                std::fabs(static_cast<int>(candidate.x) - monster.x) +
+                std::fabs(static_cast<int>(candidate.y) - monster.y);
+            if (!target || candidateDistance < distance) {
+                target = &candidate;
+                distance = candidateDistance;
+            }
+        }
+        double dx = target ? static_cast<int>(target->x) - monster.x : 0;
+        double dy = target ? static_cast<int>(target->y) - monster.y : 0;
         double threshold = monster.ai2;
-        if (std::fabs(dx) + std::fabs(dy) < threshold) {
+        if (target && distance < threshold) {
             double len = std::max(1.0, std::hypot(dx, dy));
             // The original vector helper at 1000:346B converts both scaled
             // reals with truncation toward zero. The diagonal runtime capture

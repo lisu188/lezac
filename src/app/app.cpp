@@ -17446,12 +17446,13 @@ public:
 
     void debugWalkerGravityWordEvidence(const std::string& fixturePath) {
         const auto bytes = readFile(fixturePath);
-        if (bytes.size() != 486 || trace::fingerprint(bytes) != "e000b1d9dfe2e9c5") {
+        if (bytes.size() != 486 || lezac::diagnostics::level1::fingerprint(bytes) != "e000b1d9dfe2e9c5") {
             throw std::runtime_error("walker gravity fixture bytes changed");
         }
         load();
         resetLevel(0);
-        spawners_.clear();
+        level_.monsterSpawners.clear();
+        spawnerStates_.clear();
         playerDead_ = player2Dead_ = true;
         const auto signedWord = [&](size_t offset) {
             return static_cast<int16_t>(le16(bytes, offset));

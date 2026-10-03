@@ -16,6 +16,20 @@ DOS-resident probes replace unsafe in-segment scratch assumptions. This does
 not establish a natural complete-level victory, all actor bytes, audio timing
 or whole-game fidelity. See [scope, provenance and checks](docs/recovery/level1_fullframe_2026-09-21.md).
 
+## Dying-Player Gravity Word Recovery (2026-10-03)
+
+Two independent silent original captures agree on 64 seeded P1/P2 behavior-2
+gravity boundaries each. Both real player records are kind 0, with their
+`DS:1B88/1BAE` actor pointers and preserved bootstrap roles verified. The
+separate dying-player helper now wraps acceleration to a signed word before
+the `0x07FF` comparison; all other motion behavior is unchanged. A pinned
+866-byte fixture covers four wraps and twenty supported landings, with complete
+helper and real P1/P2 frame-update caller tests plus malformed-input guards.
+These seeded probes do not prove natural death, timer/animation/reentry,
+full player motion or visual/campaign fidelity. All four OPEN items and global
+fidelity/completion flags remain unchanged. See
+[capture, fixture, checks and limits](docs/recovery/dying_player_gravity_word_runtime_2026-10-03.md).
+
 ## Timed-Actor Gravity Word Recovery (2026-10-03)
 
 Two independent silent original captures agree on 64 seeded behavior-2

@@ -35,7 +35,7 @@ jobs:
           import shutil
           import sys
           sys.path.insert(0, 'tools')
-          import capture_original_behavior4_lockstep as environment
+          import capture_original_behavior4_targets as probe
           memory = {key: int(value.split()[0]) * 1024
                     for line in Path('/proc/meminfo').read_text().splitlines()
                     for key, value in [line.split(':', 1)]}
@@ -44,7 +44,7 @@ jobs:
           assert memory['MemAvailable'] - 512 * 1024 * 1024 > memory['MemTotal'] // 10
           run = Path(os.environ['RUNNER_TEMP']) / 'behavior4-target-original'
           run.mkdir()
-          for name in environment.REQUIRED_ASSETS:
+          for name in probe.ASSETS:
               source = Path(name)
               target = run / name
               shutil.copyfile(source, target)

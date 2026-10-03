@@ -21,6 +21,8 @@ import seed_original_level as seeder
 ROOT = Path(__file__).resolve().parent.parent
 EXE_SHA = "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
 SCHEMA = "lezac-behavior4-target-decisions-v1"
+ASSETS = environment.REQUIRED_ASSETS + ("FONTS.SPR", "PROVA.SPR", "GRAN.MST", "RECS.DAT")
+FAR_SEGMENT_WORD = 0x7134
 HOOKS = ((0x7EC5, bytes.fromhex("c70682200100")),
          (0x7EEA, bytes.fromhex("803ee67901")),
          (0x654E, bytes.fromhex("807ecf06")))
@@ -79,11 +81,27 @@ def trampoline(stage: int, image: bytes) -> bytes:
     return bytes(code)
 
 
+def runtime_windows(load_segment: int) -> dict[int, bytes]:
+    windows = dict(WINDOWS)
+    raw = bytearray(windows[0x712B])
+    relative_segment = struct.unpack_from("<H", raw, FAR_SEGMENT_WORD - 0x712B)[0]
+    struct.pack_into("<H", raw, FAR_SEGMENT_WORD - 0x712B, (relative_segment + load_segment) & 0xFFFF)
+    windows[0x712B] = bytes(raw)
+    return windows
+
+
 def self_check() -> bytes:
     exe = (ROOT / "LEZAC.EXE").read_bytes()
     if hashlib.sha256(exe).hexdigest() != EXE_SHA:
         raise RuntimeError("original executable hash mismatch")
     image = exe[0x770:]
+    count, table = struct.unpack_from("<H", exe, 6)[0], struct.unpack_from("<H", exe, 24)[0]
+    relocations = {segment * 16 + offset for offset, segment in
+                   (struct.unpack_from("<HH", exe, table + index * 4) for index in range(count))}
+    affected = {at for at in relocations for entry, raw in WINDOWS.items()
+                if entry <= at < entry + len(raw)}
+    if affected != {FAR_SEGMENT_WORD}:
+        raise RuntimeError("original target-window relocation set changed")
     for at, expected in WINDOWS.items():
         if image[at:at + len(expected)] != expected:
             raise RuntimeError(f"original target window mismatch at {at:04x}")
@@ -94,7 +112,7 @@ def self_check() -> bytes:
     return image
 
 
-def capture(pid: int, base: int, output: Path, image: bytes, window: str) -> dict:
+def capture(pid: int, base: int, output: Path, image: bytes, window: str, load_segment: int) -> dict:
     cs, ds = base + (actors.CS << 4), base + (seeder.RUNTIME_DS << 4)
     installed = []
     observations = []
@@ -162,7 +180,7 @@ def capture(pid: int, base: int, output: Path, image: bytes, window: str) -> dic
                     "p2_visual": read(ds + 0xC226, 8).hex(),
                     "player_flags": read(ds + 0x79E5, 14).hex()}
 
-        for at, expected in WINDOWS.items():
+        for at, expected in runtime_windows(load_segment).items():
             if read(cs + at, len(expected)) != expected:
                 raise RuntimeError(f"runtime instruction mismatch at {at:04x}")
         scratch = read(cs + 0xF400, 0x212)
@@ -177,6 +195,8 @@ def capture(pid: int, base: int, output: Path, image: bytes, window: str) -> dic
                 write(cs + entry, jump(entry, target))
             os.kill(pid, signal.SIGCONT)
             before_regs = wait(1, initial=True)
+            if before_regs[0] != load_segment:
+                raise RuntimeError("runtime CS does not match the relocated code segment")
             (output / "bootstrap.json").write_text(json.dumps({"physical_key_pulses": pulses,
                 "reached_gameplay_hook": True, "registers": before_regs}, sort_keys=True) + "\n")
             memory_base = cs - (before_regs[0] << 4)
@@ -272,7 +292,7 @@ def capture(pid: int, base: int, output: Path, image: bytes, window: str) -> dic
                 raise RuntimeError("original instrumentation restoration failed")
 
 
-def locate_runtime(child: subprocess.Popen, output: Path) -> tuple[int, str]:
+def locate_runtime(child: subprocess.Popen, output: Path) -> tuple[int, str, int]:
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
         if child.poll() is not None:
@@ -284,12 +304,17 @@ def locate_runtime(child: subprocess.Popen, output: Path) -> tuple[int, str]:
                 base = at - ((seeder.RUNTIME_DS << 4) + seeder.DATA_STRING_OFFSET)
                 cs = base + (actors.CS << 4)
                 try:
+                    segment_word = os.pread(mem.fileno(), 2, cs + FAR_SEGMENT_WORD)
+                    if len(segment_word) != 2:
+                        continue
+                    load_segment = (int.from_bytes(segment_word, "little") - 0x0920) & 0xFFFF
                     actual = {f"{entry:04x}": os.pread(mem.fileno(), len(raw), cs + entry).hex()
                               for entry, raw in WINDOWS.items()}
                     signature_rows.append({"signature_address": at, "derived_base": base,
-                                           "actual_windows": actual})
-                    if all(actual[f"{entry:04x}"] == raw.hex() for entry, raw in WINDOWS.items()):
-                        candidates.append(base)
+                                           "load_segment": load_segment, "actual_windows": actual})
+                    if 0 < load_segment < 0x8000 and all(actual[f"{entry:04x}"] == raw.hex()
+                            for entry, raw in runtime_windows(load_segment).items()):
+                        candidates.append((base, load_segment))
                 except OSError:
                     continue
         if len(candidates) > 1:
@@ -308,7 +333,7 @@ def locate_runtime(child: subprocess.Popen, output: Path) -> tuple[int, str]:
         if len(candidates) == 1 and len(windows) == 1:
             if pid_windows and pid_windows != windows:
                 raise RuntimeError("original window ownership is ambiguous")
-            return candidates[0], windows[0]
+            return candidates[0][0], windows[0], candidates[0][1]
         time.sleep(.1)
     raise RuntimeError("owned original code and window did not become ready")
 
@@ -329,7 +354,7 @@ def main() -> int:
     environment.validate_temp_run_dir(args.run_dir.resolve())
     if sha(args.run_dir / "LEZAC.EXE") != EXE_SHA or args.out_dir.exists():
         parser.error("temporary original differs or output already exists")
-    assets = {name: sha(ROOT / name) for name in environment.REQUIRED_ASSETS}
+    assets = {name: sha(ROOT / name) for name in ASSETS}
     if {name: sha(args.run_dir / name) for name in assets} != assets:
         parser.error("temporary assets differ from the guarded checkout")
     environment.SCRIPT_PATH = Path(__file__).resolve()
@@ -350,8 +375,8 @@ def main() -> int:
             child = subprocess.Popen(command, env=dict(os.environ, SDL_AUDIODRIVER="dummy"),
                                      stdout=log, stderr=subprocess.STDOUT)
             try:
-                base, window = locate_runtime(child, output)
-                report = capture(child.pid, base, output, image, window)
+                base, window, load_segment = locate_runtime(child, output)
+                report = capture(child.pid, base, output, image, window, load_segment)
             finally:
                 if child.poll() is None:
                     child.kill()

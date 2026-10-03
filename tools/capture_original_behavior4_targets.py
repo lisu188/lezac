@@ -272,27 +272,42 @@ def capture(pid: int, base: int, output: Path, image: bytes, window: str) -> dic
                 raise RuntimeError("original instrumentation restoration failed")
 
 
-def locate_runtime(child: subprocess.Popen) -> tuple[int, str]:
+def locate_runtime(child: subprocess.Popen, output: Path) -> tuple[int, str]:
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
         if child.poll() is not None:
             raise RuntimeError("owned original exited during bootstrap")
         candidates = []
+        signature_rows = []
         with open(f"/proc/{child.pid}/mem", "rb", buffering=0) as mem:
             for at in seeder.scan_process(child.pid, seeder.DATA_SIGNATURE):
                 base = at - ((seeder.RUNTIME_DS << 4) + seeder.DATA_STRING_OFFSET)
                 cs = base + (actors.CS << 4)
                 try:
-                    if all(os.pread(mem.fileno(), len(raw), cs + entry) == raw
-                           for entry, raw in WINDOWS.items()):
+                    actual = {f"{entry:04x}": os.pread(mem.fileno(), len(raw), cs + entry).hex()
+                              for entry, raw in WINDOWS.items()}
+                    signature_rows.append({"signature_address": at, "derived_base": base,
+                                           "actual_windows": actual})
+                    if all(actual[f"{entry:04x}"] == raw.hex() for entry, raw in WINDOWS.items()):
                         candidates.append(base)
                 except OSError:
                     continue
         if len(candidates) > 1:
             raise RuntimeError("original runtime signature is ambiguous")
-        windows = subprocess.run(["xdotool", "search", "--pid", str(child.pid), "--name", "DOSBox"],
+        pid_windows = subprocess.run(["xdotool", "search", "--pid", str(child.pid), "--name", "DOSBox"],
+                                     capture_output=True, text=True, timeout=3).stdout.splitlines()
+        # SDL 1.2 can omit _NET_WM_PID. This private display has only our child.
+        windows = subprocess.run(["xdotool", "search", "--name", "DOSBox"],
                                  capture_output=True, text=True, timeout=3).stdout.splitlines()
+        (output / "runtime-location.json").write_text(json.dumps({"signatures": signature_rows,
+            "validated_candidates": candidates, "pid_windows": pid_windows, "private_windows": windows,
+            "owned_pid": child.pid, "display": os.environ["DISPLAY"]}, sort_keys=True) + "\n")
+        if windows:
+            from PIL import ImageGrab
+            ImageGrab.grab(xdisplay=os.environ["DISPLAY"]).save(output / "bootstrap-screen.png")
         if len(candidates) == 1 and len(windows) == 1:
+            if pid_windows and pid_windows != windows:
+                raise RuntimeError("original window ownership is ambiguous")
             return candidates[0], windows[0]
         time.sleep(.1)
     raise RuntimeError("owned original code and window did not become ready")
@@ -335,7 +350,7 @@ def main() -> int:
             child = subprocess.Popen(command, env=dict(os.environ, SDL_AUDIODRIVER="dummy"),
                                      stdout=log, stderr=subprocess.STDOUT)
             try:
-                base, window = locate_runtime(child)
+                base, window = locate_runtime(child, output)
                 report = capture(child.pid, base, output, image, window)
             finally:
                 if child.poll() is None:

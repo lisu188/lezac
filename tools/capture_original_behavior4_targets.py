@@ -23,6 +23,11 @@ EXE_SHA = "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
 SCHEMA = "lezac-behavior4-target-decisions-v1"
 ASSETS = environment.REQUIRED_ASSETS + ("FONTS.SPR", "PROVA.SPR", "GRAN.MST", "RECS.DAT")
 FAR_SEGMENT_WORD = 0x7134
+SCRATCH_START = 0xF400
+SCRATCH_END = 0xF8B6
+TRAMPOLINE_STRIDE = 0x180
+GATE = 0xF880
+SAVED_AX, SAVED_DI, SAVED_STACK = 0xF8A0, 0xF8A2, 0xF8A4
 HOOKS = ((0x7EC5, bytes.fromhex("c70682200100")),
          (0x7EEA, bytes.fromhex("803ee67901")),
          (0x654E, bytes.fromhex("807ecf06")))
@@ -62,22 +67,38 @@ def lcg(seed: int) -> int:
     return (seed * 0x08088405 + 1) & 0xFFFFFFFF
 
 
+def preserve_stack(restore: bool) -> bytes:
+    # PUSHF/PUSHA would otherwise change stale locals in the next actor call.
+    code = bytearray(b"\x2e\xa3" + struct.pack("<H", SAVED_AX))
+    code += b"\x2e\x89\x3e" + struct.pack("<H", SAVED_DI) + b"\x89\xe7"
+    for index, displacement in enumerate(range(-18, 0, 2)):
+        slot = struct.pack("<H", SAVED_STACK + index * 2)
+        if restore:
+            code += b"\x2e\xa1" + slot + b"\x36\x89\x45" + bytes((displacement & 0xFF,))
+        else:
+            code += b"\x36\x8b\x45" + bytes((displacement & 0xFF,)) + b"\x2e\xa3" + slot
+    code += b"\x2e\xa1" + struct.pack("<H", SAVED_AX)
+    code += b"\x2e\x8b\x3e" + struct.pack("<H", SAVED_DI)
+    return bytes(code)
+
+
 def trampoline(stage: int, image: bytes) -> bytes:
     plain = actors.trampoline(stage, image)
-    if stage != 3:
-        return plain
     entry, raw = HOOKS[stage - 1]
-    target = 0xF400 + (stage - 1) * 0x80
+    target = SCRATCH_START + (stage - 1) * TRAMPOLINE_STRIDE
     body = plain[2:-(2 + len(raw) + 3)]
-    # Players join at 654e too; only behavior-4 monsters selected a target.
-    code = bytearray(bytes.fromhex("9c60807ef1027500807ecf047500"))
-    epilogue = len(code) + len(body)
-    code[7] = epilogue - 8
-    code[13] = epilogue - 14
-    code += body + b"\x61\x9d" + raw
+    code = bytearray(preserve_stack(False) + b"\x9c\x60")
+    if stage == 3:
+        # Players join at 654e too; only behavior-4 monsters selected a target.
+        guard = len(code)
+        code += bytes.fromhex("807ef1027500807ecf047500")
+        epilogue = len(code) + len(body)
+        code[guard + 5] = epilogue - (guard + 6)
+        code[guard + 11] = epilogue - (guard + 12)
+    code += body + b"\x61\x9d" + preserve_stack(True) + raw
     code += jump(target + len(code), entry + len(raw))
-    if len(code) > 0x80:
-        raise RuntimeError("filtered target trampoline exceeds scratch window")
+    if len(code) > TRAMPOLINE_STRIDE or target + len(code) > GATE:
+        raise RuntimeError("target trampoline exceeds scratch window")
     return bytes(code)
 
 
@@ -106,6 +127,7 @@ def self_check() -> bytes:
         if image[at:at + len(expected)] != expected:
             raise RuntimeError(f"original target window mismatch at {at:04x}")
     actors.HOOKS = tuple((at, len(raw)) for at, raw in HOOKS)
+    actors.SCRATCH = GATE
     for stage in range(1, len(HOOKS) + 1):
         trampoline(stage, image)
     print(f"behavior4_targets_self_check=ok windows={len(WINDOWS)} cases={len(CASES)} live=0", flush=True)
@@ -183,13 +205,13 @@ def capture(pid: int, base: int, output: Path, image: bytes, window: str, load_s
         for at, expected in runtime_windows(load_segment).items():
             if read(cs + at, len(expected)) != expected:
                 raise RuntimeError(f"runtime instruction mismatch at {at:04x}")
-        scratch = read(cs + 0xF400, 0x212)
-        if scratch != bytes(0x212):
+        scratch = read(cs + SCRATCH_START, SCRATCH_END - SCRATCH_START)
+        if scratch != bytes(len(scratch)):
             raise RuntimeError("instrumentation scratch is not empty")
         try:
             stop()
             for stage, (entry, raw) in enumerate(HOOKS, 1):
-                target = 0xF400 + (stage - 1) * 0x80
+                target = SCRATCH_START + (stage - 1) * TRAMPOLINE_STRIDE
                 write(cs + target, trampoline(stage, image))
                 installed.append((entry, raw))
                 write(cs + entry, jump(entry, target))
@@ -284,6 +306,7 @@ def capture(pid: int, base: int, output: Path, image: bytes, window: str, load_s
                     before_regs = wait(1)
             return {"schema": SCHEMA, "initial": initial, "cases": observations, "complete": True,
                     "bootstrap_first_boundary": first_boundary, "unseeded_bootstrap_ticks": 1,
+                    "hook_free_stack_preserved": True,
                     "executable_sha256": EXE_SHA, "seeded_case_boundaries": True,
                     "seeded_empty_terrain": True, "per_tick_actor_seed": False,
                     "natural_campaign_claim": False, "pixel_parity_claim": False,
@@ -293,9 +316,9 @@ def capture(pid: int, base: int, output: Path, image: bytes, window: str, load_s
             stop()
             for entry, raw in installed:
                 write(cs + entry, raw)
-            write(cs + 0xF400, scratch)
+            write(cs + SCRATCH_START, scratch)
             restored = all(read(cs + entry, len(raw)) == raw for entry, raw in installed)
-            scratch_restored = read(cs + 0xF400, len(scratch)) == scratch
+            scratch_restored = read(cs + SCRATCH_START, len(scratch)) == scratch
             (output / "restoration.json").write_text(json.dumps({"hooks_restored": restored,
                 "scratch_restored": scratch_restored, "child_retained_stopped": True,
                 "installed_hooks": len(installed)}, sort_keys=True) + "\n")

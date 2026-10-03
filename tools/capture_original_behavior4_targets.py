@@ -137,7 +137,7 @@ def capture(pid: int, base: int, output: Path, image: bytes, window: str, load_s
                     raise RuntimeError("owned child did not stop")
                 time.sleep(.001)
 
-        def wait(stage, initial=False):
+        def wait(stage, initial=False, drain_targets=False):
             nonlocal sequence
             started = time.monotonic()
             deadline = started + (60 if initial else 10)
@@ -150,7 +150,7 @@ def capture(pid: int, base: int, output: Path, image: bytes, window: str, load_s
                         raise RuntimeError("runtime code/data segment relationship changed")
                     if marker == stage:
                         return regs
-                    if not initial:
+                    if not initial and not (drain_targets and marker == 3):
                         raise RuntimeError(f"actor-pass stage {marker}, wanted {stage}")
                     release(marker)
                 if initial and not marker and time.monotonic() >= next_pulse:
@@ -205,9 +205,19 @@ def capture(pid: int, base: int, output: Path, image: bytes, window: str, load_s
                 raise RuntimeError("probe is not at the level-1 scene")
             if read(ds + 0x1B89, 1) != b"\x00" or read(ds + 0x1BAF, 1) != b"\x01":
                 raise RuntimeError("native player visual slots differ")
-            initial = state()
-            if bytes.fromhex(initial["player_flags"])[1:3] != b"\x01\x01":
+            first_boundary = state()
+            if bytes.fromhex(first_boundary["player_flags"])[1:3] != b"\x01\x01":
                 raise RuntimeError("probe did not enter active two-player gameplay")
+            # Finish one unmodified pass so both viewports have been painted.
+            release(1)
+            wait(2, drain_targets=True)
+            release(2)
+            before_regs = wait(1)
+            initial = state()
+            if initial["frame"] != (first_boundary["frame"] + 1) & 0xFFFF:
+                raise RuntimeError("bootstrap did not advance exactly one unseeded tick")
+            if bytes.fromhex(initial["player_flags"])[1:3] != b"\x01\x01":
+                raise RuntimeError("bootstrap players did not retain their active flags")
             from PIL import ImageGrab
             geometry = dict(row.split("=", 1) for row in subprocess.check_output(
                 ["xdotool", "getwindowgeometry", "--shell", window], text=True).splitlines())
@@ -273,6 +283,7 @@ def capture(pid: int, base: int, output: Path, image: bytes, window: str, load_s
                     release(2)
                     before_regs = wait(1)
             return {"schema": SCHEMA, "initial": initial, "cases": observations, "complete": True,
+                    "bootstrap_first_boundary": first_boundary, "unseeded_bootstrap_ticks": 1,
                     "executable_sha256": EXE_SHA, "seeded_case_boundaries": True,
                     "seeded_empty_terrain": True, "per_tick_actor_seed": False,
                     "natural_campaign_claim": False, "pixel_parity_claim": False,

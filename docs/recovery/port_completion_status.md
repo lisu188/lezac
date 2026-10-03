@@ -407,7 +407,7 @@ reserves, physical keyboard input or actual VGA/HUD fidelity.
   the evidence is one monster kind (1), one behaviour (3), one level, so
   behaviours 1/2/5/6, other kinds, per-tick tile-embedding
   damage, mode-2 corpse physics, contact multiplicity beyond 0/1, the
-  bottom-edge `0x4D..0x52` jump-through semantics, the `0x7FF` gravity clamp,
+  bottom-edge `0x4D..0x52` jump-through semantics,
   the player's own collision box and two-player are all unevidenced.
   **Narrowed.** Two of the listed gaps are now closed by level-2 captures:
   *other levels* -- `tests/fixtures/actor_contact_original_level2.txt` gives
@@ -418,9 +418,12 @@ reserves, physical keyboard input or actual VGA/HUD fidelity.
   (`trunc(-vx/2)` then restore-to-speed-with-reflected-sign), all replayed
   through the port's live rules by `actor_contact_level2_evidence`; and
   *behaviour 4*, whose contact response is now runtime-confirmed by the
-  behaviour-4 capture below. The `0x7FF` gravity clamp remains INFERRED --
-  the level-2 fall peaks at `vy = 704`, so the clamp is still unexercised by
-  any capture, and the fixture records `gravity_clamp_exercised=0`.
+  behaviour-4 capture below. The historical level-2 fall peaks at `vy = 704`
+  and still records `gravity_clamp_exercised=0`. The later
+  [walker gravity word capture](walker_gravity_word_runtime_2026-10-03.md)
+  confirms the signed `0x7FF` limit in 32 seeded cases, including two word-wrap
+  boundaries, and corrects the port's wide-addition mismatch. This does not
+  establish a natural terminal-speed fall or close the broader contact item.
 
 - `behavior4_motion_runtime_fixture` — **Partially recovered, still open.** A level-2 tick-locked
   capture (`tests/fixtures/behavior4_motion_original_level2.txt`,

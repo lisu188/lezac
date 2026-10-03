@@ -4373,6 +4373,45 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^actor_contact_level2_evidence=ok level=2 kind=1 behavior=3 walker_a_ticks=666 walker_b_ticks=566 hotspot=6 gravity_step=64 ladder_len=11 walk_speed=208 reflect=208,-104,-208 clamp_exercised=0 visual_claim=0")
 
+    add_test(NAME walker_gravity_word_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-walker-gravity-word-evidence
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/walker_gravity_word_original.bin)
+    set_tests_properties(walker_gravity_word_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^walker_gravity_word=ok cases=32 production_updates=32 word_wrap=2 landing=10 terminal=2047 seeded_original=1 natural_route_claim=0 visual_claim=0")
+
+    add_test(NAME walker_gravity_word_fixture
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_walker_gravity_word_fixture.py)
+    set_tests_properties(walker_gravity_word_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^walker_gravity_fixture=ok cases=32 bytes=486 word_wrap=2 landing=10 original_window=0x716e..0x71a4")
+
+    add_test(NAME walker_gravity_word_fixture_selftest
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_walker_gravity_word_fixture.py --self-test)
+    set_tests_properties(walker_gravity_word_fixture_selftest PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^walker_gravity_fixture_selftest=ok cases=32 byte_mutations=486 truncated=1 trailing=1 original_mutation=1")
+
+    add_test(NAME walker_gravity_word_replay_guard
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_walker_gravity_word_fixture.py
+                --replay-exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(walker_gravity_word_replay_guard PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^walker_gravity_replay_guard=ok positive=1 rejected=18 audio=dummy")
+
+    add_test(NAME walker_gravity_capture_self_check
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_walker_gravity.py --self-check)
+    set_tests_properties(walker_gravity_capture_self_check PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^walker_gravity_self_check=ok cases=32 hook_free_stack_preserved=1 live=0")
+
     add_test(NAME behavior4_motion_evidence
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-motion-evidence
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/behavior4_motion_original_level2.txt)

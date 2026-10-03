@@ -17444,6 +17444,80 @@ public:
                   << " visual_claim=0\n";
     }
 
+    void debugWalkerGravityWordEvidence(const std::string& fixturePath) {
+        const auto bytes = readFile(fixturePath);
+        if (bytes.size() != 486 || lezac::diagnostics::level1::fingerprint(bytes) != "e000b1d9dfe2e9c5") {
+            throw std::runtime_error("walker gravity fixture bytes changed");
+        }
+        load();
+        resetLevel(0);
+        level_.monsterSpawners.clear();
+        spawnerStates_.clear();
+        playerDead_ = player2Dead_ = true;
+        const auto signedWord = [&](size_t offset) {
+            return static_cast<int16_t>(le16(bytes, offset));
+        };
+        int phaseCases = 0, productionCases = 0, wrapCases = 0, landingCases = 0;
+        for (size_t index = 0; index < 32; ++index) {
+            const size_t offset = 102 + index * 12;
+            if (bytes[offset] != index) {
+                throw std::runtime_error("walker gravity case order changed");
+            }
+            std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+            std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+            const bool bottom = bytes[offset + 1] != 0;
+            if (bottom) {
+                tileRef(42, 14) = tileRef(43, 14) = 0x52;
+            }
+            ActiveMonster seed;
+            seed.x = 336;
+            seed.y = signedWord(offset + 6);
+            seed.vy8 = signedWord(offset + 2);
+            seed.kind = 1;
+            seed.behavior = 3;
+            seed.ai0 = 208;
+            seed.hp = 11;
+            seed.hotspotY = 6;
+            seed.animStart = 43;
+            seed.animEnd = 44;
+            seed.animCursor = seed.animFrame = 44;
+            seed.animDelay = 3;
+            seed.facingDirty = bytes[offset + 10] != 0;
+            seed.edges = scanActorEdges(seed.x, seed.y);
+            if (seed.edges.bottom != bottom || seed.edges.top || seed.edges.left || seed.edges.right) {
+                throw std::runtime_error("walker gravity terrain does not reproduce the original edge flags");
+            }
+            const auto expectedVy = signedWord(offset + 4);
+            const auto expectedY = signedWord(offset + 8);
+            const bool expectedFacing = bytes[offset + 11] != 0;
+            ActiveMonster phase = seed;
+            applyGroundMonsterGravity(phase);
+            if (phase.vy8 != expectedVy || phase.y != expectedY || phase.facingDirty != expectedFacing) {
+                throw std::runtime_error("walker gravity phase differs at case " + std::to_string(index));
+            }
+            ++phaseCases;
+            wrapCases += !bottom && seed.vy8 >= 32704;
+            landingCases += expectedFacing;
+
+            monsters_ = {seed};
+            logicTick_ = 420;
+            randomSeed_ = UINT32_C(0x12345678);
+            updateMonsters(0.0f);
+            if (monsters_.size() != 1 || monsters_.front().vy8 != expectedVy ||
+                monsters_.front().edges.bottom != bottom || randomSeed_ != UINT32_C(0x12345678)) {
+                throw std::runtime_error("walker gravity production update differs at case " + std::to_string(index));
+            }
+            ++productionCases;
+        }
+        if (wrapCases != 2 || landingCases != 10) {
+            throw std::runtime_error("walker gravity boundary coverage changed");
+        }
+        std::cout << "walker_gravity_word=ok cases=" << phaseCases
+                  << " production_updates=" << productionCases
+                  << " word_wrap=" << wrapCases << " landing=" << landingCases
+                  << " terminal=2047 seeded_original=1 natural_route_claim=0 visual_claim=0\n";
+    }
+
     void debugActorContactLevel2Evidence(const std::string& fixturePath) {
         std::ifstream in(fixturePath);
         if (!in) throw std::runtime_error("cannot open " + fixturePath);
@@ -26288,6 +26362,19 @@ private:
         }
     }
 
+    void applyGroundMonsterGravity(ActiveMonster& monster) {
+        const ActiveMonster::EdgeFlags& edges = monster.edges;
+        if (!edges.bottom || monster.vy8 < 0) {
+            // 1000:717A adds a word before the signed terminal-speed compare.
+            const int16_t accelerated = static_cast<int16_t>(monster.vy8 + 0x40);
+            monster.vy8 = std::min<int16_t>(0x07ff, accelerated);
+        } else if (monster.vy8 > 0) {
+            monster.vy8 = 0;
+            monster.y &= ~7;
+            monster.facingDirty = true;
+        }
+    }
+
     void updateMonsters(float dt, uint64_t onlyOrder = 0) {
         for (ActiveMonster& monster : monsters_) {
             if (onlyOrder && monster.actorOrder != onlyOrder) continue;
@@ -26409,15 +26496,7 @@ private:
             // landing at y % 8 != 0 probe one row too low and falsely reverse
             // on a platform that continues.
             if (recoveredResolution && monster.behavior != 4) {
-                const ActiveMonster::EdgeFlags& e = monster.edges;
-                if (!e.bottom || monster.vy8 < 0) {
-                    monster.vy8 = static_cast<int16_t>(std::min<int>(0x07ff, monster.vy8 + 0x40));
-                } else if (monster.vy8 > 0) {
-                    monster.vy8 = 0;
-                    monster.y &= ~7;
-                    // Landing tick requests a facing reselect (1000:71A0).
-                    monster.facingDirty = true;
-                }
+                applyGroundMonsterGravity(monster);
             }
 
             // Behavior 4's dedicated pre-steering floor response
@@ -28826,6 +28905,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-actor-contact-level2-evidence") {
             app.debugActorContactLevel2Evidence(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-walker-gravity-word-evidence") {
+            app.debugWalkerGravityWordEvidence(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-behavior4-motion-evidence") {

@@ -16,6 +16,20 @@ DOS-resident probes replace unsafe in-segment scratch assumptions. This does
 not establish a natural complete-level victory, all actor bytes, audio timing
 or whole-game fidelity. See [scope, provenance and checks](docs/recovery/level1_fullframe_2026-09-21.md).
 
+## Walker Gravity Word Recovery (2026-10-03)
+
+Two independent silent original captures agree on 32 seeded kind-1,
+behavior-3 gravity/landing boundaries each. They confirm the signed `0x7FF`
+limit and expose two overflow cases where the port added in a wide integer
+instead of wrapping the original 16-bit word before comparison. Production
+now narrows before the clamp, with landing/facing and update order preserved.
+The 486-byte original fixture checks the phase and separately checks all 32
+production `updateMonsters()` velocities; fixture/malformed-input guards and
+a portable recapture helper accompany it. These are seeded boundaries, not a
+natural terminal-speed fall or a full actor/campaign comparison. The original
+contact item and global completeness/fidelity flags remain open. See
+[capture, fixture, checks and limits](docs/recovery/walker_gravity_word_runtime_2026-10-03.md).
+
 ## Two-Player Keyboard Ownership
 
 84 original samples from 21 physical-key/chord cases confirm Z/X/M/N/C
@@ -428,10 +442,11 @@ passing-test percentage measures regression health, not recovered behavior.
   **Scope**: the item stays OPEN -- behaviours 1/2/5/6, other kinds, per-tick
   tile-embedding damage, mode-2 corpse physics, contact multiplicity, the
   bottom-edge `0x4D..0x52` jump-through semantics, the player's own collision
-  box and two-player are all still unevidenced. The `0x7FF` gravity clamp also
-  stays INFERRED: the level-2 fall peaks at `vy = 704`, so no capture has ever
-  exercised the clamp, and the fixture records `gravity_clamp_exercised=0`
-  rather than implying otherwise. Suite 399/399.
+  box and two-player are all still unevidenced. The historical level-2 fall
+  peaks at `vy = 704`, and its fixture still records `gravity_clamp_exercised=0`.
+  The later [walker gravity word capture](docs/recovery/walker_gravity_word_runtime_2026-10-03.md)
+  confirms the limit in seeded level-1 cases without claiming a natural
+  terminal-speed fall or closing the broad contact item. Historical suite 399/399.
 
 - **Recovered the original's behaviour-4 flyer motion and CLOSED the item.**
   `behavior4_motion_runtime_fixture` had no runtime evidence at all. A level-2

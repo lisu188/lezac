@@ -425,6 +425,16 @@ reserves, physical keyboard input or actual VGA/HUD fidelity.
   boundaries, and corrects the port's wide-addition mismatch. This does not
   establish a natural terminal-speed fall or close the broader contact item.
 
+  **Behavior-2 gravity narrowed.** Two later
+  [timed-actor gravity captures](timed_gravity_word_runtime_2026-10-03.md) agree
+  on 64 seeded boundaries each for kind 12 timed actors and kind 13 small bombs.
+  They confirm word wrapping before the signed terminal-speed limit and twenty
+  landing snaps, correcting the shared timed helper's wide-addition mismatch.
+  Full-helper and actual corpse/bomb caller tests separately check velocities
+  and supported landing Y. Native observations end before friction/integration;
+  this does not close mode-2 corpse physics, timer/animation lifecycle, natural
+  spawning/trajectories or the broader contact item.
+
 - `behavior4_motion_runtime_fixture` — **Partially recovered, still open.** A level-2 tick-locked
   capture (`tests/fixtures/behavior4_motion_original_level2.txt`,
   `tools/capture_original_behavior4_motion_procmem.py`) records 666

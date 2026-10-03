@@ -17518,6 +17518,82 @@ public:
                   << " terminal=2047 seeded_original=1 natural_route_claim=0 visual_claim=0\n";
     }
 
+    void debugTimedGravityWordEvidence(const std::string& fixturePath) {
+        const auto bytes = readFile(fixturePath);
+        if (bytes.size() != 866 || lezac::diagnostics::level1::fingerprint(bytes) != "ef718e96b15caf9d") {
+            throw std::runtime_error("timed gravity fixture bytes changed");
+        }
+        load();
+        resetLevel(0);
+        level_.monsterSpawners.clear();
+        spawnerStates_.clear();
+        playerDead_ = player2Dead_ = true;
+        const auto word = [&](size_t offset) { return static_cast<int16_t>(le16(bytes, offset)); };
+        int helperCases = 0, callerCases = 0, wrapCases = 0, landingCases = 0;
+        for (size_t index = 0; index < 64; ++index) {
+            const size_t offset = 98 + index * 12;
+            const uint8_t kind = bytes[offset + 10];
+            if (bytes[offset] != index || kind != 12 + index / 32 || bytes[offset + 11] != 2) {
+                throw std::runtime_error("timed gravity case order/kind changed");
+            }
+            std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+            std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+            const bool bottom = bytes[offset + 1] != 0;
+            if (bottom) tileRef(42, 14) = tileRef(43, 14) = 0x52;
+            const int beforeY = word(offset + 6);
+            const int16_t beforeVy = word(offset + 2), expectedVy = word(offset + 4);
+            const int expectedY = word(offset + 8);
+            const bool landed = bottom && beforeVy > 0;
+            const auto edges = scanActorEdges(336, beforeY);
+            if (edges.bottom != bottom || edges.top || edges.left || edges.right) {
+                throw std::runtime_error("timed gravity terrain differs from original edge flags");
+            }
+            int x = 336, y = beforeY;
+            int16_t vx = 0, vy = beforeVy;
+            uint8_t fracX = 0, fracY = 0;
+            randomSeed_ = UINT32_C(0x12345678);
+            logicTick_ = 420;
+            updateTimedActorMotion(x, y, vx, vy, fracX, fracY, edges);
+            if (vy != expectedVy || (landed && y != expectedY) || x != 336 || vx != 0 ||
+                randomSeed_ != UINT32_C(0x12345678)) {
+                throw std::runtime_error("timed gravity helper differs at case " + std::to_string(index));
+            }
+            ++helperCases;
+            wrapCases += !bottom && beforeVy >= 32704;
+            landingCases += landed;
+            monsters_.clear();
+            bombs_.clear();
+            if (kind == 12) {
+                ActiveMonster actor;
+                actor.kind = kind; actor.behavior = 2; actor.stateTimer = 100;
+                actor.x = 336; actor.y = beforeY; actor.hotspotY = 6; actor.vy8 = beforeVy;
+                monsters_.push_back(actor);
+                updateMonsters(0.0f);
+                if (monsters_.size() != 1 || monsters_.front().vy8 != expectedVy ||
+                    (landed && monsters_.front().y != expectedY)) {
+                    throw std::runtime_error("timed gravity corpse caller differs at case " + std::to_string(index));
+                }
+            } else {
+                Bomb bomb;
+                bomb.type = BombType::Small; bomb.moving = true; bomb.timer = 100;
+                bomb.pixelX = 336; bomb.pixelY = beforeY + 6; bomb.hotspotY = 6;
+                bomb.x = 42; bomb.y = bomb.pixelY >> 3; bomb.vy8 = beforeVy;
+                bombs_.push_back(bomb);
+                updateBombs();
+                if (bombs_.size() != 1 || bombs_.front().vy8 != expectedVy ||
+                    (landed && bombs_.front().pixelY - 6 != expectedY)) {
+                    throw std::runtime_error("timed gravity bomb caller differs at case " + std::to_string(index));
+                }
+            }
+            if (randomSeed_ != UINT32_C(0x12345678)) throw std::runtime_error("timed gravity caller advanced RNG");
+            ++callerCases;
+        }
+        if (wrapCases != 4 || landingCases != 20) throw std::runtime_error("timed gravity coverage changed");
+        std::cout << "timed_gravity_word=ok cases=" << helperCases << " helper_updates=" << helperCases
+                  << " caller_updates=" << callerCases << " kinds=12,13 word_wrap=" << wrapCases
+                  << " landing=" << landingCases << " seeded_original=1 natural_route_claim=0 visual_claim=0\n";
+    }
+
     void debugActorContactLevel2Evidence(const std::string& fixturePath) {
         std::ifstream in(fixturePath);
         if (!in) throw std::runtime_error("cannot open " + fixturePath);
@@ -27140,8 +27216,11 @@ private:
     // Shared behavior 2 (1000:7018..7058), followed by common response/integration.
     void updateTimedActorMotion(int& x, int& y, int16_t& vx, int16_t& vy,
             uint8_t& fracX, uint8_t& fracY, const ActiveMonster::EdgeFlags& edges) {
-        if (!edges.bottom || vy < 0) vy = static_cast<int16_t>(std::min(0x07ff, vy + 0x40));
-        else if (vy > 0) {
+        if (!edges.bottom || vy < 0) {
+            // 1000:7028 wraps the word addition before the signed limit.
+            const int16_t accelerated = static_cast<int16_t>(vy + 0x40);
+            vy = std::min<int16_t>(0x07ff, accelerated);
+        } else if (vy > 0) {
             vy = 0;
             y &= ~7;
         }
@@ -28909,6 +28988,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-walker-gravity-word-evidence") {
             app.debugWalkerGravityWordEvidence(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-timed-gravity-word-evidence") {
+            app.debugTimedGravityWordEvidence(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-behavior4-motion-evidence") {

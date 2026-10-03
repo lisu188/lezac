@@ -16,6 +16,19 @@ DOS-resident probes replace unsafe in-segment scratch assumptions. This does
 not establish a natural complete-level victory, all actor bytes, audio timing
 or whole-game fidelity. See [scope, provenance and checks](docs/recovery/level1_fullframe_2026-09-21.md).
 
+## Timed-Actor Gravity Word Recovery (2026-10-03)
+
+Two independent silent original captures agree on 64 seeded behavior-2
+gravity/landing boundaries each for kind 12 timed actors and kind 13 small
+bombs. Both kinds expose the same wide-addition mismatch previously found for
+ordinary walkers. The shared timed-actor helper now wraps the signed word before
+comparing with `0x07FF`; landing, friction, contact and integration order are
+unchanged. An 866-byte original fixture covers the gravity phase, with separate
+full-helper/caller velocity tests and malformed-input guards. This is not full
+timed-actor motion, natural bomb/corpse spawning or lifecycle parity. The broad
+contact item and all global completeness/fidelity flags remain open. See
+[capture, fixture, checks and limits](docs/recovery/timed_gravity_word_runtime_2026-10-03.md).
+
 ## Walker Gravity Word Recovery (2026-10-03)
 
 Two independent silent original captures agree on 32 seeded kind-1,

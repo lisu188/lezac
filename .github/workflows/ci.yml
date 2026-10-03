@@ -40,6 +40,13 @@ jobs:
           name: startup-rng-linux
           path: build/startup-rng-checks/
           if-no-files-found: ignore
+      - name: Preserve behavior-4 player-state frames
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: behavior4-player-state-frames-linux
+          path: build/frame_sequence_capture_monster_behavior4_player_states/
+          if-no-files-found: ignore
       - name: Preserve live menu comparisons
         if: always()
         uses: actions/upload-artifact@v4

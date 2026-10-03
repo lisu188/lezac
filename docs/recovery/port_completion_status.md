@@ -435,6 +435,17 @@ reserves, physical keyboard input or actual VGA/HUD fidelity.
   this does not close mode-2 corpse physics, timer/animation lifecycle, natural
   spawning/trajectories or the broader contact item.
 
+  **Dying-player gravity narrowed.** Two independent
+  [P1/P2 original captures](dying_player_gravity_word_runtime_2026-10-03.md)
+  each record 64 seeded behavior-2 boundaries on the real kind-0 player
+  records at `DS:1B88/1BAE`, with actual actor pointers verified. They confirm
+  four word wraps before the signed limit and twenty supported landing snaps,
+  correcting the separate dying-player helper. Full helper and real P1/P2
+  `updateWithControls()` tests check velocities and supported landing Y.
+  The native phase ends before friction/integration; natural death/timer,
+  animation/reentry and full player-motion fidelity remain unproven. This
+  narrows the existing OPEN item without closing it.
+
 - `behavior4_motion_runtime_fixture` — **Partially recovered, still open.** A level-2 tick-locked
   capture (`tests/fixtures/behavior4_motion_original_level2.txt`,
   `tools/capture_original_behavior4_motion_procmem.py`) records 666

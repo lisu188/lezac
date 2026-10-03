@@ -1,0 +1,74 @@
+name: Original dying-player gravity probe
+
+on:
+  pull_request:
+    paths:
+      - tools/capture_original_dying_player_gravity.py
+      - tools/check_dying_player_gravity_word_fixture.py
+      - tests/fixtures/dying_player_gravity_word_original.bin
+      - .github/workflows/dying-player-gravity-probe.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original:
+    name: Original dying-player gravity word boundaries
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SDL_AUDIODRIVER: dummy
+      PYTHONDONTWRITEBYTECODE: 1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install original capture dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-pil xvfb xdotool dosbox
+      - name: Check original instruction windows and fixture
+        run: |
+          python3 -B tools/capture_original_dying_player_gravity.py --self-check
+          python3 -B tools/check_dying_player_gravity_word_fixture.py
+      - name: Stage private original assets
+        run: |
+          python3 -B - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+          import shutil
+          import sys
+          sys.path.insert(0, 'tools')
+          import capture_original_behavior4_targets as support
+          memory = {key: int(value.split()[0]) * 1024
+                    for line in Path('/proc/meminfo').read_text().splitlines()
+                    for key, value in [line.split(':', 1)]}
+          usage = shutil.disk_usage(os.environ['RUNNER_TEMP'])
+          assert usage.free - 128 * 1024 * 1024 > usage.total // 10
+          assert memory['MemAvailable'] - 512 * 1024 * 1024 > memory['MemTotal'] // 10
+          run = Path(os.environ['RUNNER_TEMP']) / 'dying-player-gravity-original'
+          run.mkdir()
+          for name in support.ASSETS:
+              source, target = Path(name), run / name
+              shutil.copyfile(source, target)
+              assert hashlib.sha256(source.read_bytes()).digest() == hashlib.sha256(target.read_bytes()).digest()
+          PY
+      - name: Observe original gravity boundaries
+        run: |
+          python3 -B tools/capture_original_dying_player_gravity.py \
+            --run-dir "$RUNNER_TEMP/dying-player-gravity-original" \
+            --out-dir "$RUNNER_TEMP/dying-player-gravity-capture" \
+            --approve-procmem --approve-runtime-instrumentation
+      - name: Compare complete original capture to the pinned fixture
+        run: |
+          python3 -B tools/check_dying_player_gravity_word_fixture.py \
+            --capture "$RUNNER_TEMP/dying-player-gravity-capture"
+      - name: Preserve original probe and failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dying-player-gravity-original
+          path: |
+            ${{ runner.temp }}/dying-player-gravity-capture/
+            ${{ runner.temp }}/dying-player-gravity-original/
+          if-no-files-found: error

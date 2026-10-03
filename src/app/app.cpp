@@ -17594,6 +17594,81 @@ public:
                   << " landing=" << landingCases << " seeded_original=1 natural_route_claim=0 visual_claim=0\n";
     }
 
+    void debugDyingPlayerGravityWordEvidence(const std::string& fixturePath) {
+        const auto bytes = readFile(fixturePath);
+        if (bytes.size() != 866 || lezac::diagnostics::level1::fingerprint(bytes) != "0a6c54dd68bd46b1") {
+            throw std::runtime_error("dying player gravity fixture bytes changed");
+        }
+        load();
+        const auto word = [&](size_t offset) { return static_cast<int16_t>(le16(bytes, offset)); };
+        int helperCases = 0, callerCases = 0, wrapCases = 0, landingCases = 0;
+        for (size_t index = 0; index < 64; ++index) {
+            const size_t offset = 98 + index * 12;
+            const uint8_t marker = bytes[offset + 10];
+            if (bytes[offset] != index || marker != 1 + index / 32 || bytes[offset + 11] != 2) {
+                throw std::runtime_error("dying player gravity case order/player changed");
+            }
+            playerCount_ = 2;
+            lives_ = lives2_ = 3;
+            resetLevel(0);
+            ui_.setMenu(false);
+            level_.monsterSpawners.clear();
+            spawnerStates_.clear();
+            std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+            std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+            const bool bottom = bytes[offset + 1] != 0;
+            if (bottom) tileRef(42, 14) = tileRef(43, 14) = 0x52;
+            const int beforeY = word(offset + 6);
+            const int16_t beforeVy = word(offset + 2), expectedVy = word(offset + 4);
+            const int expectedY = word(offset + 8);
+            const bool landed = bottom && beforeVy > 0;
+            const auto edges = scanActorEdges(336, beforeY);
+            if (edges.bottom != bottom || edges.top || edges.left || edges.right) {
+                throw std::runtime_error("dying player gravity terrain differs from original edge flags");
+            }
+            Player seed;
+            seed.x = 336;
+            seed.y = static_cast<float>(beforeY);
+            seed.vy8 = beforeVy;
+            Player phase = seed;
+            randomSeed_ = UINT32_C(0x12345678);
+            updateDyingPlayerMotion(phase);
+            if (phase.vy8 != expectedVy || (landed && phase.y != expectedY) || phase.x != 336 || phase.vx8 != 0 ||
+                randomSeed_ != UINT32_C(0x12345678)) {
+                throw std::runtime_error("dying player gravity helper differs at case " + std::to_string(index));
+            }
+            ++helperCases;
+            wrapCases += !bottom && beforeVy >= 32704;
+            landingCases += landed;
+
+            Player& target = marker == 1 ? player_ : player2_;
+            Player& partner = marker == 1 ? player2_ : player_;
+            target = seed;
+            partner.x = marker == 1 ? 240.0f : 160.0f;
+            partner.y = 80;
+            auto& energy = marker == 1 ? energy_ : energy2_;
+            auto& lives = marker == 1 ? lives_ : lives2_;
+            auto& dead = marker == 1 ? playerDead_ : player2Dead_;
+            auto& countdown = marker == 1 ? reentryTimer_ : reentryTimer2_;
+            beginPlayerDeath(target, energy, lives, dead, countdown, marker);
+            // Non-expiring seeded timers isolate motion, not native death timing.
+            countdown = deathStateTimerFor(marker) = 100;
+            randomSeed_ = UINT32_C(0x12345678);
+            logicTick_ = 420;
+            updateWithControls(FrameControls{}, 0.0f);
+            if (!dead || logicTick_ != 421 || deathStateTimerFor(marker) != 99 || target.vy8 != expectedVy ||
+                (landed && target.y != expectedY) || target.x != 336 || target.vx8 != 0 ||
+                randomSeed_ != UINT32_C(0x12345678)) {
+                throw std::runtime_error("dying player gravity caller differs at case " + std::to_string(index));
+            }
+            ++callerCases;
+        }
+        if (wrapCases != 4 || landingCases != 20) throw std::runtime_error("dying player gravity coverage changed");
+        std::cout << "dying_player_gravity_word=ok cases=" << helperCases << " helper_updates=" << helperCases
+                  << " caller_updates=" << callerCases << " players=1,2 kind=0 word_wrap=" << wrapCases
+                  << " landing=" << landingCases << " seeded_original=1 natural_route_claim=0 visual_claim=0\n";
+    }
+
     void debugActorContactLevel2Evidence(const std::string& fixturePath) {
         std::ifstream in(fixturePath);
         if (!in) throw std::runtime_error("cannot open " + fixturePath);
@@ -25338,7 +25413,9 @@ private:
         int x = static_cast<int>(player.x), y = static_cast<int>(player.y);
         const auto edges = scanActorEdges(x, y);
         if (!edges.bottom || player.vy8 < 0) {
-            player.vy8 = static_cast<int16_t>(std::min<int>(2047, player.vy8 + 64));
+            // 1000:7028 wraps the word addition before the signed limit.
+            const int16_t accelerated = static_cast<int16_t>(player.vy8 + 0x40);
+            player.vy8 = std::min<int16_t>(0x07ff, accelerated);
         } else if (player.vy8 > 0) {
             player.vy8 = 0;
             y &= ~7;
@@ -28992,6 +29069,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-timed-gravity-word-evidence") {
             app.debugTimedGravityWordEvidence(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-dying-player-gravity-word-evidence") {
+            app.debugDyingPlayerGravityWordEvidence(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-behavior4-motion-evidence") {

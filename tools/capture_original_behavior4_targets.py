@@ -60,6 +60,25 @@ def lcg(seed: int) -> int:
     return (seed * 0x08088405 + 1) & 0xFFFFFFFF
 
 
+def trampoline(stage: int, image: bytes) -> bytes:
+    plain = actors.trampoline(stage, image)
+    if stage != 3:
+        return plain
+    entry, raw = HOOKS[stage - 1]
+    target = 0xF400 + (stage - 1) * 0x80
+    body = plain[2:-(2 + len(raw) + 3)]
+    # Players join at 654e too; only behavior-4 monsters selected a target.
+    code = bytearray(bytes.fromhex("9c60807ef1027500807ecf047500"))
+    epilogue = len(code) + len(body)
+    code[7] = epilogue - 8
+    code[13] = epilogue - 14
+    code += body + b"\x61\x9d" + raw
+    code += jump(target + len(code), entry + len(raw))
+    if len(code) > 0x80:
+        raise RuntimeError("filtered target trampoline exceeds scratch window")
+    return bytes(code)
+
+
 def self_check() -> bytes:
     exe = (ROOT / "LEZAC.EXE").read_bytes()
     if hashlib.sha256(exe).hexdigest() != EXE_SHA:
@@ -70,16 +89,17 @@ def self_check() -> bytes:
             raise RuntimeError(f"original target window mismatch at {at:04x}")
     actors.HOOKS = tuple((at, len(raw)) for at, raw in HOOKS)
     for stage in range(1, len(HOOKS) + 1):
-        actors.trampoline(stage, image)
+        trampoline(stage, image)
     print(f"behavior4_targets_self_check=ok windows={len(WINDOWS)} cases={len(CASES)} live=0", flush=True)
     return image
 
 
-def capture(pid: int, base: int, output: Path, image: bytes) -> dict:
+def capture(pid: int, base: int, output: Path, image: bytes, window: str) -> dict:
     cs, ds = base + (actors.CS << 4), base + (seeder.RUNTIME_DS << 4)
     installed = []
     observations = []
     sequence = 0
+    pulses = []
     with open(f"/proc/{pid}/mem", "r+b", buffering=0) as mem:
         def read(at, size):
             data = os.pread(mem.fileno(), size, at)
@@ -101,7 +121,9 @@ def capture(pid: int, base: int, output: Path, image: bytes) -> dict:
 
         def wait(stage, initial=False):
             nonlocal sequence
-            deadline = time.monotonic() + 10
+            started = time.monotonic()
+            deadline = started + (60 if initial else 10)
+            next_pulse = started
             while time.monotonic() < deadline:
                 marker, *regs, flag, current = struct.unpack("<9H", read(cs + actors.SCRATCH, 18))
                 if marker and flag == 0 and current > sequence:
@@ -113,6 +135,15 @@ def capture(pid: int, base: int, output: Path, image: bytes) -> dict:
                     if not initial:
                         raise RuntimeError(f"actor-pass stage {marker}, wanted {stage}")
                     release(marker)
+                if initial and not marker and time.monotonic() >= next_pulse:
+                    subprocess.run(["xdotool", "windowfocus", "--sync", window], check=True, timeout=3)
+                    subprocess.run(["xdotool", "keydown", "2"], check=True, timeout=3)
+                    time.sleep(.05)
+                    subprocess.run(["xdotool", "keyup", "2"], check=True, timeout=3)
+                    pulses.append({"key": "2", "elapsed_seconds": time.monotonic() - started})
+                    (output / "bootstrap.json").write_text(json.dumps({"physical_key_pulses": pulses,
+                        "reached_gameplay_hook": False}, sort_keys=True) + "\n")
+                    next_pulse = time.monotonic() + .75
                 time.sleep(.001)
             raise RuntimeError(f"actor-pass stage {stage} timeout")
 
@@ -141,11 +172,13 @@ def capture(pid: int, base: int, output: Path, image: bytes) -> dict:
             stop()
             for stage, (entry, raw) in enumerate(HOOKS, 1):
                 target = 0xF400 + (stage - 1) * 0x80
-                write(cs + target, actors.trampoline(stage, image))
+                write(cs + target, trampoline(stage, image))
                 installed.append((entry, raw))
                 write(cs + entry, jump(entry, target))
             os.kill(pid, signal.SIGCONT)
             before_regs = wait(1, initial=True)
+            (output / "bootstrap.json").write_text(json.dumps({"physical_key_pulses": pulses,
+                "reached_gameplay_hook": True, "registers": before_regs}, sort_keys=True) + "\n")
             memory_base = cs - (before_regs[0] << 4)
             width = int.from_bytes(read(ds + 0xC204, 2), "little")
             if width != 60 or read(ds + 0x79B7, 1) != b"\x01":
@@ -156,7 +189,6 @@ def capture(pid: int, base: int, output: Path, image: bytes) -> dict:
             if bytes.fromhex(initial["player_flags"])[1:3] != b"\x01\x01":
                 raise RuntimeError("probe did not enter active two-player gameplay")
             from PIL import ImageGrab
-            window = subprocess.check_output(["xdotool", "search", "--pid", str(pid), "--name", "DOSBox"], text=True).splitlines()[-1]
             geometry = dict(row.split("=", 1) for row in subprocess.check_output(
                 ["xdotool", "getwindowgeometry", "--shell", window], text=True).splitlines())
             x, y, w, h = (int(geometry[key]) for key in ("X", "Y", "WIDTH", "HEIGHT"))
@@ -226,20 +258,44 @@ def capture(pid: int, base: int, output: Path, image: bytes) -> dict:
                     "natural_campaign_claim": False, "pixel_parity_claim": False,
                     "original_fidelity_claim": False}
         finally:
-            # Retain executing trampoline bytes until the owned child exits.
+            # Never resume an IP inside cleared scratch: the owner kills this child.
             stop()
             for entry, raw in installed:
                 write(cs + entry, raw)
+            write(cs + 0xF400, scratch)
             restored = all(read(cs + entry, len(raw)) == raw for entry, raw in installed)
-            marker = int.from_bytes(read(cs + actors.SCRATCH, 2), "little")
-            if marker in range(1, len(HOOKS) + 1):
-                release(marker)
-            os.kill(pid, signal.SIGCONT)
+            scratch_restored = read(cs + 0xF400, len(scratch)) == scratch
             (output / "restoration.json").write_text(json.dumps({"hooks_restored": restored,
-                "scratch_retained_until_child_exit": True,
+                "scratch_restored": scratch_restored, "child_retained_stopped": True,
                 "installed_hooks": len(installed)}, sort_keys=True) + "\n")
-            if not restored:
+            if not restored or not scratch_restored:
                 raise RuntimeError("original instrumentation restoration failed")
+
+
+def locate_runtime(child: subprocess.Popen) -> tuple[int, str]:
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        if child.poll() is not None:
+            raise RuntimeError("owned original exited during bootstrap")
+        candidates = []
+        with open(f"/proc/{child.pid}/mem", "rb", buffering=0) as mem:
+            for at in seeder.scan_process(child.pid, seeder.DATA_SIGNATURE):
+                base = at - ((seeder.RUNTIME_DS << 4) + seeder.DATA_STRING_OFFSET)
+                cs = base + (actors.CS << 4)
+                try:
+                    if all(os.pread(mem.fileno(), len(raw), cs + entry) == raw
+                           for entry, raw in WINDOWS.items()):
+                        candidates.append(base)
+                except OSError:
+                    continue
+        if len(candidates) > 1:
+            raise RuntimeError("original runtime signature is ambiguous")
+        windows = subprocess.run(["xdotool", "search", "--pid", str(child.pid), "--name", "DOSBox"],
+                                 capture_output=True, text=True, timeout=3).stdout.splitlines()
+        if len(candidates) == 1 and len(windows) == 1:
+            return candidates[0], windows[0]
+        time.sleep(.1)
+    raise RuntimeError("owned original code and window did not become ready")
 
 
 def main() -> int:
@@ -266,36 +322,28 @@ def main() -> int:
     environment.enter_private_xvfb(sys.argv[1:])
     args.out_dir.mkdir(parents=True)
     output = args.out_dir.resolve()
-    owned = []
-    report = None
-    original_snapshot = seeder.write_runtime_state_snapshot
-    original_popen = subprocess.Popen
-
-    def popen(*values, **options):
-        child = original_popen(*values, **options)
-        if values and isinstance(values[0], list) and Path(values[0][0]).name == "dosbox":
-            owned.append(child)
-        return child
-
-    def snapshot(run_dir, pid, base, state, phase):
-        nonlocal report
-        if phase == "pre_capture":
-            if len(owned) != 1 or owned[0].pid != pid:
-                raise RuntimeError("capture process is not the owned original child")
-            report = capture(pid, base, output, image)
-        return original_snapshot(run_dir, pid, base, state, phase)
-
-    subprocess.Popen = popen
-    seeder.write_runtime_state_snapshot = snapshot
-    sys.argv = ["seed_original_level.py", "--run-dir", str(args.run_dir), "--target-level", "1",
-                "--start-key", "2", "--intro-key", "2", "--startup-seconds", "10", "--intro-seconds", "8",
-                "--level-start-seconds", "5", "--approve-procmem", "--approve-runtime-instrumentation",
-                "--dump-runtime-state"]
+    config = output / "dosbox.conf"
+    config.write_text("[sdl]\nfullscreen=false\noutput=surface\n"
+                      f"[dosbox]\nmemsize=16\ncaptures={output}\n"
+                      "[render]\nframeskip=0\naspect=false\nscaler=none\n"
+                      "[cpu]\ncore=normal\ncycles=fixed 6000\n")
+    command = ["dosbox", "-conf", str(config), "-c", f'mount c "{args.run_dir.resolve()}"',
+               "-c", "c:", "-c", "LEZAC.EXE"]
+    child = None
     try:
-        result = seeder.main()
-        if result != 0 or report is None or len(owned) != 1 or owned[0].poll() is None:
-            raise RuntimeError("capture or owned-child closure is incomplete")
-        report["owned_child_returncode"] = owned[0].returncode
+        with (output / "dosbox.log").open("wb") as log:
+            child = subprocess.Popen(command, env=dict(os.environ, SDL_AUDIODRIVER="dummy"),
+                                     stdout=log, stderr=subprocess.STDOUT)
+            try:
+                base, window = locate_runtime(child)
+                report = capture(child.pid, base, output, image, window)
+            finally:
+                if child.poll() is None:
+                    child.kill()
+                child.wait(timeout=5)
+        report["owned_child_returncode"] = child.returncode
+        report["launch_command"] = command
+        report["audio_driver"] = "dummy"
         report["producer_sha256"] = sha(Path(__file__))
         report["assets_sha256"] = assets
         report["dependency_sha256"] = {name: sha(ROOT / "tools" / name) for name in (
@@ -305,11 +353,10 @@ def main() -> int:
         (output / "capture.json").write_text(json.dumps(report, sort_keys=True) + "\n")
         return 0
     except BaseException as error:
-        (output / "failure.json").write_text(json.dumps({"error": repr(error), "original_fidelity_claim": False}, sort_keys=True) + "\n")
+        (output / "failure.json").write_text(json.dumps({"error": repr(error),
+            "owned_child_returncode": None if child is None else child.poll(),
+            "original_fidelity_claim": False}, sort_keys=True) + "\n")
         raise
-    finally:
-        subprocess.Popen = original_popen
-        seeder.write_runtime_state_snapshot = original_snapshot
 
 
 if __name__ == "__main__":

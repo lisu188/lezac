@@ -4575,6 +4575,45 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^flyer_contacts_self_check=ok cases=176 kinds=1..8 live=0")
 
+    add_test(NAME monster_coordinate_writeback_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-coordinate-writeback
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_coordinate_writeback_original.bin)
+    set_tests_properties(monster_coordinate_writeback_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^monster_coordinate_writeback=ok cases=256 production_updates=256 kinds=1..8 profiles=2 outside_level=112 position_velocity_fraction_rng_hp_animation=1 seeded_original=1 natural_route_claim=0 visual_claim=0")
+
+    add_test(NAME monster_writeback_fixture
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_writeback_fixture.py)
+    set_tests_properties(monster_writeback_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^monster_writeback_fixture=ok cases=256 bytes=8256 kinds=1..8 outside=112 original_exit=0x777f")
+
+    add_test(NAME monster_writeback_fixture_selftest
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_writeback_fixture.py --self-test)
+    set_tests_properties(monster_writeback_fixture_selftest PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^monster_writeback_fixture_selftest=ok byte_mutations=8256 truncated=1 trailing=1 original_mutation=1")
+
+    add_test(NAME monster_writeback_replay_guard
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_writeback_fixture.py
+                --replay-exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(monster_writeback_replay_guard PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^monster_writeback_replay_guard=ok positive=1 rejected=18 audio=dummy")
+
+    add_test(NAME monster_writeback_capture_self_check
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_monster_writeback.py --self-check)
+    set_tests_properties(monster_writeback_capture_self_check PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "monster_writeback_self_check=ok cases=256 kinds=1..8 profiles=2 live=0")
+
     add_test(NAME behavior4_motion_evidence
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-motion-evidence
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/behavior4_motion_original_level2.txt)

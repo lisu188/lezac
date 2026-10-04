@@ -17537,6 +17537,83 @@ public:
                   << " position_velocity_fraction_rng=1 seeded_original=1 natural_route_claim=0 visual_claim=0\n";
     }
 
+    void debugMonsterCoordinateWriteback(const std::string& fixturePath) {
+        const auto bytes = readFile(fixturePath);
+        if (bytes.size() != 8256 || lezac::diagnostics::level1::fingerprint(bytes) != "11797946e69036ce") {
+            throw std::runtime_error("monster coordinate-writeback fixture bytes changed");
+        }
+        load();
+        resetLevel(0);
+        if (level_.width != 60 || level_.height != 33) {
+            throw std::runtime_error("monster writeback original level extent changed");
+        }
+        level_.monsterSpawners.clear();
+        spawnerStates_.clear();
+        playerCount_ = 2;
+        playerDead_ = player2Dead_ = false;
+        reentryTimer_ = reentryTimer2_ = 0;
+        player_.x = 160; player_.y = 80;
+        player2_.x = 240; player2_.y = 80;
+        const auto signedWord = [&](size_t offset) {
+            return static_cast<int16_t>(le16(bytes, offset));
+        };
+        int outside = 0;
+        std::string mismatches;
+        for (size_t index = 0; index < 256; ++index) {
+            const size_t offset = 64 + index * 32;
+            if (le16(bytes, offset) != index) {
+                throw std::runtime_error("monster writeback case order changed");
+            }
+            std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+            std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+            ActiveMonster seed;
+            seed.kind = bytes[offset + 2];
+            seed.behavior = 4;
+            seed.x = signedWord(offset + 4);
+            seed.y = signedWord(offset + 6);
+            seed.vx8 = signedWord(offset + 8);
+            seed.vy8 = signedWord(offset + 10);
+            seed.fracX = bytes[offset + 12];
+            seed.fracY = bytes[offset + 13];
+            seed.ai0 = 14; seed.ai1 = 271; seed.ai2 = 75;
+            seed.hp = 11;
+            seed.hotspotY = 0;
+            seed.animCursor = seed.animFrame = seed.animStart = 40;
+            seed.animEnd = 42;
+            seed.animDelay = 3;
+            seed.animMode = 1;
+            seed.animStep = 1;
+            seed.actorOrder = 1;
+            monsters_ = {seed};
+            logicTick_ = le16(bytes, offset + 14);
+            randomSeed_ = UINT32_C(0x12345678);
+            updateMonsters(0.0f);
+            if (monsters_.size() != 1) {
+                throw std::runtime_error("monster writeback production replay lost its actor");
+            }
+            const auto& actual = monsters_.front();
+            if (actual.x != signedWord(offset + 16) || actual.y != signedWord(offset + 18) ||
+                actual.vx8 != signedWord(offset + 20) || actual.vy8 != signedWord(offset + 22) ||
+                actual.fracX != bytes[offset + 24] || actual.fracY != bytes[offset + 25] ||
+                randomSeed_ != le32(bytes, offset + 26) || actual.hp != bytes[offset + 30] ||
+                actual.animTick != bytes[offset + 31] || actual.kind != seed.kind ||
+                actual.behavior != 4 || actual.animFrame != 40 || actual.animCursor != 40) {
+                if (!mismatches.empty()) mismatches += ",";
+                mismatches += std::to_string(index);
+            }
+            outside += actual.x < 0 || actual.x > 464 || actual.y < 0 || actual.y > 248;
+        }
+        if (!mismatches.empty()) {
+            throw std::runtime_error("monster production writeback differs at cases " + mismatches);
+        }
+        if (outside != 112) {
+            throw std::runtime_error("monster out-of-level writeback coverage changed");
+        }
+        std::cout << "monster_coordinate_writeback=ok cases=256 production_updates=256 kinds=1..8 profiles=2"
+                  << " outside_level=112 position_velocity_fraction_rng_hp_animation=1"
+                  << " seeded_original=1 natural_route_claim=0 visual_claim=0\n";
+    }
+
     void debugWalkerGravityWordEvidence(const std::string& fixturePath) {
         const auto bytes = readFile(fixturePath);
         if (bytes.size() != 486 || lezac::diagnostics::level1::fingerprint(bytes) != "e000b1d9dfe2e9c5") {
@@ -29224,6 +29301,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-flyer-contact-motion-evidence") {
             app.debugFlyerContactMotionEvidence(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-monster-coordinate-writeback") {
+            app.debugMonsterCoordinateWriteback(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-walker-gravity-word-evidence") {

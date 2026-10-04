@@ -112,7 +112,7 @@ def self_check():
     return image
 
 
-def capture(pid, location, output, image, window, load_segment):
+def capture(pid, location, output, image, window, load_segment, retain_writeback=False):
     cs, ds = location + (actors.CS << 4), location + (seeder.RUNTIME_DS << 4)
     installed, observations, pulses = [], [], []
     sequence = 0
@@ -213,6 +213,7 @@ def capture(pid, location, output, image, window, load_segment):
             words = memory_base + (segment << 4) + offset
             descriptors = read(ds + 0xC322, 368)
             for case in CASES:
+                initial_x, initial_y = case.get('x', 336), case.get('y', 99)
                 actor = bytearray(38)
                 actor[0], actor[1], actor[3], actor[4], actor[0x15], actor[0x24] = case['kind'], 2, 11, 11, 4, 255
                 struct.pack_into('<hhHHHHH', actor, 6, case['vx'], case['vy'], case['frac_x'], case['frac_y'], case['ai0'], case['ai1'], case['ai2'])
@@ -240,17 +241,22 @@ def capture(pid, location, output, image, window, load_segment):
                 write(ds + 0xC21E, struct.pack('<HH', 296 if case['mode'] == 2 else 160,
                                              79 if case['mode'] == 2 else 80))
                 write(ds + 0xC226, struct.pack('<HH', 240, 80))
-                write(ds + 0xC22E, struct.pack('<HH', 336, 99) + descriptors[40 * 4:41 * 4])
+                write(ds + 0xC22E, struct.pack('<HH', initial_x, initial_y) + descriptors[40 * 4:41 * 4])
                 seeded_actor = read(ds + 0x1BD4, 38).hex()
                 release(1)
                 before = locals_at(wait(2))
-                if (before['vx'], before['vy'], before['x'], before['y'], before['frac_x'], before['frac_y'], before['kind'], before['behavior']) != (case['vx'], case['vy'], 336, 99, 165, 90, case['kind'], 4):
+                if (before['vx'], before['vy'], before['x'], before['y'], before['frac_x'], before['frac_y'], before['kind'], before['behavior']) != (case['vx'], case['vy'], initial_x, initial_y, case['frac_x'], case['frac_y'], case['kind'], 4):
                     raise RuntimeError(f'case {case["index"]} native inputs differ: {before}')
                 release(2)
                 after = locals_at(wait(3))
                 if before['frame'] != after['frame'] or before['registers'][3:] != after['registers'][3:] or before['actor_pointer'] != after['actor_pointer'] or before['actor_pointer'] != [0x1BD4, before['registers'][1]]:
                     raise RuntimeError('motion pair did not remain in one actor/frame/stack')
-                observations.append({'seed': case, 'seeded_actor_hex': seeded_actor, 'terrain_sha256': hashlib.sha256(terrain).hexdigest(), 'before': before, 'after': after})
+                observation = {'seed': case, 'seeded_actor_hex': seeded_actor,
+                               'terrain_sha256': hashlib.sha256(terrain).hexdigest(), 'before': before, 'after': after}
+                if retain_writeback:
+                    observation['writeback_actor_hex'] = read(ds + 0x1BD4, 38).hex()
+                    observation['writeback_visual_hex'] = read(ds + 0xC22E, 8).hex()
+                observations.append(observation)
                 (output / 'candidate.json').write_text(json.dumps({'cases': observations, 'complete': False}, sort_keys=True) + '\n')
                 print(f'flyer_contacts_original case={case["index"]} kind={case["kind"]} mask={case["mask"]} motion={after["x"]},{after["y"]},{after["vx"]},{after["vy"]}', flush=True)
                 if case['index'] + 1 < len(CASES):
@@ -258,7 +264,7 @@ def capture(pid, location, output, image, window, load_segment):
                     wait(1)
             return {'schema': 'lezac-flyer-contact-motion-v1', 'complete': True, 'cases': observations,
                     'case_count': len(CASES), 'kind_coverage': list(range(1, 9)),
-                    'observed_entry_exit': [0x7062, 0x741E],
+                    'observed_entry_exit': [HOOKS[1][0], HOOKS[2][0]],
                     'instruction_windows': {str(at): raw.hex() for at, raw in WINDOWS.items()},
                     'hooks': [(at, raw.hex()) for at, raw in HOOKS], 'support_dependencies_sha256': DEPENDENCIES,
                     'hook_free_stack_preserved': True, 'selected_actor_parameter_guard': True,

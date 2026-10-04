@@ -19527,7 +19527,8 @@ public:
         player_.y = 0.0f;
 
         ActiveMonster monster;
-        monster.x = placed.x * kTileSize + kTileSize;
+        // Keep the seeded overlap inside the synthetic room's supported columns.
+        monster.x = placed.x * kTileSize;
         monster.y = placed.y * kTileSize - kTileSize;
         monster.kind = 1;
         monster.behavior = 3;
@@ -26945,8 +26946,7 @@ private:
                 integrateAxis8_8(monster.y, monster.fracY, monster.vy8);
             }
 
-            monster.x = std::clamp(monster.x, 0, std::max(16, level_.width * 8 - 16));
-            monster.y = std::clamp(monster.y, 0, std::max(16, level_.height * 8 - 16));
+            // 1000:7530 stores coordinates directly, without level-bound clamps.
             if (monster.kind >= 1 && monster.kind <= 8) {
                 int damage = 0;
                 // 1000:7427 calls 56B6 using the pre-motion 2x2 footprint.

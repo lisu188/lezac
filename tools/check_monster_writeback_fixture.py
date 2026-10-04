@@ -5,15 +5,18 @@ import os
 from pathlib import Path
 import struct
 import subprocess
+import tarfile
 import tempfile
 
 import capture_original_monster_writeback as producer
+from check_flyer_contact_fixture import retained_file
 from level1_fidelity import safe_file, strict_json
 
 ROOT = Path(__file__).resolve().parent.parent
 COUNT = 256
 RECORD = struct.Struct('<HBBhhhhBBHhhhhBBIBB')
 FIXTURE_SHA = '23008c501c6e0091d3033022d0e496a45db87ed45b4c10761913158b53708e45'
+ARCHIVE_SHA = '6050b6ec10ff7323aa642e1afd674db52088d28f97f321cb407409e6030b355e'
 
 
 def require(condition, message):
@@ -129,6 +132,7 @@ def main():
     parser.add_argument('--helper-file', type=Path, default=ROOT / 'tools/capture_original_flyer_contacts.py')
     parser.add_argument('--self-test', action='store_true')
     parser.add_argument('--replay-exe', type=Path)
+    parser.add_argument('--archive', action='store_true')
     args = parser.parse_args()
     if args.extract:
         require(args.output is not None and not args.output.exists(), 'writeback extraction needs a fresh output')
@@ -142,7 +146,45 @@ def main():
         return 0
     data, exe = args.fixture.read_bytes(), (ROOT / 'LEZAC.EXE').read_bytes()
     validate(data, exe)
-    if args.capture:
+    if args.archive:
+        path = ROOT / 'docs/recovery/evidence/monster_writeback_20261004/native-captures.tar.gz'
+        require(path.stat().st_size == 101690 and hashlib.sha256(path.read_bytes()).hexdigest() == ARCHIVE_SHA,
+                'retained writeback archive extent/hash differs')
+        with tempfile.TemporaryDirectory(prefix='lezac-writeback-archive-') as directory:
+            temporary = Path(directory)
+            with tarfile.open(path, 'r:gz') as archive:
+                members = archive.getmembers()
+                names = [member.name for member in members]
+                require(len(members) == len(set(names)) == 27 and sum(member.size for member in members) < 4 * 1024 * 1024,
+                        'retained writeback member extent differs')
+                for member in members:
+                    require(member.isfile() and member.size >= 0, 'retained writeback archive contains a non-file')
+                    target = retained_file(temporary, member.name)
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    content = archive.extractfile(member).read()
+                    require(len(content) == member.size, 'retained writeback member bytes truncated')
+                    target.write_bytes(content)
+            manifest = strict_json((temporary / 'manifest.json').read_text())
+            require(set(manifest) == set(names) - {'manifest.json'}, 'retained writeback manifest scope differs')
+            for name, item in manifest.items():
+                content = retained_file(temporary, name).read_bytes()
+                require(len(content) == item['bytes'] and hashlib.sha256(content).hexdigest() == item['sha256'],
+                        'retained writeback member bytes differ')
+            for suffix in ('a', 'b'):
+                require(capture_bytes(temporary / suffix, temporary / 'tools/capture_original_monster_writeback.py',
+                        temporary / 'tools/capture_original_flyer_contacts.py') == data,
+                        'retained native writeback does not reproduce pinned fixture')
+            negative = strict_json((temporary / 'negative.json').read_text())
+            positive = strict_json((temporary / 'positive.json').read_text())
+            outside = [index for index in range(COUNT) for row in [RECORD.unpack_from(data, 64 + index * RECORD.size)]
+                       if not (0 <= row[10] <= 464 and 0 <= row[11] <= 248)]
+            require(negative['returncode'] == 1 and negative['mismatch_count'] == 112 and negative['mismatches'] == outside and
+                    negative['stderr'].strip() == 'fatal: monster production writeback differs at cases ' + ','.join(map(str, outside)) and
+                    positive['returncode'] == 0 and 'cases=256 production_updates=256' in positive['stdout'] and
+                    'outside_level=112' in positive['stdout'] and negative['audio'] == positive['audio'] == 'dummy',
+                    'retained writeback negative/positive diagnostic differs')
+        print('monster_writeback_retained_archive=ok captures=2 cases_each=256 members=27 byte_verified=1 negative_diagnostic_preserved=1')
+    elif args.capture:
         require(capture_bytes(args.capture, args.producer_file, args.helper_file) == data,
                 'complete native writeback does not reproduce pinned fixture')
         print('monster_writeback_native_capture=ok cases=256 kinds=1..8 outside=112 fixture_byte_match=1 hooks_restored=1 child_closed=1 audio=dummy')

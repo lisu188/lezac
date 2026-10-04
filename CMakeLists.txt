@@ -4607,6 +4607,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^monster_writeback_replay_guard=ok positive=1 rejected=18 audio=dummy")
 
+    add_test(NAME monster_writeback_retained_archive
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_writeback_fixture.py --archive)
+    set_tests_properties(monster_writeback_retained_archive PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^monster_writeback_retained_archive=ok captures=2 cases_each=256 members=27 byte_verified=1 negative_diagnostic_preserved=1")
+
     add_test(NAME monster_writeback_capture_self_check
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_monster_writeback.py --self-check)
     set_tests_properties(monster_writeback_capture_self_check PROPERTIES

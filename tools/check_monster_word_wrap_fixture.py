@@ -18,7 +18,7 @@ COUNT = 768
 RECORD = writeback.RECORD
 SIZE = 64 + COUNT * RECORD.size
 FIXTURE_SHA = '585361d717dcb81ade13503fce6fe043edd1af4c3e3bf2b8a72d02dce9fa4618'
-ARCHIVE_SHA = 'pending-native-retention'
+ARCHIVE_SHA = 'c4b600194b41e778a4f17809926a452b93743b77b58f05d617fe49411abd9b7a'
 require = writeback.require
 
 
@@ -88,14 +88,14 @@ def main():
     validate(data, exe)
     if args.archive:
         path = ROOT / 'docs/recovery/evidence/monster_word_wrap_20261004/native-captures.tar.gz'
-        require(hashlib.sha256(path.read_bytes()).hexdigest() == ARCHIVE_SHA,
+        require(path.stat().st_size == 195144 and hashlib.sha256(path.read_bytes()).hexdigest() == ARCHIVE_SHA,
                 'retained word archive hash differs')
         with tempfile.TemporaryDirectory(prefix='lezac-word-archive-') as directory:
             temporary = Path(directory)
             with tarfile.open(path, 'r:gz') as archive:
                 members = archive.getmembers()
                 names = [member.name for member in members]
-                require(len(members) == len(set(names)) == 28 and sum(member.size for member in members) < 8 * 1024 * 1024,
+                require(len(members) == len(set(names)) == 29 and sum(member.size for member in members) < 8 * 1024 * 1024,
                         'retained word archive member extent differs')
                 for member in members:
                     require(member.isfile() and member.size >= 0, 'retained word archive contains a non-file')
@@ -122,7 +122,7 @@ def main():
                     negative['stderr'].strip() == 'fatal: monster production coordinate-word differs at cases ' + ','.join(map(str, expected)) and
                     positive['returncode'] == 0 and 'cases=768 production_updates=768' in positive['stdout'] and
                     negative['audio'] == positive['audio'] == 'dummy', 'retained word negative/positive diagnostic differs')
-        print('monster_word_wrap_retained_archive=ok captures=2 cases_each=768 members=28 byte_verified=1 negative_diagnostic_preserved=1')
+        print('monster_word_wrap_retained_archive=ok captures=2 cases_each=768 members=29 byte_verified=1 negative_diagnostic_preserved=1')
     elif args.capture:
         require(capture_bytes(args.capture, args.producer_file, args.helper_file) == data,
                 'full native word writeback does not reproduce fixture')

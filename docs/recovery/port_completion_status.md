@@ -65,6 +65,14 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [2026-10-04 signed-coordinate recovery](monster_coordinate_word_wrap_runtime_2026-10-04.md)
+matches 768 seeded full native behavior-4 writebacks across kinds 1..8, including
+120 positive and 120 negative coordinate-word wraps. The recovered monster
+path now narrows its coordinates after common integration while the generic
+32-bit API and other callers remain unchanged. General out-of-map scans, later
+updates, other actor/behavior boundaries, natural routes and whole-game fidelity
+remain unverified. This closes no broad OPEN item or global completion flag.
+
 The [2026-10-04 monster coordinate-writeback recovery](monster_coordinate_writeback_runtime_2026-10-04.md)
 matches 256 seeded full native writebacks for kinds 1..8, including 112 positions
 outside the port's former level-bound clamps. The production clamp removal is

@@ -16,6 +16,19 @@ DOS-resident probes replace unsafe in-segment scratch assumptions. This does
 not establish a natural complete-level victory, all actor bytes, audio timing
 or whole-game fidelity. See [scope, provenance and checks](docs/recovery/level1_fullframe_2026-09-21.md).
 
+## Monster Signed-Coordinate Recovery (2026-10-04)
+
+Two independent silent original captures agree on 768 full behavior-4
+writebacks for kinds 1..8 at both signed coordinate-word boundaries. The real
+production replay first failed exactly 240 wrapping cases; signed narrowing
+after common monster integration now matches all 768 positions, velocities,
+fractions, RNG, HP and animation counters. A pinned 24,640-byte fixture, six
+new CTests and complete native/failure archive retain the result. The generic
+32-bit integrator, boss-motion paths and other actor callers remain unchanged.
+These shared seeds do not establish general out-of-map reads, later updates,
+other actor/behavior boundaries or natural campaign fidelity. All four OPEN
+items remain. See [scope and original evidence](docs/recovery/monster_coordinate_word_wrap_runtime_2026-10-04.md).
+
 ## Monster Coordinate-Writeback Recovery (2026-10-04)
 
 Two independent silent original captures agree on 256 seeded behavior-4

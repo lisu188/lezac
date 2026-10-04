@@ -4709,6 +4709,52 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "monster_tile_damage_self_check=ok cases=1312 kinds=1..8 glyphs=8 footprint_masks=16 profiles=4 live=0")
 
+    add_test(NAME timed_writeback_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-timed-actor-writeback
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/timed_actor_writeback_original.bin)
+    set_tests_properties(timed_writeback_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^timed_actor_writeback=ok cases=1184 helper_updates=1184 caller_updates=1184 kinds=12,13 motion_timer_rng_descriptor=1 seeded_original=1 natural_route_claim=0 visual_claim=0")
+
+    add_test(NAME timed_writeback_fixture
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_timed_writeback_fixture.py)
+    set_tests_properties(timed_writeback_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^timed_writeback_fixture=ok cases=1184 bytes=94784 kinds=12,13 profiles=10 timer_parities=2 original_exit=0x777f")
+
+    add_test(NAME timed_writeback_fixture_selftest
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_timed_writeback_fixture.py --self-test)
+    set_tests_properties(timed_writeback_fixture_selftest PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^timed_writeback_fixture_selftest=ok byte_mutations=94784 truncated=1 trailing=1 original_mutation=1")
+
+    add_test(NAME timed_writeback_replay_guard
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_timed_writeback_fixture.py --replay-exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(timed_writeback_replay_guard PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^timed_writeback_replay_guard=ok positive=1 rejected=18 audio=dummy")
+
+    add_test(NAME timed_writeback_retained_archive
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_timed_writeback_fixture.py --archive)
+    set_tests_properties(timed_writeback_retained_archive PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^timed_writeback_retained_archive=ok captures=4 cases_each=1184 byte_verified=1 negative_preserved=1")
+
+    add_test(NAME timed_writeback_capture_self_check
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_timed_writeback.py --self-check)
+    set_tests_properties(timed_writeback_capture_self_check PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "timed_writeback_self_check=ok cases=1184 kinds=12,13 profiles=10 live=0")
+
+    add_test(NAME actor_floor_friction_word
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_floor_friction.py --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(actor_floor_friction_word PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^actor_floor_friction_word=ok inputs=65536 compiled_helper=1 compiled_idle_player=1 guarded_static_oracle=1 mutants_discriminated=3 live_original_inputs=0")
+
     add_test(NAME behavior4_motion_evidence
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-motion-evidence
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/behavior4_motion_original_level2.txt)

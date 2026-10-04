@@ -224,7 +224,7 @@ public:
             // write-back).
             text_.drawSprite(bank.sprites[static_cast<size_t>(index)],
                        static_cast<int>(monster.x) - camX,
-                       static_cast<int>(monster.y) + monster.hotspotY - camY);
+                       renderer_.monsterVisualY(monster) - camY);
         }
     }
 
@@ -330,6 +330,10 @@ bool GameRenderer::isBossActor(const ActiveMonster& monster) const {
 
 const SpriteBank& GameRenderer::monsterSpriteBank(const ActiveMonster& monster) const {
     return isBossActor(monster) ? assets_.altSprites() : assets_.sprites();
+}
+
+int GameRenderer::monsterVisualY(const ActiveMonster& monster) const {
+    return static_cast<int16_t>(static_cast<int>(monster.y) + monster.hotspotY);
 }
 
 int GameRenderer::monsterSpriteIndex(const ActiveMonster& monster) const {

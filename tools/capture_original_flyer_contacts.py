@@ -25,6 +25,7 @@ WINDOWS = dict(HOOKS) | {
     0x713D: bytes.fromhex('a17420d1e0509aa8132009'),
 }
 RELOCATIONS = {0x7134, 0x7146}
+BEHAVIOR = 4
 DEPENDENCIES = {
     'capture_original_behavior4_targets.py': 'a99a7f81c19720f44e794807c35c2b326dd5cdedfea79d01ee63eeab3d421ed8',
     'capture_original_death_transients.py': 'a0fddeb9c3ce6426641739ac7bd558a4e7d253670df28ec1c8aead652b3e0ba9',
@@ -65,6 +66,7 @@ def trampoline(stage, image):
     if stage in (2, 3):
         guard = len(code)
         code += bytes.fromhex('817e04d41b7500807ecf047500')
+        code[guard + 10] = BEHAVIOR
         end = len(code) + len(body)
         code[guard + 6] = end - (guard + 7)
         code[guard + 12] = end - (guard + 13)
@@ -108,11 +110,12 @@ def self_check():
     actors.SCRATCH = base.GATE
     for stage in (1, 2, 3):
         trampoline(stage, image)
-    print(f'flyer_contacts_self_check=ok cases={len(CASES)} kinds=1..8 live=0', flush=True)
+    kinds = '1..8' if sorted({case['kind'] for case in CASES}) == list(range(1, 9)) else ','.join(map(str, sorted({case['kind'] for case in CASES})))
+    print(f'flyer_contacts_self_check=ok cases={len(CASES)} kinds={kinds} live=0', flush=True)
     return image
 
 
-def capture(pid, location, output, image, window, load_segment, retain_writeback=False):
+def capture(pid, location, output, image, window, load_segment, retain_writeback=False, actor_seed=None):
     cs, ds = location + (actors.CS << 4), location + (seeder.RUNTIME_DS << 4)
     installed, observations, pulses = [], [], []
     sequence = 0
@@ -219,6 +222,10 @@ def capture(pid, location, output, image, window, load_segment, retain_writeback
                 actor[0x24] = case.get('hp_byte', 255)
                 struct.pack_into('<hhHHHHH', actor, 6, case['vx'], case['vy'], case['frac_x'], case['frac_y'], case['ai0'], case['ai1'], case['ai2'])
                 actor[0x16:0x1D] = bytes((40, 40, 42, 0, 3, 1, 1))
+                if actor_seed is not None:
+                    actor = bytearray(actor_seed(case))
+                if len(actor) != 38 or actor[0] != case['kind'] or actor[0x15] != BEHAVIOR:
+                    raise RuntimeError('selected actor seed extent/kind/behavior differs')
                 terrain = bytearray(1980)
                 for bit, cells in ((1, ((41, 12), (41, 13))), (2, ((44, 12), (44, 13))),
                                    (4, ((42, 11), (43, 11))), (8, ((42, 14), (43, 14)))):
@@ -246,11 +253,12 @@ def capture(pid, location, output, image, window, load_segment, retain_writeback
                 write(ds + 0xC21E, struct.pack('<HH', 296 if case['mode'] == 2 else 160,
                                              79 if case['mode'] == 2 else 80))
                 write(ds + 0xC226, struct.pack('<HH', 240, 80))
-                write(ds + 0xC22E, struct.pack('<hh', initial_x, initial_y) + descriptors[40 * 4:41 * 4])
+                sprite, hotspot = actor[0x17], actor[0x14]
+                write(ds + 0xC22E, struct.pack('<HH', initial_x & 0xFFFF, (initial_y + hotspot) & 0xFFFF) + descriptors[sprite * 4:(sprite + 1) * 4])
                 seeded_actor = read(ds + 0x1BD4, 38).hex()
                 release(1)
                 before = locals_at(wait(2))
-                if (before['vx'], before['vy'], before['x'], before['y'], before['frac_x'], before['frac_y'], before['kind'], before['behavior']) != (case['vx'], case['vy'], initial_x, initial_y, case['frac_x'], case['frac_y'], case['kind'], 4):
+                if (before['vx'], before['vy'], before['x'], before['y'], before['frac_x'], before['frac_y'], before['kind'], before['behavior']) != (case['vx'], case['vy'], initial_x, initial_y, case['frac_x'], case['frac_y'], case['kind'], BEHAVIOR):
                     raise RuntimeError(f'case {case["index"]} native inputs differ: {before}')
                 release(2)
                 after = locals_at(wait(3))
@@ -268,7 +276,7 @@ def capture(pid, location, output, image, window, load_segment, retain_writeback
                     release(3)
                     wait(1)
             return {'schema': 'lezac-flyer-contact-motion-v1', 'complete': True, 'cases': observations,
-                    'case_count': len(CASES), 'kind_coverage': list(range(1, 9)),
+                    'case_count': len(CASES), 'kind_coverage': sorted({case['kind'] for case in CASES}),
                     'observed_entry_exit': [HOOKS[1][0], HOOKS[2][0]],
                     'instruction_windows': {str(at): raw.hex() for at, raw in WINDOWS.items()},
                     'hooks': [(at, raw.hex()) for at, raw in HOOKS], 'support_dependencies_sha256': DEPENDENCIES,

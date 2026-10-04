@@ -241,7 +241,7 @@ def capture(pid, location, output, image, window, load_segment, retain_writeback
                 write(ds + 0xC21E, struct.pack('<HH', 296 if case['mode'] == 2 else 160,
                                              79 if case['mode'] == 2 else 80))
                 write(ds + 0xC226, struct.pack('<HH', 240, 80))
-                write(ds + 0xC22E, struct.pack('<HH', initial_x, initial_y) + descriptors[40 * 4:41 * 4])
+                write(ds + 0xC22E, struct.pack('<hh', initial_x, initial_y) + descriptors[40 * 4:41 * 4])
                 seeded_actor = read(ds + 0x1BD4, 38).hex()
                 release(1)
                 before = locals_at(wait(2))

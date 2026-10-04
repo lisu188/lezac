@@ -17537,10 +17537,13 @@ public:
                   << " position_velocity_fraction_rng=1 seeded_original=1 natural_route_claim=0 visual_claim=0\n";
     }
 
-    void debugMonsterCoordinateWriteback(const std::string& fixturePath) {
+    void debugMonsterCoordinateWriteback(const std::string& fixturePath, bool wordWrap = false) {
         const auto bytes = readFile(fixturePath);
-        if (bytes.size() != 8256 || lezac::diagnostics::level1::fingerprint(bytes) != "11797946e69036ce") {
-            throw std::runtime_error("monster coordinate-writeback fixture bytes changed");
+        const size_t caseCount = wordWrap ? 768 : 256;
+        const std::string label = wordWrap ? "monster coordinate-word" : "monster coordinate-writeback";
+        const std::string expectedFingerprint = wordWrap ? "3ee7b0987203d3cc" : "11797946e69036ce";
+        if (bytes.size() != 64 + caseCount * 32 || lezac::diagnostics::level1::fingerprint(bytes) != expectedFingerprint) {
+            throw std::runtime_error(label + " fixture bytes changed");
         }
         load();
         resetLevel(0);
@@ -17558,8 +17561,9 @@ public:
             return static_cast<int16_t>(le16(bytes, offset));
         };
         int outside = 0;
+        int positiveWrap = 0, negativeWrap = 0;
         std::string mismatches;
-        for (size_t index = 0; index < 256; ++index) {
+        for (size_t index = 0; index < caseCount; ++index) {
             const size_t offset = 64 + index * 32;
             if (le16(bytes, offset) != index) {
                 throw std::runtime_error("monster writeback case order changed");
@@ -17584,6 +17588,9 @@ public:
             seed.animMode = 1;
             seed.animStep = 1;
             seed.actorOrder = 1;
+            const int expectedX = signedWord(offset + 16), expectedY = signedWord(offset + 18);
+            positiveWrap += (seed.x == 32760 && expectedX < 0) || (seed.y == 32760 && expectedY < 0);
+            negativeWrap += (seed.x == -32760 && expectedX > 0) || (seed.y == -32760 && expectedY > 0);
             monsters_ = {seed};
             logicTick_ = le16(bytes, offset + 14);
             randomSeed_ = UINT32_C(0x12345678);
@@ -17604,13 +17611,18 @@ public:
             outside += actual.x < 0 || actual.x > 464 || actual.y < 0 || actual.y > 248;
         }
         if (!mismatches.empty()) {
-            throw std::runtime_error("monster production writeback differs at cases " + mismatches);
+            throw std::runtime_error(std::string(wordWrap ? "monster production coordinate-word" : "monster production writeback") +
+                                     " differs at cases " + mismatches);
         }
-        if (outside != 112) {
+        if (outside != (wordWrap ? 768 : 112) || positiveWrap != (wordWrap ? 120 : 0) ||
+            negativeWrap != (wordWrap ? 120 : 0)) {
             throw std::runtime_error("monster out-of-level writeback coverage changed");
         }
-        std::cout << "monster_coordinate_writeback=ok cases=256 production_updates=256 kinds=1..8 profiles=2"
-                  << " outside_level=112 position_velocity_fraction_rng_hp_animation=1"
+        std::cout << (wordWrap ? "monster_coordinate_word_wrap" : "monster_coordinate_writeback")
+                  << "=ok cases=" << caseCount << " production_updates=" << caseCount
+                  << " kinds=1..8 profiles=" << (wordWrap ? 6 : 2) << " outside_level=" << outside;
+        if (wordWrap) std::cout << " positive_wrap=" << positiveWrap << " negative_wrap=" << negativeWrap;
+        std::cout << " position_velocity_fraction_rng_hp_animation=1"
                   << " seeded_original=1 natural_route_claim=0 visual_claim=0\n";
     }
 
@@ -26941,6 +26953,9 @@ private:
                 }
                 integrateAxis8_8(monster.y, monster.fracY, monster.vy8);
                 integrateAxis8_8(monster.x, monster.fracX, monster.vx8);
+                // The common native ADCs store signed 16-bit coordinate locals.
+                monster.x = static_cast<int16_t>(monster.x);
+                monster.y = static_cast<int16_t>(monster.y);
             } else {
                 integrateAxis8_8(monster.x, monster.fracX, monster.vx8);
                 integrateAxis8_8(monster.y, monster.fracY, monster.vy8);
@@ -29305,6 +29320,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-monster-coordinate-writeback") {
             app.debugMonsterCoordinateWriteback(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-monster-coordinate-word-wrap") {
+            app.debugMonsterCoordinateWriteback(argv[2], true);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-walker-gravity-word-evidence") {

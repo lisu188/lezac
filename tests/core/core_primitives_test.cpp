@@ -66,11 +66,19 @@ int main() {
     Fixed8_8Axis wholeNegative;
     for (int i = 0; i < 4; ++i) integrateFixed8_8(wholeNegative, -256);
 
+    // Native actor adapters narrow words; the generic core position stays 32-bit.
+    Fixed8_8Axis upperWordBoundary{32760, 165};
+    integrateFixed8_8(upperWordBoundary, 32767);
+    Fixed8_8Axis lowerWordBoundary{-32760, 165};
+    integrateFixed8_8(lowerWordBoundary, -32768);
+
     if (positive.position != 1 || positive.fraction != 0 ||
         negativeOnce.position != -1 || negativeOnce.fraction != 192 ||
         negativeFour.position != -1 || negativeFour.fraction != 0 ||
         wholePositive.position != 4 || wholePositive.fraction != 0 ||
-        wholeNegative.position != -4 || wholeNegative.fraction != 0) {
+        wholeNegative.position != -4 || wholeNegative.fraction != 0 ||
+        upperWordBoundary.position != 32888 || upperWordBoundary.fraction != 164 ||
+        lowerWordBoundary.position != -32888 || lowerWordBoundary.fraction != 165) {
         return 1;
     }
 

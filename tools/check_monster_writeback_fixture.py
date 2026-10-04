@@ -55,11 +55,12 @@ def validate(data, exe):
     require(outside == 112, 'out-of-level writeback coverage differs')
 
 
-def capture_bytes(directory, producer_file, helper_file):
+def capture_bytes(directory, producer_file, helper_file, observer=producer, fixture_header=None):
     capture = strict_json((directory / 'capture.json').read_text(encoding='utf-8'))
-    require(not (directory / 'failure.json').exists() and capture['schema'] == producer.SCHEMA and
-            capture['complete'] is True and capture['case_count'] == len(capture['cases']) == COUNT and
-            capture['kind_coverage'] == list(range(1, 9)) and capture['profile_coverage'] == [0, 1],
+    require(not (directory / 'failure.json').exists() and capture['schema'] == observer.SCHEMA and
+            capture['complete'] is True and capture['case_count'] == len(capture['cases']) == len(observer.CASES) and
+            capture['kind_coverage'] == sorted({case['kind'] for case in observer.CASES}) and
+            capture['profile_coverage'] == sorted({case['profile'] for case in observer.CASES}),
             'native writeback capture is failed/incomplete')
     require(capture['producer_sha256'] == hashlib.sha256(producer_file.read_bytes()).hexdigest() and
             capture['support_dependencies_sha256']['capture_original_flyer_contacts.py'] ==
@@ -71,12 +72,12 @@ def capture_bytes(directory, producer_file, helper_file):
             capture['observed_entry_exit'] == [0x7062, 0x777F] and
             all(capture[name] is False for name in ('natural_campaign_claim', 'original_fidelity_claim',
                 'full_actor_update_parity_claim', 'pixel_parity_claim')), 'writeback provenance/closure/scope differs')
-    require(capture['hooks'] == [[at, raw.hex()] for at, raw in producer.HOOKS] and
-            capture['instruction_windows'] == {str(at): raw.hex() for at, raw in producer.WINDOWS.items()},
+    require(capture['hooks'] == [[at, raw.hex()] for at, raw in observer.HOOKS] and
+            capture['instruction_windows'] == {str(at): raw.hex() for at, raw in observer.WINDOWS.items()},
             'writeback instruction windows differ')
     for name, digest in capture['files'].items():
         require(hashlib.sha256(safe_file(directory, name).read_bytes()).hexdigest() == digest, 'native writeback file differs')
-    require(set(capture['assets_sha256']) == set(producer.flyers.base.ASSETS), 'writeback asset scope differs')
+    require(set(capture['assets_sha256']) == set(observer.flyers.base.ASSETS), 'writeback asset scope differs')
     for name, digest in capture['assets_sha256'].items():
         require(hashlib.sha256(safe_file(ROOT, name).read_bytes()).hexdigest() == digest, 'source asset differs')
     for name, digest in (capture['support_dependencies_sha256'] | capture['dependency_sha256']).items():
@@ -85,8 +86,8 @@ def capture_bytes(directory, producer_file, helper_file):
     require(strict_json((directory / 'restoration.json').read_text()) ==
             {'hooks_restored': True, 'scratch_restored': True, 'child_retained_stopped': True, 'installed_hooks': 3},
             'writeback restoration differs')
-    result = bytearray(header())
-    for expected, row in zip(producer.CASES, capture['cases']):
+    result = bytearray(header() if fixture_header is None else fixture_header)
+    for expected, row in zip(observer.CASES, capture['cases']):
         case, before, after = row['seed'], row['before'], row['after']
         require(case == expected, 'writeback native input case differs')
         require((before['x'], before['y'], before['vx'], before['vy'], before['frac_x'], before['frac_y'], before['rng']) ==

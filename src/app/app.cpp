@@ -286,8 +286,10 @@ constexpr int kDamageCooldownTicks = 18;
 // selected from the same vx sign at 1000:7286/72DA, so band and velocity
 // agree whenever vx != 0. They part company at vx == 0, where the original
 // takes dir = 1 unconditionally while the band keeps whatever it last had.
-constexpr std::array<std::array<int, 2>, 5> kMonsterImpactSprites{{
+// The full tile-damage capture also verifies kinds 5..8, including vx == 0.
+constexpr std::array<std::array<int, 2>, 9> kMonsterImpactSprites{{
     {{39, 39}}, {{47, 48}}, {{42, 42}}, {{52, 52}}, {{56, 56}},
+    {{0, 1}}, {{10, 10}}, {{11, 11}}, {{12, 12}},
 }};
 using lezac::gameplay::kMonsterCorpseSpriteLeft;
 constexpr int kMonsterCorpseSpriteRight = 48;
@@ -28150,11 +28152,8 @@ private:
         }
     }
 
-    // Which corpse sprite a monster dies to. Evidenced for kind 1 only (see
-    // kMonsterCorpseSpriteLeft/Right): its walk frames and both captured
-    // corpse sprites are 17x10. Kinds 2/3/4 walk in 16x16 frames, so they
-    // use the statically mapped table entries below. Their runtime consumption
-    // remains UNEVIDENCED (@unevidenced:corpse_sprite_non_kind1).
+    // The seeded full-update tile-damage fixture verifies the impact table
+    // for kinds 1..8 and both velocity signs, including stationary fatal hits.
     // DS:[0x77 + kind*2 + dir] with dir = (vx > 0) ? 2 : 1 (1000:745B).
     // Note the `jle`: vx == 0 takes the dir-1 entry, so a monster killed
     // while stationary -- during its spawn fall, or on a blocked tick --

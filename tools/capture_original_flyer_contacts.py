@@ -216,6 +216,7 @@ def capture(pid, location, output, image, window, load_segment, retain_writeback
                 initial_x, initial_y = case.get('x', 336), case.get('y', 99)
                 actor = bytearray(38)
                 actor[0], actor[1], actor[3], actor[4], actor[0x15], actor[0x24] = case['kind'], 2, 11, 11, 4, 255
+                actor[0x24] = case.get('hp_byte', 255)
                 struct.pack_into('<hhHHHHH', actor, 6, case['vx'], case['vy'], case['frac_x'], case['frac_y'], case['ai0'], case['ai1'], case['ai2'])
                 actor[0x16:0x1D] = bytes((40, 40, 42, 0, 3, 1, 1))
                 terrain = bytearray(1980)
@@ -224,6 +225,10 @@ def capture(pid, location, output, image, window, load_segment, retain_writeback
                     if case['mask'] & bit:
                         for column, row in cells:
                             terrain[row * 60 + column] = case['glyph']
+                for column, row, glyph in case.get('tiles', ()):
+                    if not (0 <= column < 60 and 0 <= row < 33 and 0 <= glyph <= 255):
+                        raise RuntimeError('seeded flyer tile is outside the original level')
+                    terrain[row * 60 + column] = glyph
                 write(objects, terrain)
                 write(words, bytes(3960))
                 write(ds + 0x79A6, b'\x00')

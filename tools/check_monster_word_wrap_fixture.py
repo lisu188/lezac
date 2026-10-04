@@ -55,7 +55,7 @@ def validate(data, exe):
         row = RECORD.unpack_from(data, 64 + index * RECORD.size)
         require(row[:10] == (index, case['kind'], case['profile'], case['x'], case['y'],
                             case['vx'], case['vy'], 165, 90, 421), 'coordinate-word input coverage/order differs')
-        require(row[16:] == (0x12345678, 11, 1), 'coordinate-word RNG/HP/animation expectation differs')
+        require(row[16:] == (0x12345678, 11, 1), 'coordinate-word RNG/actor-byte-3/animation expectation differs')
         require(row[12:14] == (case['vx'], case['vy']), 'zero-edge native velocities changed')
     positive, negative = wrapping_indices(data)
     require(len(positive) == len(negative) == 120 and not set(positive) & set(negative),

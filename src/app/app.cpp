@@ -17580,7 +17580,8 @@ public:
             seed.fracX = bytes[offset + 12];
             seed.fracY = bytes[offset + 13];
             seed.ai0 = 14; seed.ai1 = 271; seed.ai2 = 75;
-            seed.hp = 11;
+            // The retained raw actors seed health byte +0x24 to 255, not byte +3.
+            seed.hp = 256;
             seed.hotspotY = 0;
             seed.animCursor = seed.animFrame = seed.animStart = 40;
             seed.animEnd = 42;
@@ -17602,7 +17603,7 @@ public:
             if (actual.x != signedWord(offset + 16) || actual.y != signedWord(offset + 18) ||
                 actual.vx8 != signedWord(offset + 20) || actual.vy8 != signedWord(offset + 22) ||
                 actual.fracX != bytes[offset + 24] || actual.fracY != bytes[offset + 25] ||
-                randomSeed_ != le32(bytes, offset + 26) || actual.hp != bytes[offset + 30] ||
+                randomSeed_ != le32(bytes, offset + 26) || actual.hp != 256 ||
                 actual.animTick != bytes[offset + 31] || actual.kind != seed.kind ||
                 actual.behavior != 4 || actual.animFrame != 40 || actual.animCursor != 40) {
                 if (!mismatches.empty()) mismatches += ",";
@@ -17623,6 +17624,92 @@ public:
                   << " kinds=1..8 profiles=" << (wordWrap ? 6 : 2) << " outside_level=" << outside;
         if (wordWrap) std::cout << " positive_wrap=" << positiveWrap << " negative_wrap=" << negativeWrap;
         std::cout << " position_velocity_fraction_rng_hp_animation=1"
+                  << " seeded_original=1 natural_route_claim=0 visual_claim=0\n";
+    }
+
+    void debugMonsterTileDamage(const std::string& fixturePath) {
+        const auto bytes = readFile(fixturePath);
+        if (bytes.size() != 105024 || lezac::diagnostics::level1::fingerprint(bytes) != "de39ea57d77e51de") {
+            throw std::runtime_error("monster tile-damage fixture bytes changed");
+        }
+        load();
+        resetLevel(0);
+        level_.monsterSpawners.clear();
+        spawnerStates_.clear();
+        playerCount_ = 2;
+        playerDead_ = player2Dead_ = false;
+        player_.x = 160; player_.y = 80;
+        player2_.x = 240; player2_.y = 80;
+        const auto word = [&](size_t at) { return static_cast<int16_t>(le16(bytes, at)); };
+        const std::array<std::array<int, 2>, 4> cells{{{{42, 12}}, {{43, 12}}, {{43, 13}}, {{42, 13}}}};
+        std::vector<std::array<int, 3>> descriptors;
+        int pixelOffset = 0;
+        for (const auto& sprite : sprites_.sprites) {
+            descriptors.push_back({sprite.width, sprite.height, pixelOffset});
+            pixelOffset += sprite.width * sprite.height;
+        }
+        int impacts = 0, fatal = 0, postOnly = 0;
+        std::string mismatches;
+        for (size_t index = 0; index < 1312; ++index) {
+            const size_t at = 64 + index * 80, actor = at + 34, visual = at + 72;
+            if (le16(bytes, at) != index || bytes[at + 18] != 0) {
+                throw std::runtime_error("monster tile-damage input order/edges changed");
+            }
+            std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+            std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+            const int profile = bytes[at + 19];
+            const int shiftX = profile == 2 ? word(at + 10) / 2048 : 0;
+            const int shiftY = profile == 2 ? 4 : 0;
+            for (size_t bit = 0; bit < cells.size(); ++bit) {
+                if (bytes[at + 4] & (1u << bit)) {
+                    tileRef(cells[bit][0] + shiftX, cells[bit][1] + shiftY) = bytes[at + 3];
+                }
+            }
+            ActiveMonster seed;
+            seed.kind = bytes[at + 2]; seed.behavior = 4;
+            seed.x = word(at + 6); seed.y = word(at + 8);
+            seed.vx8 = word(at + 10); seed.vy8 = word(at + 12);
+            seed.fracX = bytes[at + 14]; seed.fracY = bytes[at + 15];
+            seed.hp = bytes[at + 5] + 1;
+            seed.ai0 = 14; seed.ai1 = 271; seed.ai2 = 75;
+            seed.hotspotY = 0;
+            seed.animCursor = seed.animFrame = seed.animStart = 39;
+            seed.animEnd = 41; seed.animDelay = 3;
+            seed.animMode = 1; seed.animStep = 1; seed.actorOrder = 1;
+            monsters_ = {seed};
+            logicTick_ = le16(bytes, at + 16);
+            randomSeed_ = UINT32_C(0x12345678);
+            updateMonsters(0.0f);
+            if (monsters_.size() != 1) throw std::runtime_error("monster tile-damage replay lost its actor");
+            const auto& actual = monsters_.front();
+            const bool dying = bytes[actor + 21] == 2;
+            const auto sprite = descriptors.at(static_cast<size_t>(gameRenderer_.monsterSpriteIndex(actual)));
+            if (actual.x != word(at + 20) || actual.y + actual.hotspotY != word(at + 22) ||
+                actual.vx8 != word(at + 24) || actual.vy8 != word(at + 26) ||
+                actual.fracX != bytes[at + 28] || actual.fracY != bytes[at + 29] ||
+                randomSeed_ != le32(bytes, at + 30) || actual.kind != bytes[actor] ||
+                actual.behavior != bytes[actor + 21] || actual.hotspotY != bytes[actor + 20] ||
+                actual.hp != (dying ? 0 : bytes[actor + 36] + 1) ||
+                actual.animTick != bytes[actor + 25] || actual.animDelay != bytes[actor + 26] ||
+                actual.animMode != bytes[actor + 27] || actual.animStep != bytes[actor + 28] ||
+                actual.animCursor != bytes[actor + 22] - 1 || actual.animStart != bytes[actor + 23] - 1 ||
+                actual.animEnd != bytes[actor + 24] - 1 || (dying && actual.stateTimer != 50) ||
+                actual.x != word(visual) || actual.y + actual.hotspotY != word(visual + 2) ||
+                sprite != std::array<int, 3>{bytes[visual + 4], bytes[visual + 5], le16(bytes, visual + 6)}) {
+                if (!mismatches.empty()) mismatches += ",";
+                mismatches += std::to_string(index);
+            }
+            impacts += bytes[actor + 25] == 255;
+            fatal += dying;
+            postOnly += profile == 2;
+        }
+        if (!mismatches.empty()) throw std::runtime_error("monster production tile damage differs at cases " + mismatches);
+        if (impacts != 552 || fatal != 96 || postOnly != 96) {
+            throw std::runtime_error("monster tile-damage boundary coverage changed");
+        }
+        std::cout << "monster_tile_damage=ok cases=1312 production_updates=1312 kinds=1..8"
+                  << " impact=552 fatal=96 post_motion_only=96 health_byte=36"
+                  << " position_velocity_fraction_rng_health_animation_descriptor=1"
                   << " seeded_original=1 natural_route_claim=0 visual_claim=0\n";
     }
 
@@ -29324,6 +29411,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-monster-coordinate-word-wrap") {
             app.debugMonsterCoordinateWriteback(argv[2], true);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-monster-tile-damage") {
+            app.debugMonsterTileDamage(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-walker-gravity-word-evidence") {

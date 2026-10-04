@@ -66,6 +66,11 @@ field is not reinterpreted as health. The new fixture retains all 38 bytes.
 
 ## Fixture and Scope
 
+The captured fatal conversions also close the narrower
+`corpse_sprite_non_kind1` unevidenced-constant entry. Source marker and
+inventory are removed together; the checker still requires exact alignment
+of the three remaining entries. This does not close any broad OPEN item.
+
 `tests/fixtures/monster_tile_damage_original.bin` has a 64-byte original/window
 header and 1,312 80-byte records (20 seed bytes, 14 motion/RNG bytes, 38 actor
 bytes, eight visual bytes). Total size is 105,024 bytes; SHA256 is

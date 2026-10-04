@@ -44,14 +44,6 @@ That distinction should be stated wherever such a pin is registered.
   pacing. Echoed by the `player_state2_death_fields` and
   `player_state2_return_active` pins.
 
-- `corpse_sprite_non_kind1` — the corpse sprite for monster kinds other than 1.
-  The byte-cited table `DS:[0x0077 + kind*2 + dir]` gives kind 2 → 42,
-  kind 3 → 52, kind 4 → 56, and the port uses those; what is unevidenced is
-  that no death of a non-kind-1 monster has been CAPTURED, so the table read is
-  trusted without a fatal-conversion runtime confirmation. The newer
-  `monster_damage_original` capture verifies the nonfatal impact sprites of
-  kinds 2/3/4, but does not kill those kinds.
-
 - `bomb_direct_monster_damage` - legacy diagnostics still use weapon-sized
   damage from `monsterDamageForBomb`. Live `explode` no longer calls it:
   `flame_lifecycle_original` now verifies 520 continuous original states for
@@ -68,6 +60,15 @@ That distinction should be stated wherever such a pin is registered.
   not, so a shatter can fire on a different tick than the original's would.
 
 ## Deliberately not listed
+
+The former `corpse_sprite_non_kind1` entry is now covered by the
+[full tile-damage capture](monster_tile_damage_runtime_2026-10-04.md): two
+independent original runs include 96 actual fatal conversions across kinds
+1..8, both velocity signs and zero velocity, with the complete actor and
+visual descriptor bytes retained. The production replay matches every
+conversion and sprite assignment. This establishes the table's runtime
+consumption, not natural spawning or the subsequent corpse lifecycle.
+The other inventory entries and the four broad OPEN recovery items remain.
 
 Values that are byte-cited or capture-backed do not belong here even when they
 look arbitrary — for example the `+0x40` gravity step, the `0x7b` debris

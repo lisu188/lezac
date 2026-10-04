@@ -446,6 +446,16 @@ reserves, physical keyboard input or actual VGA/HUD fidelity.
   animation/reentry and full player-motion fidelity remain unproven. This
   narrows the existing OPEN item without closing it.
 
+  **Active-player airborne gravity narrowed.** Two fresh independent
+  [P1/P2 original captures](active_player_gravity_word_runtime_2026-10-04.md)
+  each reproduce 32 seeded active airborne boundaries on the real kind-0
+  records. Selected actor-parameter guards avoid confusing their normalized
+  behavior locals. Four word wraps correct the active helper's wide-addition
+  mismatch; landing/posture/rebound are unchanged. Full helper and real P1/P2
+  frame callers check velocity. Native observations end before input/integration;
+  bottom gating, landing, full player motion and natural trajectories are not
+  established. The complete captures are retained, and this item stays OPEN.
+
 - `behavior4_motion_runtime_fixture` — **Partially recovered, still open.** A level-2 tick-locked
   capture (`tests/fixtures/behavior4_motion_original_level2.txt`,
   `tools/capture_original_behavior4_motion_procmem.py`) records 666

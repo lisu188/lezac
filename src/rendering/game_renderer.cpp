@@ -333,7 +333,7 @@ const SpriteBank& GameRenderer::monsterSpriteBank(const ActiveMonster& monster) 
 }
 
 int GameRenderer::monsterVisualY(const ActiveMonster& monster) const {
-    return static_cast<int>(monster.y) + monster.hotspotY;
+    return static_cast<int16_t>(static_cast<int>(monster.y) + monster.hotspotY);
 }
 
 int GameRenderer::monsterSpriteIndex(const ActiveMonster& monster) const {

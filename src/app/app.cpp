@@ -17866,6 +17866,23 @@ public:
                   << " landing=" << landingCases << " seeded_original=1 natural_route_claim=0 visual_claim=0\n";
     }
 
+    void debugActorFloorFrictionScan() {
+        std::vector<uint8_t> helper, idleGround, idleAir;
+        const auto append = [](std::vector<uint8_t>& bytes, int16_t value) {
+            bytes.push_back(static_cast<uint8_t>(value));
+            bytes.push_back(static_cast<uint8_t>(static_cast<uint16_t>(value) >> 8));
+        };
+        for (int value = -32768; value <= 32767; ++value) {
+            const auto velocity = static_cast<int16_t>(value);
+            append(helper, actorFloorFriction(velocity));
+            append(idleGround, playerWalkVelocity(velocity, false, false, true));
+            append(idleAir, playerWalkVelocity(velocity, false, false, false));
+        }
+        std::cout << "actor_floor_friction_scan inputs=65536 helper=" << lezac::diagnostics::level1::fingerprint(helper)
+                  << " idle_ground=" << lezac::diagnostics::level1::fingerprint(idleGround)
+                  << " idle_air=" << lezac::diagnostics::level1::fingerprint(idleAir) << '\n';
+    }
+
     void debugTimedActorWriteback(const std::string& fixturePath) {
         const auto bytes = readFile(fixturePath);
         if (bytes.size() != 94784 || lezac::diagnostics::level1::fingerprint(bytes) != "8f14c29f203ed0ca") {
@@ -25896,7 +25913,9 @@ private:
 
     static int16_t actorFloorFriction(int16_t velocity) {
         // Original shared helper 1000:5B86, called by players and bombs.
-        return static_cast<int16_t>(std::abs(velocity) < 43 ? 0 :
+        // Its word-sized absolute value leaves -32768 negative.
+        const int16_t magnitude = static_cast<int16_t>(std::abs(velocity));
+        return static_cast<int16_t>(magnitude < 43 ? 0 :
                                     velocity + (velocity < 0 ? 42 : -42));
     }
 
@@ -27720,7 +27739,7 @@ private:
     void updateBombMotion(Bomb& bomb) {
         if (!bomb.moving) return;
         const int heightOffset = bomb.hotspotY >= 0 ? bomb.hotspotY : bombHeightOffset(bomb.type);
-        int collideY = bomb.pixelY - heightOffset;
+        int collideY = static_cast<int16_t>(bomb.pixelY - heightOffset);
         ActiveMonster::EdgeFlags edges;
         if (bomb.type == BombType::Small) {
             // 1000:65DA..6640 selects four single cells for actor kind 0x0d.
@@ -27736,7 +27755,7 @@ private:
         }
         updateTimedActorMotion(bomb.pixelX, collideY, bomb.vx8, bomb.vy8,
                                bomb.fracX, bomb.fracY, edges);
-        bomb.pixelY = collideY + heightOffset;
+        bomb.pixelY = static_cast<int16_t>(collideY + heightOffset);
         // 1000:75E3 uses visual X directly, without the collision-scan +4.
         bomb.x = bomb.pixelX >> 3;
         bomb.y = bomb.pixelY >> 3;
@@ -27757,11 +27776,15 @@ private:
         if (edges.top && vy < 0) vy = 1;
         if (edges.left && edges.right) vx = 0;
         else if ((edges.left && vx < 0) || (edges.right && vx > 0)) {
-            vx = static_cast<int16_t>(-vx / 2);
+            // 1000:73CC narrows NEG before signed IDIV, including -32768.
+            const int16_t reflected = static_cast<int16_t>(-vx);
+            vx = static_cast<int16_t>(reflected / 2);
             x += vx < 0 ? -1 : 1;
         }
         integrateAxis8_8(y, fracY, vy);
         integrateAxis8_8(x, fracX, vx);
+        x = static_cast<int16_t>(x);
+        y = static_cast<int16_t>(y);
     }
 
     void updateBombs(uint64_t onlyOrder = 0) {
@@ -29534,6 +29557,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-timed-gravity-word-evidence") {
             app.debugTimedGravityWordEvidence(argv[2]);
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-actor-floor-friction-scan") {
+            app.debugActorFloorFrictionScan();
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-timed-actor-writeback") {

@@ -47,6 +47,17 @@ int main() {
     rendering::Canvas canvas;
     rendering::TextRenderer text(canvas, presentation.palette(), assets.fontSprites());
     rendering::GameRenderer renderer(canvas, text, assets, presentation);
+    gameplay::ActiveMonster corpse;
+    corpse.kind = 12;
+    corpse.behavior = 2;
+    corpse.hotspotY = 6;
+    for (const auto& sample : std::array<std::array<int, 2>, 4>{{
+            {{32760, 32766}}, {{32762, -32768}}, {{32767, -32763}}, {{-32768, -32762}}
+        }}) {
+        corpse.y = sample[0];
+        if (renderer.monsterVisualY(corpse) != sample[1])
+            throw std::runtime_error("monster visual Y did not retain its signed word");
+    }
     gameplay::Player player, player2;
     gameplay::State2VisualCursor cursor;
     gameplay::State2EffectEntry effect;

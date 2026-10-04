@@ -17866,6 +17866,117 @@ public:
                   << " landing=" << landingCases << " seeded_original=1 natural_route_claim=0 visual_claim=0\n";
     }
 
+    void debugTimedActorWriteback(const std::string& fixturePath) {
+        const auto bytes = readFile(fixturePath);
+        if (bytes.size() != 94784 || lezac::diagnostics::level1::fingerprint(bytes) != "8f14c29f203ed0ca") {
+            throw std::runtime_error("timed actor writeback fixture bytes changed");
+        }
+        load();
+        resetLevel(0);
+        level_.monsterSpawners.clear();
+        spawnerStates_.clear();
+        playerDead_ = player2Dead_ = true;
+        const auto word = [&](size_t at) { return static_cast<int16_t>(le16(bytes, at)); };
+        std::vector<std::array<int, 3>> descriptors;
+        int pixelOffset = 0;
+        for (const auto& sprite : sprites_.sprites) {
+            descriptors.push_back({sprite.width, sprite.height, pixelOffset});
+            pixelOffset += sprite.width * sprite.height;
+        }
+        std::string helperMismatches, callerMismatches, timerMismatches, visualMismatches;
+        const auto mismatch = [](std::string& list, size_t index) {
+            if (!list.empty()) list += ",";
+            list += std::to_string(index);
+        };
+        for (size_t index = 0; index < 1184; ++index) {
+            const size_t at = 64 + index * 80, actor = at + 34, visual = at + 72;
+            const int kind = bytes[at + 2], hotspot = bytes[actor + 20];
+            if (le16(bytes, at) != index || (kind != 12 && kind != 13)) {
+                throw std::runtime_error("timed actor writeback case order/kind changed");
+            }
+            std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+            std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+            const std::array<std::array<std::array<int, 2>, 2>, 4> cells{{
+                {{{{41, 12}}, {{41, 13}}}}, {{{{44, 12}}, {{44, 13}}}},
+                {{{{42, 11}}, {{43, 11}}}}, {{{{42, 14}}, {{43, 14}}}}
+            }};
+            const std::array<std::array<int, 2>, 4> single{{{{41,13}},{{43,13}},{{42,12}},{{42,14}}}};
+            for (size_t bit = 0; bit < 4; ++bit) if (bytes[at + 4] & (1u << bit)) {
+                if (kind == 12) for (const auto& cell : cells[bit]) tileRef(cell[0], cell[1]) = bytes[at + 3];
+                else tileRef(single[bit][0], single[bit][1]) = bytes[at + 3];
+            }
+            ActiveMonster::EdgeFlags edges;
+            edges.left = (bytes[at + 18] & 1) != 0; edges.right = (bytes[at + 18] & 2) != 0;
+            edges.top = (bytes[at + 18] & 4) != 0; edges.bottom = (bytes[at + 18] & 8) != 0;
+            int x = word(at + 6), y = word(at + 8);
+            int16_t vx = word(at + 10), vy = word(at + 12);
+            uint8_t fracX = bytes[at + 14], fracY = bytes[at + 15];
+            const int expectedCollisionY = static_cast<int16_t>(word(at + 22) - hotspot);
+            updateTimedActorMotion(x, y, vx, vy, fracX, fracY, edges);
+            if (x != word(at + 20) || y != expectedCollisionY || vx != word(at + 24) || vy != word(at + 26) ||
+                fracX != bytes[at + 28] || fracY != bytes[at + 29]) mismatch(helperMismatches, index);
+            logicTick_ = le16(bytes, at + 16);
+            randomSeed_ = UINT32_C(0x12345678);
+            monsters_.clear(); bombs_.clear();
+            int actualX = 0, actualY = 0, actualTimer = 0, spriteIndex = 0;
+            int16_t actualVx = 0, actualVy = 0;
+            uint8_t actualFracX = 0, actualFracY = 0;
+            if (kind == 12) {
+                ActiveMonster seed;
+                seed.kind = 12; seed.behavior = 2; seed.hotspotY = hotspot;
+                seed.x = word(at + 6); seed.y = word(at + 8);
+                seed.vx8 = word(at + 10); seed.vy8 = word(at + 12);
+                seed.fracX = bytes[at + 14]; seed.fracY = bytes[at + 15];
+                seed.stateTimer = 2 * bytes[at + 5] - static_cast<int>(logicTick_ & 1u);
+                seed.hp = 256; seed.animMode = 0; seed.animTick = 255; seed.animDelay = 3;
+                seed.animCursor = seed.animFrame = seed.animStart = seed.animEnd = 47;
+                seed.corpseSprite = 47; seed.actorOrder = 1;
+                monsters_ = {seed};
+                updateMonsters(0.0f);
+                if (monsters_.size() != 1) throw std::runtime_error("timed writeback lost its corpse");
+                const auto& actual = monsters_.front();
+                actualX = actual.x; actualY = gameRenderer_.monsterVisualY(actual);
+                actualVx = actual.vx8; actualVy = actual.vy8;
+                actualFracX = actual.fracX; actualFracY = actual.fracY;
+                actualTimer = (actual.stateTimer + 1) / 2;
+                spriteIndex = gameRenderer_.monsterSpriteIndex(actual);
+                if (actual.y != expectedCollisionY || actual.kind != bytes[actor] || actual.behavior != bytes[actor + 21] ||
+                    actual.hotspotY != hotspot || actual.animTick != bytes[actor + 25] || actual.animMode != bytes[actor + 27] ||
+                    actual.hp != bytes[actor + 36] + 1) mismatch(callerMismatches, index);
+            } else {
+                Bomb seed;
+                seed.type = BombType::Small; seed.moving = true; seed.hotspotY = static_cast<int8_t>(hotspot);
+                seed.pixelX = word(at + 6); seed.pixelY = static_cast<int16_t>(word(at + 8) + hotspot);
+                seed.x = seed.pixelX >> 3; seed.y = seed.pixelY >> 3;
+                seed.vx8 = word(at + 10); seed.vy8 = word(at + 12);
+                seed.fracX = bytes[at + 14]; seed.fracY = bytes[at + 15];
+                seed.timer = 2 * bytes[at + 5] - static_cast<int>(logicTick_ & 1u);
+                seed.fuseTicks = 2 * bytes[at + 5]; seed.actorOrder = 1;
+                bombs_ = {seed};
+                updateBombs();
+                if (bombs_.size() != 1) throw std::runtime_error("timed writeback lost its bomb");
+                const auto& actual = bombs_.front();
+                actualX = actual.pixelX; actualY = actual.pixelY;
+                actualVx = actual.vx8; actualVy = actual.vy8;
+                actualFracX = actual.fracX; actualFracY = actual.fracY;
+                actualTimer = (actual.timer + 1) / 2; spriteIndex = bombProfile(actual.type).spriteBase;
+            }
+            if (actualX != word(at + 20) || actualVx != word(at + 24) || actualVy != word(at + 26) ||
+                actualFracX != bytes[at + 28] || actualFracY != bytes[at + 29] || randomSeed_ != le32(bytes, at + 30)) {
+                mismatch(callerMismatches, index);
+            }
+            if (actualTimer != bytes[actor + 2]) mismatch(timerMismatches, index);
+            if (actualY != word(at + 22) || descriptors.at(static_cast<size_t>(spriteIndex)) !=
+                std::array<int,3>{bytes[visual + 4],bytes[visual + 5],le16(bytes,visual + 6)}) mismatch(visualMismatches, index);
+        }
+        if (!helperMismatches.empty() || !callerMismatches.empty() || !timerMismatches.empty() || !visualMismatches.empty()) {
+            throw std::runtime_error("timed actor writeback differs helper=" + helperMismatches + " caller=" + callerMismatches +
+                                     " timer=" + timerMismatches + " visual=" + visualMismatches);
+        }
+        std::cout << "timed_actor_writeback=ok cases=1184 helper_updates=1184 caller_updates=1184 kinds=12,13"
+                  << " motion_timer_rng_descriptor=1 seeded_original=1 natural_route_claim=0 visual_claim=0\n";
+    }
+
     void debugDyingPlayerGravityWordEvidence(const std::string& fixturePath) {
         const auto bytes = readFile(fixturePath);
         if (bytes.size() != 866 || lezac::diagnostics::level1::fingerprint(bytes) != "0a6c54dd68bd46b1") {
@@ -29423,6 +29534,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-timed-gravity-word-evidence") {
             app.debugTimedGravityWordEvidence(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-timed-actor-writeback") {
+            app.debugTimedActorWriteback(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-active-player-gravity-word-evidence") {

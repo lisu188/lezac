@@ -25,6 +25,7 @@ public:
     bool isBossActor(const gameplay::ActiveMonster& monster) const;
     const resources::SpriteBank& monsterSpriteBank(const gameplay::ActiveMonster& monster) const;
     int monsterSpriteIndex(const gameplay::ActiveMonster& monster) const;
+    int monsterVisualY(const gameplay::ActiveMonster& monster) const;
     uint32_t bombColor(gameplay::BombType type) const;
     int nameEntryCursorSlot(const std::string& name) const;
     int nameEntrySlotX(int slot) const;

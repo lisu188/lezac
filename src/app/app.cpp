@@ -17669,6 +17669,70 @@ public:
                   << " landing=" << landingCases << " seeded_original=1 natural_route_claim=0 visual_claim=0\n";
     }
 
+    void debugActivePlayerGravityWordEvidence(const std::string& fixturePath) {
+        const auto bytes = readFile(fixturePath);
+        if (bytes.size() != 448 || lezac::diagnostics::level1::fingerprint(bytes) != "da78ead002469f09") {
+            throw std::runtime_error("active player gravity fixture bytes changed");
+        }
+        load();
+        const auto word = [&](size_t offset) { return static_cast<int16_t>(le16(bytes, offset)); };
+        int helperCases = 0, callerCases = 0, wrapCases = 0;
+        for (size_t index = 0; index < 32; ++index) {
+            const size_t offset = 64 + index * 12;
+            const uint8_t marker = bytes[offset + 10];
+            if (bytes[offset] != index || marker != 1 + index / 16 || bytes[offset + 11] != marker - 1 ||
+                bytes[offset + 1] != 0) {
+                throw std::runtime_error("active player gravity case order/player changed");
+            }
+            playerCount_ = 2;
+            lives_ = lives2_ = 3;
+            resetLevel(0);
+            ui_.setMenu(false);
+            level_.monsterSpawners.clear();
+            spawnerStates_.clear();
+            std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+            std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+            const int beforeY = word(offset + 6), expectedY = word(offset + 8);
+            const int16_t beforeVy = word(offset + 2), expectedVy = word(offset + 4);
+            const auto edges = scanActorEdges(336, beforeY);
+            if (edges.bottom || edges.top || edges.left || edges.right) {
+                throw std::runtime_error("active player gravity terrain differs from original edge flags");
+            }
+            Player seed;
+            seed.x = 336;
+            seed.y = static_cast<float>(beforeY);
+            seed.vy8 = beforeVy;
+            Player phase = seed;
+            int phaseY = beforeY;
+            randomSeed_ = UINT32_C(0x12345678);
+            updatePlayerGravity(phase, false, marker == 1 ? 0 : 19, phaseY);
+            if (phase.vy8 != expectedVy || phaseY != expectedY || phase.y != beforeY || phase.x != 336 ||
+                phase.vx8 != 0 || randomSeed_ != UINT32_C(0x12345678)) {
+                throw std::runtime_error("active player gravity helper differs at case " + std::to_string(index));
+            }
+            ++helperCases;
+            wrapCases += beforeVy >= 32704;
+            Player& target = marker == 1 ? player_ : player2_;
+            Player& partner = marker == 1 ? player2_ : player_;
+            target = seed;
+            partner.x = marker == 1 ? 240.0f : 160.0f;
+            partner.y = 80;
+            randomSeed_ = UINT32_C(0x12345678);
+            logicTick_ = 420;
+            updateWithControls(FrameControls{}, 0.0f);
+            // The native fixture stops before integration, so final Y is not compared.
+            if (playerDead_ || player2Dead_ || logicTick_ != 421 || target.vy8 != expectedVy ||
+                target.x != 336 || target.vx8 != 0 || randomSeed_ != UINT32_C(0x12345678)) {
+                throw std::runtime_error("active player gravity caller differs at case " + std::to_string(index));
+            }
+            ++callerCases;
+        }
+        if (wrapCases != 4) throw std::runtime_error("active player gravity coverage changed");
+        std::cout << "active_player_gravity_word=ok cases=" << helperCases << " helper_updates=" << helperCases
+                  << " caller_updates=" << callerCases << " players=1,2 kind=0 word_wrap=" << wrapCases
+                  << " airborne_only=1 landing_claim=0 natural_route_claim=0 visual_claim=0\n";
+    }
+
     void debugActorContactLevel2Evidence(const std::string& fixturePath) {
         std::ifstream in(fixturePath);
         if (!in) throw std::runtime_error("cannot open " + fixturePath);
@@ -25280,8 +25344,8 @@ private:
     static void updatePlayerGravity(Player& player, bool bottom, uint8_t spriteBase, int& y) {
         // 1000:6743..6813 precedes input; a new jump does not add gravity.
         if (!bottom || player.vy8 < 0) {
-            player.vy8 = static_cast<int16_t>(std::min<int>(kPlayerTerminalVelocity8,
-                                                           player.vy8 + kPlayerGravity8));
+            const int16_t accelerated = static_cast<int16_t>(player.vy8 + kPlayerGravity8);
+            player.vy8 = std::min<int16_t>(kPlayerTerminalVelocity8, accelerated);
         } else if (player.vy8 > 0) {
             y &= ~7;
             if (player.vy8 > 1600) {
@@ -29069,6 +29133,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-timed-gravity-word-evidence") {
             app.debugTimedGravityWordEvidence(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-active-player-gravity-word-evidence") {
+            app.debugActivePlayerGravityWordEvidence(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-dying-player-gravity-word-evidence") {

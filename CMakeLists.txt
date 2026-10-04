@@ -4490,6 +4490,45 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^dying_player_gravity_self_check=ok cases=64 players=1,2 kind=0 hook_free_stack_preserved=1 live=0")
 
+    add_test(NAME active_player_gravity_word_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-active-player-gravity-word-evidence
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/active_player_gravity_word_original.bin)
+    set_tests_properties(active_player_gravity_word_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^active_player_gravity_word=ok cases=32 helper_updates=32 caller_updates=32 players=1,2 kind=0 word_wrap=4 airborne_only=1 landing_claim=0 natural_route_claim=0 visual_claim=0")
+
+    add_test(NAME active_player_gravity_word_fixture
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_active_player_gravity_word_fixture.py)
+    set_tests_properties(active_player_gravity_word_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^active_player_gravity_fixture=ok cases=32 bytes=448 players=1,2 kind=0 word_wrap=4 airborne_only=1 landing_claim=0 original_window=0x6743..0x6753")
+
+    add_test(NAME active_player_gravity_word_fixture_selftest
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_active_player_gravity_word_fixture.py --self-test)
+    set_tests_properties(active_player_gravity_word_fixture_selftest PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^active_player_gravity_fixture_selftest=ok cases=32 byte_mutations=448 truncated=1 trailing=1 original_mutation=1")
+
+    add_test(NAME active_player_gravity_word_replay_guard
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_active_player_gravity_word_fixture.py
+                --replay-exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(active_player_gravity_word_replay_guard PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^active_player_gravity_replay_guard=ok positive=1 rejected=18 audio=dummy")
+
+    add_test(NAME active_player_gravity_capture_self_check
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_active_player_gravity.py --self-check)
+    set_tests_properties(active_player_gravity_capture_self_check PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^active_player_gravity_self_check=ok cases=32 players=1,2 kind=0 hook_free_stack_preserved=1 live=0")
+
     add_test(NAME behavior4_motion_evidence
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-motion-evidence
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/behavior4_motion_original_level2.txt)

@@ -50,12 +50,12 @@ def validate(data, exe):
         row = RECORD.unpack_from(data, 64 + index * RECORD.size)
         require(row[:10] == (index, case['kind'], case['profile'], case['x'], case['y'],
                             case['vx'], case['vy'], 165, 90, 421), 'writeback input coverage/order differs')
-        require(row[16:] == (0x12345678, 11, 1), 'writeback RNG/HP/animation expectation differs')
+        require(row[16:] == (0x12345678, 11, 1), 'writeback RNG/actor-byte-3/animation expectation differs')
         outside += not (0 <= row[10] <= 464 and 0 <= row[11] <= 248)
     require(outside == 112, 'out-of-level writeback coverage differs')
 
 
-def capture_bytes(directory, producer_file, helper_file, observer=producer, fixture_header=None):
+def capture_report(directory, producer_file, helper_file, observer=producer):
     capture = strict_json((directory / 'capture.json').read_text(encoding='utf-8'))
     require(not (directory / 'failure.json').exists() and capture['schema'] == observer.SCHEMA and
             capture['complete'] is True and capture['case_count'] == len(capture['cases']) == len(observer.CASES) and
@@ -86,6 +86,11 @@ def capture_bytes(directory, producer_file, helper_file, observer=producer, fixt
     require(strict_json((directory / 'restoration.json').read_text()) ==
             {'hooks_restored': True, 'scratch_restored': True, 'child_retained_stopped': True, 'installed_hooks': 3},
             'writeback restoration differs')
+    return capture
+
+
+def capture_bytes(directory, producer_file, helper_file, observer=producer, fixture_header=None):
+    capture = capture_report(directory, producer_file, helper_file, observer)
     result = bytearray(header() if fixture_header is None else fixture_header)
     for expected, row in zip(observer.CASES, capture['cases']):
         case, before, after = row['seed'], row['before'], row['after']

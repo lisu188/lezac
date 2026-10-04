@@ -1,0 +1,77 @@
+name: Original monster tile damage
+
+on:
+  pull_request:
+    paths:
+      - tools/capture_original_monster_tile_damage.py
+      - tools/capture_original_monster_writeback.py
+      - tools/capture_original_flyer_contacts.py
+      - tools/check_monster_writeback_fixture.py
+      - tools/check_monster_tile_damage_fixture.py
+      - tests/fixtures/monster_tile_damage_original.bin
+      - .github/workflows/monster-tile-damage-probe.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original:
+    name: Original monster embedding damage and fatal conversions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SDL_AUDIODRIVER: dummy
+      PYTHONDONTWRITEBYTECODE: 1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install original capture dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-pil xvfb xdotool dosbox
+      - name: Check original damage instructions and fixture
+        run: |
+          python3 -B tools/capture_original_monster_tile_damage.py --self-check
+          python3 -B tools/check_monster_tile_damage_fixture.py
+      - name: Stage private original assets
+        run: |
+          python3 -B - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+          import shutil
+          import sys
+          sys.path.insert(0, 'tools')
+          import capture_original_behavior4_targets as support
+          memory = {key: int(value.split()[0]) * 1024
+                    for line in Path('/proc/meminfo').read_text().splitlines()
+                    for key, value in [line.split(':', 1)]}
+          usage = shutil.disk_usage(os.environ['RUNNER_TEMP'])
+          assert usage.free - 256 * 1024 * 1024 > usage.total // 10
+          assert memory['MemAvailable'] - 512 * 1024 * 1024 > memory['MemTotal'] // 10
+          run = Path(os.environ['RUNNER_TEMP']) / 'monster-tile-damage-original'
+          run.mkdir()
+          for name in support.ASSETS:
+              source, target = Path(name), run / name
+              shutil.copyfile(source, target)
+              assert hashlib.sha256(source.read_bytes()).digest() == hashlib.sha256(target.read_bytes()).digest()
+          PY
+      - name: Observe original tile damage and writebacks
+        run: |
+          python3 -B tools/capture_original_monster_tile_damage.py \
+            --run-dir "$RUNNER_TEMP/monster-tile-damage-original" \
+            --out-dir "$RUNNER_TEMP/monster-tile-damage-capture" \
+            --approve-procmem --approve-runtime-instrumentation
+      - name: Compare raw native records with the pinned fixture
+        run: |
+          python3 -B tools/check_monster_tile_damage_fixture.py \
+            --capture "$RUNNER_TEMP/monster-tile-damage-capture"
+      - name: Preserve native capture and failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monster-tile-damage-original
+          path: |
+            ${{ runner.temp }}/monster-tile-damage-capture/
+            ${{ runner.temp }}/monster-tile-damage-original/
+          if-no-files-found: error

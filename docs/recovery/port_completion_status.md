@@ -65,6 +65,14 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [2026-10-04 tile-damage recovery](monster_tile_damage_runtime_2026-10-04.md)
+matches 1,312 seeded full native behavior-4 updates, including 552 impacts,
+96 fatal conversions and 96 post-motion-only damage placements. It restores
+the missing impact-sprite entries for kinds 5..8 and corrects earlier compact
+writeback HP attribution: original health is actor byte +0x24, not +3.
+Natural constructors, other behaviors and repeated/campaign trajectories
+remain unverified. All four broad items remain OPEN and global flags unchanged.
+
 The [2026-10-04 signed-coordinate recovery](monster_coordinate_word_wrap_runtime_2026-10-04.md)
 matches 768 seeded full native behavior-4 writebacks across kinds 1..8, including
 120 positive and 120 negative coordinate-word wraps. The recovered monster

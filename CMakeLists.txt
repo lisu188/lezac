@@ -4299,7 +4299,7 @@ if(BUILD_TESTING)
     set_tests_properties(unevidenced_constants PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^unevidenced_constants=ok tracked=4 source=app.cpp doc=unevidenced_constants.md drift=0")
+            "^unevidenced_constants=ok tracked=3 source=app.cpp doc=unevidenced_constants.md drift=0")
 
     add_test(NAME debris_shatter_playback
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-shatter-playback
@@ -4666,6 +4666,48 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "monster_word_wrap_self_check=ok cases=768 kinds=1..8 profiles=6 live=0")
+
+    add_test(NAME monster_tile_damage_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-tile-damage
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_tile_damage_original.bin)
+    set_tests_properties(monster_tile_damage_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^monster_tile_damage=ok cases=1312 production_updates=1312 kinds=1..8 impact=552 fatal=96 post_motion_only=96 health_byte=36 position_velocity_fraction_rng_health_animation_descriptor=1 seeded_original=1 natural_route_claim=0 visual_claim=0")
+
+    add_test(NAME monster_tile_damage_fixture
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_tile_damage_fixture.py)
+    set_tests_properties(monster_tile_damage_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^monster_tile_damage_fixture=ok cases=1312 bytes=105024 kinds=1..8 glyphs=8 fatal=96 post_motion_only=96 original_exit=0x777f")
+
+    add_test(NAME monster_tile_damage_fixture_selftest
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_tile_damage_fixture.py --self-test)
+    set_tests_properties(monster_tile_damage_fixture_selftest PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^monster_tile_damage_fixture_selftest=ok byte_mutations=105024 truncated=1 trailing=1 original_mutation=1")
+
+    add_test(NAME monster_tile_damage_replay_guard
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_tile_damage_fixture.py
+                --replay-exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(monster_tile_damage_replay_guard PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^monster_tile_damage_replay_guard=ok positive=1 rejected=18 audio=dummy")
+
+    add_test(NAME monster_tile_damage_retained_archive
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_tile_damage_fixture.py --archive)
+    set_tests_properties(monster_tile_damage_retained_archive PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^monster_tile_damage_retained_archive=ok captures=2 cases_each=1312 members=33 byte_verified=1 negative_preserved=1")
+
+    add_test(NAME monster_tile_damage_capture_self_check
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_monster_tile_damage.py --self-check)
+    set_tests_properties(monster_tile_damage_capture_self_check PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "monster_tile_damage_self_check=ok cases=1312 kinds=1..8 glyphs=8 footprint_masks=16 profiles=4 live=0")
 
     add_test(NAME behavior4_motion_evidence
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-motion-evidence

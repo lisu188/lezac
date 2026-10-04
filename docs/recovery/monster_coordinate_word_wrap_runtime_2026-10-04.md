@@ -1,5 +1,14 @@
 # Monster Signed-Coordinate Writeback
 
+## Health Attribution Correction
+
+The later [full tile-damage recovery](monster_tile_damage_runtime_2026-10-04.md)
+corrects the HP labels below: the compact field preserves actor byte +3 = 11,
+not health. The retained native health seed is +0x24 = 255. The historical
+diagnostic used HP 11 without exposing any damage; its current version uses
+HP 256 and checks unchanged health, consistent with those raw records.
+Historical fixtures, capture snapshots and receipts remain immutable.
+
 ## Original Observation
 
 The previous writeback recovery removed artificial level-bound clamps. A

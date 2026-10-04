@@ -4561,6 +4561,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^flyer_contact_replay_guard=ok positive=1 rejected=18 audio=dummy")
 
+    add_test(NAME flyer_contact_retained_archive
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_flyer_contact_fixture.py --archive)
+    set_tests_properties(flyer_contact_retained_archive PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^flyer_contact_retained_archive=ok captures=2 cases_each=176 members=24 byte_verified=1 negative_diagnostic_preserved=1")
+
     add_test(NAME flyer_contact_capture_self_check
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_flyer_contacts.py --self-check)
     set_tests_properties(flyer_contact_capture_self_check PROPERTIES

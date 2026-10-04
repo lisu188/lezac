@@ -26856,7 +26856,9 @@ private:
                 if (e.left && e.right) {
                     monster.vx8 = 0;
                 } else if ((e.left && monster.vx8 < 0) || (e.right && monster.vx8 > 0)) {
-                    monster.vx8 = static_cast<int16_t>(-monster.vx8 / 2);
+                    // 1000:73CC negates the word before IDIV, including -32768.
+                    const int16_t negated = static_cast<int16_t>(-monster.vx8);
+                    monster.vx8 = static_cast<int16_t>(negated / 2);
                     monster.x += monster.vx8 < 0 ? -1 : 1;
                 }
                 integrateAxis8_8(monster.y, monster.fracY, monster.vy8);

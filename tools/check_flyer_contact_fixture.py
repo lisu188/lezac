@@ -2,16 +2,18 @@
 import argparse
 import hashlib
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import struct
 import subprocess
 import tempfile
+import tarfile
 
 import capture_original_flyer_contacts as producer
 from level1_fidelity import safe_file, strict_json
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE_SHA = 'e82e0f352fd2e83fefbccfe297e3504254a0289d90952d3e6f75e7c98ea0b367'
+ARCHIVE_SHA = 'b285a0969e7e070c0a996cec82f828ec4746bcd4e3b0e1b1094ee15e5ae51641'
 RECORD = struct.Struct('<HBBBBBBhhBBHHHHhhhhBBI')
 COUNT = 176
 
@@ -19,6 +21,16 @@ COUNT = 176
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
+
+def retained_file(root, name):
+    relative = PurePosixPath(name)
+    require(isinstance(name, str) and not relative.is_absolute() and relative.parts and
+            all(part not in ('.', '..') and '\\' not in part and ':' not in part for part in relative.parts),
+            'unsafe retained artifact name')
+    path = root.joinpath(*relative.parts)
+    require(path.resolve().is_relative_to(root.resolve()) and not path.is_symlink(), 'retained artifact escapes its root')
+    return path
 
 
 def header():
@@ -123,6 +135,7 @@ def main():
     parser.add_argument('--producer-file', type=Path, default=ROOT / 'tools/capture_original_flyer_contacts.py')
     parser.add_argument('--self-test', action='store_true')
     parser.add_argument('--replay-exe', type=Path)
+    parser.add_argument('--archive', action='store_true')
     args = parser.parse_args()
     if args.extract:
         require(args.output is not None and not args.output.exists(), 'extraction needs a fresh output')
@@ -133,7 +146,39 @@ def main():
         return 0
     data, exe = args.fixture.read_bytes(), (ROOT / 'LEZAC.EXE').read_bytes()
     validate(data, exe)
-    if args.capture:
+    if args.archive:
+        path = ROOT / 'docs/recovery/evidence/flyer_contact_20261004/native-captures.tar.gz'
+        require(path.stat().st_size == 87844 and hashlib.sha256(path.read_bytes()).hexdigest() == ARCHIVE_SHA,
+                'retained archive extent/hash differs')
+        with tempfile.TemporaryDirectory(prefix='lezac-flyer-archive-') as directory:
+            temporary = Path(directory)
+            with tarfile.open(path, 'r:gz') as archive:
+                members = archive.getmembers()
+                names = [member.name for member in members]
+                require(len(members) == len(set(names)) == 24 and sum(member.size for member in members) < 4 * 1024 * 1024,
+                        'retained member extent differs')
+                for member in members:
+                    require(member.isfile() and member.size >= 0, 'retained archive contains a non-file')
+                    target = retained_file(temporary, member.name)
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    content = archive.extractfile(member).read()
+                    require(len(content) == member.size, 'retained member bytes truncated')
+                    target.write_bytes(content)
+            manifest = strict_json((temporary / 'manifest.json').read_text())
+            require(set(manifest) == set(names) - {'manifest.json'}, 'retained manifest scope differs')
+            for name, item in manifest.items():
+                content = retained_file(temporary, name).read_bytes()
+                require(len(content) == item['bytes'] and hashlib.sha256(content).hexdigest() == item['sha256'], 'retained member bytes differ')
+            for suffix in ('a', 'b'):
+                require(capture_bytes(temporary / suffix, temporary / 'tools/capture_original_flyer_contacts.py') == data,
+                        'retained native capture does not reproduce pinned fixture')
+            negative = strict_json((temporary / 'negative.json').read_text())
+            positive = strict_json((temporary / 'positive.json').read_text())
+            require(negative['returncode'] == 1 and 'cases 112,116,120,124,128,132,136,140' in negative['stderr'] and
+                    positive['returncode'] == 0 and 'cases=176 production_updates=176' in positive['stdout'] and
+                    negative['audio'] == positive['audio'] == 'dummy', 'retained negative/positive diagnostic differs')
+        print('flyer_contact_retained_archive=ok captures=2 cases_each=176 members=24 byte_verified=1 negative_diagnostic_preserved=1')
+    elif args.capture:
         require(capture_bytes(args.capture, args.producer_file) == data, 'complete native output does not reproduce pinned fixture')
         print('flyer_contact_native_capture=ok cases=176 kinds=1..8 fixture_byte_match=1 hooks_restored=1 child_closed=1 audio=dummy')
     elif args.self_test:

@@ -16,6 +16,19 @@ DOS-resident probes replace unsafe in-segment scratch assumptions. This does
 not establish a natural complete-level victory, all actor bytes, audio timing
 or whole-game fidelity. See [scope, provenance and checks](docs/recovery/level1_fullframe_2026-09-21.md).
 
+## Behavior-4 Terrain and Motion Recovery (2026-10-04)
+
+Two independent silent original captures agree on 176 seeded motion cases,
+covering terrain classes, floor/ceiling/side combinations, steering and both
+8.8 fractional carries for actor kinds 1..8 under explicit shared profiles.
+The production replay first failed exactly eight signed NEG boundaries;
+word narrowing before division now fixes those without changing the remaining
+motion logic. A pinned 6,400-byte fixture, six CTests, native recapture workflow
+and byte-checked complete capture archive preserve the result and its failure.
+This is bounded motion evidence, not natural spawning, all levels, animation,
+damage, full actor writeback or whole-game parity. All four OPEN items remain.
+See [the capture, correction and limits](docs/recovery/flyer_contact_motion_runtime_2026-10-04.md).
+
 ## Active-Player Gravity Word Recovery (2026-10-04)
 
 Two independent silent original captures agree on 32 seeded active airborne

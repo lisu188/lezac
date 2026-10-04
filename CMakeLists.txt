@@ -4529,6 +4529,52 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^active_player_gravity_self_check=ok cases=32 players=1,2 kind=0 hook_free_stack_preserved=1 live=0")
 
+    add_test(NAME flyer_contact_motion_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-flyer-contact-motion-evidence
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/flyer_contact_motion_original.bin)
+    set_tests_properties(flyer_contact_motion_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^flyer_contact_motion=ok cases=176 production_updates=176 kinds=1..8 signed_neg_boundaries=8 far_steering=16 near_steering=16 position_velocity_fraction_rng=1 seeded_original=1 natural_route_claim=0 visual_claim=0")
+
+    add_test(NAME flyer_contact_fixture
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_flyer_contact_fixture.py)
+    set_tests_properties(flyer_contact_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^flyer_contact_fixture=ok cases=176 bytes=6400 kinds=1..8 signed_neg_boundaries=8 original_window=0x7062..0x741e")
+
+    add_test(NAME flyer_contact_fixture_selftest
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_flyer_contact_fixture.py --self-test)
+    set_tests_properties(flyer_contact_fixture_selftest PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^flyer_contact_fixture_selftest=ok byte_mutations=6400 truncated=1 trailing=1 original_mutation=1")
+
+    add_test(NAME flyer_contact_replay_guard
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_flyer_contact_fixture.py
+                --replay-exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(flyer_contact_replay_guard PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^flyer_contact_replay_guard=ok positive=1 rejected=18 audio=dummy")
+
+    add_test(NAME flyer_contact_retained_archive
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_flyer_contact_fixture.py --archive)
+    set_tests_properties(flyer_contact_retained_archive PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^flyer_contact_retained_archive=ok captures=2 cases_each=176 members=24 byte_verified=1 negative_diagnostic_preserved=1")
+
+    add_test(NAME flyer_contact_capture_self_check
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_flyer_contacts.py --self-check)
+    set_tests_properties(flyer_contact_capture_self_check PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^flyer_contacts_self_check=ok cases=176 kinds=1..8 live=0")
+
     add_test(NAME behavior4_motion_evidence
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-motion-evidence
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/behavior4_motion_original_level2.txt)

@@ -509,7 +509,14 @@ reserves, physical keyboard input or actual VGA/HUD fidelity.
   persistent 8.8 fractions and one top collision. The near-player phases are
   explicitly seeded, not natural routes. Other kinds and remaining levels,
   two-player targeting and full floor/side runtime coverage remain outside
-  these focused captures;
+  these focused captures. A subsequent
+  [176-case original motion capture](flyer_contact_motion_runtime_2026-10-04.md)
+  now verifies seeded floor/ceiling/side combinations, tile-class boundaries,
+  steering/contact order and both fractional carries across kinds 1..8 with
+  explicit shared actor profiles. It corrects the common monster side-response
+  word NEG before signed division at eight seeded `-32768` boundaries. Natural
+  constructors/profiles, trajectories and all-level geometry, animation/damage,
+  two-player interactions and full actor writeback remain unproven;
   the item stays open. See `behavior4_runtime_2026-08-10.md`. Screenshot review
   is not paired pixel parity, so `visual_claim=0` remains unchanged.
 ## Guardrails

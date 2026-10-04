@@ -16,13 +16,26 @@ DOS-resident probes replace unsafe in-segment scratch assumptions. This does
 not establish a natural complete-level victory, all actor bytes, audio timing
 or whole-game fidelity. See [scope, provenance and checks](docs/recovery/level1_fullframe_2026-09-21.md).
 
+## Monster Tile-damage Recovery (2026-10-04)
+
+Two independent silent original captures agree on 1,312 seeded full behavior-4
+updates across kinds 1..8: all 16 footprint masks, eight glyph boundaries,
+pre/post-motion damage placement and 96 fatal conversions. The full production
+replay first failed 276 impacted kind-5..8 cases. Restoring four missing
+impact-sprite table entries now matches all records, including actual health,
+hotspot, animation and visual descriptors. Earlier compact writeback fields
+labeled HP were actor byte +3, not health +0x24; their diagnostics now use the
+retained native health seed correctly, without changing historical raw bytes.
+Natural constructors, other behaviors and campaign fidelity remain unproven;
+all four OPEN items remain. See [evidence and limits](docs/recovery/monster_tile_damage_runtime_2026-10-04.md).
+
 ## Monster Signed-Coordinate Recovery (2026-10-04)
 
 Two independent silent original captures agree on 768 full behavior-4
 writebacks for kinds 1..8 at both signed coordinate-word boundaries. The real
 production replay first failed exactly 240 wrapping cases; signed narrowing
 after common monster integration now matches all 768 positions, velocities,
-fractions, RNG, HP and animation counters. A pinned 24,640-byte fixture, six
+fractions, RNG and animation counters. A pinned 24,640-byte fixture, six
 new CTests and complete native/failure archive retain the result. The generic
 32-bit integrator, boss-motion paths and other actor callers remain unchanged.
 These shared seeds do not establish general out-of-map reads, later updates,
@@ -35,7 +48,7 @@ Two independent silent original captures agree on 256 seeded behavior-4
 writebacks, including the actual actor/visual table stores for kinds 1..8 at
 both map edges. The new production replay first failed exactly the 112 results
 outside its level-bound clamps. Removing those two clamps now matches all 256
-positions, velocities, fractions, RNG, HP and animation counters. A pinned
+positions, velocities, fractions, RNG and animation counters. A pinned
 8,256-byte fixture, six CTests and complete compact native/failure evidence
 preserve this correction. Next-update out-of-map reads, word overflow, natural
 trajectories and whole-game fidelity remain unproven; all four OPEN items remain.

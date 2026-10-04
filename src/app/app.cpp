@@ -277,10 +277,11 @@ constexpr int kDamageCooldownTicks = 18;
 // `al = DS:[0x77 + kind*2 + dir]` and hands the result to the sprite-assign
 // helper 1000:5A75. DGROUP (image base 0xAA20, anchored on the DS:0x8B
 // "larax e zaco versione 1:0 shareware" string) holds
-// DS:0x0077.. = 2c 28 28 30 31 2b 2b 35 35 39 39, so entries [1..10] give
+// DS:0x0077.. = 2c 28 28 30 31 2b 2b 35 35 39 39 01 02 0b 0b 0c 0c 0d 0d.
+// Entries [1..18] give
 // kind 0 -> 39/39, kind 1 -> 47/48, kind 2 -> 42/42, kind 3 -> 52/52,
-// kind 4 -> 56/56 after the one-based -> file-sprite -1. Only kind 1 has a
-// direction pair; the others are direction-independent.
+// kind 4 -> 56/56, kind 5 -> 0/1, kinds 6..8 -> 10/10, 11/11, 12/12 after
+// the one-based -> file-sprite -1. Kinds 1 and 5 have direction pairs.
 // Two level-1 kill captures agree with the kind-1 entries (47 and 48, each
 // held 49 ticks) but do NOT establish the discriminator: the walk band is
 // selected from the same vx sign at 1000:7286/72DA, so band and velocity

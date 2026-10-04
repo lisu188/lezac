@@ -1,5 +1,13 @@
 # Original Monster Coordinate Writeback
 
+## Health Attribution Correction
+
+The later [full tile-damage recovery](monster_tile_damage_runtime_2026-10-04.md)
+corrects the historical HP labels: compact byte +3 = 11 is not health.
+The retained native health seed is actor +0x24 = 255. The old diagnostic used
+HP 11 without exposing damage; it now uses HP 256 and checks unchanged health.
+Historical fixtures, capture snapshots and receipts remain immutable.
+
 Two independent silent original captures agree on 256 complete behavior-4
 motion/writeback cases. Production `updateMonsters()` initially disagreed at
 exactly the 112 positions outside its level-bound clamps; removing those two

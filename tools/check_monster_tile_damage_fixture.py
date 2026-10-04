@@ -17,9 +17,9 @@ ROOT = Path(__file__).resolve().parent.parent
 COUNT, ROW_SIZE = 1312, 80
 SIZE = 64 + COUNT * ROW_SIZE
 FIXTURE_SHA = '8417f07de35ddd512032ee8eccfadccd36be386776f0e6770f01bd05ec30d7b1'
-ARCHIVE_SHA = 'pending'
-ARCHIVE_SIZE = 0
-ARCHIVE_COUNT = 0
+ARCHIVE_SHA = '3ef5af26bdf845df47a9d2ec664116b235627473d3aa8ff983e897a20c3983cd'
+ARCHIVE_SIZE = 382489
+ARCHIVE_COUNT = 33
 INPUT = struct.Struct('<HBBBBhhhhBBHBB')
 MOTION = struct.Struct('<hhhhBBI')
 
@@ -94,6 +94,8 @@ def validate(data, exe):
             'tile-damage header/original differs')
     for at, raw in producer.WINDOWS.items():
         require(exe[0x770 + at:0x770 + at + len(raw)] == raw, 'original tile-damage instructions differ')
+    require(exe[0x770 + 0xAA97:0x770 + 0xAA97 + 19] == bytes.fromhex('2c282830312b2b3535393901020b0b0c0c0d0d'),
+            'original impact-sprite data table differs')
     hits, fatal, post_only = 0, 0, 0
     for case in producer.CASES:
         offset = 64 + case['index'] * ROW_SIZE

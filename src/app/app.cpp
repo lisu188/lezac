@@ -26953,6 +26953,9 @@ private:
                 }
                 integrateAxis8_8(monster.y, monster.fracY, monster.vy8);
                 integrateAxis8_8(monster.x, monster.fracX, monster.vx8);
+                // The common native ADCs store signed 16-bit coordinate locals.
+                monster.x = static_cast<int16_t>(monster.x);
+                monster.y = static_cast<int16_t>(monster.y);
             } else {
                 integrateAxis8_8(monster.x, monster.fracX, monster.vx8);
                 integrateAxis8_8(monster.y, monster.fracY, monster.vy8);

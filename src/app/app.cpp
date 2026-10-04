@@ -17444,6 +17444,99 @@ public:
                   << " visual_claim=0\n";
     }
 
+    void debugFlyerContactMotionEvidence(const std::string& fixturePath) {
+        const auto bytes = readFile(fixturePath);
+        if (bytes.size() != 6400 || lezac::diagnostics::level1::fingerprint(bytes) != "5c0909e8081f8026") {
+            throw std::runtime_error("flyer contact fixture bytes changed");
+        }
+        load();
+        resetLevel(0);
+        level_.monsterSpawners.clear();
+        spawnerStates_.clear();
+        playerCount_ = 2;
+        playerDead_ = player2Dead_ = false;
+        reentryTimer_ = reentryTimer2_ = 0;
+        const auto signedWord = [&](size_t offset) {
+            return static_cast<int16_t>(le16(bytes, offset));
+        };
+        int wrapCases = 0, farSteering = 0, nearSteering = 0;
+        std::string mismatches;
+        for (size_t index = 0; index < 176; ++index) {
+            const size_t offset = 64 + index * 36;
+            if (le16(bytes, offset) != index) {
+                throw std::runtime_error("flyer contact case order changed");
+            }
+            std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+            std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+            const uint8_t mask = bytes[offset + 3], glyph = bytes[offset + 4];
+            if (mask & 1) tileRef(41, 12) = tileRef(41, 13) = glyph;
+            if (mask & 2) tileRef(44, 12) = tileRef(44, 13) = glyph;
+            if (mask & 4) tileRef(42, 11) = tileRef(43, 11) = glyph;
+            if (mask & 8) tileRef(42, 14) = tileRef(43, 14) = glyph;
+            ActiveMonster seed;
+            seed.kind = bytes[offset + 2];
+            seed.behavior = 4;
+            seed.x = 336;
+            seed.y = 99;
+            seed.vx8 = signedWord(offset + 8);
+            seed.vy8 = signedWord(offset + 10);
+            seed.fracX = bytes[offset + 12];
+            seed.fracY = bytes[offset + 13];
+            seed.ai0 = le16(bytes, offset + 16);
+            seed.ai1 = le16(bytes, offset + 18);
+            seed.ai2 = le16(bytes, offset + 20);
+            seed.hp = 11;
+            seed.hotspotY = 0;
+            seed.animCursor = seed.animFrame = seed.animStart = 40;
+            seed.animEnd = 42;
+            seed.animDelay = 3;
+            seed.animMode = 1;
+            seed.animStep = 1;
+            seed.actorOrder = 1;
+            const auto flags = scanActorEdges(seed.x, seed.y);
+            const int observedMask = (flags.left ? 1 : 0) | (flags.right ? 2 : 0) |
+                                     (flags.top ? 4 : 0) | (flags.bottom ? 8 : 0);
+            if (observedMask != bytes[offset + 6] ||
+                scanActorStrongBottom(seed.x, seed.y) != (bytes[offset + 7] != 0)) {
+                throw std::runtime_error("flyer original terrain flags differ at case " + std::to_string(index));
+            }
+            const uint8_t mode = bytes[offset + 5];
+            player_.x = mode == 2 ? 296.0f : 160.0f;
+            player_.y = mode == 2 ? 79.0f : 80.0f;
+            player2_.x = 240;
+            player2_.y = 80;
+            monsters_ = {seed};
+            logicTick_ = le16(bytes, offset + 14);
+            randomSeed_ = UINT32_C(0x12345678);
+            updateMonsters(0.0f);
+            if (monsters_.size() != 1) {
+                throw std::runtime_error("flyer production replay lost its actor");
+            }
+            const auto& actual = monsters_.front();
+            if (actual.x != signedWord(offset + 22) || actual.y != signedWord(offset + 24) ||
+                actual.vx8 != signedWord(offset + 26) || actual.vy8 != signedWord(offset + 28) ||
+                actual.fracX != bytes[offset + 30] || actual.fracY != bytes[offset + 31] ||
+                randomSeed_ != le32(bytes, offset + 32) || actual.kind != seed.kind ||
+                actual.behavior != 4 || actual.hp != 11) {
+                if (!mismatches.empty()) mismatches += ",";
+                mismatches += std::to_string(index);
+            }
+            wrapCases += seed.vx8 == std::numeric_limits<int16_t>::min();
+            farSteering += mode == 1;
+            nearSteering += mode == 2;
+        }
+        if (!mismatches.empty()) {
+            throw std::runtime_error("flyer production motion differs at cases " + mismatches);
+        }
+        if (wrapCases != 8 || farSteering != 16 || nearSteering != 16) {
+            throw std::runtime_error("flyer motion boundary coverage changed");
+        }
+        std::cout << "flyer_contact_motion=ok cases=176 production_updates=176 kinds=1..8"
+                  << " signed_neg_boundaries=" << wrapCases << " far_steering=" << farSteering
+                  << " near_steering=" << nearSteering
+                  << " position_velocity_fraction_rng=1 seeded_original=1 natural_route_claim=0 visual_claim=0\n";
+    }
+
     void debugWalkerGravityWordEvidence(const std::string& fixturePath) {
         const auto bytes = readFile(fixturePath);
         if (bytes.size() != 486 || lezac::diagnostics::level1::fingerprint(bytes) != "e000b1d9dfe2e9c5") {
@@ -29125,6 +29218,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-actor-contact-level2-evidence") {
             app.debugActorContactLevel2Evidence(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-flyer-contact-motion-evidence") {
+            app.debugFlyerContactMotionEvidence(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-walker-gravity-word-evidence") {

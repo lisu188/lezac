@@ -16,6 +16,18 @@ DOS-resident probes replace unsafe in-segment scratch assumptions. This does
 not establish a natural complete-level victory, all actor bytes, audio timing
 or whole-game fidelity. See [scope, provenance and checks](docs/recovery/level1_fullframe_2026-09-21.md).
 
+## Monster Coordinate-Writeback Recovery (2026-10-04)
+
+Two independent silent original captures agree on 256 seeded behavior-4
+writebacks, including the actual actor/visual table stores for kinds 1..8 at
+both map edges. The new production replay first failed exactly the 112 results
+outside its level-bound clamps. Removing those two clamps now matches all 256
+positions, velocities, fractions, RNG, HP and animation counters. A pinned
+8,256-byte fixture, six CTests and complete compact native/failure evidence
+preserve this correction. Next-update out-of-map reads, word overflow, natural
+trajectories and whole-game fidelity remain unproven; all four OPEN items remain.
+See [the full writeback observation and limits](docs/recovery/monster_coordinate_writeback_runtime_2026-10-04.md).
+
 ## Behavior-4 Terrain and Motion Recovery (2026-10-04)
 
 Two independent silent original captures agree on 176 seeded motion cases,

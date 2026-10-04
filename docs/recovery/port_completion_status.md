@@ -65,6 +65,13 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [2026-10-04 monster coordinate-writeback recovery](monster_coordinate_writeback_runtime_2026-10-04.md)
+matches 256 seeded full native writebacks for kinds 1..8, including 112 positions
+outside the port's former level-bound clamps. The production clamp removal is
+original-backed; next-update out-of-map reads, coordinate-word overflow, natural
+trajectories and whole-game actor/campaign fidelity remain unverified. This
+does not close any of the four OPEN items or change global fidelity flags.
+
 The [2026-10-01 Level 1 completion-gate recovery](level1_completion_gate_runtime_2026-10-01.md)
 fixes premature results entry, dirty-only objective palette requests, and
 gameplay ticking during results. An ordinary-input route with default reserves

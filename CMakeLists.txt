@@ -5316,6 +5316,20 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 30 LABELS "level2;original;evidence-guard;natural-route"
             PASS_REGULAR_EXPRESSION "\"field_mutations_rejected\":42.*\"fixture_mutations_rejected\":3.*\"invalid_bounds_rejected\":2.*\"producer_mutations_rejected\":5.*\"stale_tail_excluded\":true.*\"status\":\"guarded\"")
+        add_test(NAME natural_campaign_original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_campaign.py replay
+                    --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/natural_campaign_original_out)
+        set_tests_properties(natural_campaign_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 600 LABELS "campaign;original;fullframe;natural-route"
+            PASS_REGULAR_EXPRESSION "\"boundaries\":5446.*\"frames\":2761.*\"pixels\":176704000.*\"status\":\"match\"")
+        add_test(NAME natural_campaign_guard
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_campaign.py guard)
+        set_tests_properties(natural_campaign_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 30 LABELS "campaign;original;evidence-guard;natural-route"
+            PASS_REGULAR_EXPRESSION "\"mutations_rejected\":10.*\"producer_mutations_rejected\":7.*\"status\":\"guarded\".*\"typed_field_mutations_rejected\":291")
         add_test(NAME level1_handoff_guard
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_handoff.py guard)
         set_tests_properties(level1_handoff_guard PROPERTIES

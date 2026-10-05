@@ -16,6 +16,17 @@ DOS-resident probes replace unsafe in-segment scratch assumptions. This does
 not establish a natural complete-level victory, all actor bytes, audio timing
 or whole-game fidelity. See [scope, provenance and checks](docs/recovery/level1_fullframe_2026-09-21.md).
 
+## Natural Campaign Regression (2026-10-05)
+
+The [2026-10-05 natural campaign regression](docs/recovery/natural_campaign_runtime_2026-10-05.md)
+promotes the retained ordinary Level 1/2 completion and Level 3 entry route to
+a self-contained full production replay. It compares 2,761 native-observed
+RGB presentations and 5,446 mapped boundaries, including all three Level 2
+objectives, its 61-percent empty-collapse completion gate, result reels and
+carried health/reserves/ammunition into Level 3. This differs from the shorter
+zero-objective routes below. Later levels, all actor fields and full campaigns
+remain open; no global completion/fidelity flag or overall percentage changes.
+
 ## Natural Level 2 Tables (2026-10-05)
 
 The [2026-10-05 natural Level 2 regression](docs/recovery/natural_level2_runtime_2026-10-05.md)

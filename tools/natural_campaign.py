@@ -115,6 +115,42 @@ def guard_inputs(state, dac, atlas):
                         {'inventory': native['p2_inventory']}]}
 
 
+def guard_projection(cpp, expected):
+    require(cpp_boundary(cpp) == expected, 'positive typed projection baseline differs')
+    paths = [(key,) for key in ('level', 'logic_tick', 'random_seed')]
+    paths += [(key, index) for key in ('progress', 'hud') for index in range(len(cpp[key]))]
+    paths.append(('presentation', 4))
+    paths += [('players', 0, key) for key in ('x', 'y', 'vx8', 'vy8', 'frac_x', 'frac_y', 'score')]
+    paths += [('players', 0, key, index) for key in ('animation', 'health', 'inventory', 'hud_score')
+              for index in range(len(cpp['players'][0][key]))]
+    paths += [('players', 1, 'inventory', index) for index in range(5)]
+    for path in paths:
+        changed = copy.deepcopy(cpp)
+        target = changed
+        for part in path[:-1]:
+            target = target[part]
+        target[path[-1]] += 1
+        require(cpp_boundary(changed) != expected, 'typed projection mutation accepted: ' + str(path))
+    for key in ('tiles_hex', 'words_hex'):
+        changed = copy.deepcopy(cpp)
+        raw = bytearray.fromhex(changed[key])
+        raw[-1] ^= 1
+        changed[key] = raw.hex()
+        require(cpp_boundary(changed) != expected, 'full map-plane mutation accepted')
+    for index in handoff.PALETTE_INDICES:
+        changed = copy.deepcopy(cpp)
+        raw = bytearray.fromhex(changed['palette_rgb_hex'])
+        raw[index * 3] ^= 1
+        changed['palette_rgb_hex'] = raw.hex()
+        require(cpp_boundary(changed) != expected, 'covered palette mutation accepted')
+    changed = copy.deepcopy(cpp)
+    raw = bytearray.fromhex(changed['palette_rgb_hex'])
+    raw[176 * 3:215 * 3] = bytes(39 * 3)
+    changed['palette_rgb_hex'] = raw.hex()
+    require(cpp_boundary(changed) == expected, 'excluded DAC scope was expanded')
+    return len(paths) + 2 + len(handoff.PALETTE_INDICES)
+
+
 def pack(capture, out):
     require(not out.exists(), 'new fixture output required')
     outcome, events = check_capture(capture)
@@ -298,11 +334,12 @@ def fixture(root=FIXTURE):
     return rows
 
 
-def compare(cpp, root=FIXTURE):
-    rows = fixture(root)
+def compare_rows(cpp, rows, route, ticks):
     expected = {(row['tick'], row['phase']): row for row in rows[1:-1]}
+    require(len(expected) == len(rows) - 2, 'duplicate expected campaign boundary')
+    expected_frames = sum(row['rgb_sha256'] is not None for row in rows[1:-1])
     manifest = fidelity.load_manifest(cpp)
-    require((cpp / 'route.txt').read_bytes() == (root / 'route.txt').read_bytes() and
+    require((cpp / 'route.txt').read_bytes() == route.read_bytes() and
             manifest['asset_sha256'] == rows[0]['assets'], 'replay input/assets differ')
     seen, frames = set(), 0
 
@@ -331,7 +368,7 @@ def compare(cpp, root=FIXTURE):
             require(row['input_model'] == 'sdl-events-original-intro-wait-v1', 'wrong input boundary model')
         elif row['kind'] == 'checkpoint':
             check(row, row['tick'], row['phase'], cpp / row.get('frame', 'unused'))
-    require(footer['kind'] == 'complete' and footer['ticks'] == TICKS, 'incomplete full route')
+    require(footer['kind'] == 'complete' and footer['ticks'] == ticks, 'incomplete full route')
     reels = [fidelity.strict_json(line) for line in (cpp / 'result_reels.jsonl').read_text().splitlines()]
     require(len(reels) == 78 and reels[-1] == {'kind': 'complete', 'samples': 76, 'original_fidelity_claim': False},
             'incomplete result stream')
@@ -342,9 +379,13 @@ def compare(cpp, root=FIXTURE):
                 'result sample alignment differs')
         fidelity.validate_state(row['state'])
         check(row, index, 'result', fidelity.safe_file(cpp, row['frame']))
-    require(seen == set(expected) and frames == 2761, 'missing native campaign boundaries')
+    require(seen == set(expected) and frames == expected_frames, 'missing native campaign boundaries')
     return {'status': 'match', 'frames': frames, 'boundaries': len(seen), 'pixels': frames * 64000,
             'completed_levels': [1, 2], 'entered_level': 3, **CLAIMS}
+
+
+def compare(cpp, root=FIXTURE):
+    return compare_rows(cpp, fixture(root), root / 'route.txt', TICKS)
 
 
 def guard():
@@ -381,37 +422,7 @@ def guard():
     cpp = fidelity.strict_json((FIXTURE / 'guard-input.json').read_text())
     expected = next(row['mapped'] for row in rows[1:-1] if row['tick'] == 731 and row['phase'] == 'present')
     require(cpp_boundary(cpp) == expected, 'positive typed projection baseline differs')
-    paths = [(key,) for key in ('level', 'logic_tick', 'random_seed')]
-    paths += [(key, index) for key in ('progress', 'hud') for index in range(len(cpp[key]))]
-    paths.append(('presentation', 4))
-    paths += [('players', 0, key) for key in ('x', 'y', 'vx8', 'vy8', 'frac_x', 'frac_y', 'score')]
-    paths += [('players', 0, key, index) for key in ('animation', 'health', 'inventory', 'hud_score')
-              for index in range(len(cpp['players'][0][key]))]
-    paths += [('players', 1, 'inventory', index) for index in range(5)]
-    for path in paths:
-        changed = copy.deepcopy(cpp)
-        target = changed
-        for part in path[:-1]:
-            target = target[part]
-        target[path[-1]] += 1
-        require(cpp_boundary(changed) != expected, 'typed projection mutation accepted: ' + str(path))
-    for key in ('tiles_hex', 'words_hex'):
-        changed = copy.deepcopy(cpp)
-        raw = bytearray.fromhex(changed[key])
-        raw[-1] ^= 1
-        changed[key] = raw.hex()
-        require(cpp_boundary(changed) != expected, 'full map-plane mutation accepted')
-    for index in handoff.PALETTE_INDICES:
-        changed = copy.deepcopy(cpp)
-        raw = bytearray.fromhex(changed['palette_rgb_hex'])
-        raw[index * 3] ^= 1
-        changed['palette_rgb_hex'] = raw.hex()
-        require(cpp_boundary(changed) != expected, 'covered palette mutation accepted')
-    changed = copy.deepcopy(cpp)
-    raw = bytearray.fromhex(changed['palette_rgb_hex'])
-    raw[176 * 3:215 * 3] = bytes(39 * 3)
-    changed['palette_rgb_hex'] = raw.hex()
-    require(cpp_boundary(changed) == expected, 'excluded DAC scope was expanded')
+    typed_mutations = guard_projection(cpp, expected)
     producer_mutations = 0
     evidence = ROOT / 'docs/recovery/evidence/natural_campaign_20261005'
     with tempfile.TemporaryDirectory(prefix='lezac-campaign-producer-') as temporary:
@@ -433,7 +444,7 @@ def guard():
             (root / name).write_bytes(original_bytes)
     require(producer_mutations == len(CAPTURE_PINS), 'producer mutation guard incomplete')
     print(original.json_bytes({'status': 'guarded', 'mutations_rejected': mutations,
-                               'typed_field_mutations_rejected': len(paths) + 2 + len(handoff.PALETTE_INDICES),
+                               'typed_field_mutations_rejected': typed_mutations,
                                'producer_mutations_rejected': producer_mutations}).decode(), flush=True)
 
 

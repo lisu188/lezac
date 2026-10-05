@@ -27,6 +27,18 @@ carried health/reserves/ammunition into Level 3. This differs from the shorter
 zero-objective routes below. Later levels, all actor fields and full campaigns
 remain open; no global completion/fidelity flag or overall percentage changes.
 
+## Natural Level 3 Objective Regression (2026-10-05)
+
+The [original-backed Level 3 regression](docs/recovery/natural_level3_objective_runtime_2026-10-05.md)
+adds 650 ordinary gameplay frames after the unchanged complete Level 1/2 route.
+The full replay checks 3,411 RGB frames and 6,746 mapped boundaries through
+movement/jumps, a weapon chord, a Medium bomb and the first Level 3 objective.
+The endpoint has one objective, 36 destroyed structures, 62 health and one
+reserve. All comparisons retain whole frames and full map planes; the fixture
+does not complete Level 3 or compare every actor field. Guard checks reject
+18 semantic/fixture, ten producer and 291 typed/map/palette mutations. All four
+broad OPEN items and global completion/fidelity flags remain unchanged.
+
 ## Natural Level 2 Tables (2026-10-05)
 
 The [2026-10-05 natural Level 2 regression](docs/recovery/natural_level2_runtime_2026-10-05.md)

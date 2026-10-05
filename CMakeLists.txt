@@ -5300,6 +5300,11 @@ if(BUILD_TESTING)
         set_tests_properties(bios_menu_window_contract PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 30
             PASS_REGULAR_EXPRESSION "bios_menu_window_contract=ok cases=20 ownership=pid visible=1 badwindow_only=1 no_game_restart=1")
+        add_test(NAME intro_frame_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_intro_frame.py)
+        set_tests_properties(intro_frame_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 30
+            PASS_REGULAR_EXPRESSION "intro_frame_contract=ok cases=17 original_caption=1 failed_ci_frame=1 palette_sizes=7 typing_prefixes=26 real_menu_frames=16 real_gameplay_frames=2 synthetic_parity_claim=0 whole_game_parity=0")
         add_test(NAME level1_handoff_original
             COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                     ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_handoff.py replay

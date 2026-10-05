@@ -11,6 +11,7 @@ import tempfile
 import time
 
 from check_main_menu_fixture import HEADER, ROOT, load_fixture, require, sha
+from intro_frame import intro
 from test_bios_menu_input_xdotool import acquire_window
 
 
@@ -19,6 +20,7 @@ def observe(exe, output, choice, held, expected):
     output.mkdir(parents=True, exist_ok=False)
     env = dict(os.environ, SDL_AUDIODRIVER="dummy", SDL_VIDEODRIVER="x11", SDL_RENDER_DRIVER="software")
     result = dict(status="capturing", exe_sha256=sha(exe.read_bytes()), harness_sha256=sha(Path(__file__).read_bytes()),
+                  intro_detector_sha256=sha(Path(__file__).with_name("intro_frame.py").read_bytes()),
                   audio="dummy", gameplay_seeded=False, startup_timing_gated=False, physical_keys=True,
                   manual_input=False, player_choice=choice, held=held, events=[], captures=[], whole_game_parity=False)
     result["intro_key_batch_gated"] = not held
@@ -70,10 +72,6 @@ def observe(exe, output, choice, held, expected):
             def key(kind, value):
                 result["events"].append(dict(kind=kind, key=value, seconds=time.monotonic() - started))
                 xdo(kind, value)
-
-            def intro(image):
-                colors = image.crop((0, 0, 320, 80)).getcolors(25600)
-                return len(colors) == 7 and min(count for count, _ in colors) > 1000
 
             def white(image):
                 return sum(count for count, color in image.getcolors(64000) if color == (255, 255, 255))

@@ -11,6 +11,7 @@ import tempfile
 import time
 
 from check_main_menu_fixture import HEADER, ROOT, load_fixture, require, sha
+from intro_frame import intro
 
 
 def acquire_window(pid, xdo):
@@ -35,7 +36,9 @@ def observe(exe, output, scenario, expected):
     result = dict(status="capturing", scenario=scenario, audio="dummy", normal_entry_point=True,
                   gameplay_seeded=False, startup_timing_gated=False, physical_keys=True,
                   manual_input=False, whole_game_parity=False, exe_sha256=sha(exe.read_bytes()),
-                  harness_sha256=sha(Path(__file__).read_bytes()), events=[], captures=[])
+                  harness_sha256=sha(Path(__file__).read_bytes()),
+                  intro_detector_sha256=sha(Path(__file__).with_name("intro_frame.py").read_bytes()),
+                  events=[], captures=[])
     started = time.monotonic()
     with (output / "process.log").open("w") as log:
         child = subprocess.Popen([str(exe)], cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT)
@@ -129,10 +132,6 @@ def observe(exe, output, scenario, expected):
                 for digit in str(value):
                     raw("KP_" + digit)
                     no_change(language, "Alt+" + str(value))
-
-            def intro(image):
-                colors = image.crop((0, 0, 320, 80)).getcolors(25600)
-                return bool(colors and len(colors) == 7 and min(count for count, _ in colors) > 1000)
 
             def white(image):
                 return sum(count for count, color in image.getcolors(64000) if color == (255, 255, 255))

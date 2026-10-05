@@ -52,8 +52,8 @@ this fixture's acceptance scope.
 The silent original capture contains 2452 Level 3 frames. Stream SHA256:
 `6a1ed9310639a39ca067ead99f7de218bbc3d324df5d4f4bbddae4c4013d6581`.
 All observer patches were restored. Its preceding 2132 Level 3 frames agree
-with the separately retained lower-shaft capture at every sampled raw phase
-and RGB frame. The earlier 6088-tick six-pickup route independently matches
+with the separately retained lower-shaft capture in mapped state at every
+sampled phase and in every RGB frame. The earlier 6088-tick six-pickup route independently matches
 5061 full RGB frames and 10046 mapped boundaries without teleporting.
 
 The native-only packer pins twelve producer/controller/journal/audit files,

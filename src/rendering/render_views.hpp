@@ -2,6 +2,7 @@
 
 #include "gameplay/actor_models.hpp"
 #include "core/hud.hpp"
+#include "rendering/hud_ammo.hpp"
 #include "resources/levels.hpp"
 #include "resources/records.hpp"
 #include "ui/models.hpp"
@@ -44,7 +45,7 @@ struct PlayerHudView {
     core::HudEnergyBar energy;
     uint32_t score;
     int lives;
-    const gameplay::BombInventory& inventory;
+    const HudAmmoPanel& ammo;
 };
 
 struct HudView {

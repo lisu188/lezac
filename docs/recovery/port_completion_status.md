@@ -65,6 +65,14 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [natural Level 3 return regression](natural_level3_return_runtime_2026-10-05.md)
+recovers the dirty-gated ammunition panel through an ordinary reserve loss and
+reentry. Its full route compares 6038 RGB frames, 12000 mapped boundaries and
+1422 added lifecycle boundaries, reaching eight objectives and 93 of 148
+destroyed structures. Live Medium ammunition refills from eight to ten without
+repainting the original's retained `08`. Level 3 completion, later levels and
+all broad completion/fidelity flags remain open.
+
 The [2026-10-05 natural campaign regression](natural_campaign_runtime_2026-10-05.md)
 promotes the retained ordinary Level 1/2 completion and Level 3 entry route to
 a self-contained full production replay. It checks 2,761 native-observed RGB

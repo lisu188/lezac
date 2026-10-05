@@ -58,6 +58,7 @@
         "src/rendering/color.hpp",
         "src/rendering/game_renderer.cpp",
         "src/rendering/game_renderer.hpp",
+        "src/rendering/hud_ammo.hpp",
         "src/rendering/hud_renderer.cpp",
         "src/rendering/menu_renderer.cpp",
         "src/rendering/presentation_state.cpp",

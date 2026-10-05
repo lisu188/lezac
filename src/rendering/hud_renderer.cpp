@@ -111,7 +111,7 @@ public:
     // score panel x180..267, bomb box x299..318, lives at x180..196), all
     // measured from an original two-player capture.
     void drawPlayerHudColumn(int xoff, const core::HudEnergyBar& energy, uint32_t score, int lives,
-                             const BombInventory& inventory) {
+                             const HudAmmoPanel& ammo) {
         constexpr uint32_t kGrey = 0xffb6b6b6u;
         constexpr uint32_t kYellow = 0xffffff55u;
         constexpr uint32_t kBlue = 0xff0018dbu;
@@ -146,8 +146,8 @@ public:
             drawOriginalHudFigure(xoff + i * 9, y0 + 39, kGreen);
         }
 
-        // Bomb selector box showing the selected bomb's actual sprite (from the
-        // BOMOMIMK bank, the same sprite the world bomb uses) and its count.
+        // The painted icon and count are retained independently by the HUD
+        // dirty-byte helper; a reentry refill need not repaint either one.
         // Measured against the original: a 20x20 beveled grey box at (119, y0+7)
         // -- a light 1px outer ring (162), a darker 1px inner ring (130), then a
         // 16x16 near-black well (the pixel counts 76/68 match the two rings).
@@ -160,7 +160,7 @@ public:
         }
         canvas_.rect(bx0 + 2, y0 + 9, 16, 16, 0xff202020u);
         const int bombSprite =
-            static_cast<int>(bombProfile(inventory.selected).spriteBase);
+            static_cast<int>(bombProfile(ammo.icon).spriteBase);
         if (bombSprite >= 0 &&
             bombSprite < static_cast<int>(assets_.sprites().sprites.size())) {
             const Sprite& sprite = assets_.sprites().sprites[static_cast<size_t>(bombSprite)];
@@ -170,13 +170,12 @@ public:
             text_.drawSprite(sprite, bx, by);
             canvas_.resetClip();
         } else {
-            canvas_.rect(bx0 + 2, y0 + 9, 16, 16, renderer_.bombColor(inventory.selected));
+            canvas_.rect(bx0 + 2, y0 + 9, 16, 16, renderer_.bombColor(ammo.icon));
         }
-        int selCount = inventory.counts[static_cast<size_t>(inventory.selected)];
         // Blue count panel beneath the bomb box (x119-138, matching the box
         // width), with the ammo count drawn on it.
         canvas_.rect(bx0, y0 + 27, 20, 9, kBlue);
-        drawHudNumber(bx0 + 1, y0 + 28, std::clamp(selCount, 0, 99), 2);
+        drawHudNumber(bx0 + 1, y0 + 28, ammo.count, 2);
     }
 
     void drawSinglePlayerHud() {
@@ -189,7 +188,7 @@ public:
         // frame's bottom border, drawn by drawViewFrame.
         canvas_.rect(0, 160, kScreenW, 40, 0xff000000u);
         drawPlayerHudColumn(0, hud_.players[0].energy, hud_.players[0].score, hud_.players[0].lives,
-                            hud_.players[0].inventory);
+                            hud_.players[0].ammo);
         drawHudObjectivePanel();
     }
 
@@ -252,9 +251,9 @@ public:
         } else {
             canvas_.rect(0, 160, kScreenW, 40, 0xff000000u);
             drawPlayerHudColumn(0, hud_.players[0].energy, hud_.players[0].score, hud_.players[0].lives,
-                                hud_.players[0].inventory);
+                                hud_.players[0].ammo);
             drawPlayerHudColumn(180, hud_.players[1].energy, hud_.players[1].score, hud_.players[1].lives,
-                                hud_.players[1].inventory);
+                                hud_.players[1].ammo);
             drawHudObjectivePanel();
         }
         if (hud_.complete && !hud_.outroActive) {

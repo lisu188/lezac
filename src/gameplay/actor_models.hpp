@@ -40,6 +40,8 @@ struct BombProfile {
 struct BombInventory {
     std::array<int, 4> counts{200, 20, 6, 0};
     BombType selected = BombType::Small;
+    // DS:1B75 + player: 1 refreshes digits, >1 also refreshes the icon.
+    uint8_t hudDirty = 2;
 };
 
 struct Bomb {

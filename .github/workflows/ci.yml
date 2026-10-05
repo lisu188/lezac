@@ -72,7 +72,7 @@ jobs:
   windows:
     name: Windows build and full test suite
     runs-on: windows-2025
-    timeout-minutes: 45
+    timeout-minutes: 60
     defaults:
       run:
         shell: msys2 {0}

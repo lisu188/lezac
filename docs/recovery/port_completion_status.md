@@ -99,6 +99,17 @@ producer and 291 typed/map/palette mutations. Level 3 completion, all actor
 fields and whole-game fidelity remain unverified; all four broad OPEN items
 and global flags remain unchanged.
 
+The [natural Level 3 portal return](natural_level3_portal_runtime_2026-10-05.md)
+adds 970 ordinary frames through the lower shaft, three more objectives and a
+natural teleport. The full 6228-tick route matches 5201 RGB frames and 10326
+mapped boundaries, ending with six objectives and 57 destroyed structures.
+It recovers the original floor sampling, consumed Down banks, preserved motion
+carries and animated arrival marker without the port's invented cooldown.
+Thirty semantic/fixture, twelve producer and 291 typed/map/palette mutations
+are rejected. Level 3 completion, natural two-player/pool saturation, all actor
+fields and whole-game fidelity remain unverified; all four broad OPEN items
+and global flags stay unchanged.
+
 The [2026-10-05 natural Level 2 table comparison](natural_level2_runtime_2026-10-05.md)
 adds two 500-frame ordinary-input routes after the pinned Level 1 completion
 and handoff. Both match all displayed RGB pixels and mapped states. One also

@@ -1,0 +1,622 @@
+{
+  "audio": "dummy",
+  "executable": {
+    "all_stored_members_verified": 3931,
+    "logical_files_restored": 1,
+    "note": {
+      "all_member_readback_verified": true,
+      "all_members_size_and_sha256_verified": true,
+      "anchor": "c998f9eb9913293e772ce0d7c101976be3dfe99d",
+      "archive_bytes": 145125544,
+      "archive_sha256": "738282feda90e8efad5778fd23c0e46490f808f9105d3b8219fd7b302e43dfe7",
+      "chunks": [
+        {
+          "blob": "15efe2ba1db4962d5889870b2d968a6d357c80f2",
+          "bytes": 67108864,
+          "index": 1,
+          "notes_commit": "decada33c6934a3f4503c0c97b694c844f640601",
+          "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-delivery-raw-part-001",
+          "sha256": "01cd01e28804c3824084db8483946218ba3d58456cba719cdc5fa8fd4225cd17"
+        },
+        {
+          "blob": "d44b6a5995c6205289b0046cb6326087df04ef4f",
+          "bytes": 67108864,
+          "index": 2,
+          "notes_commit": "afd372ca5f78110862af40048de6be21f9f2846a",
+          "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-delivery-raw-part-002",
+          "sha256": "3da7c4d26033ac7289542479d66bfa31445e0ea1e5f1201a1d5b31c5722c7b2f"
+        },
+        {
+          "blob": "f8de04aede6f901f730dfa2d9a214c58b4a23ae3",
+          "bytes": 10907816,
+          "index": 3,
+          "notes_commit": "c86299d9d6fb9e649fb383e5af4cf16e4d168787",
+          "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-delivery-raw-part-003",
+          "sha256": "5cdb31ab51bdf8ab5b386a28ca74a6045626d8da5c624c34533ce0b2ab9e6ad0"
+        }
+      ],
+      "manifest_blob": "d0f04e359ac036f3ee74b9f0c0858995cc3b0e68",
+      "members": 3931,
+      "notes_commit": "94fec27d021df66a7a8c3ba522ceab2134856370",
+      "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-delivery-raw",
+      "whole_archive_byte_readback_verified": true
+    }
+  },
+  "executable_sha256": "d8c9f1baea3eed69091091d2874d87513f8f997754b7cada58cd678c8f87d8d1",
+  "head": "423c35c6441ba0cf2a2831995aed96de26153ffd",
+  "native": {
+    "all_stored_members_verified": 6204,
+    "logical_files_restored": 2189,
+    "note": {
+      "all_member_readback_verified": true,
+      "all_members_size_and_sha256_verified": true,
+      "anchor": "c998f9eb9913293e772ce0d7c101976be3dfe99d",
+      "archive_bytes": 143800265,
+      "archive_sha256": "f45b55e8bf55db56c0591bc8bd820b233f33ada769239a51757586e9b0209efa",
+      "chunks": [
+        {
+          "blob": "18beb8da39219b57091836e5ba6ec5db33ace41b",
+          "bytes": 67108864,
+          "index": 1,
+          "notes_commit": "6ed19d640d8f3fd53a123fd455dbfd59f54da315",
+          "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-native4-raw-part-001",
+          "sha256": "ef07ad3e966512be2b4a6da57ee476ee84785de3a5650ea7093a6b4827c94aa0"
+        },
+        {
+          "blob": "8ebcf7e0fdcee67d9af086f9d8b2be99a8e654bd",
+          "bytes": 67108864,
+          "index": 2,
+          "notes_commit": "68085128b799fccd9307be246112ad6db585ca05",
+          "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-native4-raw-part-002",
+          "sha256": "fee25bd26f0d03b90a1f4b2606b739b0ea3f419ee591e61b7d93d461a6cf77bc"
+        },
+        {
+          "blob": "81c17169bcd13f101d9768f0a44cf69c673dd672",
+          "bytes": 9582537,
+          "index": 3,
+          "notes_commit": "07c602b3adda25b9793f8c1cfce0f39f74a01592",
+          "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-native4-raw-part-003",
+          "sha256": "ad0637a2ded6a91515f8f4c6d680e98d254c6d3e374cc6950545220b5ff69430"
+        }
+      ],
+      "manifest_blob": "07aa6b965f76af07cf37862efd6718f2facb2ad2",
+      "members": 6204,
+      "notes_commit": "2d390b74ebc56d9c30caec69e09c2f7b8e730752",
+      "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-native4-raw",
+      "whole_archive_byte_readback_verified": true
+    }
+  },
+  "native_stream_sha256": "24eca91a2bedbbc35aff0cfe9e782e041e802ef666db78e4f0c4ebc4cc09476e",
+  "owned_keepalive": {
+    "boot_id": "598a5c0e-12f1-4a60-9133-1961a0c78e4f",
+    "cmdline": [
+      "lezac-level3-lower-objectives-keepalive-20261005",
+      "86400"
+    ],
+    "exe": "/usr/bin/sleep",
+    "pid": 510,
+    "start_ticks": 650744
+  },
+  "prior_checkpoint": {
+    "all_actor_fields_compared": false,
+    "audio": "dummy",
+    "compared_pixels": 312384000,
+    "controls": {
+      "bomb": "n",
+      "down": "c",
+      "jump": "m",
+      "left": "z",
+      "right": "x"
+    },
+    "destruction_required_tiles": 148,
+    "dirty_agents_preserved": true,
+    "endpoint": {
+      "flow": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        4,
+        0
+      ],
+      "health": [
+        26,
+        1,
+        0,
+        0,
+        0
+      ],
+      "inventory": [
+        200,
+        14,
+        0,
+        0,
+        1
+      ],
+      "level": 3,
+      "objective_positions": [
+        [
+          584,
+          120
+        ],
+        [
+          584,
+          128
+        ],
+        [
+          896,
+          144
+        ],
+        [
+          728,
+          152
+        ],
+        [
+          752,
+          376
+        ],
+        [
+          744,
+          384
+        ],
+        [
+          760,
+          384
+        ]
+      ],
+      "progress": [
+        3,
+        57,
+        7,
+        20,
+        739,
+        0,
+        16495
+      ],
+      "rng": 1256805791,
+      "sample": 649,
+      "shaft": [
+        {
+          "cells": [
+            [
+              19,
+              33
+            ],
+            [
+              20,
+              33
+            ],
+            [
+              19,
+              33
+            ]
+          ],
+          "y": 232
+        },
+        {
+          "cells": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          "y": 288
+        },
+        {
+          "cells": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          "y": 296
+        },
+        {
+          "cells": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          "y": 304
+        },
+        {
+          "cells": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          "y": 312
+        },
+        {
+          "cells": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          "y": 320
+        },
+        {
+          "cells": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          "y": 328
+        },
+        {
+          "cells": [
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          "y": 336
+        }
+      ],
+      "tick": 5908,
+      "velocity8": [
+        0,
+        0
+      ],
+      "xy": [
+        669.0,
+        376.0
+      ]
+    },
+    "exact_ci_run": 37291485953,
+    "exact_release_run": 37291485929,
+    "global_completion_percentage_claim": false,
+    "goal_status": "active",
+    "head": "c998f9eb9913293e772ce0d7c101976be3dfe99d",
+    "linux_passed": 645,
+    "linux_registered": 646,
+    "main": "423c35c6441ba0cf2a2831995aed96de26153ffd",
+    "manual_input_claim": false,
+    "mapped_boundaries": 9686,
+    "native_stream_sha256": "24eca91a2bedbbc35aff0cfe9e782e041e802ef666db78e4f0c4ebc4cc09476e",
+    "native_windows_lower_room_replay_claim": false,
+    "natural_level3_completion_claim": false,
+    "new_gameplay_state_injections": false,
+    "new_lower_room_registered_fixture_claim": false,
+    "next_route": "Move right in the lower room with Down released; inspect health pickups and three objectives before intentionally using the key-31 portal. Upper-room objectives remain at (584,120)/(584,128).",
+    "only_expected_skip": "ui_xdotool_xvfb",
+    "ordinary_original_route_ticks": 5908,
+    "original_assets_preserved": true,
+    "owned_keepalive": {
+      "boot_id": "598a5c0e-12f1-4a60-9133-1961a0c78e4f",
+      "cmdline": [
+        "lezac-level3-lower-portal-keepalive-20261005",
+        "86400"
+      ],
+      "exe": "/usr/bin/sleep",
+      "pid": 949,
+      "start_ticks": 18093
+    },
+    "physical_audio_wall_clock_claim": false,
+    "portal_map_only": {
+      "destination": [
+        392,
+        120
+      ],
+      "entrance": [
+        736,
+        392
+      ],
+      "key": 31,
+      "new_natural_traversal_claim": false
+    },
+    "post_merge_main_ci_separate_from_pr_acceptance": true,
+    "post_merge_main_observed_at_utc": "2026-10-05T10:36:41.242848+00:00",
+    "post_merge_main_runs": [
+      {
+        "conclusion": null,
+        "head_sha": "423c35c6441ba0cf2a2831995aed96de26153ffd",
+        "html_url": "https://github.com/lisu188/lezac/actions/runs/37296098637",
+        "id": 37296098637,
+        "status": "in_progress"
+      }
+    ],
+    "prior_shaft_positioning_comparison": {
+      "boundaries": 9286,
+      "frames": 4681,
+      "native_stream_sha256": "da6e4d019e9b8473f512d20351a098ed2a5487b23b55b80dd82758c25954c5e6",
+      "pixels": 299584000,
+      "route_ticks": 5708
+    },
+    "pull_request": "https://github.com/lisu188/lezac/pull/284",
+    "ram_free_bytes": 3275276288,
+    "ram_total_bytes": 12601974784,
+    "raw_retentions": [
+      {
+        "all_member_readback_verified": true,
+        "all_members_size_and_sha256_verified": true,
+        "anchor": "c998f9eb9913293e772ce0d7c101976be3dfe99d",
+        "archive_bytes": 222912606,
+        "archive_sha256": "632d4b6797a19b961bced1942bd3def3aa1becbe10c1b493f252455ce8909fe3",
+        "chunks": [
+          {
+            "blob": "b9e26c3d5ad4f283135483797b0dbb397f36f4c4",
+            "bytes": 67108864,
+            "index": 1,
+            "notes_commit": "2fa8363e90ba86e86a31bfc02caf2809e3a5f453",
+            "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-pilots-raw-part-001",
+            "sha256": "0966bf46ffb50bb7f16d34ed0ab437945a738ecd9bfa8830e4fe1adcc8b71340"
+          },
+          {
+            "blob": "8d2db3305f16b41c90a06e9a26c7867b0d84f82c",
+            "bytes": 67108864,
+            "index": 2,
+            "notes_commit": "9c42c25da6a00ce38f84799da7c9252626577532",
+            "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-pilots-raw-part-002",
+            "sha256": "43b915365b0f835b9ea6a1780ce54e56f7ad063fc2a99434f679ff1b3fa4d46e"
+          },
+          {
+            "blob": "bc81c3f279cf497cdbb39144b3c46d8da508b13f",
+            "bytes": 67108864,
+            "index": 3,
+            "notes_commit": "4b196f03676f662f85aedb00a331a55525584ae5",
+            "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-pilots-raw-part-003",
+            "sha256": "de2359b7a59d386a6ff6da3cb6f6e75ce4a17a47b61b19e3fb18b8308114ee47"
+          },
+          {
+            "blob": "f3a1aaf8e65c740bf64fcd53e92a9a403a6ce1fe",
+            "bytes": 21586014,
+            "index": 4,
+            "notes_commit": "7c530fde7b98c95c1530feb3dc9d4da18948c3b8",
+            "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-pilots-raw-part-004",
+            "sha256": "cc439af22ebdc50d09876478e9cc1502dc022a5629c8e12d79e1fc5f9b4942e0"
+          }
+        ],
+        "manifest_blob": "da48afd90d69dfbab049766cb69fc1b5509bd62a",
+        "members": 5299,
+        "notes_commit": "34c1a2a5b379cbe02622c51a61b7faa27a97f856",
+        "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-pilots-raw",
+        "whole_archive_byte_readback_verified": true
+      },
+      {
+        "all_member_readback_verified": true,
+        "all_members_size_and_sha256_verified": true,
+        "anchor": "c998f9eb9913293e772ce0d7c101976be3dfe99d",
+        "archive_bytes": 54072635,
+        "archive_sha256": "7e9072907d26e5d5e45f1385a64558c10ddf31e7f0e1299b44c484c508648936",
+        "chunks": [
+          {
+            "blob": "34631a5eab9c4ae3aa9e268780e8082ae15a41fd",
+            "bytes": 54072635,
+            "index": 1,
+            "notes_commit": "f7c0d1135bcad0f0db604179ea99719f3d859559",
+            "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-native-raw-part-001",
+            "sha256": "7e9072907d26e5d5e45f1385a64558c10ddf31e7f0e1299b44c484c508648936"
+          }
+        ],
+        "manifest_blob": "397ec037de4597bc4f160351c7f5ca2673f0f74d",
+        "members": 1684,
+        "notes_commit": "846ed57fc6a3e5594317cc496002f3dd16e7af94",
+        "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-native-raw",
+        "whole_archive_byte_readback_verified": true
+      },
+      {
+        "all_member_readback_verified": true,
+        "all_members_size_and_sha256_verified": true,
+        "anchor": "c998f9eb9913293e772ce0d7c101976be3dfe99d",
+        "archive_bytes": 143800265,
+        "archive_sha256": "f45b55e8bf55db56c0591bc8bd820b233f33ada769239a51757586e9b0209efa",
+        "chunks": [
+          {
+            "blob": "18beb8da39219b57091836e5ba6ec5db33ace41b",
+            "bytes": 67108864,
+            "index": 1,
+            "notes_commit": "6ed19d640d8f3fd53a123fd455dbfd59f54da315",
+            "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-native4-raw-part-001",
+            "sha256": "ef07ad3e966512be2b4a6da57ee476ee84785de3a5650ea7093a6b4827c94aa0"
+          },
+          {
+            "blob": "8ebcf7e0fdcee67d9af086f9d8b2be99a8e654bd",
+            "bytes": 67108864,
+            "index": 2,
+            "notes_commit": "68085128b799fccd9307be246112ad6db585ca05",
+            "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-native4-raw-part-002",
+            "sha256": "fee25bd26f0d03b90a1f4b2606b739b0ea3f419ee591e61b7d93d461a6cf77bc"
+          },
+          {
+            "blob": "81c17169bcd13f101d9768f0a44cf69c673dd672",
+            "bytes": 9582537,
+            "index": 3,
+            "notes_commit": "07c602b3adda25b9793f8c1cfce0f39f74a01592",
+            "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-native4-raw-part-003",
+            "sha256": "ad0637a2ded6a91515f8f4c6d680e98d254c6d3e374cc6950545220b5ff69430"
+          }
+        ],
+        "manifest_blob": "07aa6b965f76af07cf37862efd6718f2facb2ad2",
+        "members": 6204,
+        "notes_commit": "2d390b74ebc56d9c30caec69e09c2f7b8e730752",
+        "ref": "refs/notes/qa-natural-level3-20261005-lower-portal-native4-raw",
+        "whole_archive_byte_readback_verified": true
+      }
+    ],
+    "release_package_boundaries_each": 8386,
+    "release_package_frames_each": 4231,
+    "remaining_destruction_tiles": 91,
+    "remaining_objectives_to_required_seven": 4,
+    "restored_prior_evidence_dependencies": {
+      "all_stored_raw_members_verified": 6072,
+      "audio": "dummy",
+      "available": 11867381760,
+      "delivery_note": {
+        "all_member_readback_verified": true,
+        "all_members_size_and_sha256_verified": true,
+        "anchor": "84593f688b32fe3554f59f19b27d2976ad8386f0",
+        "archive_bytes": 65393885,
+        "archive_sha256": "5fe1e00db63ce1b3ebacd1149c6078159dea7d79efccf678fe2adb5bf428f69d",
+        "chunks": [
+          {
+            "blob": "83452403153969611509fe02ae1ca62c5334b275",
+            "bytes": 65393885,
+            "index": 1,
+            "notes_commit": "b7c29124ecd9c1dd7a2bbf72eea6f407e16d0805",
+            "ref": "refs/notes/qa-natural-level3-20261005-third-objective-delivery-part-001",
+            "sha256": "5fe1e00db63ce1b3ebacd1149c6078159dea7d79efccf678fe2adb5bf428f69d"
+          }
+        ],
+        "manifest_blob": "e530296cc5e004678ac93c939f8268cfd07462bf",
+        "members": 126,
+        "notes_commit": "b9e3a5fe9c68f1504cb6a2e8a3a217e3c4bd7347",
+        "ref": "refs/notes/qa-natural-level3-20261005-third-objective-delivery",
+        "whole_archive_byte_readback_verified": true
+      },
+      "exe_sha256": "d8c9f1baea3eed69091091d2874d87513f8f997754b7cada58cd678c8f87d8d1",
+      "keepalive": {
+        "boot_id": "598a5c0e-12f1-4a60-9133-1961a0c78e4f",
+        "cmdline": [
+          "lezac-level3-lower-portal-keepalive-20261005",
+          "86400"
+        ],
+        "exe": "/usr/bin/sleep",
+        "pid": 949,
+        "start_ticks": 18093
+      },
+      "logical_native_files_restored": 2039,
+      "native_stream_sha256": "47afc70d61a2f95205b7cec395a7d1b7b36c846ad4a830a6c2f3ac01da803848",
+      "new_state_injections": false,
+      "raw_note": {
+        "all_member_readback_verified": true,
+        "all_members_size_and_sha256_verified": true,
+        "anchor": "84593f688b32fe3554f59f19b27d2976ad8386f0",
+        "archive_bytes": 254505354,
+        "archive_sha256": "7627d1ecb01c3d5eb98cf19ff141796b5ad8fd560eb1cef47b3169dbc705e211",
+        "chunks": [
+          {
+            "blob": "24a2caca445fbbdcd4f1698b1cb85a647f1c07d7",
+            "bytes": 67108864,
+            "index": 1,
+            "notes_commit": "71dc9bd2f5508f5f43a96d888414aa8731600e7f",
+            "ref": "refs/notes/qa-natural-level3-20261005-third-objective-delivery-raw-part-001",
+            "sha256": "416d455d6c045ae82746138a40eabb174fb07e4baad369d43fdd7ed5b2fcd0f2"
+          },
+          {
+            "blob": "adde33f8ca7b030fa9cc984ef1b1cc955dfa96fc",
+            "bytes": 67108864,
+            "index": 2,
+            "notes_commit": "2ada810d0ce0a675a625fd968591ba0bb470f4aa",
+            "ref": "refs/notes/qa-natural-level3-20261005-third-objective-delivery-raw-part-002",
+            "sha256": "6db9e40eca3b765234c79a428d2ffc7a9d64f9a5f6a87e4096405915da5e52be"
+          },
+          {
+            "blob": "8879066233ce4f6da064c7da918e42c4e58df1ef",
+            "bytes": 67108864,
+            "index": 3,
+            "notes_commit": "c841e4b2393e8ce34fecb02e3f69916c10e979a2",
+            "ref": "refs/notes/qa-natural-level3-20261005-third-objective-delivery-raw-part-003",
+            "sha256": "a75573845bc8955155f8a8c8002e704432fa7f0e80f651e66815bd99d8417e6d"
+          },
+          {
+            "blob": "9a2881228a42e19f85513aa55e37716084858849",
+            "bytes": 53178762,
+            "index": 4,
+            "notes_commit": "3cb497c4beebf22084b9468da36300889a775e83",
+            "ref": "refs/notes/qa-natural-level3-20261005-third-objective-delivery-raw-part-004",
+            "sha256": "79fee7932b8006e10ccda23d2d1620ccf0a75a4372328525531fff6817d60e03"
+          }
+        ],
+        "manifest_blob": "40e2103f201a7c4193a136e0de8f6aba3978ee26",
+        "members": 6072,
+        "notes_commit": "c8fa9c486a84b4567bad4fd20dbeb62e54177059",
+        "ref": "refs/notes/qa-natural-level3-20261005-third-objective-delivery-raw",
+        "whole_archive_byte_readback_verified": true
+      },
+      "status": "pinned_prior_evidence_restored_for_lower_portal_work"
+    },
+    "rgb_frames": 4881,
+    "route_sha256": "ee435e92b1915b4acfd615fcdf38da16445862e468bb66ec9d09ec4da97453fe",
+    "status": "verified_lower_room_checkpoint",
+    "tested_tree": "c1e39c221e7c2a66e9e05dd7e40a67b121cda87d",
+    "untouched_startup_tests_each": 8,
+    "whole_game_parity_claim": false,
+    "windows_passed": 641
+  },
+  "status": "pinned_dependencies_restored",
+  "transport_note": {
+    "all_member_readback_verified": true,
+    "all_members_size_and_sha256_verified": true,
+    "anchor": "84593f688b32fe3554f59f19b27d2976ad8386f0",
+    "archive_bytes": 65393885,
+    "archive_sha256": "5fe1e00db63ce1b3ebacd1149c6078159dea7d79efccf678fe2adb5bf428f69d",
+    "chunks": [
+      {
+        "blob": "83452403153969611509fe02ae1ca62c5334b275",
+        "bytes": 65393885,
+        "index": 1,
+        "notes_commit": "b7c29124ecd9c1dd7a2bbf72eea6f407e16d0805",
+        "ref": "refs/notes/qa-natural-level3-20261005-third-objective-delivery-part-001",
+        "sha256": "5fe1e00db63ce1b3ebacd1149c6078159dea7d79efccf678fe2adb5bf428f69d"
+      }
+    ],
+    "manifest_blob": "e530296cc5e004678ac93c939f8268cfd07462bf",
+    "members": 126,
+    "notes_commit": "b9e3a5fe9c68f1504cb6a2e8a3a217e3c4bd7347",
+    "ref": "refs/notes/qa-natural-level3-20261005-third-objective-delivery",
+    "whole_archive_byte_readback_verified": true
+  }
+}

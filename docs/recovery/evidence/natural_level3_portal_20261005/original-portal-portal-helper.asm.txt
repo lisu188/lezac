@@ -1,0 +1,81 @@
+
+LEZAC.EXE:     file format binary
+
+
+Disassembly of section .data:
+
+00006109 <.data+0x6109>:
+    6109:	55                   	push   %bp
+    610a:	89 e5                	mov    %sp,%bp
+    610c:	b8 06 00             	mov    $0x6,%ax
+    610f:	9a df 04 20 09       	lcall  $0x920,$0x4df
+    6114:	83 ec 06             	sub    $0x6,%sp
+    6117:	8b 46 06             	mov    0x6(%bp),%ax
+    611a:	25 ff 7f             	and    $0x7fff,%ax
+    611d:	89 46 06             	mov    %ax,0x6(%bp)
+    6120:	c7 46 fe 01 00       	movw   $0x1,-0x2(%bp)
+    6125:	c6 06 7c 1b 00       	movb   $0x0,0x1b7c
+    612a:	c6 06 81 1b 00       	movb   $0x0,0x1b81
+    612f:	a0 a5 79             	mov    0x79a5,%al
+    6132:	30 e4                	xor    %ah,%ah
+    6134:	3b 46 fe             	cmp    -0x2(%bp),%ax
+    6137:	7d 03                	jge    0x613c
+    6139:	e9 a5 00             	jmp    0x61e1
+    613c:	6b 7e fe 07          	imul   $0x7,-0x2(%bp),%di
+    6140:	81 c7 17 77          	add    $0x7717,%di
+    6144:	89 7e fa             	mov    %di,-0x6(%bp)
+    6147:	8c 5e fc             	mov    %ds,-0x4(%bp)
+    614a:	c4 7e fa             	les    -0x6(%bp),%di
+    614d:	26 8b 05             	mov    %es:(%di),%ax
+    6150:	3b 46 06             	cmp    0x6(%bp),%ax
+    6153:	74 03                	je     0x6158
+    6155:	e9 83 00             	jmp    0x61db
+    6158:	c4 7e fa             	les    -0x6(%bp),%di
+    615b:	26 8b 45 02          	mov    %es:0x2(%di),%ax
+    615f:	8b 7e 04             	mov    0x4(%bp),%di
+    6162:	36 89 45 d4          	mov    %ax,%ss:-0x2c(%di)
+    6166:	c4 7e fa             	les    -0x6(%bp),%di
+    6169:	26 8b 45 04          	mov    %es:0x4(%di),%ax
+    616d:	8b 7e 04             	mov    0x4(%bp),%di
+    6170:	36 89 45 d2          	mov    %ax,%ss:-0x2e(%di)
+    6174:	a0 6c 00             	mov    0x6c,%al
+    6177:	8b 7e 04             	mov    0x4(%bp),%di
+    617a:	36 88 45 ee          	mov    %al,%ss:-0x12(%di)
+    617e:	c7 06 74 20 1a 00    	movw   $0x1a,0x2074
+    6184:	c6 06 9f 79 04       	movb   $0x4,0x799f
+    6189:	e8 3e bc             	call   0x1dca
+    618c:	8b 7e 04             	mov    0x4(%bp),%di
+    618f:	36 ff 75 d4          	push   %ss:-0x2c(%di)
+    6193:	8b 7e 04             	mov    0x4(%bp),%di
+    6196:	36 ff 75 d2          	push   %ss:-0x2e(%di)
+    619a:	6a 00                	push   $0x0
+    619c:	6a 00                	push   $0x0
+    619e:	8b 7e 04             	mov    0x4(%bp),%di
+    61a1:	36 8a 45 ee          	mov    %ss:-0x12(%di),%al
+    61a5:	30 e4                	xor    %ah,%ah
+    61a7:	50                   	push   %ax
+    61a8:	6a 0b                	push   $0xb
+    61aa:	6a 08                	push   $0x8
+    61ac:	6a 05                	push   $0x5
+    61ae:	e8 5e d5             	call   0x370f
+    61b1:	83 3e 72 20 01       	cmpw   $0x1,0x2072
+    61b6:	75 21                	jne    0x61d9
+    61b8:	a0 8d 20             	mov    0x208d,%al
+    61bb:	30 e4                	xor    %ah,%ah
+    61bd:	6b f8 26             	imul   $0x26,%ax,%di
+    61c0:	81 c7 c4 1b          	add    $0x1bc4,%di
+    61c4:	1e                   	push   %ds
+    61c5:	57                   	push   %di
+    61c6:	8b 7e 04             	mov    0x4(%bp),%di
+    61c9:	36 8a 45 ee          	mov    %ss:-0x12(%di),%al
+    61cd:	50                   	push   %ax
+    61ce:	a0 6d 00             	mov    0x6d,%al
+    61d1:	50                   	push   %ax
+    61d2:	6a 02                	push   $0x2
+    61d4:	6a 01                	push   $0x1
+    61d6:	e8 42 ac             	call   0xe1b
+    61d9:	eb 06                	jmp    0x61e1
+    61db:	ff 46 fe             	incw   -0x2(%bp)
+    61de:	e9 4e ff             	jmp    0x612f
+    61e1:	c9                   	leave
+    61e2:	c2 04 00             	ret    $0x4

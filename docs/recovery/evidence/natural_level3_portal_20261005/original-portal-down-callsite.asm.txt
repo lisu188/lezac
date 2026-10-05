@@ -1,0 +1,35 @@
+
+LEZAC.EXE:     file format binary
+
+
+Disassembly of section .data:
+
+00007035 <.data+0x7035>:
+    7035:	a0 82 1b             	mov    0x1b82,%al
+    7038:	30 e4                	xor    %ah,%ah
+    703a:	8b d0                	mov    %ax,%dx
+    703c:	a0 86 1b             	mov    0x1b86,%al
+    703f:	30 e4                	xor    %ah,%ah
+    7041:	03 c2                	add    %dx,%ax
+    7043:	3d 02 00             	cmp    $0x2,%ax
+    7046:	75 0a                	jne    0x7052
+    7048:	c6 06 86 1b 00       	movb   $0x0,0x1b86
+    704d:	c6 06 82 1b 00       	movb   $0x0,0x1b82
+    7052:	80 3e 86 1b 01       	cmpb   $0x1,0x1b86
+    7057:	74 03                	je     0x705c
+    7059:	e9 72 01             	jmp    0x71ce
+    705c:	80 3e 55 20 45       	cmpb   $0x45,0x2055
+    7061:	75 1f                	jne    0x7082
+    7063:	a1 04 c2             	mov    0xc204,%ax
+    7066:	8b f0                	mov    %ax,%si
+    7068:	d1 e0                	shl    $1,%ax
+    706a:	01 f0                	add    %si,%ax
+    706c:	03 46 d6             	add    -0x2a(%bp),%ax
+    706f:	40                   	inc    %ax
+    7070:	d1 e0                	shl    $1,%ax
+    7072:	c4 3e 12 66          	les    0x6612,%di
+    7076:	03 f8                	add    %ax,%di
+    7078:	26 ff 35             	push   %es:(%di)
+    707b:	55                   	push   %bp
+    707c:	e8 8a f0             	call   0x6109
+    707f:	e9 4c 01             	jmp    0x71ce

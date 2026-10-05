@@ -15,6 +15,10 @@ inline constexpr uint8_t kLaunchPadMarkerFrame = 0x5b;
 inline constexpr uint8_t kLaunchPadMarkerKind = 0x0b;
 inline constexpr uint8_t kLaunchPadMarkerMode = 5;
 inline constexpr int16_t kLaunchPadMarkerVelocityY8 = -200;
+inline constexpr uint8_t kPortalMarkerFirstFrame = 0x4a;
+inline constexpr uint8_t kPortalMarkerLastFrame = 0x4f;
+inline constexpr uint8_t kPortalMarkerDelay = 2;
+inline constexpr uint8_t kPortalMarkerTimer = 8;
 
 enum class SharedActorKind { Effect, Marker, Bomb, Monster, Reward };
 
@@ -67,20 +71,6 @@ struct Flash {
     uint8_t power = 1;
 };
 
-struct LaunchPadMarker {
-    int x = 0;
-    int y = 0;
-    uint8_t fracX = 0;
-    uint8_t fracY = 0;
-    int16_t velocityX8 = 0;
-    int16_t velocityY8 = kLaunchPadMarkerVelocityY8;
-    uint8_t timer = kLaunchPadMarkerTimer;
-    uint8_t frame = kLaunchPadMarkerFrame;
-    uint8_t kind = kLaunchPadMarkerKind;
-    uint8_t mode = kLaunchPadMarkerMode;
-    uint64_t actorOrder = 0;
-};
-
 struct ActorAnimation {
     uint8_t current = 2;
     uint8_t first = 2;
@@ -111,6 +101,21 @@ struct ActorAnimation {
         }
         return true;
     }
+};
+
+struct LaunchPadMarker {
+    int x = 0;
+    int y = 0;
+    uint8_t fracX = 0;
+    uint8_t fracY = 0;
+    int16_t velocityX8 = 0;
+    int16_t velocityY8 = kLaunchPadMarkerVelocityY8;
+    uint8_t timer = kLaunchPadMarkerTimer;
+    uint8_t frame = kLaunchPadMarkerFrame;
+    uint8_t kind = kLaunchPadMarkerKind;
+    uint8_t mode = kLaunchPadMarkerMode;
+    uint64_t actorOrder = 0;
+    ActorAnimation animation{0, 0, 0, 0, 0, 0, 1};
 };
 
 struct TransientActor {

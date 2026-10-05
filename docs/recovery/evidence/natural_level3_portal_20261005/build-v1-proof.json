@@ -1,0 +1,11 @@
+{
+  "status": "built",
+  "source_sha256": {
+    "src/app/app.cpp": "020a2ce6096127c48ede6f075cb19502520327352521cbf6ff7bd949b1d62405",
+    "src/gameplay/actor_models.hpp": "b93207bed30cdde88b1e7cebb4dd0cd9ca91ddcdac195c481735e6912f83763b",
+    "CMakeLists.txt": "2a5937fa8ef9919b167bb5d588ba969fca23755c8670978f0a53d12e36e9f0f9"
+  },
+  "head": "423c35c6441ba0cf2a2831995aed96de26153ffd",
+  "uncommitted_source_patch": true,
+  "audio": "dummy"
+}

@@ -90,6 +90,15 @@ producer and 291 typed/map/palette mutations. Level 3 completion, all actor
 fields and whole-game fidelity remain unverified; all four broad OPEN items
 and global flags remain unchanged.
 
+The [third Level 3 pickup regression](natural_level3_third_objective_runtime_2026-10-05.md)
+adds 500 ordinary movement/jump frames and one Medium bomb. Its complete
+5258-tick route compares 4231 full RGB frames and 8386 mapped boundaries,
+ending with three objectives, 36 destroyed structures, 46 health and one reserve.
+It retains native-only provenance and rejects 22 semantic/fixture, twelve
+producer and 291 typed/map/palette mutations. Level 3 completion, all actor
+fields and whole-game fidelity remain unverified; all four broad OPEN items
+and global flags remain unchanged.
+
 The [2026-10-05 natural Level 2 table comparison](natural_level2_runtime_2026-10-05.md)
 adds two 500-frame ordinary-input routes after the pinned Level 1 completion
 and handoff. Both match all displayed RGB pixels and mapped states. One also

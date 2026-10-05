@@ -74,6 +74,13 @@ reserves and ammunition. The shorter zero-objective routes below are separate
 evidence, not a statement that no earlier route finished Level 2. Later levels,
 full actor state and broad whole-game completion/fidelity flags remain open.
 
+The [ordinary Level 3 objective regression](natural_level3_objective_runtime_2026-10-05.md)
+adds a fresh original-backed 650-frame movement/bomb/pickup segment after that
+unchanged prefix. Its full replay checks 3,411 RGB frames and 6,746 mapped
+boundaries, ending with one objective, 36 destroyed structures, 62 health and
+one reserve. This is not Level 3 completion or all-actor/campaign fidelity;
+all four broad OPEN items and global flags remain unchanged.
+
 The [2026-10-05 natural Level 2 table comparison](natural_level2_runtime_2026-10-05.md)
 adds two 500-frame ordinary-input routes after the pinned Level 1 completion
 and handoff. Both match all displayed RGB pixels and mapped states. One also

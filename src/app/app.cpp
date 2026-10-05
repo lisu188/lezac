@@ -14367,6 +14367,59 @@ public:
                   << " whole_game_parity=0 frame_hash=" << std::hex << frame.hash << std::dec << '\n';
     }
 
+    void debugPortalDownKeyBanks() {
+        load(); initSdl(); playerCount_ = 1; resetLevel(2);
+        ui_.setMenu(false); ui_.setPaused(false); levelFlow_.restoreIntro({});
+        bool running = true;
+        std::array<uint8_t, SDL_NUM_SCANCODES> keys{};
+        auto fail = [](const std::string& message) { throw std::runtime_error("portal Down banks: " + message); };
+        auto release = [&](SDL_Keycode key) {
+            SDL_Event event{}; event.type = SDL_KEYUP;
+            event.key.keysym.sym = key; event.key.keysym.scancode = SDL_GetScancodeFromKey(key);
+            if (SDL_PushEvent(&event) != 1) fail("cannot queue release");
+            keys[event.key.keysym.scancode] = 0;
+            processEvents(running);
+        };
+        for (const auto repeated : {SDLK_c, SDLK_DOWN}) {
+            resetLevel(2); levelFlow_.restoreIntro({});
+            keys.fill(0); keys[SDL_SCANCODE_C] = keys[SDL_SCANCODE_DOWN] = 1;
+            pushKeyDown(SDLK_c); pushKeyDown(SDLK_DOWN); processEvents(running);
+            const auto held = controlsFromKeyboard(keys.data());
+            if (!held.hasPhysicalDownBanks || !held.physicalCDown || !held.physicalArrowDown ||
+                !portalDownControl(held)) fail("physical adapter lost held aliases");
+            int x = 734, y = 376;
+            if (!activatePortal(x, y, true) || x != 392 || y != 120 ||
+                !portalDownConsumed_[0] || !portalDownConsumed_[1] || portalDownControl(held)) fail("portal did not consume both banks");
+            pushKeyDown(repeated, true); processEvents(running);
+            const size_t bank = repeated == SDLK_c ? 0 : 1;
+            if (!portalDownControl(held) || portalDownConsumed_[bank] || !portalDownConsumed_[1 - bank])
+                fail("repeat rearmed another physical bank");
+            release(repeated);
+            const auto oneHeld = controlsFromKeyboard(keys.data());
+            if (!oneHeld.p1Down || portalDownControl(oneHeld)) fail("released alias exposed the other consumed key");
+            updateWithControls(oneHeld, 1.0f / 60.0f);
+            if (portalDownControl(oneHeld) || !portalDownConsumed_[1 - bank]) fail("update rearmed the held consumed key");
+            const SDL_Keycode other = repeated == SDLK_c ? SDLK_DOWN : SDLK_c;
+            release(other); updateWithControls(controlsFromKeyboard(keys.data()), 1.0f / 60.0f);
+            keys[SDL_GetScancodeFromKey(other)] = 1;
+            pushKeyDown(other); processEvents(running);
+            if (!portalDownControl(controlsFromKeyboard(keys.data()))) fail("fresh make did not rearm its bank");
+            release(other);
+        }
+        playerCount_ = 2; resetLevel(2); levelFlow_.restoreIntro({});
+        keys.fill(0); keys[SDL_SCANCODE_C] = keys[SDL_SCANCODE_DOWN] = 1;
+        portalDownConsumed_.fill(true);
+        pushKeyDown(SDLK_c, true); processEvents(running);
+        const auto held = controlsFromKeyboard(keys.data());
+        if (!portalDownControl(held) || portalDownControl(held, true)) fail("P1 repeat rearmed P2");
+        pushKeyDown(SDLK_DOWN, true); processEvents(running);
+        if (!portalDownControl(held, true)) fail("P2 repeat did not rearm its bank");
+        const auto frame = inspectRenderedFrame("portal-down-key-banks");
+        std::cout << "portal_down_key_banks=ok alias_sequences=2 fresh_makes=2 two_player_banks=2"
+                  << " queued_sdl_events=1 original_portal_constructor=1 manual_input_claim=0 frame_hash="
+                  << std::hex << frame.hash << std::dec << '\n';
+    }
+
     void debugKeyOwnershipLive(const std::string& outDir) {
         std::filesystem::create_directories(outDir);
         std::ofstream trace(joinPath(outDir, "live.txt"));
@@ -25100,7 +25153,7 @@ private:
             if (debugPhysicalInputObserver_) debugPhysicalInputObserver_(e);
             if (e.type == SDL_KEYDOWN) {
                 if (e.key.keysym.scancode == SDL_SCANCODE_C) portalDownConsumed_[0] = false;
-                if (e.key.keysym.scancode == SDL_SCANCODE_DOWN) portalDownConsumed_[playerCount_ == 1 ? 0 : 1] = false;
+                if (e.key.keysym.scancode == SDL_SCANCODE_DOWN) portalDownConsumed_[1] = false;
             }
             if (e.type == SDL_QUIT) {
                 running = false;
@@ -25612,6 +25665,14 @@ private:
         return InputMapper::controlsFromKeyboard(keys, playerCount_);
     }
 
+    bool portalDownControl(const FrameControls& controls, bool second = false) const {
+        const bool c = controls.hasPhysicalDownBanks ? controls.physicalCDown : controls.p1Down;
+        const bool arrow = controls.hasPhysicalDownBanks ? controls.physicalArrowDown : controls.p2Down;
+        if (second) return arrow && !portalDownConsumed_[1];
+        return (c && !portalDownConsumed_[0]) ||
+               (playerCount_ == 1 && arrow && !portalDownConsumed_[1]);
+    }
+
     void update(float dt) {
         if (levelFlow_.intro().active) {
             updateLevelIntro(presentationMilliseconds());
@@ -25661,10 +25722,10 @@ private:
         updateDamageCooldowns();
         bool p1Switch = controls.p1Left && controls.p1Right;
         bool p2Switch = controls.p2Left && controls.p2Right;
-        if (!controls.p1Down) portalDownConsumed_[0] = false;
-        if (!controls.p2Down) portalDownConsumed_[1] = false;
-        bool p1Jump = controls.p1Jump && !(controls.p1Down && !portalDownConsumed_[0]);
-        bool p1Down = controls.p1Down && !controls.p1Jump && !portalDownConsumed_[0];
+        if (!(controls.hasPhysicalDownBanks ? controls.physicalCDown : controls.p1Down)) portalDownConsumed_[0] = false;
+        if (!(controls.hasPhysicalDownBanks ? controls.physicalArrowDown : controls.p2Down)) portalDownConsumed_[1] = false;
+        bool p1Jump = controls.p1Jump && !portalDownControl(controls);
+        bool p1Down = portalDownControl(controls) && !controls.p1Jump;
         bool p2Jump = controls.p2Jump && !controls.p2Down;
         bool p2Down = controls.p2Down && !controls.p2Jump;
         updateWeaponSwitch(bombInventory_, weaponSwitchHoldTicks_, p1Switch);
@@ -25709,8 +25770,8 @@ private:
                 }
                 refreshState2EffectEntry(player2_, state2Visual2_, state2Effect2_);
             } else {
-                p2Jump = controls.p2Jump && !(controls.p2Down && !portalDownConsumed_[1]);
-                p2Down = controls.p2Down && !controls.p2Jump && !portalDownConsumed_[1];
+                p2Jump = controls.p2Jump && !portalDownControl(controls, true);
+                p2Down = portalDownControl(controls, true) && !controls.p2Jump;
                 updatePlayer(player2_, controls.p2Left, controls.p2Right, p2Jump, p2Switch, 19, p2Down);
                 updatePortalsAndTriggers(player2_, portalCooldown2_, triggerCooldown2_,
                                          false);
@@ -26346,8 +26407,6 @@ private:
         int tx = static_cast<int>(player.x + 6.0f) / 8;
         int ty = static_cast<int>(player.y + 12.0f) / 8;
         int tile = tileAt(tx, ty);
-        uint16_t key = static_cast<uint16_t>(wordAt(tx, ty) & 0x7fffu);
-
         int x = static_cast<int>(player.x), y = static_cast<int>(player.y);
         if (activatePortal(x, y, down)) {
             player.x = static_cast<float>(x);
@@ -29966,6 +30025,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-key-ownership-live") {
             app.debugKeyOwnershipLive(argv[2]);
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-portal-down-key-banks") {
+            app.debugPortalDownKeyBanks();
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-held-fire-live") {

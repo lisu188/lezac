@@ -835,6 +835,12 @@ if(BUILD_TESTING)
     set_tests_properties(key_ownership_original PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^key_ownership_original=ok cases=21 samples=84 players=2 adapter=1 event_fire=1 single_player_aliases=4 whole_game_parity=0")
+    add_test(NAME portal_down_key_banks
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-portal-down-key-banks)
+    set_tests_properties(portal_down_key_banks PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^portal_down_key_banks=ok alias_sequences=2 fresh_makes=2 two_player_banks=2 queued_sdl_events=1 original_portal_constructor=1 manual_input_claim=0")
     if(Python3_Interpreter_FOUND)
         add_test(NAME key_ownership_capture_self_check
             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_key_ownership.py --self-check)

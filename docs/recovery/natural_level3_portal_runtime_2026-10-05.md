@@ -20,6 +20,9 @@ teleports P1 from `(734,376)` to `(392,120)`, preserving velocity `(0,0)` and
 fractional carries `(187,219)`. The endpoint is `(392,128)`, six objectives,
 57 destroyed structures, 100 health, one reserve, score 36220 and inventory
 `[200,14,0,0,1]`. The seven-objective/20-percent completion gate is not reached.
+The endpoint player is in native state two, with its delayed reserve drain
+still pending. The raw health value of 100 is not a claim of active-player
+healing or successful re-entry.
 
 ## Recovered Behavior
 
@@ -40,6 +43,9 @@ two, mode one. The production marker path now advances this animation while
 retaining the previous launch-pad marker behavior. Diagnostic cooldown output
 remains available but correctly reports zero. The key-consumption state is
 rearmed by release or a fresh physical key-down, including repeat events.
+The two physical Down banks remain independent even for the port's one-player
+arrow-key convenience alias. Repeating and then releasing one alias cannot
+re-expose the other consumed held key.
 
 The committed disassembly was produced from the pinned executable using its
 MZ image file offset `0x770`. File addresses are not runtime segment addresses.
@@ -92,6 +98,10 @@ claim. Small producer copies, comparison reports and screenshots are committed.
   corrected closed full replay also passed the native comparison. Exact-head
   CI, review, release and own-package acceptance are separate delivery gates,
   recorded in the pull request rather than inferred from a local build.
+- `portal_down_key_banks` exercises both repeat/release alias orders, fresh
+  makes and separate two-player banks through queued SDL events and the original
+  portal constructor. The convenience-alias checks are adapter regressions,
+  not a new original physical-keyboard or whole-campaign parity claim.
 
 Mapped scope remains P1 coordinates, velocity/carries, animation, energy,
 reserve, inventory and reels; P2 inventory; level/progress/HUD/score/RNG/red

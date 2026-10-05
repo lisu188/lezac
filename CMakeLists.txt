@@ -5315,7 +5315,7 @@ if(BUILD_TESTING)
         set_tests_properties(natural_level2_guard PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 30 LABELS "level2;original;evidence-guard;natural-route"
-            PASS_REGULAR_EXPRESSION "\"field_mutations_rejected\":42.*\"fixture_mutations_rejected\":3.*\"invalid_bounds_rejected\":2.*\"stale_tail_excluded\":true.*\"status\":\"guarded\"")
+            PASS_REGULAR_EXPRESSION "\"field_mutations_rejected\":42.*\"fixture_mutations_rejected\":3.*\"invalid_bounds_rejected\":2.*\"producer_mutations_rejected\":5.*\"stale_tail_excluded\":true.*\"status\":\"guarded\"")
         add_test(NAME level1_handoff_guard
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_handoff.py guard)
         set_tests_properties(level1_handoff_guard PROPERTIES

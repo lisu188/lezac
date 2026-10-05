@@ -48,7 +48,12 @@ The main routine is stopped while interrupts continue, so clock/sound bytes
 are not claimed byte-equivalent. Hooks are restored before owned DOSBox
 termination; the original and all shipped assets retain their pinned hashes.
 
-`tools/natural_level2.py pack` checks the canonical Level 1 prefix, complete
+`tools/natural_level2.py pack` first pins the retained explorer SHA-256
+`788ad44a1a4592a3c0bb79fde0f4a6c20399b97e85bf3785c66b73b7640d51cd`
+and base observer SHA-256
+`acb311ed85fb594afc1d92d6774036a742388339b920bcc0f81206cabfb30dec`,
+including the capture's actual source copies, exact configuration and provenance.
+It then checks the canonical Level 1 prefix, complete
 handoff, matching route/assets, extension and DS stream hashes, live table
 bounds, frame/sequence alignment and agreement between the retained actor,
 visual, player, inventory, score, destruction, progress and spawner bytes
@@ -79,8 +84,12 @@ The compact reference is 95,373 bytes, SHA-256
 `c8bc377adb3dc8942273566874b9b6cbacd5b75b7c076c142dacdee54c0b8bf3`.
 The fixture route is SHA-256
 `53b82b21f7357d0eb5a46d457e1de30687b7572e12328659e2295a3404220d1e`.
-The guard rejects 42 field mutations, three malformed fixture payloads and
-two invalid live bounds, and verifies signed decoding and stale-tail exclusion.
+The guard rejects 42 typed C++ field mutations, three malformed fixture payloads,
+five modified producer/configuration/provenance inputs and two invalid live
+bounds, and verifies signed decoding and stale-tail exclusion. The monster
+mutations pass through the actual C++ projection rather than changing already
+projected expected dictionaries. Untrusted producer input is rejected before
+the packer creates output.
 Local comparison against the previously tested Linux release binary matches
 the compact fixture, including a fresh replay and both new local CTest checks.
 A second independent original capture agrees on every projected boundary and

@@ -29,6 +29,9 @@ python3 -S -B tools/natural_level2.py guard
 ```
 
 Replays use a new UUID-named directory without deleting earlier output.
-The guard checks live-bound exclusion, signed decoding, all compared table
-fields, malformed fixture rejection and immutable source evidence.
+The guard checks live-bound exclusion, signed decoding, all compared typed C++
+table fields, malformed fixture rejection and immutable source evidence. Five
+modified producer/configuration/provenance cases must fail before the packer
+creates output. The packer pins both retained producer sources before assigning
+its natural-input provenance.
 See [runtime scope and provenance](../../../docs/recovery/natural_level2_runtime_2026-10-05.md).

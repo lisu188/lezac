@@ -21,6 +21,10 @@ FRAMES, FIRST_TICK = 500, 743
 REFERENCE_SHA256 = 'c8bc377adb3dc8942273566874b9b6cbacd5b75b7c076c142dacdee54c0b8bf3'
 ROUTE_SHA256 = '53b82b21f7357d0eb5a46d457e1de30687b7572e12328659e2295a3404220d1e'
 SCHEMA = 'lezac-natural-level2-tables-v1'
+PRODUCER = ROOT / 'docs/recovery/evidence/natural_level2_20261005'
+PRODUCER_SHA256 = '788ad44a1a4592a3c0bb79fde0f4a6c20399b97e85bf3785c66b73b7640d51cd'
+BASE_OBSERVER = ROOT / 'docs/recovery/evidence/pickup_landing_2026-10-01/base-observer.py'
+BASE_SHA256 = 'acb311ed85fb594afc1d92d6774036a742388339b920bcc0f81206cabfb30dec'
 require = fidelity.require
 
 
@@ -91,10 +95,24 @@ def validate_segment(segment, state):
         require(segment[visual:visual + 8].hex() == player['visual'], 'DS player visual differs')
 
 
+def check_producer(capture):
+    require(fidelity.sha256(PRODUCER / 'route-explorer.py') == PRODUCER_SHA256 and
+            fidelity.sha256(BASE_OBSERVER) == BASE_SHA256, 'trusted retained producer changed')
+    for name, digest in (('route-explorer.py', PRODUCER_SHA256), ('base-observer.py', BASE_SHA256),
+                         ('extension-observer.py', BASE_SHA256)):
+        require(fidelity.sha256(fidelity.safe_file(capture, name)) == digest, 'untrusted native producer: ' + name)
+    require((capture / 'route-config.json').read_bytes() == (PRODUCER / 'route-config.json').read_bytes() and
+            (capture / 'route-provenance.json').read_bytes() == (PRODUCER / 'route-provenance.json').read_bytes(),
+            'native producer configuration or provenance changed')
+
+
 def pack(capture, cpp, out):
     require(not out.exists() and not (capture / 'failure.json').exists(), 'new output and complete native capture required')
+    check_producer(capture)
+    handoff.check_sources()
     native_manifest = fidelity.strict_json((capture / 'extension-manifest.json').read_text())
     require(native_manifest['status'] == 'captured' and native_manifest['frames'] == FRAMES and
+            native_manifest['observer_sha256'] == BASE_SHA256 and
             native_manifest['extension_sha256'] == fidelity.sha256(capture / 'extension.jsonl.gz') and
             original.fingerprint(capture) == handoff.PREFIX_SHA256, 'native extension provenance differs')
     require(native_manifest['assets'] == {name: fidelity.sha256(ROOT / name) for name in fidelity.ASSETS},
@@ -240,13 +258,19 @@ def guard():
             mutations += 1
     for field in ('identity', 'position', 'motion', 'ai', 'animation'):
         for index in range(len(selected['tables']['monsters'][0][field])):
-            changed = copy.deepcopy(selected)
-            changed['tables']['monsters'][0][field][index] ^= 1
-            require(fidelity.first_difference(selected, changed) is not None, 'monster mutation was not detected')
+            changed = copy.deepcopy(cpp)
+            target = (0, 2, 3, 7, 4, 5, 6)[index] if field == 'animation' else index
+            changed['monsters'][0][field][target] ^= 1
+            try:
+                diff = fidelity.first_difference(selected['tables'], cpp_tables(changed))
+            except fidelity.EvidenceError:
+                diff = {'invalid_monster': True}
+            require(diff is not None, 'C++ monster mutation was not detected')
             mutations += 1
-    changed = copy.deepcopy(selected)
-    changed['tables']['monsters'][0]['hp'] ^= 1
-    require(fidelity.first_difference(selected, changed) is not None, 'HP mutation was not detected')
+    changed = copy.deepcopy(cpp)
+    changed['monsters'][0]['health'][0] ^= 1
+    require(fidelity.first_difference(selected['tables'], cpp_tables(changed)) is not None,
+            'C++ HP mutation was not detected')
     raw = (FIXTURE / 'reference.jsonl.gz').read_bytes()
     bad = [('truncated', raw[:-1]), ('trailing', raw + b'\0'), ('changed', bytes([raw[0] ^ 1]) + raw[1:])]
     with tempfile.TemporaryDirectory(prefix='lezac-natural-level2-guard-') as temporary:
@@ -260,8 +284,30 @@ def guard():
                 continue
             raise fidelity.EvidenceError('malformed fixture accepted: ' + name)
     require((FIXTURE / 'reference.jsonl.gz').read_bytes() == raw, 'guard changed the source fixture')
+    producer_rejected = 0
+    with tempfile.TemporaryDirectory(prefix='lezac-natural-level2-producer-') as temporary:
+        root = Path(temporary)
+        sources = {'route-explorer.py': (PRODUCER / 'route-explorer.py').read_bytes(),
+                   'base-observer.py': BASE_OBSERVER.read_bytes(), 'extension-observer.py': BASE_OBSERVER.read_bytes(),
+                   'route-config.json': (PRODUCER / 'route-config.json').read_bytes(),
+                   'route-provenance.json': (PRODUCER / 'route-provenance.json').read_bytes()}
+        for name, data in sources.items():
+            (root / name).write_bytes(data)
+        check_producer(root)
+        for name in sources:
+            (root / name).write_bytes(sources[name] + b' ')
+            try:
+                pack(root, root, root / 'must-not-exist')
+            except fidelity.EvidenceError:
+                producer_rejected += 1
+            else:
+                raise fidelity.EvidenceError('modified producer accepted: ' + name)
+            require(not (root / 'must-not-exist').exists(), 'untrusted producer generated evidence')
+            (root / name).write_bytes(sources[name])
+    require(producer_rejected == 5, 'modified producer guard incomplete')
     print(original.json_bytes({'status': 'guarded', 'field_mutations_rejected': mutations + 1,
                                'invalid_bounds_rejected': rejected, 'fixture_mutations_rejected': len(bad),
+                               'producer_mutations_rejected': producer_rejected,
                                'stale_tail_excluded': True}).decode(), flush=True)
 
 

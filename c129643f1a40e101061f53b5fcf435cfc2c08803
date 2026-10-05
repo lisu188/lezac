@@ -1,0 +1,95 @@
+{
+  "schema": "lezac-natural-level2-delivery-verification-v1",
+  "archives": [
+    {
+      "status": "remote-byte-verified",
+      "ref": "refs/notes/qa-natural-level2-20261005-native",
+      "note_commit": "e61100ecd89205446f5d63c92183bfaa05bf6610",
+      "blob": "7d304ba16424a1df6123c860b9f3f18ddb55e58c",
+      "archive_sha256": "d2cfd429d958e6e99d5a88a097b5d9409b35641bcb74642566032b0746b1a171",
+      "bytes": 44804442,
+      "members": 225,
+      "head": "c595be34b33d973e563b9bdb6d51d9a497ec1516"
+    },
+    {
+      "status": "remote-byte-verified",
+      "ref": "refs/notes/qa-natural-level2-20261005-cpp",
+      "note_commit": "48ad1482ed85b23d1299a1f85a3200ea9bd245d4",
+      "blob": "b4535f39840f4796fe2c71778a1de2be2869525d",
+      "archive_sha256": "aa7fb28dd10cd3521e57be2dd9b4735b2420b30635559d65f22c4f54af1df00f",
+      "bytes": 78142049,
+      "members": 7523,
+      "head": "c595be34b33d973e563b9bdb6d51d9a497ec1516"
+    },
+    {
+      "status": "remote-byte-verified",
+      "ref": "refs/notes/qa-natural-level2-20261005-extra",
+      "note_commit": "5374b9152d8c01d7dc4115e5ec8351efc4a12a4e",
+      "blob": "07f3bc0d529fc35cf9aa631eeab25ad0672dd873",
+      "archive_sha256": "64d527dc0ab1736eae42368f766215660475f405132961ade93198624891948c",
+      "bytes": 48399469,
+      "members": 4271,
+      "head": "c129643f1a40e101061f53b5fcf435cfc2c08803"
+    },
+    {
+      "status": "remote-byte-verified",
+      "ref": "refs/notes/qa-natural-level2-20261005-terminal",
+      "note_commit": "9ba3a3a9103c6cd6383665240d09ed1912343b7e",
+      "blob": "2b8a02df39ade2a361febe3fe8901a8080e5001c",
+      "archive_sha256": "c522fb39c31e3fffe47b49a86cea9861b1297b163b7b660a9784bf6f1af0c41f",
+      "bytes": 81660241,
+      "members": 5506,
+      "head": "c129643f1a40e101061f53b5fcf435cfc2c08803"
+    }
+  ],
+  "verification_source": "import hashlib\nimport io\nimport json\nfrom pathlib import Path\nimport subprocess\nimport tarfile\n\nREPO = '/dev/shm/lezac-natural-level2-verify-remote-20261005'\nREF = 'refs/notes/qa-natural-level2-20261005-terminal'\nHEAD = 'c129643f1a40e101061f53b5fcf435cfc2c08803'\nBLOB = '2b8a02df39ade2a361febe3fe8901a8080e5001c'\nSHA = 'c522fb39c31e3fffe47b49a86cea9861b1297b163b7b660a9784bf6f1af0c41f'\n\n\ndef git(*args):\n    return subprocess.check_output(['git', '-c', 'core.autocrlf=true', '--git-dir=' + REPO, *args])\n\n\ntree = git('ls-tree', '-r', '--full-tree', REF).decode().strip()\nassert tree == '100644 blob ' + BLOB + '\\t' + HEAD\npayload = git('cat-file', 'blob', BLOB)\nassert len(payload) == 81660241 and hashlib.sha256(payload).hexdigest() == SHA\nwith tarfile.open(fileobj=io.BytesIO(payload), mode='r:gz') as archive:\n    members = archive.getmembers()\n    assert len(members) == 5506 and all(member.isfile() for member in members)\n    assert len({member.name for member in members}) == len(members)\n    inventory = json.load(archive.extractfile('member-inventory.json'))\n    assert set(inventory['members']) | {'member-inventory.json'} == {member.name for member in members}\n    assert inventory['source_head'] == HEAD\n    for member in members:\n        if member.name == 'member-inventory.json':\n            continue\n        data = archive.extractfile(member).read()\n        expected = inventory['members'][member.name]\n        assert len(data) == expected['bytes'] and hashlib.sha256(data).hexdigest() == expected['sha256']\nterminal = Path('/dev/shm/lezac-natural-level2-terminal-20261005')\nreport = {'status': 'remote-byte-verified', 'ref': REF, 'note_commit': git('rev-parse', REF).decode().strip(),\n          'blob': BLOB, 'archive_sha256': SHA, 'bytes': len(payload), 'members': len(members), 'head': HEAD}\ndelivery = {'schema': 'lezac-natural-level2-delivery-verification-v1',\n            'archives': json.loads((terminal / 'remote-retention-verification-extra.json').read_text()) + [report],\n            'verification_source': Path(__file__).read_text(),\n            'delivery': json.loads((terminal / 'delivery-summary.json').read_text()),\n            'pins': json.loads((terminal / 'final-workspace-pins.json').read_text()),\n            'keepalive': json.loads((terminal / 'keepalive-identity.json').read_text()),\n            'post_merge_ci': {'run': 37256149510, 'head': '8eba2df3735bef5378f8f3f9edf1af178436d62b',\n                              'last_observed_status': 'in_progress', 'acceptance_claim': False},\n            'goal_complete': False}\nout = Path(__file__).resolve().parent / 'delivery-verification.json'\nassert not out.exists()\nout.write_text(json.dumps(delivery, indent=2) + '\\n')\nprint(json.dumps(report), flush=True)\n",
+  "delivery": {
+    "pull_request": {
+      "headRefOid": "c129643f1a40e101061f53b5fcf435cfc2c08803",
+      "mergeCommit": {
+        "oid": "8eba2df3735bef5378f8f3f9edf1af178436d62b"
+      },
+      "mergedAt": "2026-10-05T02:37:44Z",
+      "state": "MERGED",
+      "url": "https://github.com/lisu188/lezac/pull/279"
+    },
+    "tested_tree": "b504ec46c608ce7c589f6f8cf24b3dd58646a877",
+    "tests": [
+      {
+        "platform": "Windows",
+        "registered": 633,
+        "passed": 633,
+        "expected_skip": null
+      },
+      {
+        "platform": "Linux",
+        "registered": 638,
+        "passed": 637,
+        "expected_skip": "ui_xdotool_xvfb"
+      }
+    ],
+    "ci_run": 37254118491,
+    "fresh_original_run": 37254118512,
+    "release_run": 37254118485,
+    "whole_game_complete": false
+  },
+  "pins": {
+    "source_head": "c129643f1a40e101061f53b5fcf435cfc2c08803",
+    "AGENTS.md": "0d57cf7e656d018fe6c756171e98a31ee5bab0f12387bc4106f1140eece426ea",
+    "LEZAC.EXE": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
+  },
+  "keepalive": {
+    "pid": 407,
+    "cmdline": "lezac-natural-route-keepalive-20261005 86400 ",
+    "exe": "/usr/bin/sleep",
+    "start_ticks": "385940",
+    "boot_id": "fc13849f-7757-4eba-8291-945a8dbc8e5b"
+  },
+  "post_merge_ci": {
+    "run": 37256149510,
+    "head": "8eba2df3735bef5378f8f3f9edf1af178436d62b",
+    "last_observed_status": "in_progress",
+    "acceptance_claim": false
+  },
+  "goal_complete": false
+}

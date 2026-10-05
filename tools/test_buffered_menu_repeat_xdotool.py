@@ -11,6 +11,7 @@ import tempfile
 import time
 
 from check_main_menu_fixture import HEADER, ROOT, load_fixture, require, sha
+from test_bios_menu_input_xdotool import acquire_window
 
 
 def observe(exe, output, choice, held, expected):
@@ -27,7 +28,8 @@ def observe(exe, output, choice, held, expected):
                                  cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT)
         try:
             def xdo(*args):
-                return subprocess.check_output(["xdotool", *args], text=True, env=env, timeout=5).strip()
+                return subprocess.check_output(["xdotool", *args], text=True, env=env, timeout=5,
+                                               stderr=subprocess.PIPE).strip()
 
             def records():
                 path = output / "live.txt"
@@ -48,9 +50,7 @@ def observe(exe, output, choice, held, expected):
                     time.sleep(.005)
                 raise RuntimeError("buffered menu input condition timed out")
 
-            window = wait(lambda: discover(child.pid, env))
-            xdo("windowfocus", "--sync", window)
-            geometry = dict(line.split("=", 1) for line in xdo("getwindowgeometry", "--shell", window).splitlines())
+            window, geometry = wait(lambda: acquire_window(child.pid, xdo))
             x, y, w, h = (int(geometry[key]) for key in ("X", "Y", "WIDTH", "HEIGHT"))
             require((w, h) == (960, 600), "interactive app geometry")
             result["x_repeat"] = subprocess.check_output(["xset", "q"], env=env, text=True, timeout=5)
@@ -147,14 +147,6 @@ def observe(exe, output, choice, held, expected):
             result["child_exit_code"] = child.returncode
             (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     return result
-
-
-def discover(pid, env):
-    try:
-        return subprocess.check_output(["xdotool", "search", "--pid", str(pid), "--name", "Larax"],
-                                       text=True, env=env, timeout=5, stderr=subprocess.DEVNULL).split()[-1]
-    except (subprocess.CalledProcessError, IndexError):
-        return None
 
 
 def main():

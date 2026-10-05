@@ -39,6 +39,7 @@ def observe(exe, output, scenario, expected):
     started = time.monotonic()
     with (output / "process.log").open("w") as log:
         child = subprocess.Popen([str(exe)], cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT)
+        capture = None
         try:
             def xdo(*args):
                 return subprocess.check_output(["xdotool", *args], env=env, text=True, timeout=5,
@@ -269,6 +270,11 @@ def observe(exe, output, scenario, expected):
             result.update(status="failed", error=str(error))
             if isinstance(error, subprocess.CalledProcessError):
                 result["command_stderr"] = error.stderr
+            if capture is not None:
+                try:
+                    capture("failure-frame")
+                except Exception as capture_error:
+                    result["failure_capture_error"] = str(capture_error)
             raise
         finally:
             if child.poll() is None:

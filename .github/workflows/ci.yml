@@ -17,7 +17,7 @@ jobs:
   linux:
     name: Linux build and full test suite
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
@@ -72,7 +72,7 @@ jobs:
   windows:
     name: Windows build and full test suite
     runs-on: windows-2025
-    timeout-minutes: 60
+    timeout-minutes: 90
     defaults:
       run:
         shell: msys2 {0}

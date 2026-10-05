@@ -65,6 +65,19 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [2026-10-05 shipped-profile constructor replay](shipped_monster_profiles_runtime_2026-10-05.md)
+now exercises all 15 shipped Level 1..6 spawner profiles through native
+construction, then 64 continuous actor updates for each of three RNG seeds.
+Two independent original captures agree byte-for-byte; the C++ production
+spawner and monster update paths match 45 constructors and 2,880 updates.
+This verifies the shipped kind 1..4 profiles, behaviors 3/4, animation,
+hotspots, RNG, descriptor selection and bounded room trajectories. Spawn
+positions, allocation allowance, countdown, terrain and initial player state
+are explicitly controlled, and per-tick player targets are exogenous in C++.
+Actual level geometry, natural spawning timing, full player/world updates,
+actor-pool interactions and campaigns remain unverified. It closes no broad
+OPEN item and changes no whole-game completion or fidelity flag.
+
 The [2026-10-04 tile-damage recovery](monster_tile_damage_runtime_2026-10-04.md)
 matches 1,312 seeded full native behavior-4 updates, including 552 impacts,
 96 fatal conversions and 96 post-motion-only damage placements. It restores

@@ -22284,6 +22284,120 @@ public:
                   << " visual_claim=0\n";
     }
 
+    void debugShippedMonsterProfiles(const std::string& fixturePath, const std::string& outDir = "") {
+        const auto bytes = readFile(fixturePath);
+        constexpr size_t stateSize = 112;
+        constexpr size_t caseSize = 18 + 30 + 2 * stateSize + 64 * 2 * stateSize;
+        constexpr size_t prefixSize = 64 + 368 + 1980;
+        uint64_t fingerprint = 14695981039346656037ull;
+        for (uint8_t byte : bytes) fingerprint = (fingerprint ^ byte) * 1099511628211ull;
+        if (bytes.size() != prefixSize + 45 * caseSize || fingerprint != 0xbe9d74b942656b0bull) {
+            throw std::runtime_error("shipped profile fixture size/fingerprint mismatch");
+        }
+        auto word = [&](size_t at) { return lezac::resources::le16(bytes, at); };
+        auto signedWord = [&](size_t at) { return static_cast<int16_t>(word(at)); };
+        auto dword = [&](size_t at) { return lezac::resources::le32(bytes, at); };
+        load();
+        initSdl();
+        if (!outDir.empty()) std::filesystem::create_directories(outDir);
+        int pixelOffset = 0;
+        if (sprites_.sprites.size() != 91) throw std::runtime_error("shipped profile sprite bank extent mismatch");
+        for (size_t index = 0; index < sprites_.sprites.size(); ++index) {
+            const auto& sprite = sprites_.sprites[index];
+            const size_t descriptor = 64 + (index + 1) * 4;
+            if (bytes[descriptor] != sprite.width || bytes[descriptor + 1] != sprite.height ||
+                word(descriptor + 2) != pixelOffset) throw std::runtime_error("shipped profile decoded sprite descriptor mismatch");
+            pixelOffset += sprite.width * sprite.height;
+        }
+        const auto levelBytes = readFile("LIVELS.SCH");
+        int constructors = 0, updates = 0;
+        for (size_t index = 0; index < 45; ++index) {
+            const size_t at = prefixSize + index * caseSize;
+            if (word(at) != index || word(at + 2) != index / 3 || bytes[at + 17] != 0) {
+                throw std::runtime_error("shipped profile fixture case metadata mismatch");
+            }
+            auto fail = [&](const std::string& field, int tick) {
+                throw std::runtime_error("shipped monster profile=" + std::to_string(index / 3) +
+                    " seed=" + std::to_string(dword(at + 10)) + " tick=" + std::to_string(tick) + " " + field);
+            };
+            const size_t before = at + 48, constructed = before + stateSize;
+            resetLevel(0);
+            ui_.setMenu(false); ui_.setPaused(false); levelFlow_.setIntroActiveForFixture(false);
+            playerCount_ = 2;
+            monsters_.clear(); bombs_.clear(); transientActors_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear();
+            std::copy_n(bytes.begin() + 64 + 368, 1980, level_.tiles.begin());
+            std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), 0);
+            std::array<uint8_t, 30> record{};
+            std::copy_n(bytes.begin() + before + 52, 30, record.begin());
+            const size_t fileOffset = dword(at + 6);
+            if (fileOffset > levelBytes.size() || levelBytes.size() - fileOffset < 30 ||
+                !std::equal(bytes.begin() + at + 18, bytes.begin() + at + 48, levelBytes.begin() + fileOffset)) fail("shipped record", -1);
+            auto expectedRecord = record;
+            std::copy_n(bytes.begin() + at + 18, 30, expectedRecord.begin());
+            expectedRecord[0] = 0x50; expectedRecord[1] = 1;
+            expectedRecord[2] = 105; expectedRecord[3] = 0;
+            expectedRecord[8] = expectedRecord[10] = expectedRecord[27] = 1;
+            if (record != expectedRecord) fail("controlled spawner seed", -1);
+            level_.monsterSpawners = {parseMonsterSpawner(record)};
+            spawnerStates_ = {{record[9], record[10], record[27]}};
+            randomSeed_ = dword(before + 2);
+            logicTick_ = word(before);
+            auto compare = [&](size_t state, int tick) {
+                if (monsters_.size() != 1) fail("actor count", tick);
+                const auto& m = monsters_.front();
+                const size_t raw = state + 6, visual = state + 44;
+                if (m.kind != bytes[raw] || m.behavior != bytes[raw + 21] ||
+                    !m.hasSpawner || m.spawnerIndex + 1 != bytes[raw + 37] ||
+                    m.hotspotY != bytes[raw + 20] || m.hp - 1 != bytes[raw + 36]) fail("identity/health/hotspot", tick);
+                if (m.x != signedWord(visual) || gameRenderer_.monsterVisualY(m) != signedWord(visual + 2) ||
+                    m.vx8 != signedWord(raw + 6) || m.vy8 != signedWord(raw + 8) ||
+                    m.fracX != word(raw + 10) || m.fracY != word(raw + 12)) fail("motion/fractions", tick);
+                if (m.ai0 != word(raw + 14) || m.ai1 != word(raw + 16) || m.ai2 != word(raw + 18)) fail("AI parameters", tick);
+                if (m.animCursor + 1 != bytes[raw + 22] || m.animStart + 1 != bytes[raw + 23] ||
+                    m.animEnd + 1 != bytes[raw + 24] || m.animTick != bytes[raw + 25] ||
+                    m.animDelay != bytes[raw + 26] || m.animMode != bytes[raw + 27] ||
+                    m.animStep != static_cast<int8_t>(bytes[raw + 28])) fail("animation", tick);
+                const int sprite = gameRenderer_.monsterSpriteIndex(m) + 1;
+                if (sprite < 1 || sprite >= 92 || !std::equal(bytes.begin() + visual + 4, bytes.begin() + visual + 8,
+                        bytes.begin() + 64 + sprite * 4)) fail("visible sprite descriptor", tick);
+                if (randomSeed_ != dword(state + 2)) fail("RNG", tick);
+                const auto& spawner = spawnerStates_.front();
+                auto observed = record;
+                observed[9] = static_cast<uint8_t>(spawner.remaining);
+                observed[10] = static_cast<uint8_t>(spawner.availableSlots);
+                observed[27] = spawner.cooldown;
+                if (!std::equal(observed.begin(), observed.end(), bytes.begin() + state + 52)) fail("spawner state", tick);
+            };
+            updateMonsterSpawners();
+            compare(constructed, -1);
+            ++constructors;
+            for (int tick = 0; tick < 64; ++tick) {
+                const size_t pre = constructed + stateSize + static_cast<size_t>(tick) * 2 * stateSize;
+                const size_t post = pre + stateSize;
+                logicTick_ = word(pre);
+                if (tick != 0) updateMonsterSpawners();
+                compare(pre, tick);
+                // Only player target coordinates/states are exogenous each tick.
+                // The constructed monster and RNG remain continuous throughout.
+                player_.x = signedWord(pre + 82); player_.y = signedWord(pre + 84);
+                player2_.x = signedWord(pre + 90); player2_.y = signedWord(pre + 92);
+                playerDead_ = bytes[pre + 98] != 1; player2Dead_ = bytes[pre + 99] != 1;
+                lives_ = playerDead_ ? 0 : 99; lives2_ = player2Dead_ ? 0 : 99;
+                updateMonsters(1.0f / 60.0f);
+                compare(post, tick);
+                ++updates;
+                if (!outDir.empty() && index % 3 == 0 && (tick == 0 || tick == 63)) {
+                    const std::string label = "profile-" + std::to_string(index / 3) + "-" + std::to_string(tick);
+                    inspectRenderedFrame(label);
+                    writeArgbPpm(joinPath(outDir, label + ".ppm"), fb_, kScreenW, kScreenH);
+                }
+            }
+        }
+        std::cout << "shipped_monster_profiles=ok profiles=15 constructors=" << constructors
+                  << " updates=" << updates << " motion_animation_rng_descriptor=1 controlled_room=1"
+                  << " exogenous_player_targets=1 natural_route_claim=0 visual_claim=0\n";
+    }
+
     // Verify the live sprite-descriptor table captured from the original
     // against the port's OWN raw SPR loader. The table (DS:0xC322, 92 x
     // {w:u8, h:u8, pixel_offset:u16le}, entry 0 reserved) proves at runtime
@@ -26312,10 +26426,9 @@ private:
         return monsterFrameRange(kind);
     }
 
-    // Original actor byte +0x14 per kind. Only kind 1's value is evidenced
-    // (uniquely forced by the 2370/2370 motion lockstep; 6 = 16 - the 17x10
-    // walker sprite's height 10). Every other kind is unadjudicated and keeps
-    // the pre-recovery value 0.
+    // Original actor byte +0x14: natural kind-1 lockstep pins 6, and the
+    // shipped-profile native constructors pin 0 for kinds 2..4. Other kinds
+    // remain unadjudicated and keep the pre-recovery value 0.
     static uint8_t monsterHotspotY(uint8_t kind) { return kind == 1 ? 6 : 0; }
 
     // Rank 5: the original player-vs-actor contact is a 19x19 CENTRE test,
@@ -29155,6 +29268,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bonus-reward-static-model") {
             app.debugBonusRewardStaticModel();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-shipped-monster-profiles") {
+            app.debugShippedMonsterProfiles(argv[2], argc > 3 ? argv[3] : "");
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-monster-sprite-table-model") {

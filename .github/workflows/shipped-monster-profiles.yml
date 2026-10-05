@@ -6,7 +6,10 @@ on:
       - tools/capture_original_shipped_monster_profiles.py
       - tools/check_shipped_monster_profile_fixture.py
       - tools/capture_original_behavior4_targets.py
+      - tools/capture_original_behavior4_lockstep.py
+      - tools/capture_original_bomb_fuses.py
       - tools/capture_original_death_transients.py
+      - tools/seed_original_level.py
       - tests/fixtures/shipped_monster_profiles_original.bin
       - .github/workflows/shipped-monster-profiles.yml
   workflow_dispatch:

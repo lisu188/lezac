@@ -16,6 +16,16 @@ DOS-resident probes replace unsafe in-segment scratch assumptions. This does
 not establish a natural complete-level victory, all actor bytes, audio timing
 or whole-game fidelity. See [scope, provenance and checks](docs/recovery/level1_fullframe_2026-09-21.md).
 
+## Natural Level 2 Tables (2026-10-05)
+
+The [2026-10-05 natural Level 2 regression](docs/recovery/natural_level2_runtime_2026-10-05.md)
+now matches two ordinary-input 500-frame extensions after the pinned Level 1
+completion/handoff. One verifies 1,000 present/post boundaries, 6,050 live
+debris records, 4,151 collapse records and 1,339 naturally spawned monster
+states, including off-screen actors. All displayed pixels match. These are
+partial routes with no objective collection or Level 2 completion; all four
+broad OPEN items and global completion/fidelity flags remain unchanged.
+
 ## Monster Tile-damage Recovery (2026-10-04)
 
 Two independent silent original captures agree on 1,312 seeded full behavior-4

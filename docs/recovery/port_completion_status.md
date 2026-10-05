@@ -65,6 +65,16 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [2026-10-05 natural Level 2 table comparison](natural_level2_runtime_2026-10-05.md)
+adds two 500-frame ordinary-input routes after the pinned Level 1 completion
+and handoff. Both match all displayed RGB pixels and mapped states. One also
+matches 6,050 live debris-record observations, 4,151 collapse-record observations
+and 1,339 naturally spawned kind-1/2 monster states through 1,000 present/post
+boundaries. The compact regression drives the normal SDL input/production loop
+without per-tick state injections. Both routes collect zero objectives and
+do not complete Level 2. Complete campaigns, other actors/fields and physical
+timing remain open; no broad OPEN item or global fidelity flag changes.
+
 The [2026-10-05 shipped-profile constructor replay](shipped_monster_profiles_runtime_2026-10-05.md)
 now exercises all 15 shipped Level 1..6 spawner profiles through native
 construction, then 64 continuous actor updates for each of three RNG seeds.

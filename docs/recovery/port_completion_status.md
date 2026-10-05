@@ -65,6 +65,15 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [2026-10-05 natural campaign regression](natural_campaign_runtime_2026-10-05.md)
+promotes the retained ordinary Level 1/2 completion and Level 3 entry route to
+a self-contained full production replay. It checks 2,761 native-observed RGB
+presentations and 5,446 mapped boundaries through three Level 2 objectives,
+the 61-percent empty-collapse completion gate, result reels and carried health,
+reserves and ammunition. The shorter zero-objective routes below are separate
+evidence, not a statement that no earlier route finished Level 2. Later levels,
+full actor state and broad whole-game completion/fidelity flags remain open.
+
 The [2026-10-05 natural Level 2 table comparison](natural_level2_runtime_2026-10-05.md)
 adds two 500-frame ordinary-input routes after the pinned Level 1 completion
 and handoff. Both match all displayed RGB pixels and mapped states. One also

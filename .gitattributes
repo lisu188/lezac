@@ -39,3 +39,5 @@ docs/recovery/evidence/walker_ledge_2026-10-01/** -text
 docs/recovery/evidence/walker_ledge_2026-10-01/focused_ctest.log -diff
 tests/fixtures/natural_level2/** -text
 docs/recovery/evidence/natural_level2_20261005/** -text
+tests/fixtures/natural_campaign/** -text
+docs/recovery/evidence/natural_campaign_20261005/** -text

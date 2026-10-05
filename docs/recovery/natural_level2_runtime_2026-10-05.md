@@ -91,6 +91,12 @@ The shared projected body SHA-256 is
 `4a84d976b440c1dfc34863b9bceba1f7711edea84740f080f4cfa1226239e580`.
 Exact-head CI is required before merge.
 
+This batch also addresses the post-merge PR #278 review: the shipped-profile
+fresh-original workflow now triggers for the three previously omitted imported
+helpers (`capture_original_behavior4_lockstep.py`, `capture_original_bomb_fuses.py`
+and `seed_original_level.py`). The workflow change itself triggers that native
+capture again. No capture expectations or gameplay behavior are weakened.
+
 The prior main revision `ea4db963818ca808c6dbc851c2b833348f97cd11` has now
 passed its post-merge CI: 631/631 Windows tests and 635 passed / 636 registered
 Linux tests, with the expected `ui_xdotool_xvfb` skip. That run is historical

@@ -110,6 +110,18 @@ are rejected. Level 3 completion, natural two-player/pool saturation, all actor
 fields and whole-game fidelity remain unverified; all four broad OPEN items
 and global flags stay unchanged.
 
+The [natural Level 3 portal escape](natural_level3_portal_escape_runtime_2026-10-05.md)
+adds a separately pinned 500-frame ordinary-input branch after tick 6109.
+Its full 6609-tick route compares 5582 RGB frames and 11088 mapped boundaries,
+collecting objectives seven and eight without a death/reentry transition or
+reserve loss. It ends with eight objectives and 80 of 148 required destroyed
+tiles, so Level 3 is still incomplete. Tick 6354 retains seven objectives,
+26 energy, one reserve and thirteen Medium bombs for the next ordinary-input
+fork. Thirty-eight semantic/fixture, twelve producer and 291 typed/map/palette
+mutations are rejected. The earlier portal fixture and all four broad OPEN
+items/global flags remain unchanged; all-actor and whole-game fidelity are
+not claimed.
+
 The [2026-10-05 natural Level 2 table comparison](natural_level2_runtime_2026-10-05.md)
 adds two 500-frame ordinary-input routes after the pinned Level 1 completion
 and handoff. Both match all displayed RGB pixels and mapped states. One also

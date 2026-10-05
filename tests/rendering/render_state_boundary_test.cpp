@@ -61,18 +61,63 @@ int main() {
     gameplay::Player player, player2;
     gameplay::State2VisualCursor cursor;
     gameplay::State2EffectEntry effect;
+    {
+        rendering::PresentationState ammo;
+        gameplay::BombInventory first, second;
+        first.selected = gameplay::BombType::Medium;
+        first.counts[1] = 8;
+        ammo.sampleHudInventory(0, first, 1);
+        if (first.hudDirty != 0 || ammo.hudAmmoPanels()[0].icon != gameplay::BombType::Medium ||
+            ammo.hudAmmoPanels()[0].count != 8)
+            throw std::runtime_error("initial ammunition icon/count did not consume dirty=2");
+        // Native Level 3 reentry refills 8 to 10 without dirtying the panel.
+        first.counts[1] = 10;
+        for (uint8_t state : {2, 0, 1}) ammo.sampleHudInventory(0, first, state);
+        if (first.hudDirty != 0 || ammo.hudAmmoPanels()[0].count != 8)
+            throw std::runtime_error("clean reentry refill repainted ammunition");
+        first.selected = gameplay::BombType::Large;
+        first.counts[2] = 3;
+        first.hudDirty = 1;
+        ammo.sampleHudInventory(0, first, 2);
+        ammo.sampleHudInventory(0, first, 0);
+        if (first.hudDirty != 1 || ammo.hudAmmoPanels()[0].count != 8)
+            throw std::runtime_error("waiting/out player consumed pending ammunition dirtiness");
+        ammo.sampleHudInventory(0, first, 1);
+        if (first.hudDirty != 0 || ammo.hudAmmoPanels()[0].icon != gameplay::BombType::Medium ||
+            ammo.hudAmmoPanels()[0].count != 3)
+            throw std::runtime_error("dirty=1 changed the painted icon or missed the live selection count");
+        second.selected = gameplay::BombType::Super;
+        second.counts[3] = 255;
+        second.hudDirty = 255;
+        ammo.sampleHudInventory(1, second, 1);
+        if (second.hudDirty != 0 || ammo.hudAmmoPanels()[1].icon != gameplay::BombType::Super ||
+            ammo.hudAmmoPanels()[1].count != 99 || ammo.hudAmmoPanels()[0].count != 3)
+            throw std::runtime_error("unsigned dirty/count bytes or independent player panels changed");
+        first.hudDirty = 2;
+        ammo.sampleHudInventory(0, first, 1);
+        if (ammo.hudAmmoPanels()[0].icon != gameplay::BombType::Large || first.hudDirty != 0)
+            throw std::runtime_error("dirty=2 did not refresh the painted icon");
+        first.counts[2] = 256;
+        first.hudDirty = 1;
+        ammo.sampleHudInventory(0, first, 1);
+        if (ammo.hudAmmoPanels()[0].count != 0)
+            throw std::runtime_error("ammunition panel did not sample the low count byte");
+    }
     gameplay::BombInventory inventory;
     inventory.counts = {98, 7, 3, 1};
     presentation.sampleHudInventory(0, inventory, 1);
     --inventory.counts[0];
     inventory.selected = gameplay::BombType::Large;
+    inventory.hudDirty = 2;
     presentation.sampleHudInventory(0, inventory, 2);
     presentation.sampleHudInventory(0, inventory, 0);
-    presentation.sampleHudInventory(1, inventory, 1);
-    if (presentation.hudInventories()[0].counts[0] != 98 ||
-        presentation.hudInventories()[0].selected != gameplay::BombType::Small ||
-        presentation.hudInventories()[1].counts[0] != 97 ||
-        presentation.hudInventories()[1].selected != gameplay::BombType::Large)
+    auto inventory2 = inventory;
+    presentation.sampleHudInventory(1, inventory2, 1);
+    if (presentation.hudAmmoPanels()[0].count != 98 ||
+        presentation.hudAmmoPanels()[0].icon != gameplay::BombType::Small ||
+        presentation.hudAmmoPanels()[1].count != 3 ||
+        presentation.hudAmmoPanels()[1].icon != gameplay::BombType::Large ||
+        inventory.hudDirty != 2 || inventory2.hudDirty != 0)
         throw std::runtime_error("HUD inventory did not retain its pre-player sample");
     std::vector<gameplay::Bomb> bombs(1);
     bombs[0].x = 5; bombs[0].y = 6;
@@ -87,8 +132,8 @@ int main() {
         {{{player, false, 3, cursor, effect}, {player2, false, 3, cursor, effect}}},
         bombs, monsters, rewards, flashes, markers, transients, visualOrder,
         320, true, 0, false, false};
-    rendering::HudView hud{2, {{{presentation.hudEnergy()[0], 0, 3, presentation.hudInventories()[0]},
-                              {presentation.hudEnergy()[1], 0, 3, presentation.hudInventories()[1]}}},
+    rendering::HudView hud{2, {{{presentation.hudEnergy()[0], 0, 3, presentation.hudAmmoPanels()[0]},
+                              {presentation.hudEnergy()[1], 0, 3, presentation.hudAmmoPanels()[1]}}},
         level.objectiveTile, level.requiredBonus, level.requiredDestruction, 1,
         presentation.hudDestructionPercent(), false, false, presentation.hudScores(), presentation.hudColumnReady()};
     const auto state = presentation.snapshot();
@@ -131,7 +176,8 @@ int main() {
     }
     if (after.backdrop != state.backdrop || after.heapPadding != state.heapPadding ||
         after.mapTileCount != state.mapTileCount || after.pitch != state.pitch || after.redPhase != state.redPhase ||
-        level.tiles != tiles || random.seed() != seed || bombs[0].actorOrder != 0 || bombs[0].timer != 40)
+        level.tiles != tiles || random.seed() != seed || bombs[0].actorOrder != 0 || bombs[0].timer != 40 ||
+        inventory.hudDirty != 2 || inventory2.hudDirty != 0)
         throw std::runtime_error("rendering mutated simulation/presentation state");
     auto checkHud = [](const rendering::PresentationSnapshot& expected,
                        const rendering::PresentationSnapshot& actual) {
@@ -147,8 +193,8 @@ int main() {
             actual.hudPaletteQueue.count != expected.hudPaletteQueue.count)
             throw std::runtime_error("HUD presentation snapshot changed");
         for (size_t i = 0; i < 2; ++i) {
-            if (actual.hudInventories[i].counts != expected.hudInventories[i].counts ||
-                actual.hudInventories[i].selected != expected.hudInventories[i].selected)
+            if (actual.hudAmmoPanels[i].count != expected.hudAmmoPanels[i].count ||
+                actual.hudAmmoPanels[i].icon != expected.hudAmmoPanels[i].icon)
                 throw std::runtime_error("rendering changed sampled HUD inventory");
             const auto& ae = actual.hudEnergy[i];
             const auto& ee = expected.hudEnergy[i];
@@ -183,8 +229,8 @@ int main() {
     presentation.resetHudForLevel();
     if (presentation.hudBonusComplete() || presentation.hudDestructionComplete())
         throw std::runtime_error("level reset retained completion flags");
-    for (const auto& cached : presentation.hudInventories()) {
-        if (cached.counts != gameplay::BombInventory{}.counts || cached.selected != gameplay::BombType::Small)
+    for (const auto& cached : presentation.hudAmmoPanels()) {
+        if (cached.count != 99 || cached.icon != gameplay::BombType::Small)
             throw std::runtime_error("level reset retained sampled ammunition");
     }
     for (const auto& energy : presentation.hudEnergy()) {

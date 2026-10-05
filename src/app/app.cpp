@@ -24753,6 +24753,7 @@ public:
         lives_ = 1;
         bombInventory_.selected = BombType::Super;
         bombInventory_.counts[3] = 0;
+        bombInventory_.hudDirty = 2;
         drainPlayerDamageCounters();
         presentation_.sampleHudInventory(0, bombInventory_, originalPlayerState(1));
         FrameInspection second = inspectRenderedFrame("hud-stats-live-second");
@@ -25631,6 +25632,8 @@ private:
     }
 
     void selectNextAvailableBomb(BombInventory& inventory) {
+        // 6859 dirties the icon even when the cycle returns to the same type.
+        inventory.hudDirty = 2;
         int start = bombTypeIndex(inventory.selected);
         for (int step = 1; step <= 4; ++step) {
             int idx = (start + step) % 4;
@@ -27951,6 +27954,7 @@ private:
         bomb.moving = true;
         requestBombPlaceSound();
         --inventory.counts[static_cast<size_t>(bombTypeIndex(inventory.selected))];
+        inventory.hudDirty = 1;
     }
 
     int bombHeightOffset(BombType type) const {
@@ -28710,6 +28714,7 @@ private:
         inventory.counts[1] = std::min(99, inventory.counts[1] + randomInclusive(1, 10));
         inventory.counts[2] = std::min(99, inventory.counts[2] + randomInclusive(1, 4));
         if (!hasBomb(inventory, inventory.selected)) selectNextAvailableBomb(inventory);
+        inventory.hudDirty = 1;
     }
 
     void grantSuperBombSet(BombInventory& inventory) {
@@ -28718,6 +28723,7 @@ private:
         inventory.counts[2] = std::min(99, inventory.counts[2] + randomInclusive(2, 6));
         inventory.counts[3] = std::min(99, inventory.counts[3] + randomInclusive(1, 2));
         if (!hasBomb(inventory, inventory.selected)) selectNextAvailableBomb(inventory);
+        inventory.hudDirty = 1;
     }
 
     void spawnBonusRain(const Player& collector) {
@@ -29211,8 +29217,8 @@ private:
 
     lezac::rendering::HudView hudView() const {
         return {playerCount_,
-                {{{presentation_.hudEnergy()[0], score_, lives_, presentation_.hudInventories()[0]},
-                  {presentation_.hudEnergy()[1], score2_, lives2_, presentation_.hudInventories()[1]}}},
+                {{{presentation_.hudEnergy()[0], score_, lives_, presentation_.hudAmmoPanels()[0]},
+                  {presentation_.hudEnergy()[1], score2_, lives2_, presentation_.hudAmmoPanels()[1]}}},
                 level_.objectiveTile, level_.requiredBonus, level_.requiredDestruction,
                 collected_, presentation_.hudDestructionPercent(),
                 levelFlow_.interactiveEnabled() ? levelFlow_.outro().active : isComplete(), levelFlow_.outro().active,

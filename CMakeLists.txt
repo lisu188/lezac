@@ -5406,6 +5406,20 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 30 LABELS "level3;original;evidence-guard;natural-route;portal"
             PASS_REGULAR_EXPRESSION "\"mutations_rejected\":38.*\"producer_mutations_rejected\":12.*\"status\":\"guarded\".*\"typed_field_mutations_rejected\":291")
+        add_test(NAME natural_level3_return_original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level3_return.py replay
+                    --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/natural_level3_return_original_out)
+        set_tests_properties(natural_level3_return_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 600 LABELS "level3;campaign;original;fullframe;natural-route;reentry;hud"
+            PASS_REGULAR_EXPRESSION "\"boundaries\":12000.*\"frames\":6038.*\"lifecycle_boundaries\":1422.*\"new_level3_boundaries\":1422.*\"new_level3_frames\":711.*\"pixels\":386432000.*\"status\":\"match\"")
+        add_test(NAME natural_level3_return_guard
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level3_return.py guard)
+        set_tests_properties(natural_level3_return_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 30 LABELS "level3;original;evidence-guard;natural-route;reentry;hud"
+            PASS_REGULAR_EXPRESSION "\"lifecycle_mutations_rejected\":4.*\"mutations_rejected\":84.*\"opcode_mutations_rejected\":14.*\"producer_mutations_rejected\":12.*\"status\":\"guarded\".*\"typed_field_mutations_rejected\":291")
         add_test(NAME level1_handoff_guard
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_handoff.py guard)
         set_tests_properties(level1_handoff_guard PROPERTIES

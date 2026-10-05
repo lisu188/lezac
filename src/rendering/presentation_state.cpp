@@ -129,7 +129,7 @@ void PresentationState::resetHudForLevel() {
     hudPaletteQueue_ = {};
     hudColumnReady_ = {};
     hudEnergy_ = {};
-    hudInventories_ = {};
+    hudAmmoPanels_ = {};
     resetHudObjectivesForLevel();
     for (int index : {224, 245, 246}) palette_[index] = initialPalette_[index];
 }
@@ -202,10 +202,14 @@ std::vector<uint32_t> PresentationState::resolveOutroBackdrop() const {
     return pixels;
 }
 
-void PresentationState::sampleHudInventory(size_t player, const gameplay::BombInventory& inventory, uint8_t globalState) {
-    // 7C49..7C74 samples before state-2 refill and the player fire/switch pass.
-    // Unchanged values preserve the original dirty-gated panel's pixels.
-    if (globalState == 1) hudInventories_.at(player) = inventory;
+void PresentationState::sampleHudInventory(size_t player, gameplay::BombInventory& inventory, uint8_t globalState) {
+    // 7C49..7C74 runs before refill/fire/switch; 32AB gates the icon separately.
+    if (globalState != 1 || inventory.hudDirty == 0) return;
+    auto& panel = hudAmmoPanels_.at(player);
+    if (inventory.hudDirty > 1) panel.icon = inventory.selected;
+    panel.count = std::min<uint8_t>(static_cast<uint8_t>(inventory.counts.at(
+        static_cast<size_t>(inventory.selected))), 99);
+    inventory.hudDirty = 0;
 }
 
 void PresentationState::advanceHudPalette() {
@@ -240,7 +244,7 @@ void PresentationState::writeBackdropPrefix(const std::vector<uint8_t>& bytes) {
 
 PresentationSnapshot PresentationState::snapshot() const {
     return {palette_, backdropBuffer_, backdropPitch_, redPalettePhase_, backdropHeapPadding_, backdropMapTileCount_,
-            initialPalette_, hudScores_, hudEnergy_, hudInventories_, hudPaletteQueue_, hudColumnReady_, hudPreviousCollected_,
+            initialPalette_, hudScores_, hudEnergy_, hudAmmoPanels_, hudPaletteQueue_, hudColumnReady_, hudPreviousCollected_,
             hudPreviousDestruction_, hudDestructionPercent_, originalPlayInitialized_,
             hudBonusComplete_, hudDestructionComplete_, outroBackdrop_, outroIndices_, outroIndexedPixels_};
 }
@@ -255,7 +259,7 @@ void PresentationState::restore(const PresentationSnapshot& state) {
     initialPalette_ = state.initialPalette;
     hudScores_ = state.hudScores;
     hudEnergy_ = state.hudEnergy;
-    hudInventories_ = state.hudInventories;
+    hudAmmoPanels_ = state.hudAmmoPanels;
     hudPaletteQueue_ = state.hudPaletteQueue;
     hudColumnReady_ = state.hudColumnReady;
     hudPreviousCollected_ = state.hudPreviousCollected;

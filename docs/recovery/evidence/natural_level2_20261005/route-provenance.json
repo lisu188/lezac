@@ -1,0 +1,17 @@
+{
+  "schema": "lezac-natural-level2-exploration-v1",
+  "explorer_sha256": "788ad44a1a4592a3c0bb79fde0f4a6c20399b97e85bf3785c66b73b7640d51cd",
+  "base_observer_sha256": "acb311ed85fb594afc1d92d6774036a742388339b920bcc0f81206cabfb30dec",
+  "config_sha256": "c39382fa28629621ee9cb26927e20c7acabbf642aad077a107925e83b8bcf903",
+  "runtime_overrides": [
+    "ROOT",
+    "FRAMES",
+    "EVENTS",
+    "full-DS read snapshots",
+    "close-time raw snapshot"
+  ],
+  "state_injections": false,
+  "seed_scope": "unchanged single initial Level 1 prefix seed",
+  "audio": "dummy",
+  "whole_game_parity": false
+}

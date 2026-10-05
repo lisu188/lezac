@@ -5302,6 +5302,20 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 240 LABELS "level1;original;fullframe;handoff"
             PASS_REGULAR_EXPRESSION "\"differing_pixels\": 0.*\"level2_frames\": 12.*\"level2_states\": 24.*\"status\": \"match\"")
+        add_test(NAME natural_level2_original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level2.py replay
+                    --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/natural_level2_original_out)
+        set_tests_properties(natural_level2_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 240 LABELS "level2;original;fullframe;natural-route"
+            PASS_REGULAR_EXPRESSION "\"boundaries\":1000.*\"collapse_records\":4151.*\"debris_records\":6050.*\"monster_states\":1339.*\"status\":\"match\"")
+        add_test(NAME natural_level2_guard
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level2.py guard)
+        set_tests_properties(natural_level2_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 30 LABELS "level2;original;evidence-guard;natural-route"
+            PASS_REGULAR_EXPRESSION "\"field_mutations_rejected\":42.*\"fixture_mutations_rejected\":3.*\"invalid_bounds_rejected\":2.*\"stale_tail_excluded\":true.*\"status\":\"guarded\"")
         add_test(NAME level1_handoff_guard
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_handoff.py guard)
         set_tests_properties(level1_handoff_guard PROPERTIES

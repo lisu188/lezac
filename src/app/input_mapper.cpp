@@ -113,6 +113,9 @@ ui::Key InputMapper::mainMenuKey(SDL_Keycode code, uint16_t modifiers) {
 
 gameplay::FrameControls InputMapper::controlsFromKeyboard(const uint8_t* keys, int playerCount) {
     gameplay::FrameControls controls;
+    controls.hasPhysicalDownBanks = true;
+    controls.physicalCDown = keys[SDL_SCANCODE_C] != 0;
+    controls.physicalArrowDown = keys[SDL_SCANCODE_DOWN] != 0;
     // Original banks at 1000:6175/61DE. Arrows remain a single-player alias.
     controls.p1Left = keys[SDL_SCANCODE_Z] ||
                       (playerCount == 1 && keys[SDL_SCANCODE_LEFT]);

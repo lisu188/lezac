@@ -1,0 +1,34 @@
+{
+  "addressing": "objdump labels physical file offsets; subtract MZ load image base 0x770 for code anchors",
+  "arrival_descriptor_static_only": true,
+  "arrival_frames": [
+    74,
+    79
+  ],
+  "down_gate_cs": "68e2",
+  "head": "423c35c6441ba0cf2a2831995aed96de26153ffd",
+  "jobs": [
+    {
+      "conclusion": "success",
+      "id": 111717557375,
+      "name": "Windows build and full test suite"
+    },
+    {
+      "conclusion": "success",
+      "id": 111717557712,
+      "name": "Linux build and full test suite"
+    }
+  ],
+  "main_ci": {
+    "conclusion": "success",
+    "id": 37296098637,
+    "status": "completed",
+    "url": "https://github.com/lisu188/lezac/actions/runs/37296098637"
+  },
+  "original_executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "portal_helper_cs": "5999",
+  "portal_original_runtime_claim": false,
+  "portal_tile_cs": "68ec",
+  "status": "parent_main_ci_and_original_portal_bytes_verified",
+  "whole_game_parity_claim": false
+}

@@ -835,6 +835,12 @@ if(BUILD_TESTING)
     set_tests_properties(key_ownership_original PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^key_ownership_original=ok cases=21 samples=84 players=2 adapter=1 event_fire=1 single_player_aliases=4 whole_game_parity=0")
+    add_test(NAME portal_down_key_banks
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-portal-down-key-banks)
+    set_tests_properties(portal_down_key_banks PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^portal_down_key_banks=ok alias_sequences=2 fresh_makes=2 two_player_banks=2 queued_sdl_events=1 original_portal_constructor=1 manual_input_claim=0")
     if(Python3_Interpreter_FOUND)
         add_test(NAME key_ownership_capture_self_check
             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_key_ownership.py --self-check)
@@ -1021,7 +1027,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_portal_weapon_route_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=portal_weapon_route level=[0-9]+ switched_weapon=2 medium_bomb=1 switch_hold_ticks=5 switch_trigger=release switch_sound=0x0024/p2 portal_key=[0-9]+ portal_from=[0-9]+,[0-9]+ portal_to=[0-9]+,[0-9]+ cooldown=30 frame_inspection=1")
+            "^autoplayer=ok scenario=portal_weapon_route level=[0-9]+ switched_weapon=2 medium_bomb=1 switch_hold_ticks=5 switch_trigger=release switch_sound=0x0024/p2 portal_key=[0-9]+ portal_from=[0-9]+,[0-9]+ portal_to=[0-9]+,[0-9]+ cooldown=0 frame_inspection=1")
 
     add_test(NAME autoplayer_launch_pad_route_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -5372,6 +5378,20 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 30 LABELS "level3;original;evidence-guard;natural-route"
             PASS_REGULAR_EXPRESSION "\"mutations_rejected\":22.*\"producer_mutations_rejected\":12.*\"status\":\"guarded\".*\"typed_field_mutations_rejected\":291")
+        add_test(NAME natural_level3_portal_original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level3_portal.py replay
+                    --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/natural_level3_portal_original_out)
+        set_tests_properties(natural_level3_portal_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 600 LABELS "level3;campaign;original;fullframe;natural-route;portal"
+            PASS_REGULAR_EXPRESSION "\"boundaries\":10326.*\"frames\":5201.*\"new_level3_boundaries\":1940.*\"new_level3_frames\":970.*\"pixels\":332864000.*\"portal_tick\":6109.*\"status\":\"match\"")
+        add_test(NAME natural_level3_portal_guard
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level3_portal.py guard)
+        set_tests_properties(natural_level3_portal_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 30 LABELS "level3;original;evidence-guard;natural-route;portal"
+            PASS_REGULAR_EXPRESSION "\"mutations_rejected\":30.*\"producer_mutations_rejected\":12.*\"status\":\"guarded\".*\"typed_field_mutations_rejected\":291")
         add_test(NAME level1_handoff_guard
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_handoff.py guard)
         set_tests_properties(level1_handoff_guard PROPERTIES

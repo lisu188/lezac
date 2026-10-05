@@ -47,3 +47,5 @@ tests/fixtures/natural_level3_second_objective/** -text
 docs/recovery/evidence/natural_level3_second_objective_20261005/** -text
 tests/fixtures/natural_level3_third_objective/** -text
 docs/recovery/evidence/natural_level3_third_objective_20261005/** -text
+tests/fixtures/natural_level3_portal/** -text
+docs/recovery/evidence/natural_level3_portal_20261005/** -text

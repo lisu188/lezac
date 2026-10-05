@@ -5392,6 +5392,20 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 30 LABELS "level3;original;evidence-guard;natural-route;portal"
             PASS_REGULAR_EXPRESSION "\"mutations_rejected\":30.*\"producer_mutations_rejected\":12.*\"status\":\"guarded\".*\"typed_field_mutations_rejected\":291")
+        add_test(NAME natural_level3_portal_escape_original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level3_portal_escape.py replay
+                    --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/natural_level3_portal_escape_original_out)
+        set_tests_properties(natural_level3_portal_escape_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 600 LABELS "level3;campaign;original;fullframe;natural-route;portal"
+            PASS_REGULAR_EXPRESSION "\"boundaries\":11088.*\"frames\":5582.*\"healthy_tick\":6354.*\"new_level3_boundaries\":1000.*\"new_level3_frames\":500.*\"pixels\":357248000.*\"status\":\"match\"")
+        add_test(NAME natural_level3_portal_escape_guard
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level3_portal_escape.py guard)
+        set_tests_properties(natural_level3_portal_escape_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 30 LABELS "level3;original;evidence-guard;natural-route;portal"
+            PASS_REGULAR_EXPRESSION "\"mutations_rejected\":38.*\"producer_mutations_rejected\":12.*\"status\":\"guarded\".*\"typed_field_mutations_rejected\":291")
         add_test(NAME level1_handoff_guard
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_handoff.py guard)
         set_tests_properties(level1_handoff_guard PROPERTIES

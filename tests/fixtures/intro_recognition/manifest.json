@@ -1,0 +1,53 @@
+{
+  "ci_failure": {
+    "artifact": 11370823585,
+    "executable_sha256": "b078c6440218a57dcb3c1720b0be8e625bfb2a29ced489eb9b32169a31f826f7",
+    "failure_preserved": true,
+    "head": "ad4751e55351998d73cd92482ad085c866b05308",
+    "job": 111960302952,
+    "run": 37368764559
+  },
+  "frames": {
+    "ci-failure-intro": {
+      "file": "ci-failure-intro.ppm.gz",
+      "gzip_sha256": "a34482ff7455544abbb5c03a0c2232fab2e56d115784b2c397ded31c0532a747",
+      "ppm_sha256": "c857cda9ab2edf1852aca23349cc6d5b65fc3489463727ed6c6f8b7caaa1eec0",
+      "rgb_sha256": "f8d71fb8a1fe037c95fdc6d443765a967e81e3966d947cf1c0b9c46eef09ab6d",
+      "source_png": "build-codex-tmp/level3-destruction-work-20261005/ci-bios-failure-frame.png",
+      "source_png_sha256": "b78278adc98f38723fe336e407d795aed1945ce7959729fe032026e66cb2fa04"
+    },
+    "original-gameplay-one": {
+      "file": "original-gameplay-one.ppm.gz",
+      "gzip_sha256": "e56dd395948bea2bc4a16f69f7a2273c9cf5f2fa3d0a1928282c0177f3a1a854",
+      "ppm_sha256": "4c58f4f98ef546433a0e5ce16c1cbb5b0ef34ec03029889ff807720bdd937c61",
+      "rgb_sha256": "c874747a34d043f11fafb77e1b3cd6a088819ef355fd440c29b6b36e5e66abab",
+      "source_png": "docs/recovery/evidence/menu_held_choice_gameplay_20260930.png",
+      "source_png_sha256": "dd25275bfba7433e88a8c0e7717a404a8329b0cb8ff7dcfe325a46732e9fe19b"
+    },
+    "original-gameplay-two": {
+      "file": "original-gameplay-two.ppm.gz",
+      "gzip_sha256": "191438ea393c771aee69c63e14f29992d410302d9c19b83dc3ca334b6bad9649",
+      "ppm_sha256": "5efa6f2cf8776f3013afdf1c30eba2da61449310f8507a0b54df07a3ce7236cf",
+      "rgb_sha256": "dbb5a54adcbc665b6a9a4eac5d00f8d003097e099186c3b3439a4ea27a4e49f4",
+      "source_png": "docs/recovery/evidence/menu_held_two_gameplay_20260930.png",
+      "source_png_sha256": "849d42b4afeb56e66898daf2be190c1439edd02b0a690d9793ad2811ef1159cc"
+    },
+    "original-intro": {
+      "file": "original-intro.ppm.gz",
+      "gzip_sha256": "136bff6666bbc6909bacf0eaf035831a0fc4035063aa9f075b7663d8a4392c2d",
+      "ppm_sha256": "434e4aaaef72e4da9589c52a7c2cfac7679d5e92eadcae703251c2ee5461dc27",
+      "rgb_sha256": "33993e7ce0a873860eee4db36245a60014a2bcfec473e9f7d0f80f165ea7b431",
+      "source_png": "docs/recovery/evidence/intro_buffer_awaiting_20260930.png",
+      "source_png_sha256": "042f2660cd2d165588304364d39aac3640421c7e018f50d8027f12bd02310fcb"
+    }
+  },
+  "original_exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "original_observer": "docs/recovery/evidence/intro_buffer_observer_20260930.py.gz",
+  "original_observer_sha256": "41c08a95ddc7abe6d80f36ed854ec105c3f2c19ea88fce52af2d78582d5d4b32",
+  "original_record": "docs/recovery/evidence/intro_buffer_original_20260930.json",
+  "original_record_sha256": "f11363edd002f38a3096cde04fad7295863c1dae02b5ec7584f50cc112466173",
+  "producer_sha256": "3cf9e64dc2c2b9eb07cf69b32467ead5441d0ec91dd190df5cdb124b4fccfc17",
+  "schema": 1,
+  "scope": "Italian Level 1 intro scene recognition, not whole-game parity",
+  "whole_game_parity": false
+}

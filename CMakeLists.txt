@@ -4709,6 +4709,39 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "monster_tile_damage_self_check=ok cases=1312 kinds=1..8 glyphs=8 footprint_masks=16 profiles=4 live=0")
 
+    add_test(NAME shipped_monster_profiles_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-shipped-monster-profiles
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/shipped_monster_profiles_original.bin)
+    set_tests_properties(shipped_monster_profiles_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^shipped_monster_profiles=ok profiles=15 constructors=45 updates=2880 motion_animation_rng_descriptor=1 controlled_room=1 exogenous_player_targets=1 natural_route_claim=0 visual_claim=0")
+
+    add_test(NAME shipped_monster_profiles_fixture
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_shipped_monster_profile_fixture.py)
+    set_tests_properties(shipped_monster_profiles_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^shipped_monster_profile_fixture=ok profiles=15 constructors=45 updates=2880 bytes=659772")
+
+    add_test(NAME shipped_monster_profiles_replay_guard
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_shipped_monster_profile_fixture.py --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(shipped_monster_profiles_replay_guard PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^shipped_monster_profile_replay_guard=ok positive=1 rejected=16 audio=dummy")
+
+    add_test(NAME shipped_monster_profiles_archive
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_shipped_monster_profile_fixture.py --archive)
+    set_tests_properties(shipped_monster_profiles_archive PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^shipped_monster_profile_archive=ok captures=2 constructors_each=45 updates_each=2880 failed_captures_preserved=2 byte_verified=1")
+
+    add_test(NAME shipped_monster_profiles_capture_self_check
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_shipped_monster_profiles.py --self-check)
+    set_tests_properties(shipped_monster_profiles_capture_self_check PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^shipped_monster_profiles_self_check=ok profiles=15 cases=45 ticks=64 live=0")
+
     add_test(NAME timed_writeback_original
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-timed-actor-writeback
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/timed_actor_writeback_original.bin)

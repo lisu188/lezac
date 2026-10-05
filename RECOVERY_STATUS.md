@@ -50,6 +50,17 @@ reject 20 semantic/fixture, fourteen producer and 291 typed/map/palette mutation
 does not complete Level 3 or compare all actor fields; all four broad OPEN
 items and global completion/fidelity flags remain unchanged.
 
+## Natural Level 3 Third Objective Regression (2026-10-05)
+
+The [third-pickup regression](docs/recovery/natural_level3_third_objective_runtime_2026-10-05.md)
+adds 500 ordinary movement/jump frames and one Medium bomb after the unchanged
+second-pickup route. The complete 5258-tick replay compares 4231 full RGB frames
+and 8386 mapped boundaries. The third pickup is at tick 5092; the endpoint
+has three objectives, 36 destroyed structures, 46 health and one reserve.
+Guards reject 22 semantic/fixture, twelve producer and 291 typed/map/palette
+mutations. Level 3 completion, all actor fields and whole-game fidelity remain
+unverified; all four broad OPEN items and global flags remain unchanged.
+
 ## Natural Level 2 Tables (2026-10-05)
 
 The [2026-10-05 natural Level 2 regression](docs/recovery/natural_level2_runtime_2026-10-05.md)

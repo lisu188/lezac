@@ -65,6 +65,17 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [natural Level 3 empty-collapse completion gate](natural_level3_completion_gate_runtime_2026-10-06.md)
+matches 486 original RGB frames, 972 mapped/lifecycle/bounded monster boundaries
+and 970 raw-derived terrain boundaries through tick 8905. All 1455 new native pre/present/post DS
+snapshots are retained and validated. Nine objectives and 167 destroyed
+structures satisfy the actual seven-objective/148-structure requirements; the
+first eligible empty-collapse post-update sample agrees with C++ outro entry.
+The original stops before its blocking results sequence, so Level 3 results,
+Level 4 handoff and complete Level 3 campaign verification are still open.
+This scoped suffix does not claim a new full-prefix C++ comparison or all-actor,
+clock/sound byte equivalence. All broad OPEN items/global flags stay unchanged.
+
 The [2026-10-06 Medium/Large overlap](natural_level3_medium_large_runtime_2026-10-06.md)
 uses a separate ordinary-input branch after the verified tick-8100 fork. Its
 321 full RGB frames and 642 mapped boundaries match the original, with all

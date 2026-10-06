@@ -7,7 +7,7 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path
 
-from source_guardrails import source_text
+from source_guardrails import function_ranges, mask_cpp, source_text
 import re
 
 
@@ -82,7 +82,7 @@ SOUND_CUES = [
         priority=5,
         docs_priority_needles=("DS:799f = 5",),
         source_needles=(
-            "collectBonusDrop",
+            "applyPendingBonus",
             "requestSoundCursor(kBonusPickupSoundCursor, kBonusPickupSoundPriority)",
         ),
         ctest_names=("bonus_rewards",),
@@ -139,6 +139,21 @@ def require_ctest(cmake_text: str, test_name: str) -> None:
         raise RuntimeError(f"CMakeLists.txt: missing CTest {test_name!r}")
 
 
+def require_bonus_sound(source: str) -> None:
+    ranges = function_ranges(source, ("applyPendingBonus",))
+    if "applyPendingBonus" not in ranges:
+        raise RuntimeError("bonus_pickup source: missing deferred grant definition")
+    first, last = ranges["applyPendingBonus"]
+    body = mask_cpp("\n".join(source.splitlines()[first - 1:last]))
+    gate = "if (!pending) return;"
+    grant = "applyBonus(type, collector, energy, inventory, playerIndex);"
+    cue = "requestSoundCursor(kBonusPickupSoundCursor, kBonusPickupSoundPriority);"
+    for needle in (gate, grant, cue):
+        require(body, needle, "bonus_pickup deferred grant")
+    if not body.index(gate) < body.index(grant) < body.index(cue):
+        raise RuntimeError("bonus_pickup source: sound must follow an accepted deferred grant")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Check recovered sound callsite map consistency."
@@ -160,6 +175,7 @@ def main() -> int:
     require_ctest(cmake, "sound_selector_map")
     require_ctest(cmake, "sound_cursor_segments")
     require_ctest(cmake, "son_step_fields")
+    require_bonus_sound(source)
 
     for offset, selector in DIRECT_SWEEPS.items():
         require(ghidra, offset, f"ghidra direct sweep {offset}")

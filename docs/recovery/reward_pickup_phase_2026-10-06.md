@@ -75,6 +75,15 @@ After reserve restoration, 16 bounded focused tests pass, including the new
 pickup and opcode checks, existing reward lifecycle and natural-route guards.
 That rerun excludes the two full-frame producers and does not replace them.
 
+The first exact-head Linux and Windows CI run, `37488322849` at `e4a7f908`, failed only
+`sound_callsite_map`: its source predicate still named the removed
+`collectBonusDrop` helper. The guard now requires the accepted pending-bonus
+gate, grant and unchanged pickup sound request inside `applyPendingBonus`, in
+that order. The repaired CTest and source-guardrail self-test pass locally;
+eight mutations reject absent, comment-only, misplaced or altered requests.
+This checker repair does not change the gameplay source or compiled behavior.
+Fresh exact-head Linux and Windows CI remains required before merging.
+
 All launched gameplay and test processes use dummy audio. This work does not
 establish audible sound parity, all actor bytes, full-prefix C++ comparison,
 physical timing parity, Level 3 completion, later levels or whole-game fidelity.

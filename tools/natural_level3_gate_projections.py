@@ -1,4 +1,4 @@
-"""Bounded Level 3 native monster/corpse, marker and terrain projections."""
+"""Bounded native projections with Level 3 defaults and explicit profile sets."""
 import struct
 
 import level1_fidelity as fidelity
@@ -11,7 +11,7 @@ PROFILES = {(raw[11], raw[26], slot + 1) for level, slot, _, raw in shipped.prof
 require(PROFILES == {(4, 3, 1), (2, 4, 2), (1, 3, 3)}, 'Level 3 shipped profiles differ')
 
 
-def native_monsters(state):
+def native_monsters(state, profiles=PROFILES):
     actors, visuals = bytes.fromhex(state['actors']), bytes.fromhex(state['visuals'])
     require(len(actors) == state['actor_count'] * 38 and state['actor_count'] <= 30, 'native actor extent differs')
     result = []
@@ -21,10 +21,10 @@ def native_monsters(state):
             continue
         corpse = actor[0] == 12
         if corpse:
-            require(actor[21] == 2 and actor[37] in {p[2] for p in PROFILES} and
+            require(actor[21] == 2 and actor[37] in {p[2] for p in profiles} and
                     1 <= actor[2] <= 25 and actor[27] == 0, 'native corpse scope differs')
         else:
-            require((actor[0], actor[21], actor[37]) in PROFILES, 'native monster scope differs')
+            require((actor[0], actor[21], actor[37]) in profiles, 'native monster scope differs')
         require(actor[1] * 8 + 8 <= len(visuals), 'native monster visual differs')
         x, y = struct.unpack_from('<hh', visuals, actor[1] * 8)
         row = dict(identity=[actor[0], actor[21], actor[37] - 1, 0 if corpse else 1],
@@ -37,7 +37,7 @@ def native_monsters(state):
     return result
 
 
-def cpp_monsters(state):
+def cpp_monsters(state, profiles=PROFILES):
     result, orders = [], set()
     for monster in sorted(state['monsters'], key=lambda item: item['order']):
         require(monster['order'] not in orders and monster['health'][1] == 1, 'C++ actor order/liveness differs')
@@ -45,11 +45,11 @@ def cpp_monsters(state):
         kind, behavior, slot, attached = monster['identity']
         corpse = kind == 12
         if corpse:
-            require(behavior == 2 and slot + 1 in {p[2] for p in PROFILES} and attached == 0 and
+            require(behavior == 2 and slot + 1 in {p[2] for p in profiles} and attached == 0 and
                     1 <= monster['health'][2] <= 50 and monster['animation'][5] == 0 and
                     monster['health'][4:6] == [1, 1], 'C++ corpse scope differs')
         else:
-            require((kind, behavior, slot + 1) in PROFILES and attached == 1, 'C++ monster scope differs')
+            require((kind, behavior, slot + 1) in profiles and attached == 1, 'C++ monster scope differs')
         row = dict(identity=monster['identity'], position=monster['position'], motion=monster['motion'],
                    ai=monster['ai'][:3], animation=[monster['animation'][i] for i in (0, 2, 3, 7, 4, 5, 6)])
         row['raw_countdown' if corpse else 'hp'] = (monster['health'][2] + 1) // 2 if corpse else monster['health'][0]

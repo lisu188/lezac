@@ -1,6 +1,6 @@
 # Port Completion Status
 
-Last reviewed: 2026-09-19
+Last reviewed: 2026-10-06
 
 The C++17/SDL2 reconstruction of `LEZAC.EXE` is not yet functionally complete.
 The earlier claim was based on a subsystem inventory and compatible tests,
@@ -64,6 +64,17 @@ reported by the diagnostic; CTest exercises these paths on every run.
   (`--capture-frame-sequence`)
 
 ## Open Original-Evidence Items
+
+The [natural Level 3 results and Level 4 handoff regression](natural_level3_handoff_runtime_2026-10-06.md)
+extends the unchanged ordinary-input prefix through Level 3 completion and
+Level 4 entry. It compares 90 full RGB frames and 120 mapped boundaries,
+including 58 result-loop frames and 29 playable Level 4 frames. The score
+becomes 46290; 66 health, zero reserves and ammunition `[200,10,0,0]` carry
+over, while the selected weapon resets to Small. This is completion coverage
+for three of seven levels on the composed one-player route, not an aggregate
+reverse-engineering percentage. Level 4 completion, later campaigns, full
+actor/clock/sound state and all four broad OPEN items remain unverified.
+The earlier gate-only checkpoint below remains independently scoped.
 
 The [natural Level 3 empty-collapse completion gate](natural_level3_completion_gate_runtime_2026-10-06.md)
 matches 486 original RGB frames, 972 mapped/lifecycle/bounded monster boundaries

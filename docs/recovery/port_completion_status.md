@@ -65,6 +65,16 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [2026-10-06 Medium/Large overlap](natural_level3_medium_large_runtime_2026-10-06.md)
+uses a separate ordinary-input branch after the verified tick-8100 fork. Its
+321 full RGB frames and 642 mapped boundaries match the original, with all
+960 new raw DS records retained. It reaches nine objectives and 132 of 148
+required destroyed cells, 18 beyond the earlier verified frontier. The seven-
+objective gate is already met; 16 more destroyed cells and a natural completion
+transition remain. Eight mapped-state and 24 raw collapse-field/count mutations
+are rejected. This is not full-prefix C++ parity, all actor bytes or Level 3
+completion; all four broad OPEN items and global flags remain unchanged.
+
 The [2026-10-06 corrected ammunition continuation](natural_level3_corrected_ammo_runtime_2026-10-06.md)
 extends the ordinary Level 3 route from tick 8100 to 8750. Its 651 full RGB
 presentations and 1,302 mapped boundaries match the original, with 1,950 new

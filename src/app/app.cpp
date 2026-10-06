@@ -596,9 +596,12 @@ public:
     App(const App&) = delete;
     App& operator=(const App&) = delete;
     void debugLevel1Replay(const std::string& routePath, const std::string& outDir, bool originalIntroWait = false,
-                           bool captureResultReels = false, bool captureResultTyping = false) {
+                           bool captureResultReels = false, bool captureResultTyping = false,
+                           uint32_t scoutStartTick = 0) {
         namespace trace = lezac::diagnostics::level1;
         const auto route = trace::readRoute(routePath);
+        if (scoutStartTick > route.ticks)
+            throw std::runtime_error("level1 scout start exceeds route end");
         const char* json = std::getenv("LEZAC_LOAD_JSON_ASSETS");
         const char* raw = std::getenv("LEZAC_LOAD_ORIGINAL_ASSETS");
         if ((json && std::string(json) != "0") || (raw && std::string(raw) == "0"))
@@ -650,7 +653,7 @@ public:
         for (const char* file : {"LEZAC.EXE", "LIVELS.SCH", "CARO.CAR", "BOMOMIMK.SPR", "PROVA.SPR",
              "FONTS.SPR", "BOMPAL.PAL", "SFONLEF.ZBG", "PROEFS.SON", "GRAN.MST", "RECS.DAT"})
             assets[file] = trace::quote(trace::fingerprint(readFile(file)));
-        output << trace::object({{"kind", trace::quote("header")},
+        trace::Fields header{{"kind", trace::quote("header")},
             {"schema", trace::quote("lezac.level1.trace.v1")}, {"source", trace::quote("cpp")},
             {"phase_model", trace::quote("cpp-pre-actors-v2")},
             {"state_scope", trace::quote("level1-observations-v2")},
@@ -659,7 +662,13 @@ public:
             {"route_fnv1a64", trace::quote(trace::fingerprint(readFile(routePath)))},
             {"ticks", std::to_string(route.ticks)}, {"step_us", std::to_string(route.stepUs)},
             {"seed", std::to_string(route.seed)}, {"width", "320"}, {"height", "200"},
-            {"original_fidelity_claim", "false"}}) << '\n';
+            {"original_fidelity_claim", "false"}};
+        if (scoutStartTick != 0) {
+            header["schema"] = trace::quote("lezac.level1.scout.v1");
+            header["candidate_only"] = "true";
+            header["capture_from_tick"] = std::to_string(scoutStartTick);
+        }
+        output << trace::object(header) << '\n';
         SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
         randomSeed_ = route.seed;
         replayClockEnabled_ = true;
@@ -669,15 +678,21 @@ public:
         const std::string oldRecordPath = recordStore_.path();
         recordStore_.setPath(joinPath(outDir, "RECS.DAT"));
         uint64_t sequence = 0;
+        uint64_t retainedCheckpoints = 0;
+        uint32_t retainedFrames = 0;
         uint32_t tick = 0;
         std::vector<std::string> events;
         bool completionObserved = false, level2Playable = false;
         auto checkpoint = [&](const char* phase, bool frame) {
-            trace::Fields row{{"kind", trace::quote("checkpoint")}, {"seq", std::to_string(sequence++)},
+            const uint64_t checkpointSequence = sequence++;
+            if (scoutStartTick != 0 && tick < scoutStartTick) return;
+            ++retainedCheckpoints;
+            trace::Fields row{{"kind", trace::quote("checkpoint")}, {"seq", std::to_string(checkpointSequence)},
                 {"tick", std::to_string(tick)}, {"phase", trace::quote(phase)},
                 {"time_ms", std::to_string(replayMilliseconds_)}, {"events", trace::array(events)},
                 {"state", level1TraceState()}};
             if (frame) {
+                ++retainedFrames;
                 const std::string name = trace::frameName(tick);
                 writeArgbPpm(joinPath(outDir, name), fb_, kScreenW, kScreenH);
                 std::vector<uint8_t> pixels;
@@ -743,11 +758,17 @@ public:
                 level2Playable = level2Playable || (completionObserved && levelIndex_ == 1 && !ui_.snapshot().menu && !ui_.snapshot().paused && !levelFlow_.intro().active && !levelFlow_.outro().active);
                 checkpoint("post_update", false);
             }
-            output << trace::object({{"kind", trace::quote("complete")},
+            trace::Fields footer{{"kind", trace::quote("complete")},
                 {"ticks", std::to_string(route.ticks)}, {"checkpoints", std::to_string(sequence)},
-                {"frames", std::to_string(route.ticks + 1)}, {"events", std::to_string(nextEvent)},
+                {"frames", std::to_string(scoutStartTick == 0 ? route.ticks + 1 : retainedFrames)}, {"events", std::to_string(nextEvent)},
                 {"level1_route_complete", level2Playable ? "true" : "false"},
-                {"original_fidelity_claim", "false"}, {"port_functionally_complete", "false"}}) << '\n';
+                {"original_fidelity_claim", "false"}, {"port_functionally_complete", "false"}};
+            if (scoutStartTick != 0) {
+                footer["candidate_only"] = "true";
+                footer["capture_from_tick"] = std::to_string(scoutStartTick);
+                footer["retained_checkpoints"] = std::to_string(retainedCheckpoints);
+            }
+            output << trace::object(footer) << '\n';
             output.flush();
             if (captureResultTyping) {
                 typing << trace::object({{"kind", trace::quote("complete")},
@@ -29295,18 +29316,24 @@ private:
 int lezac::app::runApplication(int argc, char** argv) {
     try {
         App app;
-        if (argc > 1 && std::string(argv[1]) == "--replay-level1") {
-            const char* usage = "usage: --replay-level1 ROUTE OUTPUT_DIR [--original-intro-wait [--result-reels] [--result-typing]]";
-            if (argc < 4 || argc > 7 || (argc >= 5 && std::string(argv[4]) != "--original-intro-wait"))
+        if (argc > 1 && (std::string(argv[1]) == "--replay-level1" ||
+                         std::string(argv[1]) == "--replay-level1-scout")) {
+            const bool scout = std::string(argv[1]) == "--replay-level1-scout";
+            const char* usage = "usage: --replay-level1 ROUTE OUTPUT_DIR [--original-intro-wait [--result-reels] [--result-typing]]; --replay-level1-scout adds START_TICK before the optional flags";
+            const int firstFlag = scout ? 5 : 4;
+            if (argc < firstFlag || argc > firstFlag + 3 ||
+                (argc > firstFlag && std::string(argv[firstFlag]) != "--original-intro-wait"))
                 throw std::runtime_error(usage);
+            const uint32_t scoutStartTick = scout ? lezac::diagnostics::level1::decimal(argv[4], 20000) : 0;
+            if (scout && scoutStartTick == 0) throw std::runtime_error("level1 scout start must be positive");
             bool reels = false, typing = false;
-            for (int i = 5; i < argc; ++i) {
+            for (int i = firstFlag + 1; i < argc; ++i) {
                 const std::string flag = argv[i];
                 if (flag == "--result-reels" && !reels) reels = true;
                 else if (flag == "--result-typing" && !typing) typing = true;
                 else throw std::runtime_error(usage);
             }
-            app.debugLevel1Replay(argv[2], argv[3], argc >= 5, reels, typing);
+            app.debugLevel1Replay(argv[2], argv[3], argc > firstFlag, reels, typing, scoutStartTick);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--validate") {

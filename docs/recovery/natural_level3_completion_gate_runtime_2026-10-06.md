@@ -78,6 +78,16 @@ a whole-game fidelity claim. The guard rejects 28 semantic/fixture mutations,
 production comparison also rejects nine mutated C++ endpoint states, including
 the outro gate flag, RNG, ammunition, health, player position and terrain maps.
 
+## Checkout Byte Integrity
+
+The first exact-head Windows full-suite run failed the two new gate tests:
+Git's `core.autocrlf=true` checkout changed the pinned route and JSON bytes.
+The Linux full suite passed. Both fixture and retained-evidence directories
+are now marked `-text`, matching the earlier original-backed fixtures. The
+expected hashes and all comparison/rejection rules remain unchanged. A real
+automatic-CRLF checkout reproduced the old route-hash rejection before the
+attribute repair; fresh full Linux and Windows CI is required for delivery.
+
 ## Still Unverified
 
 The original capture stops at `1000:8283` before executing the blocking results

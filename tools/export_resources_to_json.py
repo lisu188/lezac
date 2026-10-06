@@ -293,7 +293,8 @@ def export_levels() -> None:
         triggers_raw, off = get_fixed_records(data, off, 14)
 
         starting_objectives = sum(1 for t in tiles if t == objective_tile)
-        starting_destructible = sum(1 for t in tiles if t > 1 and t != 0xFF and t != objective_tile)
+        # Collapse words 1..0x3fff form the denominator; debris and flagged words do not.
+        starting_destructible = sum(1 for word in words if 0 < word < 0x4000)
 
         levels.append(
             {

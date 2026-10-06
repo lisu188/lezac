@@ -65,6 +65,14 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [2026-10-06 level-export metadata correction](level_export_denominator_metadata_2026-10-06.md)
+aligns all seven exported and committed destruction denominators with physical
+word tags and the original `fieldB` headers. The runtime loader already used
+this calculation; the change does not alter gameplay completion or prove a
+newly completed level. The exporter regression verifies the original bank,
+boundary words and semantic regeneration without rewriting resource files.
+All broad OPEN items and global completion/fidelity flags remain unchanged.
+
 The [natural Level 3 return regression](natural_level3_return_runtime_2026-10-05.md)
 recovers the dirty-gated ammunition panel through an ordinary reserve loss and
 reentry. Its full route compares 6038 RGB frames, 12000 mapped boundaries and

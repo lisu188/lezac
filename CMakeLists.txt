@@ -270,6 +270,10 @@ if(BUILD_TESTING)
     find_package(Python3 COMPONENTS Interpreter QUIET)
 
     if(Python3_Interpreter_FOUND)
+        add_test(NAME level_exporter_counts
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_level_exporter_counts.py)
+        set_tests_properties(level_exporter_counts PROPERTIES
+            PASS_REGULAR_EXPRESSION "level_exporter_counts=ok shipped_levels=7 boundary_words=8 committed_bank=1 glyph_independent=1")
         add_test(NAME main_menu_original
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_main_menu_fixture.py
                     --exe $<TARGET_FILE:lezac_main_menu_test>)

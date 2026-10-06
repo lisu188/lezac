@@ -334,7 +334,7 @@ def fixture(root=FIXTURE):
     return rows
 
 
-def compare_rows(cpp, rows, route, ticks):
+def compare_rows(cpp, rows, route, ticks, *, check_extra=None):
     expected = {(row['tick'], row['phase']): row for row in rows[1:-1]}
     require(len(expected) == len(rows) - 2, 'duplicate expected campaign boundary')
     expected_frames = sum(row['rgb_sha256'] is not None for row in rows[1:-1])
@@ -359,6 +359,8 @@ def compare_rows(cpp, rows, route, ticks):
             frames += 1
         if key == (GATE_TICK, 'post_update'):
             require(not row['state']['collapse'], 'C++ completed while collapse remained')
+        if check_extra is not None:
+            check_extra(row, wanted)
         seen.add(key)
 
     footer = None

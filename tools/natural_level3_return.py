@@ -282,17 +282,19 @@ def fixture(root=FIXTURE):
 def compare(cpp):
     extension, prefix = fixture(), campaign.fixture()
     rows = [prefix[0], *prefix_rows(), *extension[1:-1], prefix[-1]]
-    report = campaign.compare_rows(cpp, rows, FIXTURE / 'route.txt', TICKS)
+    seen = set()
+
+    def check_lifecycle(row, wanted):
+        if 'lifecycle' not in wanted:
+            return
+        key = wanted['tick'], wanted['phase']
+        require(key not in seen and cpp_lifecycle(row['state']) == wanted['lifecycle'],
+                'return lifecycle differs: ' + str(key))
+        seen.add(key)
+
+    report = campaign.compare_rows(cpp, rows, FIXTURE / 'route.txt', TICKS, check_extra=check_lifecycle)
     require(report['frames'] == 6038 and report['boundaries'] == 12000 and report['pixels'] == 386432000,
             'full return coverage differs')
-    expected = {(row['tick'], row['phase']): row['lifecycle'] for row in extension[1:-1]}
-    seen = set()
-    for row in fidelity.trace_rows(cpp, fidelity.load_manifest(cpp)):
-        key = row.get('tick'), row.get('phase')
-        if row['kind'] != 'checkpoint' or key not in expected:
-            continue
-        require(key not in seen and cpp_lifecycle(row['state']) == expected[key], 'return lifecycle differs: ' + str(key))
-        seen.add(key)
     require(len(seen) == FRAMES * 2, 'missing return lifecycle boundaries')
     return {**report, 'new_level3_frames': FRAMES, 'new_level3_boundaries': FRAMES * 2,
             'lifecycle_boundaries': len(seen), 'checkpoint_ticks': list(CHECKPOINTS),

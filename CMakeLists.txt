@@ -393,7 +393,7 @@ if(BUILD_TESTING)
     set_tests_properties(level_completion_denominator PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^level_completion_denominator=ok levels=7 fieldB_denominators=66,393,739,435,988,2724,330 required_destruction=50,60,20,70,65,40,10 thresholds=33,236,148,305,643,1090,33 before_blocked=7 at_complete=7 fieldB_total=5675 percent_model=integer_floor")
+            "^level_completion_denominator=ok levels=7 fieldB_denominators=66,393,739,435,988,2724,330 required_destruction=50,60,20,70,65,40,10 thresholds=33,236,148,305,643,1090,33 before_blocked=7 at_complete=7 fieldB_total=5675 percent_model=integer_floor required_bonus=1,3,7,3,8,8,1 bonus_before_blocked=7")
 
     add_test(NAME fixed_point_integration
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-fixed)

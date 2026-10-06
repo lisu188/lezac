@@ -15518,6 +15518,7 @@ public:
         const std::array<int, 7> expectedFieldB{66, 393, 739, 435, 988, 2724, 330};
         const std::array<int, 7> expectedRequired{50, 60, 20, 70, 65, 40, 10};
         const std::array<int, 7> expectedThresholds{33, 236, 148, 305, 643, 1090, 33};
+        const std::array<int, 7> expectedBonus{1, 3, 7, 3, 8, 8, 1};
 
         auto joinInts = [](const auto& values) {
             std::ostringstream oss;
@@ -15529,6 +15530,7 @@ public:
         };
 
         int blockedBeforeThreshold = 0;
+        int blockedBeforeBonus = 0;
         int completedAtThreshold = 0;
         int totalFieldB = 0;
         for (size_t i = 0; i < expectedFieldB.size(); ++i) {
@@ -15540,9 +15542,16 @@ public:
             if (denominator != rawFieldB ||
                 denominator != expectedFieldB[i] ||
                 required != expectedRequired[i] ||
+                level_.requiredBonus != expectedBonus[i] ||
                 threshold != expectedThresholds[i]) {
                 throw std::runtime_error("level completion denominator fixture changed");
             }
+            collected_ = level_.requiredBonus - 1;
+            destroyed_ = threshold;
+            if (isComplete()) {
+                throw std::runtime_error("level completed before objective threshold");
+            }
+            ++blockedBeforeBonus;
             collected_ = level_.requiredBonus;
             destroyed_ = std::max(0, threshold - 1);
             if (isComplete()) {
@@ -15561,7 +15570,7 @@ public:
             totalFieldB += denominator;
         }
 
-        if (blockedBeforeThreshold != 7 || completedAtThreshold != 7 ||
+        if (blockedBeforeThreshold != 7 || blockedBeforeBonus != 7 || completedAtThreshold != 7 ||
             totalFieldB != 5675) {
             throw std::runtime_error("level completion denominator summary changed");
         }
@@ -15573,7 +15582,9 @@ public:
                   << " before_blocked=" << blockedBeforeThreshold
                   << " at_complete=" << completedAtThreshold
                   << " fieldB_total=" << totalFieldB
-                  << " percent_model=integer_floor\n";
+                  << " percent_model=integer_floor"
+                  << " required_bonus=" << joinInts(expectedBonus)
+                  << " bonus_before_blocked=" << blockedBeforeBonus << '\n';
     }
 
     void debugSpriteTransparency() {

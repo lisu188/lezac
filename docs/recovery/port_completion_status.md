@@ -83,6 +83,15 @@ tests are distinct from this scoped native observation. The initial full local
 Level 3 return regression exhausted RAM output space and is not claimed as
 passing. All broad completion/fidelity flags remain open.
 
+The [shipped Level 3 gate inspection](level3_completion_gate_2026-10-06.md)
+confirms seven required objectives and 148 required destroyed physical-damage
+cells. The independently retained original-backed tick-8750 checkpoint has nine
+objectives and 114 destroyed cells: the objective requirement is already met,
+and 34 more destroyed cells remain. The deterministic denominator regression
+now pins objective requirements and checks both gates independently across all
+seven shipped levels. This is not Level 3 completion or whole-game fidelity;
+all four broad OPEN items and global flags remain unchanged.
+
 The [2026-10-06 level-export metadata correction](level_export_denominator_metadata_2026-10-06.md)
 aligns all seven exported and committed destruction denominators with physical
 word tags and the original `fieldB` headers. The runtime loader already used

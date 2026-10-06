@@ -5411,6 +5411,11 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 30 LABELS "level3;original;evidence-guard;natural-route;portal"
             PASS_REGULAR_EXPRESSION "\"mutations_rejected\":38.*\"producer_mutations_rejected\":12.*\"status\":\"guarded\".*\"typed_field_mutations_rejected\":291")
+        add_test(NAME campaign_boundary_checks
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_campaign_boundary_checks.py)
+        set_tests_properties(campaign_boundary_checks PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 30 LABELS "campaign;original;evidence-guard;level3;reentry")
         add_test(NAME natural_level3_return_original
             COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                     ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level3_return.py replay

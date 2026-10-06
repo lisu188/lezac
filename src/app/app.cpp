@@ -8008,6 +8008,7 @@ public:
         bonusDrops_.push_back(cloud);
         bonusDrops_.shrink_to_fit();
         updateBonusDrops();
+        applyPendingBonus(player_, energy_, bombInventory_, 1);
         if (bonusDrops_.size() != 4 ||
             std::any_of(bonusDrops_.begin(), bonusDrops_.end(),
                         [](const BonusDrop& drop) { return drop.collected; })) {
@@ -8030,8 +8031,13 @@ public:
         sharedDrop.type = BonusType::FirstAid;
         bonusDrops_.push_back(sharedDrop);
         updateBonusDrops();
-        if (energy_ != 50 || energy2_ != 100 || !bonusDrops_.empty()) {
-            throw std::runtime_error("shared bonus was not awarded to nearest player");
+        if (energy_ != 50 || energy2_ != 50 || pendingBonuses_ != std::array<uint8_t, 2>{{2, 2}}) {
+            throw std::runtime_error("shared bonus was not independently deferred for both players");
+        }
+        applyPendingBonus(player_, energy_, bombInventory_, 1);
+        applyPendingBonus(player2_, energy2_, bombInventory2_, 2);
+        if (energy_ != 100 || energy2_ != 100 || !bonusDrops_.empty()) {
+            throw std::runtime_error("shared bonus was not awarded to both touching players");
         }
         playerCount_ = 1;
 
@@ -8043,7 +8049,7 @@ public:
         expectScore(BonusType::YellowBombBox, 3000);
         if (inventory.counts[0] != 200 || inventory.counts[1] <= 0 ||
             inventory.counts[2] <= 0 || inventory.counts[3] != 0 ||
-            !hasBomb(inventory, inventory.selected)) {
+            inventory.selected != BombType::Super) {
             throw std::runtime_error("yellow bomb box did not grant normal set");
         }
 
@@ -8067,7 +8073,10 @@ public:
         soundDrop.x = collector.x;
         soundDrop.y = collector.y;
         soundDrop.type = BonusType::Present;
-        collectBonusDrop(soundDrop, collector, energy, inventory, 1);
+        player_ = collector;
+        bonusDrops_.push_back(soundDrop);
+        updateBonusDrops();
+        applyPendingBonus(collector, energy, inventory, 1);
         if (!sound_.latch().active || sound_.latch().latchedOffset != kBonusPickupSoundCursor ||
             sound_.latch().currentSelector != kBonusPickupSoundPriority ||
             sound_.latch().directSweep) {
@@ -8084,6 +8093,104 @@ public:
                   << kBonusPickupSoundCursor << std::dec << std::noshowbase
                   << " sound_priority="
                   << static_cast<int>(kBonusPickupSoundPriority) << '\n';
+    }
+
+    void debugRewardPickupPhase() {
+        load();
+        const auto bytes = readFile("LEZAC.EXE");
+        constexpr std::array<uint8_t, 7> markerSprites{{88, 86, 87, 88, 89, 86, 90}};
+        constexpr std::array<uint32_t, 7> scores{{2000, 1000, 1500, 2000, 3000, 1000, 5000}};
+        for (size_t i = 0; i < markerSprites.size(); ++i) {
+            if (le16(bytes, 0xb1d4 + i * 2) != markerSprites[i])
+                throw std::runtime_error("original reward score-marker descriptor table differs");
+        }
+        auto require = [](bool ok, const char* message) {
+            if (!ok) throw std::runtime_error(message);
+        };
+        int cases = 0;
+        for (const uint32_t seed : {0x12345678u, 1850251855u}) {
+            for (const unsigned parity : {0u, 1u}) {
+                for (size_t kind = 0; kind < markerSprites.size(); ++kind) {
+                    resetLevel(0);
+                    prepareAutoplayerMonsterFixtureLevel();
+                    player_.x = 32; player_.y = 16;
+                    logicTick_ = 100 + parity;
+                    randomSeed_ = seed;
+                    score_ = 0; energy_ = 40;
+                    bombInventory_.counts = {{200, 9, 0, 0}};
+                    bombInventory_.selected = BombType::Super;
+                    lezac::core::TurboRandom expected(seed);
+                    const int velocity = -100 * (1 + expected.range(0, 3)) + 64;
+                    spawnBonusDrop(32, 16, static_cast<BonusType>(kind));
+                    auto& drop = bonusDrops_.back();
+                    drop.y += drop.hotspotY;
+                    drop.fracX = 17; drop.fracY = 29;
+                    const auto order = drop.actorOrder;
+                    updateBonusDrops();
+                    require(score_ == 0 && energy_ == 40 && bombInventory_.counts[1] == 9 &&
+                        pendingBonuses_[0] == kind + 1 && randomSeed_ == expected.seed(),
+                        "reward grant ran during the non-player pass");
+                    require(bonusDrops_.empty() && transientActors_.size() == 1,
+                        "collected reward did not convert in place");
+                    const auto& marker = transientActors_.front();
+                    const int motion = 29 + velocity;
+                    const int dy = motion < 0 ? (motion - 255) / 256 : motion / 256;
+                    require(marker.actorOrder == order && marker.kind == 11 && marker.vx8 == 0 &&
+                        marker.vy8 == velocity && marker.timer == 26 - parity && marker.fracX == 17 &&
+                        marker.fracY == static_cast<uint8_t>(motion) && marker.spriteIndex == markerSprites[kind] - 1 &&
+                        marker.x == 32 && marker.y == 16 + marker.hotspotY + dy && marker.animation.mode == 0,
+                        "score marker lost conversion-frame motion or slot identity");
+                    // A later actor can draw before the player applies this bonus.
+                    randomRangeValue(0, 694); randomRangeValue(0, 694);
+                    expected.range(0, 694); expected.range(0, 694);
+                    std::array<int, 4> inventory{{200, 9, 0, 0}};
+                    if (kind == 4) {
+                        inventory[1] += expected.range(1, 10);
+                        inventory[2] += expected.range(1, 4);
+                    } else if (kind == 5) {
+                        inventory[1] += expected.range(1, 13);
+                        inventory[2] += expected.range(2, 5);
+                        inventory[3] += expected.range(1, 2);
+                    }
+                    applyPendingBonus(player_, energy_, bombInventory_, 1);
+                    const int health = kind == 1 ? 100 : kind == 2 ? 73 : 40;
+                    require(score_ == scores[kind] && energy_ == health &&
+                        bombInventory_.counts == inventory && bombInventory_.selected == BombType::Super &&
+                        randomSeed_ == expected.seed() && pendingBonuses_[0] == 0,
+                        "deferred bonus changed its original grant or draw order");
+                    ++cases;
+                }
+            }
+        }
+        resetLevel(0);
+        prepareAutoplayerMonsterFixtureLevel();
+        playerCount_ = 2; player2Dead_ = false;
+        player_.x = 32; player_.y = 16;
+        player2_.x = 37; player2_.y = 16;
+        energy_ = energy2_ = 50;
+        spawnBonusDrop(32, 16, BonusType::FirstAid);
+        bonusDrops_.back().y += bonusDrops_.back().hotspotY;
+        spawnBonusDrop(32, 16, BonusType::HotDog);
+        bonusDrops_.back().y += bonusDrops_.back().hotspotY;
+        updateBonusDrops();
+        require(pendingBonuses_ == std::array<uint8_t, 2>{{2, 2}} && bonusDrops_.size() == 1 &&
+            transientActors_.size() == 1 && energy_ == 50 && energy2_ == 50,
+            "one-bonus-per-player latch or shared pickup changed");
+        applyPendingBonus(player_, energy_, bombInventory_, 1);
+        applyPendingBonus(player2_, energy2_, bombInventory2_, 2);
+        require(energy_ == 100 && energy2_ == 100, "both touching players must receive the latched bonus");
+        resetLevel(0);
+        prepareAutoplayerMonsterFixtureLevel();
+        player_.x = 32; player_.y = 16;
+        spawnBonusDrop(42, 16, BonusType::FirstAid);
+        bonusDrops_.back().y += bonusDrops_.back().hotspotY;
+        updateBonusDrops();
+        require(pendingBonuses_[0] == 0 && bonusDrops_.size() == 1,
+            "reward contact accepted the excluded ten-pixel boundary");
+        std::cout << "reward_pickup_phase=ok cases=" << cases
+                  << " conversion_draw=1 deferred_grant=1 inherited_fraction=1 reused_slot=1"
+                  << " both_players=1 one_bonus_latch=1 strict_contact=1 selection_preserved=1"
+                  << " original_runtime_claim=0\n";
     }
 
     void debugBonusRewardStaticModel() {
@@ -25134,6 +25241,7 @@ private:
     bool bossPresent_ = false;
     bool bossDefeated_ = false;
     std::vector<BonusDrop> bonusDrops_;
+    std::array<uint8_t, 2> pendingBonuses_{};
     std::vector<Bomb> bombs_;
     std::vector<Flash> flashes_;
     std::vector<LaunchPadMarker> launchPadMarkers_;
@@ -25300,6 +25408,7 @@ private:
         spawnerStates_.clear();
         monsters_.clear();
         bonusDrops_.clear();
+        pendingBonuses_.fill(0);
         bombs_.clear();
         flashes_.clear();
         launchPadMarkers_.clear();
@@ -25811,6 +25920,7 @@ private:
         // 1000:7ECB..7EE8 dispatches non-player actors before the players
         // at 7F4E..7F5B. Both precede flame/debris 805D and collapse 8067.
         updateBossLinks();
+        pendingBonuses_.fill(0);
         updateOrderedActors(dt);
         if (debugActorPassObserver_) debugActorPassObserver_();
         if (updateSharedReentryFallback()) return;
@@ -26110,6 +26220,9 @@ private:
         // 1000:6D98/6DAB use these locals after ground snap/drop, not the
         // still-unmodified visual position. The four-cell scan stays cached.
         collectObjectiveTiles(player, spriteBase == 19 ? 2 : 1, x, y);
+        applyPendingBonus(player, spriteBase == 19 ? energy2_ : energy_,
+                          spriteBase == 19 ? bombInventory2_ : bombInventory_,
+                          spriteBase == 19 ? 2 : 1);
         applyPlayerTerrainDamage(player, spriteBase == 19 ? energy2_ : energy_);
         integratePlayerMotion(player, x, y, edges);
     }
@@ -28688,19 +28801,46 @@ private:
             BonusDrop& drop = bonusDrops_[i];
             if (onlyOrder && drop.actorOrder != onlyOrder) continue;
             if (drop.collected) continue;
-            bool p1Overlaps = !playerDead_ &&
-                              playerOverlaps(player_, drop.x, drop.y, 12.0f, 12.0f);
-            bool p2Overlaps = playerCount_ > 1 && !player2Dead_ &&
-                              playerOverlaps(player2_, drop.x, drop.y, 12.0f, 12.0f);
-            if (p1Overlaps &&
-                (!p2Overlaps ||
-                 bonusDistanceSq(player_, drop) <= bonusDistanceSq(player2_, drop))) {
-                collectBonusDrop(drop, player_, energy_, bombInventory_, 1);
-            } else if (p2Overlaps) {
-                collectBonusDrop(drop, player2_, energy2_, bombInventory2_, 2);
+            const int collisionX = static_cast<int>(drop.x);
+            const int collisionY = static_cast<int>(drop.y) - drop.hotspotY;
+            bool collected = false;
+            int16_t markerVelocity = 0;
+            // 1000:63BE..6500 latches at most one bonus for EACH player.
+            // Both tests use the original kind, even after player 1 converts it.
+            if (!playerDead_ && !pendingBonuses_[0] &&
+                actorTouchesPlayer(player_, collisionX, collisionY)) {
+                pendingBonuses_[0] = static_cast<uint8_t>(drop.type) + 1;
+                markerVelocity = static_cast<int16_t>(-100 * randomInclusive(1, 3));
+                collected = true;
             }
-            // Collection can append a cloud's rewards and invalidate drop.
-            if (bonusDrops_[i].collected) continue;
+            if (playerCount_ > 1 && !player2Dead_ && !pendingBonuses_[1] &&
+                actorTouchesPlayer(player2_, collisionX, collisionY)) {
+                pendingBonuses_[1] = static_cast<uint8_t>(drop.type) + 1;
+                markerVelocity = static_cast<int16_t>(-100 * randomInclusive(1, 3));
+                collected = true;
+            }
+            if (collected) {
+                // Conversion reuses the slot and fractions. This dispatch still
+                // runs the reward's cached gravity path; later ticks use gate 5.
+                constexpr std::array<uint8_t, 7> scoreSprites{{88, 86, 87, 88, 89, 86, 90}};
+                TransientActor marker;
+                marker.x = collisionX;
+                int y = collisionY;
+                marker.vy8 = markerVelocity;
+                marker.fracX = drop.fracX;
+                marker.fracY = drop.fracY;
+                updateTimedActorMotion(marker.x, y, marker.vx8, marker.vy8,
+                    marker.fracX, marker.fracY, scanActorEdges(collisionX, collisionY));
+                marker.kind = 0x0b;
+                marker.timer = static_cast<uint8_t>(26 - (logicTick_ & 1u));
+                marker.spriteIndex = scoreSprites.at(static_cast<size_t>(drop.type)) - 1;
+                marker.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(marker.spriteIndex).height);
+                marker.y = y + marker.hotspotY;
+                marker.actorOrder = drop.actorOrder;
+                transientActors_.push_back(marker);
+                drop.collected = true;
+                continue;
+            }
             BonusDrop& moving = bonusDrops_[i];
             int x = static_cast<int>(moving.x);
             int y = static_cast<int>(moving.y) - moving.hotspotY;
@@ -28730,16 +28870,12 @@ private:
                           bonusDrops_.end());
     }
 
-    float bonusDistanceSq(const Player& player, const BonusDrop& drop) const {
-        float dx = (player.x + 6.0f) - (drop.x + 6.0f);
-        float dy = (player.y + 8.0f) - (drop.y + 6.0f);
-        return dx * dx + dy * dy;
-    }
-
-    void collectBonusDrop(BonusDrop& drop, const Player& collector, int& energy,
-                          BombInventory& inventory, uint8_t playerIndex) {
-        BonusType type = drop.type;
-        drop.collected = true;
+    void applyPendingBonus(const Player& collector, int& energy,
+                           BombInventory& inventory, uint8_t playerIndex) {
+        auto& pending = pendingBonuses_.at(playerIndex - 1);
+        if (!pending) return;
+        const auto type = static_cast<BonusType>(pending - 1);
+        pending = 0;
         applyBonus(type, collector, energy, inventory, playerIndex);
         requestSoundCursor(kBonusPickupSoundCursor, kBonusPickupSoundPriority);
     }
@@ -28780,7 +28916,6 @@ private:
         inventory.counts[0] = 200;
         inventory.counts[1] = std::min(99, inventory.counts[1] + randomInclusive(1, 10));
         inventory.counts[2] = std::min(99, inventory.counts[2] + randomInclusive(1, 4));
-        if (!hasBomb(inventory, inventory.selected)) selectNextAvailableBomb(inventory);
         inventory.hudDirty = 1;
     }
 
@@ -28789,7 +28924,6 @@ private:
         inventory.counts[1] = std::min(99, inventory.counts[1] + randomInclusive(1, 13));
         inventory.counts[2] = std::min(99, inventory.counts[2] + randomInclusive(2, 6));
         inventory.counts[3] = std::min(99, inventory.counts[3] + randomInclusive(1, 2));
-        if (!hasBomb(inventory, inventory.selected)) selectNextAvailableBomb(inventory);
         inventory.hudDirty = 1;
     }
 
@@ -29452,6 +29586,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bonuses") {
             app.debugBonuses();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-reward-pickup-phase") {
+            app.debugRewardPickupPhase();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bonus-reward-static-model") {

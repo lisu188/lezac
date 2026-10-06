@@ -4202,6 +4202,14 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^bomb_motion_original=ok cases=16 samples=2304 seeds=20,30,40,200 first_update_next_frame=1 pause=1 live_motion_states=2288 expiry_positions=16 sprites=57,58,59,60")
 
+    add_test(NAME natural_bomb_visual_original
+        COMMAND ${Python3_EXECUTABLE} tools/check_natural_bomb_visual_fixture.py
+            --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(natural_bomb_visual_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^natural_bomb_visual_fixture=ok observations=354 natural_types=1 newline_variants=2 mutations_rejected=16 whole_game_parity=0")
+
     add_test(NAME explosion_profiles
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosions)
     set_tests_properties(explosion_profiles PROPERTIES

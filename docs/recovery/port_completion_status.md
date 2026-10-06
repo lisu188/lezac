@@ -76,6 +76,14 @@ reverse-engineering percentage. Level 4 completion, later campaigns, full
 actor/clock/sound state and all four broad OPEN items remain unverified.
 The earlier gate-only checkpoint below remains independently scoped.
 
+The [natural bomb visual-field regression](natural_bomb_visual_runtime_2026-10-07.md)
+checks 354 ordinary Level 4 Medium-bomb observations, covering the resolved
+collision hotspot and all four sprite-descriptor bytes in addition to the
+separately compared motion/countdown fields. Its compact fixture contains only
+native actor/visual bytes. This is a field-mapping regression, not a new
+continuous route replay; owner attribution, constructor inputs, opaque actor
+bytes, other natural bomb types and every broad OPEN item remain unchanged.
+
 The [natural Level 3 empty-collapse completion gate](natural_level3_completion_gate_runtime_2026-10-06.md)
 matches 486 original RGB frames, 972 mapped/lifecycle/bounded monster boundaries
 and 970 raw-derived terrain boundaries through tick 8905. All 1455 new native pre/present/post DS

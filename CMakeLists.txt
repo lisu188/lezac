@@ -5461,6 +5461,15 @@ if(BUILD_TESTING)
             TIMEOUT 180 LABELS "level1;original;evidence-guard"
             PASS_REGULAR_EXPRESSION "level1_original_guard=ok tests=12 mutations=19 fullframe=1 late_validation=1 completion_gate=1")
 
+        add_test(NAME level1_scout
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_level1_scout.py
+                    --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/level1_scout_out)
+        set_tests_properties(level1_scout PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 120 LABELS "level1;replay;candidate;evidence-guard"
+            PASS_REGULAR_EXPRESSION "level1_scout_tests=ok tests=4 candidate_only=1 original_fidelity_claim=0")
+
         add_test(NAME level1_replay
             COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                     ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_level1_replay.py

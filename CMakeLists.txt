@@ -4151,6 +4151,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "bonus_reward_static_model=ok image_base=0x0770 score_table_file=0xb1c6 score_table_ghidra=0xaa56 rewards=7 scores=2000,1000,1500,2000,3000,1000,5000 sprite_indices=61,62,63,64,65,66,67 bomomimk_sprites=91 sprite_in_bounds=7 score_sum=15500 top_score=5000 pickup_sound=0x0008/p5")
 
+    add_test(NAME reward_pickup_phase COMMAND $<TARGET_FILE:lezac_cpp> --debug-reward-pickup-phase)
+    set_tests_properties(reward_pickup_phase PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^reward_pickup_phase=ok cases=28 conversion_draw=1 deferred_grant=1 inherited_fraction=1 reused_slot=1 both_players=1 one_bonus_latch=1 strict_contact=1 selection_preserved=1 original_runtime_claim=0")
+
     add_test(NAME monster_sprite_table_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-sprite-table-model)
     set_tests_properties(monster_sprite_table_model PROPERTIES
@@ -4606,6 +4613,22 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^actor_player_contact_opcode_selftest=ok byte_mutations=122 original_mutation=1 native_runtime_claim=0")
+
+    add_test(NAME reward_pickup_phase_opcodes
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_reward_pickup_phase_opcodes.py)
+    set_tests_properties(reward_pickup_phase_opcodes PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^reward_pickup_opcodes=ok windows=13 players=2 conversion_range=3 normal_ranges=10,4 super_ranges=13,5,2 marker_sprites=88,86,87,88,89,86,90 deferred_player_grant=1 native_runtime_claim=0")
+
+    add_test(NAME reward_pickup_phase_opcode_selftest
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_reward_pickup_phase_opcodes.py --self-test)
+    set_tests_properties(reward_pickup_phase_opcode_selftest PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^reward_pickup_opcode_selftest=ok byte_mutations=198 native_runtime_claim=0")
 
     add_test(NAME monster_coordinate_writeback_original
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-coordinate-writeback

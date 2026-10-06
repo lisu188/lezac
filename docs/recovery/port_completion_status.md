@@ -65,6 +65,15 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [2026-10-06 reward-pickup phase recovery](reward_pickup_phase_2026-10-06.md)
+restores per-player reward latches, the conversion random draw, in-place score
+markers and player-phase grants. An unchanged Level 3 route matches 748 RGB
+frames and 1,496 mapped boundaries through the yellow reward pickup; it still
+ends at nine objectives and 110 destroyed tiles. The all-kind helper and opcode
+tests are distinct from this scoped native observation. The initial full local
+Level 3 return regression exhausted RAM output space and is not claimed as
+passing. All broad completion/fidelity flags remain open.
+
 The [2026-10-06 level-export metadata correction](level_export_denominator_metadata_2026-10-06.md)
 aligns all seven exported and committed destruction denominators with physical
 word tags and the original `fieldB` headers. The runtime loader already used

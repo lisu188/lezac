@@ -17627,6 +17627,51 @@ public:
                   << " position_velocity_fraction_rng=1 seeded_original=1 natural_route_claim=0 visual_claim=0\n";
     }
 
+    void debugActorPlayerContactSignedWord() {
+        const auto expectedAxis = [](int delta) {
+            const uint16_t word = static_cast<uint16_t>(delta);
+            return word < 10 || word > 0xfff6 || word == 0x8000;
+        };
+        Player probe{};
+        size_t axisCases = 0;
+        for (const int origin : {-32768, -1, 0, 32767}) {
+            for (int delta = 0; delta < 65536; ++delta) {
+                const uint16_t coordinate = static_cast<uint16_t>(origin - delta);
+                const int actor = coordinate < 0x8000 ? coordinate : coordinate - 65536;
+                const bool expected = expectedAxis(delta);
+                probe.x = static_cast<float>(origin);
+                probe.y = 37;
+                if (actorTouchesPlayer(probe, actor, 37) != expected) {
+                    throw std::runtime_error("actor/player signed-word x contact differs");
+                }
+                probe.x = 41;
+                probe.y = static_cast<float>(origin);
+                if (actorTouchesPlayer(probe, 41, actor) != expected) {
+                    throw std::runtime_error("actor/player signed-word y contact differs");
+                }
+                axisCases += 2;
+            }
+        }
+        constexpr std::array<int, 15> deltas{{
+            -32769, -32768, -11, -10, -9, -1, 0, 1, 9, 10, 11,
+            32767, 32768, 65535, 65536}};
+        probe.x = probe.y = 0;
+        size_t corners = 0;
+        for (const int dx : deltas) {
+            for (const int dy : deltas) {
+                if (actorTouchesPlayer(probe, -dx, -dy) !=
+                    (expectedAxis(dx) && expectedAxis(dy))) {
+                    throw std::runtime_error("actor/player signed-word corner contact differs");
+                }
+                ++corners;
+            }
+        }
+        std::cout << "actor_player_contact_signed_word=ok axis_cases=" << axisCases
+                  << " corner_cases=" << corners
+                  << " origins=4 threshold=10 min_word_passes=1"
+                  << " native_runtime_claim=0 natural_route_claim=0 visual_claim=0\n";
+    }
+
     void debugMonsterCoordinateWriteback(const std::string& fixturePath, bool wordWrap = false) {
         const auto bytes = readFile(fixturePath);
         const size_t caseCount = wordWrap ? 768 : 256;
@@ -26564,18 +26609,19 @@ private:
     // remain unadjudicated and keep the pre-recovery value 0.
     static uint8_t monsterHotspotY(uint8_t kind) { return kind == 1 ? 6 : 0; }
 
-    // Rank 5: the original player-vs-actor contact is a 19x19 CENTRE test,
-    // |dx| < 10 && |dy| < 10 with dx = player.x - actor.x and dy = player.y -
-    // (actor.y_visual - actor[+0x14]) (1000:63C6 / 1000:63D6 `cmp ax,0xa; jl`,
-    // one `inc ds:0x79e8` per contacting actor at 1000:63F0). ayCollide is
-    // monster.y, already hotspot-biased (rank 6). The x half-extent 10 is
-    // uniquely adjudicated (1364/1364 vs 1350 at 9, 1355 at 11); the y
-    // half-extent 10 is WEAKLY pinned (<8 scores 1363, <12 scores 1362) and
-    // is recorded as recovered-but-not-proven.
+    // 1000:63BE/63CE and 645F/646F take a signed word's absolute value, then
+    // use signed JL against 10. NEG of 0x8000 remains negative and passes.
+    // ayCollide is already biased by actor+0x14, before actor integration.
     bool actorTouchesPlayer(const Player& player, int ax, int ayCollide) const {
-        const int dx = static_cast<int>(player.x) - ax;
-        const int dy = static_cast<int>(player.y) - ayCollide;
-        return dx > -10 && dx < 10 && dy > -10 && dy < 10;
+        const auto touchesAxis = [](int playerCoordinate, int actorCoordinate) {
+            const uint16_t delta = static_cast<uint16_t>(
+                static_cast<int64_t>(playerCoordinate) - actorCoordinate);
+            const uint16_t magnitude = delta & 0x8000
+                ? static_cast<uint16_t>(0u - delta) : delta;
+            return magnitude == 0x8000 || magnitude < 10;
+        };
+        return touchesAxis(static_cast<int>(player.x), ax) &&
+               touchesAxis(static_cast<int>(player.y), ayCollide);
     }
 
     uint16_t randomRangeValue(uint16_t base, uint16_t range) {
@@ -29627,6 +29673,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-actor-contact-static-model") {
             app.debugActorContactStaticModel();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-actor-player-contact-signed-word") {
+            app.debugActorPlayerContactSignedWord();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-effect-placement") {

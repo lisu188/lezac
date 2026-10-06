@@ -4585,6 +4585,28 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^flyer_contacts_self_check=ok cases=176 kinds=1..8 live=0")
 
+    add_test(NAME actor_player_contact_signed_word
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-player-contact-signed-word)
+    set_tests_properties(actor_player_contact_signed_word PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^actor_player_contact_signed_word=ok axis_cases=524288 corner_cases=225 origins=4 threshold=10 min_word_passes=1 native_runtime_claim=0 natural_route_claim=0 visual_claim=0")
+
+    add_test(NAME actor_player_contact_opcodes
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_player_contact_opcodes.py)
+    set_tests_properties(actor_player_contact_opcodes PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^actor_player_contact_opcodes=ok players=2 axes=4 threshold=10 accepted_words=20 min_word_passes=1 native_runtime_claim=0")
+
+    add_test(NAME actor_player_contact_opcode_selftest
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_player_contact_opcodes.py --self-test)
+    set_tests_properties(actor_player_contact_opcode_selftest PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^actor_player_contact_opcode_selftest=ok byte_mutations=122 original_mutation=1 native_runtime_claim=0")
+
     add_test(NAME monster_coordinate_writeback_original
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-coordinate-writeback
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_coordinate_writeback_original.bin)

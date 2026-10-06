@@ -25,17 +25,24 @@ JL +3; JMP reject`. The accepted monster path increments the byte damage
 counter at `DS:79E8` (`1000:63F0`) or `DS:79E9` (`1000:6491`). Actor Y is
 already biased by actor byte `+0x14`; contact still precedes actor integration.
 
+The input words are also pinned: player 1 X/Y subtraction at `1000:62F5`
+and `1000:6301`, player 2 X/Y at `1000:6330` and `1000:633C`. Each loads a
+player coordinate into AX, subtracts the actor's local coordinate and stores
+AX into the corresponding stack word. This proves wrapping occurs before
+the absolute-value comparison, rather than being a property of the C++ model.
+
 ## Recovery And Checks
 
 `actorTouchesPlayer` now reproduces wrapped differences, word negation and
 the signed comparison without C++ signed-overflow dependence. Neither update
 order nor the contact caller's death gates change.
 
-- `actor_player_contact_opcodes` pins all four comparison windows and both
+- `actor_player_contact_opcodes` pins all four word subtractions, four
+  comparison windows and both
   counter increments, checks the original fingerprint, and derives the 20
   accepted word values from the original CWD/XOR/SUB/CMP/JL semantics.
 - `actor_player_contact_opcode_selftest` rejects independent mutations of all
-  72 pinned bytes, plus an original-file mutation outside those windows.
+  122 pinned bytes, plus an original-file mutation outside those windows.
 - `actor_player_contact_signed_word` exercises the actual production helper
   across every 16-bit difference on each axis at four origins: 524,288 axis
   checks and 225 mixed boundary corners.

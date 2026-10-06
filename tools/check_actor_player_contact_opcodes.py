@@ -7,6 +7,10 @@ import struct
 ROOT = Path(__file__).resolve().parent.parent
 EXE_SHA = '7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec'
 WINDOWS = {
+    0x62F5: bytes.fromhex('c47ec6268b052b46d48946fc'),
+    0x6301: bytes.fromhex('c47ec6268b45022b46d28946fa'),
+    0x6330: bytes.fromhex('c47ec6268b052b46d48946f8'),
+    0x633C: bytes.fromhex('c47ec6268b45022b46d28946f6'),
     0x63BE: bytes.fromhex('8b46fc9931d029d03d0a007c03e99100'),
     0x63CE: bytes.fromhex('8b46fa9931d029d03d0a007c03e98100'),
     0x645F: bytes.fromhex('8b46f89931d029d03d0a007c03e99100'),
@@ -67,7 +71,7 @@ def main():
             raise ValueError('mutated original executable accepted')
         print(f'actor_player_contact_opcode_selftest=ok byte_mutations={mutations} original_mutation=1 native_runtime_claim=0')
     else:
-        print('actor_player_contact_opcodes=ok players=2 axes=4 threshold=10 accepted_words=20 min_word_passes=1 native_runtime_claim=0')
+        print('actor_player_contact_opcodes=ok players=2 axes=4 threshold=10 accepted_words=20 min_word_passes=1 native_runtime_claim=0 wrapped_subtractions=4')
 
 
 if __name__ == '__main__':

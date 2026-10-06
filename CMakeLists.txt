@@ -4605,7 +4605,7 @@ if(BUILD_TESTING)
     set_tests_properties(actor_player_contact_opcode_selftest PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^actor_player_contact_opcode_selftest=ok byte_mutations=72 original_mutation=1 native_runtime_claim=0")
+            "^actor_player_contact_opcode_selftest=ok byte_mutations=122 original_mutation=1 native_runtime_claim=0")
 
     add_test(NAME monster_coordinate_writeback_original
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-coordinate-writeback

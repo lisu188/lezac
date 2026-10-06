@@ -7,8 +7,9 @@ reward-pickup phases without changing the previous input prefix. It spends one
 Large bomb, cycles through Small to Medium, and releases two Medium bombs.
 The original and C++ versions both finish with nine objectives, 114 destroyed
 tiles, health 66, zero stored reserves, 11 Medium bombs and no Large bombs.
-The selected weapon remains Medium. Level 3 requires 148 destroyed tiles and
-its remaining objectives; this route does not finish the level.
+The selected weapon remains Medium. Level 3 requires seven objectives and
+148 destroyed tiles. Its objective gate is already satisfied, but 34 more
+destroyed tiles and a natural completion transition remain.
 
 - 651 full 320x200 RGB presentations match with zero differing pixels.
 - 1,302 present/post-update mapped boundaries match, including both map planes,

@@ -65,6 +65,15 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [2026-10-06 corrected ammunition continuation](natural_level3_corrected_ammo_runtime_2026-10-06.md)
+extends the ordinary Level 3 route from tick 8100 to 8750. Its 651 full RGB
+presentations and 1,302 mapped boundaries match the original, with 1,950 new
+raw DS records and eight rejected mutations. Both versions reach nine objectives
+and 114 destroyed tiles, spending one Large and two Medium bombs. The original
+prefix is independently repeated, not a full-prefix C++ parity claim. Level 3
+completion, later levels, all actor bytes and broad completion/fidelity flags
+remain open.
+
 The [2026-10-06 reward-pickup phase recovery](reward_pickup_phase_2026-10-06.md)
 restores per-player reward latches, the conversion random draw, in-place score
 markers and player-phase grants. An unchanged Level 3 route matches 748 RGB

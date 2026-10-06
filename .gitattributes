@@ -54,3 +54,5 @@ tests/fixtures/natural_level3_portal_escape/** -text
 docs/recovery/evidence/natural_level3_portal_escape_20261005/** -text
 tests/fixtures/natural_level3_return/** -text
 docs/recovery/evidence/natural_level3_return_20261005/** -text
+tests/fixtures/natural_level3_completion_gate/** -text
+docs/recovery/evidence/natural_level3_completion_gate_20261006/** -text

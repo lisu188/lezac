@@ -5479,6 +5479,20 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 30 LABELS "level3;original;evidence-guard;natural-route;reentry;hud"
             PASS_REGULAR_EXPRESSION "\"lifecycle_mutations_rejected\":4.*\"mutations_rejected\":84.*\"opcode_mutations_rejected\":14.*\"producer_mutations_rejected\":12.*\"status\":\"guarded\".*\"typed_field_mutations_rejected\":291")
+        add_test(NAME natural_level3_completion_gate_original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level3_completion_gate.py replay
+                    --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/natural_level3_completion_gate_original_out)
+        set_tests_properties(natural_level3_completion_gate_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 600 LABELS "level3;campaign;original;fullframe;natural-route;completion-gate"
+            PASS_REGULAR_EXPRESSION "\"boundaries\":972.*\"cpp_projection_mutations_rejected\":9.*\"frames\":486.*\"original_gate_eligible_tick\":8905.*\"pixels\":31104000.*\"status\":\"match\"")
+        add_test(NAME natural_level3_completion_gate_guard
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level3_completion_gate.py guard)
+        set_tests_properties(natural_level3_completion_gate_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 60 LABELS "level3;original;evidence-guard;natural-route;completion-gate"
+            PASS_REGULAR_EXPRESSION "\"mutations_rejected\":28.*\"producer_mutations_rejected\":22.*\"status\":\"guarded\".*\"typed_field_mutations_rejected\":291")
         add_test(NAME level1_handoff_guard
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_handoff.py guard)
         set_tests_properties(level1_handoff_guard PROPERTIES

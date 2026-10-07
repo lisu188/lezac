@@ -10,9 +10,11 @@ ROOT = Path(__file__).resolve().parents[1]
 DIRECTORIES = (
     'tests/fixtures/natural_level4_first_objective',
     'docs/recovery/evidence/natural_level4_first_objective_20261007',
+    'tests/fixtures/natural_level4_portal',
+    'docs/recovery/evidence/natural_level4_portal_20261007',
 )
 RULES = {f'{directory}/** -text'.encode() for directory in DIRECTORIES}
-MANIFEST = DIRECTORIES[1] + '/manifest.json'
+MANIFESTS = tuple(directory + '/manifest.json' for directory in DIRECTORIES[1::2])
 
 
 class EvidenceCheckoutTests(unittest.TestCase):
@@ -22,9 +24,11 @@ class EvidenceCheckoutTests(unittest.TestCase):
         self.files = {path.relative_to(ROOT).as_posix(): path.read_bytes()
                       for directory in DIRECTORIES
                       for path in sorted((ROOT / directory).rglob('*')) if path.is_file()}
-        self.assertIn(MANIFEST, self.files)
-        self.assertIn(DIRECTORIES[0] + '/route.txt', self.files)
-        self.assertIn(DIRECTORIES[0] + '/guard-input.json', self.files)
+        for manifest in MANIFESTS:
+            self.assertIn(manifest, self.files)
+        for directory in DIRECTORIES[::2]:
+            self.assertIn(directory + '/route.txt', self.files)
+            self.assertIn(directory + '/guard-input.json', self.files)
 
     def checkout(self, omit_pins=False):
         with tempfile.TemporaryDirectory(prefix='lezac-level4-checkout-') as temporary:
@@ -63,11 +67,13 @@ class EvidenceCheckoutTests(unittest.TestCase):
 
     def test_missing_rules_reproduce_manifest_hash_failure(self):
         checked_out = self.checkout(omit_pins=True)
-        self.assertNotIn(b'\r\n', self.files[MANIFEST])
-        self.assertIn(b'\r\n', checked_out[MANIFEST])
-        self.assertNotEqual(self.files[MANIFEST], checked_out[MANIFEST])
-        route = DIRECTORIES[0] + '/route.txt'
-        self.assertNotEqual(self.files[route], checked_out[route])
+        for manifest in MANIFESTS:
+            self.assertNotIn(b'\r\n', self.files[manifest])
+            self.assertIn(b'\r\n', checked_out[manifest])
+            self.assertNotEqual(self.files[manifest], checked_out[manifest])
+        for directory in DIRECTORIES[::2]:
+            route = directory + '/route.txt'
+            self.assertNotEqual(self.files[route], checked_out[route])
 
 
 if __name__ == '__main__':

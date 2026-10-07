@@ -80,7 +80,8 @@ def native_markers(state):
     for index in range(state['actor_count']):
         raw = actors[index * 38:(index + 1) * 38]
         visual = visuals[raw[1] * 8:raw[1] * 8 + 8]
-        if raw[0] == 11 and raw[20] == 10 and list(visual[4:6]) == [20, 6]:
+        # File sprite 88 has the same dimensions as 85..87; retain its pixel offset.
+        if raw[0] == 11 and raw[20] == 10 and visual[4:8] == bytes.fromhex('14068e4c'):
             result.append(dict(xy=list(struct.unpack_from('<hh', visual)),
                                motion=list(struct.unpack_from('<hhHH', raw, 6)),
                                kind=raw[0], timer=raw[2], hotspot=raw[20]))

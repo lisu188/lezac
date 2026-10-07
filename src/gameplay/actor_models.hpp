@@ -250,6 +250,7 @@ struct BonusDrop {
     uint8_t timer = 100;
     bool collected = false;
     uint64_t actorOrder = 0;
+    ActorAnimation animation{0, 0, 0, 0, 0, 0, 1};
 };
 
 struct State2VisualCursor {

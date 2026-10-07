@@ -65,6 +65,14 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [natural Level 4 health reward](natural_level4_health_reward_runtime_2026-10-07.md)
+adds an ordinary-input branch through the original's 22-to-55 health pickup.
+Its regression compares 2000 RGB presentations, 3940 mapped boundaries and
+3878 actor boundaries, including inherited reward/score-marker animation bytes.
+Levels 1..3 have verified completion routes; Level 4 remains incomplete and
+all broad whole-game completion/fidelity flags remain false. Three of seven
+completed levels is campaign coverage, not an overall reverse-engineering percentage.
+
 The [natural Level 4 third objective and return portal](natural_level4_third_objective_runtime_2026-10-07.md)
 extend the unchanged ordinary route through all three objectives, the return
 portal and tick 11420. The self-contained replay compares 2060 RGB frames and

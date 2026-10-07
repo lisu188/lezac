@@ -52,6 +52,12 @@ def fixture():
         for phase in ('present', 'post_update')], 'native actor boundaries differ')
     require(sum(len(row['kind11']) for row in data['actor_rows']) == 1590 and
         sum(len(row['rewards']) for row in data['actor_rows']) == 552, 'native actor observations differ')
+    mapped = {(row['section'], row['index'], row['phase']): row['projection']['mapped']
+        for row in data['reference_rows'][1:-1]}
+    require(mapped['level4', 11306, 'present']['players'][0]['energy'] == 22 and
+        mapped['level4', 11306, 'post_update']['players'][0]['energy'] == 55 and
+        mapped['level4', LAST, 'post_update']['progress'] == [2, 144],
+        'native health pickup timing or endpoint differs')
     check_route(FIXTURE / 'route.txt')
     return data
 
@@ -83,8 +89,10 @@ def cpp_actors(state, table):
     for row in sorted(state['rewards'], key=lambda value: value['order']):
         kind, vx, vy, fx, fy, hotspot, timer, collected = row['state']
         require(0 <= kind <= 6 and not collected, 'C++ reward kind/liveness differs')
+        require(row['x'] == int(row['x']) and row['y'] == int(row['y']),
+            'C++ reward position is not an integral original pixel coordinate')
         at = (62 + kind) * 4
-        rewards.append(dict(xy=[row['x'], row['y']], motion=[vx, vy, fx, fy],
+        rewards.append(dict(xy=[int(row['x']), int(row['y'])], motion=[vx, vy, fx, fy],
             kind=19 + kind, timer=timer, hotspot=hotspot, descriptor=table[at:at + 4].hex(),
             animation=[part & 255 for part in row['animation']]))
     return dict(kind11=[value for _, value in sorted(actors)], rewards=rewards)
@@ -164,8 +172,20 @@ def guard():
         native = dict(actor_count=1, actors=raw.hex(), visuals=(bytes(4) + table[at:at + 4]).hex())
         require(bool(projection.native_markers(native)) == (sprite == 88),
             'native score-marker classifier conflates equal-sized sprites')
+    fractional = 0
+    for coordinate in ('x', 'y'):
+        reward = dict(order=1, x=388.0, y=181.0, state=[2, 0, 184, 46, 100, 6, 100, 0],
+            animation=[51, 50, 52, 254, 2, 0, 1])
+        reward[coordinate] += 0.5
+        try:
+            cpp_actors(dict(transients=[], markers=[], rewards=[reward]), table)
+        except fidelity.EvidenceError:
+            fractional += 1
+        else:
+            raise fidelity.EvidenceError('fractional C++ reward coordinate was truncated')
     return dict(status='guarded', animation_mutations_rejected=rejected,
-        equal_size_descriptor_cases=4, original_runtime_claim=False, whole_game_complete=False)
+        equal_size_descriptor_cases=4, fractional_coordinate_mutations_rejected=fractional,
+        original_runtime_claim=False, whole_game_complete=False)
 
 
 def main():

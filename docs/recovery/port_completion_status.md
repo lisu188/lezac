@@ -65,6 +65,14 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [2026-10-07 natural Level 4 portal comparison](natural_level4_portal_runtime_2026-10-07.md)
+extends the first-objective route through an ordinary teleport at tick 10633
+and the second pickup at tick 10662. It compares 1360 original RGB frames and
+2660 mapped boundaries, with 3958 coherent atomic native snapshots. The route
+ends with two objectives, 144 destroyed structures, 22 health and eight Medium
+bombs. Level 4 completion, later campaigns, full actor/clock/sound equivalence
+and physical timing remain open; no broad completion/fidelity flag changes.
+
 The [natural Level 4 first-objective regression](natural_level4_first_objective_runtime_2026-10-07.md)
 extends the ordinary route through tick 9760. It compares 400 full RGB frames
 and 740 mapped boundaries, including 339 fresh Level 4 presentations, with all

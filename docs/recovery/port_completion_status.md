@@ -1,6 +1,6 @@
 # Port Completion Status
 
-Last reviewed: 2026-10-07
+Last reviewed: 2026-10-08
 
 The C++17/SDL2 reconstruction of `LEZAC.EXE` is not yet functionally complete.
 The earlier claim was based on a subsystem inventory and compatible tests,
@@ -64,6 +64,17 @@ reported by the diagnostic; CTest exercises these paths on every run.
   (`--capture-frame-sequence`)
 
 ## Open Original-Evidence Items
+
+The [natural Level 4 support-column regression](natural_level4_support_column_runtime_2026-10-08.md)
+extends the unchanged third-objective route through tick 11740 and an ordinary
+stationary Medium-bomb placement at tick 11466. Its original-only fixture has
+2380 RGB presentations and 4700 mapped boundaries, including 640 added
+boundaries after the identical trusted prefix. All 7018 atomic native snapshots
+are coherent without normalization and independently retained. The endpoint
+has three objectives, 244 of 305 required destroyed structures, 22 health and
+four Medium bombs. Level 4 is not complete; campaign completion remains 3/7.
+This does not establish an aggregate reverse-engineering percentage, a new
+full-prefix comparison, all-actor/clock/sound parity or any broad completion claim.
 
 The [natural Level 4 health reward](natural_level4_health_reward_runtime_2026-10-07.md)
 adds an ordinary-input branch through the original's 22-to-55 health pickup.

@@ -12,6 +12,8 @@ DIRECTORIES = (
     'docs/recovery/evidence/natural_level4_first_objective_20261007',
     'tests/fixtures/natural_level4_portal',
     'docs/recovery/evidence/natural_level4_portal_20261007',
+    'tests/fixtures/natural_level4_third_objective',
+    'docs/recovery/evidence/natural_level4_third_objective_20261007',
 )
 RULES = {f'{directory}/** -text'.encode() for directory in DIRECTORIES}
 MANIFESTS = tuple(directory + '/manifest.json' for directory in DIRECTORIES[1::2])

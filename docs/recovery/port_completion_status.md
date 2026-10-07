@@ -65,6 +65,17 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [natural Level 4 third objective and return portal](natural_level4_third_objective_runtime_2026-10-07.md)
+extend the unchanged ordinary route through all three objectives, the return
+portal and tick 11420. The self-contained replay compares 2060 RGB frames and
+4060 mapped boundaries against closed original-only observations. All 6058
+atomic DS snapshots pass independent coherence checks without normalization.
+It ends with 22 health, five Medium bombs and 244 of 305 required destroyed
+structures. Level 4 remains incomplete, and Levels 1-3 remain the only completed
+campaign levels established by this route. This is not an aggregate reverse
+engineering percentage or all-actor, timing, sound or natural two-player parity.
+All broad completion/fidelity flags remain false.
+
 The [2026-10-07 natural Level 4 portal comparison](natural_level4_portal_runtime_2026-10-07.md)
 extends the first-objective route through an ordinary teleport at tick 10633
 and the second pickup at tick 10662. It compares 1360 original RGB frames and

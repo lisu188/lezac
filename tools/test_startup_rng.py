@@ -117,7 +117,39 @@ def pinned():
     return validate(fidelity.strict_json((FIXTURE / "result.json").read_text()))
 
 
+def validate_intro_caption(pixels, original_pixels):
+    require(len(pixels) == len(original_pixels) == 320 * 200 * 3, "intro pixel extent changed")
+    original_colors = {original_pixels[index:index + 3] for index in range(0, len(original_pixels), 3)}
+    foreground = max(original_colors, key=sum)
+    expected = {index for index in range(0, len(original_pixels), 3)
+                if original_pixels[index:index + 3] == foreground}
+    actual = {index for index in range(0, len(pixels), 3) if pixels[index:index + 3] == foreground}
+    # The caption is fixed; random intro colors can legitimately share channels.
+    require(expected and actual == expected, "intro caption pixels differ from the original")
+
+
 class StartupTests(unittest.TestCase):
+    def test_low_palette_intro_retains_exact_original_caption(self):
+        pinned()
+        original_pixels = fidelity.read_ppm(FIXTURE / "intro.ppm")
+        foreground = max({original_pixels[index:index + 3] for index in range(0, len(original_pixels), 3)}, key=sum)
+        positions = [index for index in range(0, len(original_pixels), 3)
+                     if original_pixels[index:index + 3] == foreground]
+        low_palette = bytearray(bytes((8, 8, 16)) * (320 * 200))
+        for index in positions:
+            low_palette[index:index + 3] = foreground
+        self.assertLessEqual(len(set(low_palette)), 8)
+        validate_intro_caption(bytes(low_palette), original_pixels)
+        missing = bytearray(low_palette)
+        missing[positions[0]:positions[0] + 3] = bytes((8, 8, 16))
+        extra = bytearray(low_palette)
+        extra[:3] = foreground
+        moved = bytearray(missing)
+        moved[:3] = foreground
+        for changed in (bytes(len(low_palette)), bytes(missing), bytes(extra), bytes(moved)):
+            with self.assertRaises(fidelity.EvidenceError):
+                validate_intro_caption(changed, original_pixels)
+
     def test_package_assets_reject_missing_or_changed_copies(self):
         with mock.patch.object(Path, "is_file", return_value=True), \
                 mock.patch.object(Path, "read_bytes", side_effect=[b"raw", b"raw", b'{"asset":1}\r\n', b'{"asset":1}\n'] * 10):
@@ -258,7 +290,10 @@ class StartupTests(unittest.TestCase):
                 self.assertLess(seed >> 24, 60)
                 for frame in ("menu.ppm", "intro.ppm", "first-present.ppm"):
                     pixels = fidelity.read_ppm(output / frame)
-                    self.assertGreater(len(set(pixels)), 8)
+                    if frame == "intro.ppm":
+                        validate_intro_caption(pixels, fidelity.read_ppm(FIXTURE / frame))
+                    else:
+                        self.assertGreater(len(set(pixels)), 8)
                 if clocks:
                     self.assertEqual(seed, first["initialized_rng"])
                     self.assertEqual((output / "backdrop.bin").read_bytes(), (FIXTURE / "backdrop.bin").read_bytes())

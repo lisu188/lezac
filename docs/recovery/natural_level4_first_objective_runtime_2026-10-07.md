@@ -66,6 +66,13 @@ projection mutations. Its guard rejects 19 semantic/fixture mutations,
 test keeps its original defaults and fixture. The shared comparison also
 rejects skipped non-player phases outside actual intro/results waits.
 
+The fixture and evidence directories are marked `-text` in `.gitattributes`
+so Windows checkout does not rewrite the pinned manifest, route or guard input.
+The `natural_level4_checkout_attributes` regression uses a real Git index and
+`core.autocrlf=true` to verify every file byte-for-byte, and removes those rules
+in a negative control that reproduces the manifest and route mismatch. The
+original evidence hashes and rejection checks remain unchanged.
+
 Original at tick 9700:
 
 ![Original Level 4 at tick 9700](evidence/natural_level4_first_objective_20261007/original_level4_9700.png)

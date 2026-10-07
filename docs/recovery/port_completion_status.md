@@ -1,6 +1,6 @@
 # Port Completion Status
 
-Last reviewed: 2026-10-06
+Last reviewed: 2026-10-07
 
 The C++17/SDL2 reconstruction of `LEZAC.EXE` is not yet functionally complete.
 The earlier claim was based on a subsystem inventory and compatible tests,
@@ -64,6 +64,17 @@ reported by the diagnostic; CTest exercises these paths on every run.
   (`--capture-frame-sequence`)
 
 ## Open Original-Evidence Items
+
+The [natural Level 4 first-objective regression](natural_level4_first_objective_runtime_2026-10-07.md)
+extends the ordinary route through tick 9760. It compares 400 full RGB frames
+and 740 mapped boundaries, including 339 fresh Level 4 presentations, with all
+1078 retained DS snapshots independently coherent and no normalization. The
+first objective is collected at tick 9680 with 42 health and nine Medium bombs;
+the endpoint has one objective, 105 destroyed structures and 38 health. This is
+not Level 4 completion: the route requires three objectives and 305 destroyed
+structures. Three of seven completed levels remains the campaign coverage
+metric, not an aggregate reverse-engineering percentage. All broad OPEN items
+and completion/fidelity flags remain unchanged.
 
 The [natural Level 3 results and Level 4 handoff regression](natural_level3_handoff_runtime_2026-10-06.md)
 extends the unchanged ordinary-input prefix through Level 3 completion and

@@ -359,15 +359,16 @@ def guard_cpp(state, expected):
     return len(edits)
 
 
-def compare(cpp):
-    rows = fixture()
-    settings, events = check_route(cpp / 'route.txt')
+def compare(cpp, rows=None, *, last=LAST, route_validator=check_route, expected_frames=90):
+    rows = fixture() if rows is None else rows
+    settings, events = route_validator(cpp / 'route.txt')
     wanted = {(r['section'], r['index'], r['phase']): r for r in rows[1:-1]}
     seen, frames, count, previous, mutations = set(), 0, 0, None, 0
+    previous_state = None
     with (cpp / 'trace.jsonl').open(encoding='utf-8') as stream:
         header = fidelity.strict_json(next(stream))
         require(header['schema'] == 'lezac.level1.scout.v1' and header['candidate_only'] is True and
-                header['capture_from_tick'] == FIRST and header['ticks'] == LAST and header['source'] == 'cpp' and
+                header['capture_from_tick'] == FIRST and header['ticks'] == last and header['source'] == 'cpp' and
                 header['phase_model'] == 'cpp-pre-actors-v2' and header['state_scope'] == 'level1-observations-v2' and
                 header['input_model'] == 'sdl-events-original-intro-wait-v1' and
                 header['seed'] == settings['seed'] and header['step_us'] == settings['step_us'] and
@@ -381,7 +382,7 @@ def compare(cpp):
             row = fidelity.strict_json(line)
             require(footer is None, 'C++ data after completion')
             if row['kind'] == 'complete':
-                require(previous[1:3] == (LAST, 3) and row['ticks'] == LAST and row['frames'] == LAST - FIRST + 1 and
+                require(previous[1:3] == (last, 3) and row['ticks'] == last and row['frames'] == last - FIRST + 1 and
                         row['retained_checkpoints'] == count and row['checkpoints'] == previous[0] + 1 and
                         row['events'] == sum(map(len, events.values())) and row['level1_route_complete'] is True and
                         row['candidate_only'] is True and row['capture_from_tick'] == FIRST and
@@ -389,7 +390,7 @@ def compare(cpp):
                         'C++ handoff scout footer differs')
                 footer = row
                 continue
-            require(row['kind'] == 'checkpoint' and row['phase'] in order and FIRST <= row['tick'] <= LAST,
+            require(row['kind'] == 'checkpoint' and row['phase'] in order and FIRST <= row['tick'] <= last,
                     'invalid C++ handoff checkpoint')
             tick, phase = row['tick'], row['phase']
             current = row['seq'], tick, order[phase]
@@ -397,7 +398,7 @@ def compare(cpp):
                 require(current[1:] == (FIRST, 0), 'C++ scout starts at wrong phase')
             else:
                 allowed = {(previous[1], previous[2] + 1)} if previous[2] < 3 else {(previous[1] + 1, 0)}
-                if previous[2] == 1:
+                if previous[2] == 1 and (previous_state['flow'][3] or previous_state['flow'][4]):
                     allowed.add((previous[1], 3))
                 require(current[0] == previous[0] + 1 and current[1:] in allowed, 'C++ scout phases skipped/reordered')
             require(row['events'] == events.get(tick - 1, []) and row['time_ms'] == (tick - 1) * settings['step_us'] // 1000,
@@ -408,7 +409,7 @@ def compare(cpp):
             if key in wanted:
                 require(key not in seen, 'duplicate C++ handoff boundary')
                 check_cpp(row['state'], wanted[key])
-                if key in (('ack', 9301, 'present'), ('intro', 9421, 'present'), ('level4', LAST, 'post_update')):
+                if key in (('ack', 9301, 'present'), ('intro', 9421, 'present'), ('level4', last, 'post_update')):
                     mutations += guard_cpp(row['state'], wanted[key])
                 seen.add(key)
             if phase == 'present':
@@ -420,7 +421,7 @@ def compare(cpp):
                     frames += 1
             else:
                 require('frame' not in row and 'rgb_fnv1a64' not in row, 'unexpected non-presentation RGB')
-            previous, count = current, count + 1
+            previous, previous_state, count = current, row['state'], count + 1
         require(footer is not None, 'missing C++ handoff footer')
     reels = [fidelity.strict_json(line) for line in (cpp / 'result_reels.jsonl').read_text().splitlines()]
     require(reels[0] == dict(kind='header', schema='lezac.level1.result-reels.v1',
@@ -442,7 +443,7 @@ def compare(cpp):
             mutations += guard_cpp(row['state'], wanted[key])
         frames += 1
         seen.add(key)
-    require(seen == set(wanted) and frames == 90 and mutations == 43, 'missing handoff comparisons/guards')
+    require(seen == set(wanted) and frames == expected_frames and mutations == 43, 'missing handoff comparisons/guards')
     return dict(status='match', frames=frames, boundaries=len(seen), pixels=frames * 64000,
                 cpp_projection_mutations_rejected=mutations, completed_levels=[1, 2, 3], entered_level=4,
                 full_prefix_executed_from_level1=True, original_results_and_level4_handoff_compared=True, **CLAIMS)

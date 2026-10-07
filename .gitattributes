@@ -58,3 +58,5 @@ tests/fixtures/natural_level3_completion_gate/** -text
 docs/recovery/evidence/natural_level3_completion_gate_20261006/** -text
 tests/fixtures/natural_level3_handoff/** -text
 docs/recovery/evidence/natural_level3_handoff_20261006/** -text
+tests/fixtures/natural_level4_first_objective/** -text
+docs/recovery/evidence/natural_level4_first_objective_20261007/** -text

@@ -18,6 +18,14 @@ or whole-game fidelity. See [scope, provenance and checks](docs/recovery/level1_
 
 ## Natural Campaign Regression (2026-10-05)
 
+The [2026-10-07 Level 4 first-objective regression](docs/recovery/natural_level4_first_objective_runtime_2026-10-07.md)
+extends the completed Level 1-3 route through tick 9760, matching 400 full RGB
+frames and 740 mapped boundaries. All 1078 new atomic DS snapshots are coherent.
+It collects the first Level 4 objective at tick 9680 with 42 health and nine
+Medium bombs, ending with one objective and 105 destroyed structures. Level 4
+and later campaign completion remain open; this does not change the three-of-
+seven completed-level metric or any whole-game completion/fidelity flag.
+
 The [2026-10-05 natural campaign regression](docs/recovery/natural_campaign_runtime_2026-10-05.md)
 promotes the retained ordinary Level 1/2 completion and Level 3 entry route to
 a self-contained full production replay. It compares 2,761 native-observed

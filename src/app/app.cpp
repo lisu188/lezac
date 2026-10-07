@@ -8125,6 +8125,8 @@ public:
                     auto& drop = bonusDrops_.back();
                     drop.y += drop.hotspotY;
                     drop.fracX = 17; drop.fracY = 29;
+                    drop.animation = {44, 44, 45, 254, 2, 0, 1};
+                    const auto inheritedAnimation = drop.animation.packed();
                     const auto order = drop.actorOrder;
                     updateBonusDrops();
                     require(score_ == 0 && energy_ == 40 && bombInventory_.counts[1] == 9 &&
@@ -8140,6 +8142,13 @@ public:
                         marker.fracY == static_cast<uint8_t>(motion) && marker.spriteIndex == markerSprites[kind] - 1 &&
                         marker.x == 32 && marker.y == 16 + marker.hotspotY + dy && marker.animation.mode == 0,
                         "score marker lost conversion-frame motion or slot identity");
+                    require(marker.animation.packed() == inheritedAnimation,
+                        "score marker lost the reward's frozen animation bytes");
+                    auto laterMarker = marker;
+                    updateTransientActor(laterMarker);
+                    require(laterMarker.animation.packed() == inheritedAnimation &&
+                        laterMarker.spriteIndex == marker.spriteIndex,
+                        "score marker advanced the inherited disabled animation");
                     // A later actor can draw before the player applies this bonus.
                     randomRangeValue(0, 694); randomRangeValue(0, 694);
                     expected.range(0, 694); expected.range(0, 694);
@@ -8190,7 +8199,7 @@ public:
         std::cout << "reward_pickup_phase=ok cases=" << cases
                   << " conversion_draw=1 deferred_grant=1 inherited_fraction=1 reused_slot=1"
                   << " both_players=1 one_bonus_latch=1 strict_contact=1 selection_preserved=1"
-                  << " original_runtime_claim=0\n";
+                  << " inherited_animation=1 original_runtime_claim=0\n";
     }
 
     void debugBonusRewardStaticModel() {
@@ -25224,7 +25233,8 @@ private:
             {"edges", numbers({m.edges.top, m.edges.bottom, m.edges.left, m.edges.right})}}));
         for (const auto& r : bonusDrops_) rewards.push_back(trace::object({
             {"order", std::to_string(r.actorOrder)}, {"x", std::to_string(r.x)}, {"y", std::to_string(r.y)},
-            {"state", numbers({static_cast<int>(r.type), r.vx8, r.vy8, r.fracX, r.fracY, r.hotspotY, r.timer, r.collected})}}));
+            {"state", numbers({static_cast<int>(r.type), r.vx8, r.vy8, r.fracX, r.fracY, r.hotspotY, r.timer, r.collected})},
+            {"animation", animation(r.animation)}}));
         for (const auto& e : explosionEffects_) effects.push_back(numbers({e.x, e.y, e.visualSelector, e.dispatcherState,
             e.slotIndex, e.sourceIndex, e.inactive, e.timer, e.totalTimer, e.soundOffset, e.soundSelector,
             e.seedTicksByte, e.detailByte, e.variantByte, e.computedX, e.computedY, e.finalSignedOffset}));
@@ -25242,7 +25252,8 @@ private:
             {"animation", animation(t.animation)}}));
         for (const auto& m : launchPadMarkers_) markers.push_back(trace::object({
             {"order", std::to_string(m.actorOrder)}, {"state", numbers({m.x, m.y, m.fracX, m.fracY,
-                m.velocityX8, m.velocityY8, m.timer, m.frame, m.kind, m.mode})}}));
+                m.velocityX8, m.velocityY8, m.timer, m.frame, m.kind, m.mode})},
+            {"animation", animation(m.animation)}}));
         for (const auto& f : flashes_) flashes.push_back(numbers({f.x, f.y, f.timer, f.power}));
         trace::Fields state{{"level", std::to_string(levelIndex_ + 1)}, {"logic_tick", std::to_string(logicTick_)},
             {"random_seed", std::to_string(randomSeed_)}, {"player_count", std::to_string(playerCount_)},
@@ -28843,6 +28854,11 @@ private:
             reward.vy8 = static_cast<int16_t>(monster.vy8 - 200);
             reward.fracX = monster.fracX;
             reward.fracY = monster.fracY;
+            // 1000:760D changes the descriptor/kind without reinitializing +16h..1Ch.
+            reward.animation = {static_cast<uint8_t>(monster.animCursor + 1),
+                static_cast<uint8_t>(monster.animStart + 1), static_cast<uint8_t>(monster.animEnd + 1),
+                static_cast<uint8_t>(monster.animTick), static_cast<uint8_t>(monster.animDelay),
+                static_cast<uint8_t>(monster.animMode), static_cast<int8_t>(monster.animStep)};
         } else {
             // 1000:760D converts the existing corpse in place, even at full
             // capacity. Its fractions survive; this frame does not tick it twice.
@@ -28919,6 +28935,8 @@ private:
                 marker.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(marker.spriteIndex).height);
                 marker.y = y + marker.hotspotY;
                 marker.actorOrder = drop.actorOrder;
+                marker.animation = drop.animation;
+                marker.animation.mode = 0;
                 transientActors_.push_back(marker);
                 drop.collected = true;
                 continue;

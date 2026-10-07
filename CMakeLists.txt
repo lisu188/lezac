@@ -4156,7 +4156,7 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION
-            "^reward_pickup_phase=ok cases=28 conversion_draw=1 deferred_grant=1 inherited_fraction=1 reused_slot=1 both_players=1 one_bonus_latch=1 strict_contact=1 selection_preserved=1 original_runtime_claim=0")
+            "^reward_pickup_phase=ok cases=28 conversion_draw=1 deferred_grant=1 inherited_fraction=1 reused_slot=1 both_players=1 one_bonus_latch=1 strict_contact=1 selection_preserved=1 inherited_animation=1 original_runtime_claim=0")
 
     add_test(NAME monster_sprite_table_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-sprite-table-model)
@@ -5520,7 +5520,7 @@ if(BUILD_TESTING)
         set_tests_properties(natural_level4_checkout_attributes PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 60 LABELS "level4;original;evidence-guard;checkout"
-            PASS_REGULAR_EXPRESSION "natural_level4_checkout_attributes=ok tests=2 negative_control=1")
+            PASS_REGULAR_EXPRESSION "natural_level4_checkout_attributes=ok tests=3 negative_control=2")
         add_test(NAME natural_level4_first_objective_original
             COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                     ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level4_first_objective.py replay
@@ -5563,6 +5563,20 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 60 LABELS "level4;original;evidence-guard;natural-route;portal;objective"
             PASS_REGULAR_EXPRESSION "\"mutations_rejected\":26.*\"producer_mutations_rejected\":26.*\"status\":\"guarded\".*\"typed_field_mutations_rejected\":291")
+        add_test(NAME natural_level4_health_reward_original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level4_health_reward.py replay
+                    --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/natural_level4_health_reward_original_out)
+        set_tests_properties(natural_level4_health_reward_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 600 LABELS "level4;campaign;original;fullframe;natural-route;reward;animation"
+            PASS_REGULAR_EXPRESSION "\"actor_boundaries\":3878.*\"boundaries\":3940.*\"frames\":2000.*\"inherited_animation_bytes\":7.*\"kind11_observations\":1590.*\"reward_observations\":552.*\"status\":\"match\"")
+        add_test(NAME natural_level4_health_reward_guard
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level4_health_reward.py guard)
+        set_tests_properties(natural_level4_health_reward_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 60 LABELS "level4;original;evidence-guard;natural-route;reward;animation"
+            PASS_REGULAR_EXPRESSION "\"animation_mutations_rejected\":7.*\"equal_size_descriptor_cases\":4.*\"status\":\"guarded\"")
         add_test(NAME level1_handoff_guard
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_handoff.py guard)
         set_tests_properties(level1_handoff_guard PROPERTIES

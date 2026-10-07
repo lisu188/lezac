@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-DIRECTORIES = (
+PAIRED_DIRECTORIES = (
     'tests/fixtures/natural_level4_first_objective',
     'docs/recovery/evidence/natural_level4_first_objective_20261007',
     'tests/fixtures/natural_level4_portal',
@@ -15,8 +15,11 @@ DIRECTORIES = (
     'tests/fixtures/natural_level4_third_objective',
     'docs/recovery/evidence/natural_level4_third_objective_20261007',
 )
+HEALTH_REWARD = 'tests/fixtures/natural_level4_health_reward'
+DIRECTORIES = (*PAIRED_DIRECTORIES, HEALTH_REWARD)
 RULES = {f'{directory}/** -text'.encode() for directory in DIRECTORIES}
-MANIFESTS = tuple(directory + '/manifest.json' for directory in DIRECTORIES[1::2])
+MANIFESTS = tuple(directory + '/manifest.json' for directory in PAIRED_DIRECTORIES[1::2])
+FIXTURES = (*PAIRED_DIRECTORIES[::2], HEALTH_REWARD)
 
 
 class EvidenceCheckoutTests(unittest.TestCase):
@@ -28,11 +31,12 @@ class EvidenceCheckoutTests(unittest.TestCase):
                       for path in sorted((ROOT / directory).rglob('*')) if path.is_file()}
         for manifest in MANIFESTS:
             self.assertIn(manifest, self.files)
-        for directory in DIRECTORIES[::2]:
+        for directory in FIXTURES:
             self.assertIn(directory + '/route.txt', self.files)
-            self.assertIn(directory + '/guard-input.json', self.files)
+            evidence = '/native.json.gz' if directory == HEALTH_REWARD else '/guard-input.json'
+            self.assertIn(directory + evidence, self.files)
 
-    def checkout(self, omit_pins=False):
+    def checkout(self, omitted_rules=frozenset()):
         with tempfile.TemporaryDirectory(prefix='lezac-level4-checkout-') as temporary:
             repo = Path(temporary)
             environment = dict(os.environ, GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull,
@@ -50,8 +54,8 @@ class EvidenceCheckoutTests(unittest.TestCase):
 
             git('init', '--quiet')
             attributes = (ROOT / '.gitattributes').read_bytes()
-            if omit_pins:
-                attributes = b'\n'.join(line for line in attributes.splitlines() if line not in RULES) + b'\n'
+            if omitted_rules:
+                attributes = b'\n'.join(line for line in attributes.splitlines() if line not in omitted_rules) + b'\n'
             (repo / '.gitattributes').write_bytes(attributes)
             for name, data in self.files.items():
                 blob = git('hash-object', '-w', '--stdin', data=data).decode().strip()
@@ -68,14 +72,24 @@ class EvidenceCheckoutTests(unittest.TestCase):
                 self.assertEqual(expected, checked_out[name])
 
     def test_missing_rules_reproduce_manifest_hash_failure(self):
-        checked_out = self.checkout(omit_pins=True)
+        checked_out = self.checkout(omitted_rules=RULES)
         for manifest in MANIFESTS:
             self.assertNotIn(b'\r\n', self.files[manifest])
             self.assertIn(b'\r\n', checked_out[manifest])
             self.assertNotEqual(self.files[manifest], checked_out[manifest])
-        for directory in DIRECTORIES[::2]:
+        for directory in FIXTURES:
             route = directory + '/route.txt'
             self.assertNotEqual(self.files[route], checked_out[route])
+
+    def test_missing_health_reward_rule_changes_only_new_route_bytes(self):
+        checked_out = self.checkout(omitted_rules={f'{HEALTH_REWARD}/** -text'.encode()})
+        route = HEALTH_REWARD + '/route.txt'
+        self.assertNotIn(b'\r\n', self.files[route])
+        self.assertEqual(self.files[route].replace(b'\n', b'\r\n'), checked_out[route])
+        for name, expected in self.files.items():
+            if name != route:
+                with self.subTest(path=name):
+                    self.assertEqual(expected, checked_out[name])
 
 
 if __name__ == '__main__':
@@ -83,4 +97,4 @@ if __name__ == '__main__':
         unittest.defaultTestLoader.loadTestsFromTestCase(EvidenceCheckoutTests))
     if not result.wasSuccessful():
         raise SystemExit(1)
-    print('natural_level4_checkout_attributes=ok tests=2 negative_control=1')
+    print('natural_level4_checkout_attributes=ok tests=3 negative_control=2')

@@ -5520,7 +5520,7 @@ if(BUILD_TESTING)
         set_tests_properties(natural_level4_checkout_attributes PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 60 LABELS "level4;original;evidence-guard;checkout"
-            PASS_REGULAR_EXPRESSION "natural_level4_checkout_attributes=ok tests=2 negative_control=1")
+            PASS_REGULAR_EXPRESSION "natural_level4_checkout_attributes=ok tests=3 negative_control=2")
         add_test(NAME natural_level4_first_objective_original
             COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                     ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level4_first_objective.py replay

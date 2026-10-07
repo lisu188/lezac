@@ -17154,6 +17154,77 @@ public:
                   << " frame_hash=" << std::hex << lastHash << std::dec << "\n";
     }
 
+    void debugNaturalBombVisualOriginal(const std::string& fixture) {
+        load();
+        auto fail = [](const std::string& message) { throw std::runtime_error("natural-bomb-visual: " + message); };
+        std::ifstream input(fixture);
+        if (!input) fail("cannot open fixture");
+        auto number = [&](const std::string& text) {
+            size_t used = 0;
+            const int value = std::stoi(text, &used);
+            if (used != text.size() || value < 0 || value > 65535) fail("invalid integer");
+            return value;
+        };
+        auto bytes = [&](const std::string& text, size_t count) {
+            if (text.size() != count * 2 || text.find_first_not_of("0123456789abcdef") != std::string::npos) fail("invalid bytes");
+            std::vector<uint8_t> result(count);
+            for (size_t i = 0; i < count; ++i) result[i] = static_cast<uint8_t>(std::stoul(text.substr(i * 2, 2), nullptr, 16));
+            return result;
+        };
+        bool header = false, complete = false;
+        int observations = 0, previousTick = 0, previousPhase = -1;
+        std::string line;
+        while (std::getline(input, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty()) continue;
+            if (complete) fail("data after completion");
+            std::istringstream stream(line);
+            std::string tag, token;
+            stream >> tag;
+            std::map<std::string, std::string> fields;
+            while (stream >> token) {
+                const auto equal = token.find('=');
+                if (equal == std::string::npos || equal == 0 || equal + 1 == token.size() ||
+                    !fields.emplace(token.substr(0, equal), token.substr(equal + 1)).second) fail("malformed fields");
+            }
+            if (tag == "capture=native_bomb_visual_v1") {
+                const std::map<std::string, std::string> expected{
+                    {"natural", "1"}, {"observations", "354"}, {"whole_game", "0"},
+                    {"exe_sha256", "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"},
+                    {"stream_sha256", "5705203340739e378bba40e6e7794fcbf1d8a2f85a9a2ab620eaacce96ba1ea0"}};
+                if (header || observations || fields != expected) fail("provenance mismatch");
+                header = true;
+            } else if (tag == "sample" && header) {
+                if (fields.size() != 6 || observations >= 354 || number(fields.at("index")) != observations) fail("sample index/fields");
+                const int tick = number(fields.at("tick"));
+                const int phase = fields.at("phase") == "present" ? 0 : fields.at("phase") == "post_update" ? 1 : -1;
+                if (tick < 9422 || tick > 10860 || phase < 0 || number(fields.at("slot")) >= 30 ||
+                    tick < previousTick || (tick == previousTick && phase <= previousPhase)) fail("sample order/range");
+                const auto raw = bytes(fields.at("raw"), 38), visual = bytes(fields.at("visual"), 8);
+                if (raw[0] != 14 || raw[21] != 2) fail("natural Medium bomb identity");
+                const auto type = static_cast<BombType>(raw[0] - 13);
+                const size_t spriteIndex = bombProfile(type).spriteBase;
+                const auto& sprite = sprites_.sprites.at(spriteIndex);
+                size_t offset = 0;
+                for (size_t i = 0; i < spriteIndex; ++i) offset += sprites_.sprites[i].width * sprites_.sprites[i].height;
+                if (static_cast<int8_t>(raw[20]) != bombHeightOffset(type)) fail("collision hotspot mismatch");
+                if (visual[4] != sprite.width || visual[5] != sprite.height || offset > 65535 ||
+                    (unsigned(visual[6]) | (unsigned(visual[7]) << 8)) != offset) fail("sprite descriptor mismatch");
+                previousTick = tick;
+                previousPhase = phase;
+                ++observations;
+            } else if (tag == "complete" && header) {
+                const std::map<std::string, std::string> expected{{"observations", "354"}, {"whole_game", "0"}};
+                if (observations != 354 || fields != expected) fail("incomplete observations");
+                complete = true;
+            } else {
+                fail("unexpected record");
+            }
+        }
+        if (!complete) fail("missing completion");
+        std::cout << "natural_bomb_visual_original=ok observations=354 natural_types=1 hotspot=1 descriptor_bytes=4 whole_game_parity=0\n";
+    }
+
     void debugBombFuse() {
         load();
         resetLevel(0);
@@ -29971,6 +30042,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-walker-ledge-original") {
             app.debugWalkerLedgeOriginal(argv[2]);
+            return 0;
+        }
+        if (argc == 3 && std::string(argv[1]) == "--debug-natural-bomb-visual-original") {
+            app.debugNaturalBombVisualOriginal(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-bomb-motion-original") {

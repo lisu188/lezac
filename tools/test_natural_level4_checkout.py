@@ -7,6 +7,10 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+SUPPORT_COLUMN = (
+    'tests/fixtures/natural_level4_support_column',
+    'docs/recovery/evidence/natural_level4_support_column_20261008',
+)
 PAIRED_DIRECTORIES = (
     'tests/fixtures/natural_level4_first_objective',
     'docs/recovery/evidence/natural_level4_first_objective_20261007',
@@ -14,6 +18,7 @@ PAIRED_DIRECTORIES = (
     'docs/recovery/evidence/natural_level4_portal_20261007',
     'tests/fixtures/natural_level4_third_objective',
     'docs/recovery/evidence/natural_level4_third_objective_20261007',
+    *SUPPORT_COLUMN,
 )
 HEALTH_REWARD = 'tests/fixtures/natural_level4_health_reward'
 DIRECTORIES = (*PAIRED_DIRECTORIES, HEALTH_REWARD)
@@ -91,10 +96,25 @@ class EvidenceCheckoutTests(unittest.TestCase):
                 with self.subTest(path=name):
                     self.assertEqual(expected, checked_out[name])
 
+    def test_missing_support_column_rules_change_only_new_text_bytes(self):
+        checked_out = self.checkout(omitted_rules={f'{directory}/** -text'.encode()
+                                                  for directory in SUPPORT_COLUMN})
+        changed = {SUPPORT_COLUMN[0] + '/route.txt', SUPPORT_COLUMN[0] + '/guard-input.json',
+                   SUPPORT_COLUMN[1] + '/manifest.json'}
+        self.assertTrue(changed.issubset(self.files))
+        for name, expected in self.files.items():
+            with self.subTest(path=name):
+                if name in changed:
+                    self.assertNotIn(b'\r\n', expected)
+                    self.assertNotEqual(expected, checked_out[name])
+                    self.assertEqual(expected.replace(b'\n', b'\r\n'), checked_out[name])
+                else:
+                    self.assertEqual(expected, checked_out[name])
+
 
 if __name__ == '__main__':
     result = unittest.TextTestRunner(verbosity=2).run(
         unittest.defaultTestLoader.loadTestsFromTestCase(EvidenceCheckoutTests))
     if not result.wasSuccessful():
         raise SystemExit(1)
-    print('natural_level4_checkout_attributes=ok tests=3 negative_control=2')
+    print('natural_level4_checkout_attributes=ok tests=4 negative_control=3')

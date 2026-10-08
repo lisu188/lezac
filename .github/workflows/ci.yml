@@ -51,7 +51,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: clocked-sound-linux
-          path: build/clocked-sound-checks/
+          path: |
+            build/clocked-sound-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: ignore
       - name: Test
         env:
@@ -142,7 +145,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: clocked-sound-windows
-          path: build/clocked-sound-checks/
+          path: |
+            build/clocked-sound-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: ignore
       - name: Test
         env:

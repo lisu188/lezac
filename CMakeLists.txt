@@ -203,6 +203,13 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 15
             ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
             PASS_REGULAR_EXPRESSION "clocked_sound_live=ok state=${clock_state} independent_clock=1 gameplay_ticks=0 sweep_stopped=1 bounded_queue=1 frame_inspection=1 native_timing_claim=0 audio=dummy")
+        add_test(NAME clocked_sound_live_${clock_state}_stalled
+            COMMAND lezac_cpp --debug-clocked-sound-live ${clock_state}
+                    "${CMAKE_CURRENT_BINARY_DIR}/clocked-sound-checks" --stall-at-deadline)
+        set_tests_properties(clocked_sound_live_${clock_state}_stalled PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 15
+            ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "clocked_sound_live=ok state=${clock_state} .*deadline_service=1 elapsed_ms=[0-9]+ advanced_samples=[0-9]+ advanced_interrupts=[0-9]+ stalled_deadline=1")
     endforeach()
     add_executable(lezac_sound_pitch_test tests/sound/sound_pitch_test.cpp
         src/sound/sound_engine.cpp src/resources/binary.cpp)
@@ -323,6 +330,10 @@ if(BUILD_TESTING)
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_clocked_sound_routing.py)
         set_tests_properties(clocked_sound_routing PROPERTIES PASS_REGULAR_EXPRESSION
             "clocked_sound_routing=ok live_paths=2 request_paths=4 mutations=12 native_timing_claim=0")
+        add_test(NAME clocked_sound_deadline_contract
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_clocked_sound_deadline.py)
+        set_tests_properties(clocked_sound_deadline_contract PROPERTIES PASS_REGULAR_EXPRESSION
+            "clocked_sound_deadline_contract=ok mutations=12 compiled_live_claim=0 native_timing_claim=0")
         add_test(NAME sound_pitch_original
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_pitch_original.py
                     --exe $<TARGET_FILE:lezac_sound_pitch_test>)

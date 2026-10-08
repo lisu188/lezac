@@ -80,6 +80,13 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [live sound deadline review repair](clocked_sound_live_deadline_2026-10-08.md)
+removes host-scheduling assumptions from menu/pause diagnostics, adds final
+production-clock servicing and two deliberately stalled live regressions.
+This is a diagnostic reliability repair, not evidence of original hardware
+timing or whole-game sound fidelity. All broad completion/fidelity flags remain
+unchanged; hosted compiled validation is required before merge.
+
 The [original collapse seeding geometry](collapse_seed_geometry_2026-10-08.md)
 recovers simultaneous rectangle expansion in place of a four-neighbor flood.
 The 1,124-case executed-original fixture includes 540 unchanged shipped-map

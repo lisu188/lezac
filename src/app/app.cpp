@@ -9930,32 +9930,72 @@ public:
                   << " device_enabled=" << withDevice << " audio=dummy\n";
     }
 
-    void debugClockedSoundLive(bool paused, const std::string& outDir) {
+    void debugClockedSoundLive(bool paused, const std::string& outDir,
+                               bool stallAtDeadline = false) {
         SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
         uint32_t start = 0;
-        runInteractive([&] { return SDL_GetTicks() - start >= 600; }, [&] {
-            start = SDL_GetTicks();
+        uint32_t initialRemainder = 0;
+        auto initialClock = sound_.clockState();
+        bool stalled = false;
+        runInteractive([&] {
+            if (stallAtDeadline && !stalled) {
+                SDL_Delay(850);
+                stalled = true;
+            }
+            return SDL_GetTicks() - start >= 600;
+        }, [&] {
             ui_.setMenu(!paused);
             ui_.setPage(MenuPage::Records);
             ui_.setPaused(paused);
             if (!requestSoundCursor(0xea7e, 5))
                 throw std::runtime_error("live clocked sound request rejected");
+            start = soundClockMilliseconds_;
+            initialRemainder = soundSampleRemainder_;
+            initialClock = sound_.clockState();
         });
+        // The stop predicate can end the loop before its next sound service.
+        const uint32_t beforeFinalService = SDL_GetTicks();
+        serviceSoundClock();
+        const uint32_t afterFinalService = SDL_GetTicks();
+        const uint32_t elapsed = soundClockMilliseconds_ - start;
+        const uint64_t advancedSamples =
+            (uint64_t{elapsed} * kAudioSampleRate + initialRemainder) / 1000;
+        constexpr uint64_t threshold = uint64_t{kAudioSampleRate} * lezac::sound::kBiosTimerDivisor;
+        const uint64_t scaledPit = initialClock.pitAccumulator +
+                                   advancedSamples * lezac::sound::kPitClockRate;
         const auto state = sound_.clockState();
-        if (!clockedSoundEnabled_ || state.interrupts < 10 || state.interrupts > 14 ||
-            state.renderedSamples < 12000 || state.renderedSamples > 18000 || logicTick_ != 0 ||
+        if (!clockedSoundEnabled_ || elapsed < 600 ||
+            uint32_t{soundClockMilliseconds_ - beforeFinalService} >
+                uint32_t{afterFinalService - beforeFinalService} ||
+            state.renderedSamples != initialClock.renderedSamples + advancedSamples ||
+            state.interrupts != initialClock.interrupts + scaledPit / threshold ||
+            state.pitAccumulator != scaledPit % threshold || logicTick_ != 0 ||
             sound_.latch().active || sound_.speakerState().enabled || !audioOutput_.enabled() ||
             audioOutput_.queuedBytes() > 11024)
-            throw std::runtime_error("governed menu/pause loop did not service clocked sound");
+            throw std::runtime_error("governed menu/pause loop did not service clocked sound: elapsed_ms=" +
+                std::to_string(elapsed) + " service_ms=" + std::to_string(soundClockMilliseconds_) +
+                " bracket_ms=" + std::to_string(beforeFinalService) + ":" + std::to_string(afterFinalService) +
+                " samples=" + std::to_string(state.renderedSamples) + " expected_samples=" +
+                std::to_string(initialClock.renderedSamples + advancedSamples) +
+                " interrupts=" + std::to_string(state.interrupts) + " expected_interrupts=" +
+                std::to_string(initialClock.interrupts + scaledPit / threshold) +
+                " pit=" + std::to_string(state.pitAccumulator) + " expected_pit=" +
+                std::to_string(scaledPit % threshold));
         inspectRenderedFrame("clocked-sound-live");
         if (!outDir.empty()) {
             std::filesystem::create_directories(outDir);
-            writeArgbPpm(joinPath(outDir, paused ? "live-pause.ppm" : "live-menu.ppm"),
+            const std::string name = std::string(paused ? "live-pause" : "live-menu") +
+                                     (stallAtDeadline ? "-stalled.ppm" : ".ppm");
+            writeArgbPpm(joinPath(outDir, name),
                          fb_, kScreenW, kScreenH);
         }
         std::cout << "clocked_sound_live=ok state=" << (paused ? "pause" : "menu")
                   << " independent_clock=1 gameplay_ticks=0 sweep_stopped=1 bounded_queue=1"
-                  << " frame_inspection=1 native_timing_claim=0 audio=dummy\n";
+                  << " frame_inspection=1 native_timing_claim=0 audio=dummy"
+                  << " deadline_service=1 elapsed_ms=" << elapsed
+                  << " advanced_samples=" << advancedSamples
+                  << " advanced_interrupts=" << state.interrupts - initialClock.interrupts
+                  << " stalled_deadline=" << stalled << '\n';
     }
 
     void debugOriginalDamageCounters() {
@@ -29954,7 +29994,9 @@ int lezac::app::runApplication(int argc, char** argv) {
             const std::string state = argv[2];
             if (state != "menu" && state != "pause")
                 throw std::runtime_error("clocked sound live state must be menu or pause");
-            app.debugClockedSoundLive(state == "pause", argc > 3 ? argv[3] : "");
+            if (argc > 5 || (argc == 5 && std::string(argv[4]) != "--stall-at-deadline"))
+                throw std::runtime_error("usage: --debug-clocked-sound-live menu|pause [OUTPUT_DIR [--stall-at-deadline]]");
+            app.debugClockedSoundLive(state == "pause", argc > 3 ? argv[3] : "", argc == 5);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sound-selector-map") {

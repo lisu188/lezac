@@ -183,6 +183,13 @@ if(BUILD_TESTING)
     add_test(NAME sound_pitch COMMAND lezac_sound_pitch_test)
     set_tests_properties(sound_pitch PROPERTIES PASS_REGULAR_EXPRESSION
         "sound_pitch=ok frequencies=65536 pcm_cases=10 ignored_command_states=3 cursor_playback=1 direct_sweep=1 original_runtime_claim=0")
+    add_executable(lezac_sound_interrupt_test tests/sound/sound_interrupt_test.cpp
+        src/sound/sound_engine.cpp)
+    target_link_libraries(lezac_sound_interrupt_test PRIVATE lezac_resources)
+    add_test(NAME sound_interrupt
+        COMMAND lezac_sound_interrupt_test ${CMAKE_CURRENT_SOURCE_DIR}/PROEFS.SON)
+    set_tests_properties(sound_interrupt PROPERTIES PASS_REGULAR_EXPRESSION
+        "sound_interrupt=ok phase_cases=16777216 bank_cases=8320 direct_cases=149445 inactive_cases=65536 priority_cases=65536 trajectories=14 observed_seed_ticks=8")
 
     add_executable(lezac_main_menu_test tests/ui/main_menu_test.cpp src/app/input_mapper.cpp)
     target_compile_definitions(lezac_main_menu_test PRIVATE SDL_MAIN_HANDLED)
@@ -290,6 +297,11 @@ if(BUILD_TESTING)
                     --exe $<TARGET_FILE:lezac_sound_pitch_test>)
         set_tests_properties(sound_pitch_original PROPERTIES PASS_REGULAR_EXPRESSION
             "sound_pitch_original=ok frequencies=65536 helper_bytes=45 numerator=1193181 ignored_max=18")
+        add_test(NAME sound_interrupt_original
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_interrupt_original.py
+                    --exe $<TARGET_FILE:lezac_sound_interrupt_test>)
+        set_tests_properties(sound_interrupt_original PROPERTIES PASS_REGULAR_EXPRESSION
+            "sound_interrupt_original=ok windows=4 phase_cases=16777216 bank_cases=8320 direct_cases=149445 priority_cases=65536")
     endif()
 
     if(Python3_Interpreter_FOUND)

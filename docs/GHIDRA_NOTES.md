@@ -1297,6 +1297,14 @@ address calculation, the `0x7530` stop sentinel, two word reads at entry
 offset `+0`, byte reads at `+2` and `+3`, and no checked tail-read pattern for
 offsets `+4..+5`.
 
+The historical "speaker period word" terminology above describes the stored
+word, not its units. The far Sound helper at `084a:02c9` (file
+`0x8ed9..0x8f05`) treats it as a frequency, ignores values at most 18, and
+computes the PIT reload with unsigned `0x1234dd / frequency`. The
+[2026-10-08 pitch correction](recovery/sound_pitch_2026-10-08.md) restores that
+conversion for bank and direct-sweep synthesis; interrupt timing and latch
+lifetime remain open.
+
 The current stop-cursor map from the shipped `PROEFS.SON` payload is:
 `0x0005, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027, 0x002d,
 0x0031, 0x0035, 0x003d, 0x0056, 0x0069, 0x0078, 0x0082`.

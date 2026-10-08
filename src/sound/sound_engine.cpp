@@ -38,20 +38,29 @@ uint16_t SoundEngine::soundStopCursorFor(uint16_t cursor) const {
     return static_cast<uint16_t>(sounds_.stepCount);
 }
 
-void SoundEngine::appendToneSamples(std::vector<int16_t>& samples, uint16_t period,
-                       int sampleCount, int amplitude, double& phase) const {
+uint16_t SoundEngine::speakerDivisorForFrequency(uint16_t frequency) {
+    // Original 084a:02c9: DX:AX=0x0012:34dd, BX=frequency; <=18 does no I/O.
+    return frequency <= 0x12 ? 0 : static_cast<uint16_t>(0x1234ddUL / frequency);
+}
+
+void SoundEngine::appendToneSamples(std::vector<int16_t>& samples, uint16_t frequency,
+                       int sampleCount, int amplitude, SpeakerToneState& tone) const {
     if (sampleCount <= 0) return;
-    if (period < 0x20) {
+    const uint16_t divisor = speakerDivisorForFrequency(frequency);
+    if (divisor != 0) {
+        tone.divisor = divisor;
+        tone.enabled = true;
+    }
+    if (!tone.enabled || tone.divisor == 0) {
         samples.insert(samples.end(), static_cast<size_t>(sampleCount), 0);
         return;
     }
-    double frequency = std::clamp(1193182.0 / static_cast<double>(period),
-                                  80.0, 4200.0);
-    double step = frequency / static_cast<double>(kAudioSampleRate);
+    const double step = 1193182.0 /
+        (static_cast<double>(tone.divisor) * static_cast<double>(kAudioSampleRate));
     for (int i = 0; i < sampleCount; ++i) {
-        phase += step;
-        if (phase >= 1.0) phase -= std::floor(phase);
-        samples.push_back(phase < 0.5 ? static_cast<int16_t>(amplitude)
+        tone.phase += step;
+        if (tone.phase >= 1.0) tone.phase -= std::floor(tone.phase);
+        samples.push_back(tone.phase < 0.5 ? static_cast<int16_t>(amplitude)
                                        : static_cast<int16_t>(-amplitude));
     }
 }
@@ -64,7 +73,7 @@ std::vector<int16_t> SoundEngine::synthesizeSoundCursor(uint16_t cursor) const {
     uint16_t stopCursor = soundStopCursorFor(cursor);
     samples.reserve(static_cast<size_t>(std::max<int>(1, stopCursor - cursor)) *
                     kAudioToneSamples * 2);
-    double phase = 0.0;
+    SpeakerToneState tone;
     for (size_t stepIndex = cursor; stepIndex < sounds_.stepCount; ++stepIndex) {
         uint16_t period = soundStepPeriodWord(stepIndex);
         if (period == kSoundStopPeriod) break;
@@ -78,9 +87,10 @@ std::vector<int16_t> SoundEngine::synthesizeSoundCursor(uint16_t cursor) const {
         int silentTicks = std::max(0, periodTicks - audibleTicks);
         appendToneSamples(samples, period,
                           std::max(1, audibleTicks * kAudioToneSamples),
-                          7200, phase);
+                          7200, tone);
         samples.insert(samples.end(),
                        static_cast<size_t>(silentTicks * kAudioToneSamples), 0);
+        if (silentTicks != 0) tone.enabled = false;
     }
     return samples;
 }
@@ -93,12 +103,11 @@ std::vector<int16_t> SoundEngine::synthesizeSound(size_t index) const {
 std::vector<int16_t> SoundEngine::synthesizeDirectSweep(uint16_t startCursor) const {
     std::vector<int16_t> samples;
     if (startCursor <= kDirectSoundThreshold) return samples;
-    double phase = 0.0;
+    SpeakerToneState tone;
     for (uint16_t cursor = startCursor; cursor > kDirectSoundThreshold;
          cursor = static_cast<uint16_t>(cursor - 4)) {
-        uint16_t period = static_cast<uint16_t>(cursor - kDirectSoundPeriodBase);
-        uint16_t clampedPeriod = std::max<uint16_t>(1, period);
-        appendToneSamples(samples, clampedPeriod, kAudioToneSamples / 2, 7200, phase);
+        const uint16_t frequency = static_cast<uint16_t>(cursor - kDirectSoundPeriodBase);
+        appendToneSamples(samples, frequency, kAudioToneSamples / 2, 7200, tone);
     }
     return samples;
 }

@@ -926,7 +926,10 @@ gate before promotion.
 The lane-div summary also has a stricter route-state handoff for new route
 families: `--require-route-state-debris-marker` reads candidate
 `route_state_samples.tsv` files and requires a sampled
-`lane_word_global_value >= 0x4e20`. With `--write-forward-debris-route-manifest`
+damaged debris word (`0xc000..0xffff`). Original `1000:3A7E` first tests bit
+`0x8000`, then compares the masked word with `0x4000`; flagged collapse words
+such as `0x8009` are not debris. The `0x4e20` base belongs to selected-record
+tags, not this raw staging word. With `--write-forward-debris-route-manifest`
 it emits `lane_div_forward_debris_route_candidates`, which
 `tools/sweep_original_lane_write_routes.py --route-manifest` accepts for
 focused forward `3D2D` probes by default. This still proves only
@@ -1028,8 +1031,10 @@ searches: new `route_state_samples.tsv` files include
 `route_state_debris_marker_candidates=` plus
 `max_route_state_lane_word_global=`. Use
 `--require-route-state-debris-marker` only as route-state triage before a
-future writeback probe; it proves that a route sampled a `0x4e20`-or-higher
-lane word, not that natural `1000:3D2D` executed.
+future writeback probe; it proves that a route sampled a damaged debris word
+(`0xc000..0xffff`), not that natural `1000:3D2D` executed. The original-byte-bound
+`tools/check_lane_word_classification.py` covers all 65,536 raw words in both
+summarizers and positive/negative CLI handoffs without promoting capture evidence.
 `tools/check_explosion_evidence_map.py` keeps this explosion/playback handoff
 traceable across these address notes, lane-result capture helpers, fixture
 coverage, source output fields, and CTest wiring.

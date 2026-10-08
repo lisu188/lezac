@@ -28,6 +28,10 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: python3 -S -B tools/test_review_history_repairs.py -v
+      - name: Raw lane-word classification regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python3 -B tools/check_lane_word_classification.py
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
@@ -103,6 +107,10 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: python3 -S -B tools/test_review_history_repairs.py -v
+      - name: Raw lane-word classification regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python -B tools/check_lane_word_classification.py
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build

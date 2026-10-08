@@ -18888,7 +18888,8 @@ public:
     }
 
     void debugOriginalDebrisUpdate(const std::string& inputPath, const std::string& outputPath,
-                                  bool collapseUpdate = false) {
+                                  bool collapseUpdate = false, bool actorCreation = false) {
+        if (actorCreation && !collapseUpdate) throw std::runtime_error("actor probe requires collapse update");
         load();
         std::ifstream input(inputPath, std::ios::binary);
         std::ofstream output(outputPath, std::ios::binary);
@@ -18902,7 +18903,8 @@ public:
             return bytes;
         };
         const auto header = take(12);
-        if (std::string(header.begin(), header.begin() + 8) != (collapseUpdate ? "LZCU0001" : "LZDU0001")) {
+        if (std::string(header.begin(), header.begin() + 8) !=
+            (actorCreation ? "LZCA0001" : (collapseUpdate ? "LZCU0001" : "LZDU0001"))) {
             throw std::runtime_error("invalid debris update input header");
         }
         const uint32_t cases = le32(header, 8);
@@ -18910,6 +18912,37 @@ public:
         auto appendWord = [](std::vector<uint8_t>& bytes, uint16_t value) {
             bytes.push_back(static_cast<uint8_t>(value));
             bytes.push_back(static_cast<uint8_t>(value >> 8));
+        };
+        // This diagnostic models clean unused slots with visual slots 1/2 reserved.
+        // It is not a serializer for opaque bytes inherited from retired actors.
+        auto collapseActorBytes = [&](const TransientActor& actor, size_t index) {
+            std::vector<uint8_t> bytes(38, 0);
+            bytes[0] = actor.kind;
+            bytes[1] = static_cast<uint8_t>(index + 3);
+            bytes[2] = actor.timer;
+            auto setWord = [&](size_t offset, uint16_t value) {
+                bytes[offset] = static_cast<uint8_t>(value);
+                bytes[offset + 1] = static_cast<uint8_t>(value >> 8);
+            };
+            setWord(6, static_cast<uint16_t>(actor.vx8));
+            setWord(8, static_cast<uint16_t>(actor.vy8));
+            setWord(10, actor.fracX);
+            setWord(12, actor.fracY);
+            bytes[0x14] = actor.hotspotY;
+            bytes[0x15] = 5;
+            const auto animation = actor.animation.packed();
+            std::copy(animation.begin(), animation.end(), bytes.begin() + 0x16);
+            appendWord(bytes, static_cast<uint16_t>(actor.x));
+            appendWord(bytes, static_cast<uint16_t>(actor.y));
+            const auto& sprite = sprites_.sprites.at(actor.spriteIndex);
+            bytes.push_back(static_cast<uint8_t>(sprite.width));
+            bytes.push_back(static_cast<uint8_t>(sprite.height));
+            size_t pixelOffset = 0;
+            for (size_t frame = 0; frame < actor.spriteIndex; ++frame) {
+                pixelOffset += static_cast<size_t>(sprites_.sprites[frame].width) * sprites_.sprites[frame].height;
+            }
+            appendWord(bytes, static_cast<uint16_t>(pixelOffset));
+            return bytes;
         };
         for (uint32_t index = 0; index < cases; ++index) {
             const auto parameters = take(collapseUpdate ? 18 : 14);
@@ -18967,6 +19000,31 @@ public:
                 value.affectedBytes = raw[14];
                 collapseQueue_.push_back(value);
             }
+            if (actorCreation) {
+                const size_t actorCount = le16(take(2), 0);
+                if (actorCount > 30) throw std::runtime_error("invalid collapse actor count");
+                for (size_t actorIndex = 0; actorIndex < actorCount; ++actorIndex) {
+                    const auto raw = take(46);
+                    TransientActor actor;
+                    actor.kind = raw[0];
+                    actor.timer = raw[2];
+                    actor.vx8 = static_cast<int16_t>(le16(raw, 6));
+                    actor.vy8 = static_cast<int16_t>(le16(raw, 8));
+                    actor.fracX = raw[10];
+                    actor.fracY = raw[12];
+                    actor.hotspotY = raw[0x14];
+                    actor.animation = {raw[0x16], raw[0x17], raw[0x18], raw[0x19], raw[0x1a], raw[0x1b],
+                                       static_cast<int8_t>(raw[0x1c])};
+                    actor.x = le16(raw, 38);
+                    actor.y = le16(raw, 40);
+                    actor.spriteIndex = 73;
+                    if (actor.kind != 0x0b || collapseActorBytes(actor, actorIndex) != raw) {
+                        throw std::runtime_error("unsupported collapse actor seed");
+                    }
+                    actor.actorOrder = claimActorOrder();
+                    transientActors_.push_back(actor);
+                }
+            }
             if (collapseUpdate) updateCollapseRecords();
             else updateDebrisRecords();
             std::vector<uint8_t> result;
@@ -18996,13 +19054,21 @@ public:
                 appendWord(result, record.argMagnitude);
                 result.insert(result.end(), {record.flags, record.restTicks, record.affectedBytes});
             }
+            if (actorCreation) {
+                appendWord(result, static_cast<uint16_t>(transientActors_.size()));
+                for (size_t actorIndex = 0; actorIndex < transientActors_.size(); ++actorIndex) {
+                    const auto actorBytes = collapseActorBytes(transientActors_[actorIndex], actorIndex);
+                    result.insert(result.end(), actorBytes.begin(), actorBytes.end());
+                }
+            }
             output.write(reinterpret_cast<const char*>(result.data()), static_cast<std::streamsize>(result.size()));
             if (!output) throw std::runtime_error("cannot write debris update output");
         }
         if (input.peek() != std::char_traits<char>::eof()) throw std::runtime_error("trailing debris update input");
         output.flush();
         if (!output) throw std::runtime_error("cannot flush debris update output");
-        std::cout << (collapseUpdate ? "original_collapse_update=ok cases=" : "original_debris_update=ok cases=")
+        std::cout << (actorCreation ? "original_collapse_actors=ok cases=" :
+            (collapseUpdate ? "original_collapse_update=ok cases=" : "original_debris_update=ok cases="))
                   << cases << '\n';
     }
 
@@ -30353,6 +30419,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-update") {
             app.debugOriginalDebrisUpdate(argv[2], argv[3], true);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-actors") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3], true, true);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-natural-forward-debris-writeback") {

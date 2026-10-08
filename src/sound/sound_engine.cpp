@@ -192,6 +192,38 @@ SoundInterruptAction SoundEngine::advanceSoundInterrupt() {
     return {frequency, true, false};
 }
 
+std::vector<int16_t> SoundEngine::renderClockedSamples(size_t sampleCount) {
+    constexpr uint64_t threshold = uint64_t{kAudioSampleRate} * kBiosTimerDivisor;
+    std::vector<int16_t> samples;
+    samples.reserve(sampleCount);
+    while (samples.size() < sampleCount) {
+        const uint64_t untilInterrupt =
+            (threshold - soundClock_.pitAccumulator + kPitClockRate - 1) / kPitClockRate;
+        const size_t count = std::min<size_t>(sampleCount - samples.size(), untilInterrupt);
+        appendToneSamples(samples, 0, static_cast<int>(count), 7200, speaker_);
+        soundClock_.pitAccumulator += count * uint64_t{kPitClockRate};
+        soundClock_.renderedSamples += count;
+        if (soundClock_.pitAccumulator < threshold) continue;
+        soundClock_.pitAccumulator -= threshold;
+        ++soundClock_.interrupts;
+        const SoundLatch before = soundLatch_;
+        const SoundInterruptAction action = advanceSoundInterrupt();
+        if (action.programTone) {
+            lastPumpedSoundRecord_ = static_cast<int>(before.recordIndex);
+            lastPumpedSoundOffset_ = before.latchedOffset;
+            lastPumpedSoundSelector_ = before.currentSelector;
+            const uint16_t divisor = speakerDivisorForFrequency(action.frequency);
+            if (divisor != 0) {
+                speaker_.divisor = divisor;
+                speaker_.enabled = true;
+            }
+        }
+        // A terminal direct sweep programs its last tone before disabling it.
+        if (action.silence) speaker_.enabled = false;
+    }
+    return samples;
+}
+
 void SoundEngine::clearSoundLatch() {
     soundLatch_ = {};
 }
@@ -219,11 +251,12 @@ bool SoundEngine::playCompatibilitySound(size_t hookSlot) {
     }
     // No audio-device early-out: the latch is game state, not audio
     // state, so a headless run must reach the same latch as an audio run.
-    // pumpSoundLatch() performs the synthesis once per tick.
+    // Live playback advances independently through renderClockedSamples().
     return requestSoundCursor(hook.capturedCursor, hook.capturedPriority);
 }
 
 std::vector<int16_t> SoundEngine::pumpSoundLatch() {
+    // Legacy bounded diagnostic synthesis, never the live clocked path.
     if (!soundLatch_.active) return {};
     size_t recordIndex = soundLatch_.recordIndex;
     lastPumpedSoundRecord_ = static_cast<int>(recordIndex);

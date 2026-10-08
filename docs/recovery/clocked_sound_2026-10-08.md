@@ -44,7 +44,7 @@ intro waits. Menus and pause do not stop the sound clock. Millisecond-to-sample
 conversion retains its remainder and handles unsigned timestamp rollover.
 Audio-device availability does not gate logical progression.
 
-SDL output receives at most 20 ms of elapsed PCM per application chunk, not
+SDL output receives at most 200 ms of elapsed PCM per service call, not
 future effect samples. It keeps a short initial silence lead and caps queued
 presentation audio at approximately 250 ms. A host stall may discard stale
 presentation audio, but all elapsed logical IRQ transitions still occur.
@@ -53,31 +53,57 @@ hardware conversion to SDL as described by
 [SDL_OpenAudioDevice](https://wiki.libsdl.org/SDL2/SDL_OpenAudioDevice).
 This avoids separately resampling each small chunk with a stateless converter.
 
+## Bounded Host-Stall Catch-Up
+
+PR #308 review found that the previous 20 ms chunk loop synthesized every
+missed sample after a host stall, even though the queue discarded most of it.
+The replacement advances the stale prefix without allocating PCM and renders
+only the most recent 4,410 samples. Already queued stale output is discarded.
+Normal service intervals of at most 200 ms retain the existing exact renderer.
+
+Both paths use the same recovered interrupt transition and tone-command
+ordering. While a latch is active, skipping visits the actual IRQ boundaries;
+after it ends, rational clock counters advance arithmetically in one step.
+The shipped bank has 130 steps and an aggregate 351 period ticks. The longest
+possible word-sized direct sweep takes 1,384 IRQs. Idle time therefore does not
+increase the number of active transitions visited. Arithmetic splits large
+sample products before multiplication to avoid intermediate overflow.
+
+Skipped oscillator time uses modular doubling of the unchanged double-valued
+per-sample increment. This is logarithmic even when an inactive latch retains
+an enabled speaker. It preserves mathematical phase but can differ from the
+old per-sample accumulation's floating-point roundoff. Regressions require
+exact latch, byte counters, clock counters, divisor, gate and last-tone state;
+phase is compared within 1e-9 cycles for the bounded reference trajectories.
+One active retained PCM tail is checked exactly. Arbitrary skipped-interval
+PCM equivalence and original hardware waveform parity are not claimed.
+
 ## Regressions
 
 - `clocked_sound`: 1,000 exact rational boundaries; sixteen shipped/direct
   trajectories rendered whole and partitioned; stop ordering, priority
   lifetime, ignored commands, inherited replacement phase and period-zero wrap.
+  It also covers 136 catch-up states, an active retained tail, eight-hour and
+  maximum unsigned host-clock gaps, and an inactive latch with a sustained tone.
 - `clocked_sound_app`: real application wrappers and presentation clock,
   menu/pause progression, terminal sweep state, timestamp rollover, bounded
-  dummy-device output and two inspected rendered frames.
+  dummy-device output, an eight-hour catch-up and two inspected rendered frames.
 - `clocked_sound_no_device`: the same logical transitions after closing the
   dummy output device, without gating or resetting sound state.
 - `clocked_sound_live_menu` and `clocked_sound_live_pause`: bounded runs through
   the actual governed interactive loop with gameplay frozen and sound advancing.
-- `clocked_sound_routing`: live/replay and request wiring, with seven rejected
+- `clocked_sound_routing`: live/replay and request wiring, with twelve rejected
   in-memory source-routing mutations.
 - `level1_replay`: existing production input/fire/pause route additionally
   requires pending priority-3 bomb-placement state after consecutive requests.
 
 ## Validation Status
 
-The new source-routing check and its seven mutations pass locally, as do
-the existing ownership, compatibility-hook and callsite-map guards. The first
-fresh build attempt stopped at its preflight: Windows free physical memory
-was below the unchanged 5 GiB guard. No new C++ file was compiled or executed
-by that attempt. The compiled tests above are required checks, not claimed
-local passes; exact-head CI validation and current-build screenshots are pending.
+The source-routing check and its twelve mutations pass locally. New compiled
+catch-up tests still require fresh exact-head CI; their registration is not a
+claimed pass. Local compilation and native recapture remain deferred under
+unchanged disk/RAM reserve guards. The previous #308 full Linux/Windows and
+package runs passed, but do not validate this changed head.
 
 CI runs the six focused clocked-sound tests and uploads their four rendered
 menu/pause frames before starting the unchanged full suite. The focused step

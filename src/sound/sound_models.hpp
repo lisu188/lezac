@@ -8,6 +8,7 @@ namespace lezac::sound {
 using resources::kSoundStepSize;
 
 inline constexpr int kAudioSampleRate = 22050;
+inline constexpr size_t kMaximumClockedTailSamples = kAudioSampleRate / 5;
 inline constexpr int kAudioToneSamples = kAudioSampleRate / 28;
 inline constexpr uint32_t kPitClockRate = 1193182;
 inline constexpr uint32_t kBiosTimerDivisor = 65536;

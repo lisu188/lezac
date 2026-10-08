@@ -17,6 +17,7 @@ public:
     bool enabled() const { return audioEnabled_ && audioDevice_ != 0; }
     void playSamples(const std::vector<int16_t>& samples);
     void playClockedSamples(const std::vector<int16_t>& samples);
+    void discardClockedSamples();
     Uint32 queuedBytes() const;
     uint64_t droppedClockedBytes() const { return droppedClockedBytes_; }
 private:

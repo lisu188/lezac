@@ -86,15 +86,13 @@ Uint32 SdlAudioOutput::queuedBytes() const {
 void SdlAudioOutput::playClockedSamples(const std::vector<int16_t>& samples) {
     if (!enabled() || samples.empty()) return;
     constexpr size_t leadSamples = kAudioSampleRate / 20;
-    constexpr size_t maximumSamples = kAudioSampleRate / 5;
+    constexpr size_t maximumSamples = kMaximumClockedTailSamples;
     constexpr Uint32 maximumBytes = (leadSamples + maximumSamples) * sizeof(int16_t);
     const size_t count = std::min(samples.size(), maximumSamples);
     const Uint32 bytes = static_cast<Uint32>(count * sizeof(int16_t));
     const Uint32 queued = queuedBytes();
     if (queued + bytes > maximumBytes) {
-        droppedClockedBytes_ += queued;
-        SDL_ClearQueuedAudio(audioDevice_);
-        clockedPrimed_ = false;
+        discardClockedSamples();
     }
     droppedClockedBytes_ += (samples.size() - count) * sizeof(int16_t);
     if (!clockedPrimed_) {
@@ -104,6 +102,12 @@ void SdlAudioOutput::playClockedSamples(const std::vector<int16_t>& samples) {
         clockedPrimed_ = true;
     }
     if (enabled()) queueAudio(samples.data() + samples.size() - count, bytes);
+}
+
+void SdlAudioOutput::discardClockedSamples() {
+    droppedClockedBytes_ += queuedBytes();
+    if (audioDevice_ != 0) SDL_ClearQueuedAudio(audioDevice_);
+    clockedPrimed_ = false;
 }
 
 }  // namespace lezac::sound

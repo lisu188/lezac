@@ -332,6 +332,38 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
 
+    add_executable(lezac_jolly_cloud_rain_test tests/gameplay/jolly_cloud_rain_test.cpp)
+    target_include_directories(lezac_jolly_cloud_rain_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME jolly_cloud_lifecycle COMMAND lezac_cpp --debug-jolly-cloud-lifecycle)
+    set_tests_properties(jolly_cloud_lifecycle PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "jolly_cloud_lifecycle=ok shared_rearm=1 reset=1 held_states=4 final_attempt=1 production_frame=1 deferred_movement=1 zero_rng=1 natural_pickup=0 whole_game_claim=0")
+    if(Python3_Interpreter_FOUND)
+        foreach(rain_mode IN ITEMS core app)
+            if(rain_mode STREQUAL "app")
+                set(rain_exe $<TARGET_FILE:lezac_cpp>)
+                set(rain_args --app)
+            else()
+                set(rain_exe $<TARGET_FILE:lezac_jolly_cloud_rain_test>)
+                set(rain_args)
+            endif()
+            add_test(NAME jolly_cloud_${rain_mode}_original
+                COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_jolly_cloud_original.py
+                    --exe ${rain_exe} ${rain_args} --out ${CMAKE_CURRENT_BINARY_DIR}/jolly-cloud-checks)
+            set_tests_properties(jolly_cloud_${rain_mode}_original PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 45
+                ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+                PASS_REGULAR_EXPRESSION "jolly_cloud_original=ok cases=8 samples=293 compared_bytes=[0-9]+ production_app=[01] natural=0 whole_game_claim=0")
+        endforeach()
+        add_test(NAME jolly_cloud_checker_contracts
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_jolly_cloud_checker.py
+                --exe $<TARGET_FILE:lezac_jolly_cloud_rain_test>)
+        set_tests_properties(jolly_cloud_checker_contracts PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 30
+            ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+    endif()
+
     add_executable(lezac_flame_contact_word_test tests/gameplay/flame_contact_word_test.cpp)
     target_include_directories(lezac_flame_contact_word_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 

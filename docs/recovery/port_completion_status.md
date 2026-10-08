@@ -2,6 +2,14 @@
 
 Last reviewed: 2026-10-08
 
+The [JollyCloud rain recovery](jolly_cloud_rain_2026-10-08.md) replaces the
+invented four immediate rewards with the original shared 46-tick map producer.
+Bounded compiled production helpers match 293 original-instruction samples
+and 1,664,782 scalar/map/active-debris bytes, including capacity and final-tick
+boundaries. App lifecycle tests and hosted exact-head validation are separate
+gates. Natural cloud pickup, full-frame rain presentation and whole-game
+completion/fidelity remain unproven; no broad claim is changed.
+
 The [current-main recovery convergence](recovery_convergence_2026-10-08.md)
 combines the exact reviewed collapse, sound and pickup heads with main's
 constructor-velocity fix. Local provenance and bounded checks preserve

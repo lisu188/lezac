@@ -40,6 +40,8 @@ class IdentityCheckerTests(unittest.TestCase):
             self.assertEqual(kwargs['env']['SDL_VIDEODRIVER'], 'dummy')
             self.assertEqual(kwargs['cwd'], self.root)
             self.assertEqual(command[1], '--debug-shared-actor-order-original')
+            self.assertNotEqual(Path(command[2]), self.fixture)
+            self.assertEqual(Path(command[2]).read_bytes(), b'fixture\n')
             return self.result()
         with patch.object(checker.subprocess, 'run', side_effect=execute):
             report = self.run_check()
@@ -79,6 +81,26 @@ class IdentityCheckerTests(unittest.TestCase):
         with patch.object(checker.subprocess, 'run', side_effect=execute):
             with self.assertRaisesRegex(ValueError, 'binary changed'):
                 self.run_check()
+
+    def test_source_replacement_does_not_change_executed_input(self):
+        def execute(command, **kwargs):
+            self.fixture.write_bytes(b'changed original path')
+            self.assertEqual(Path(command[2]).read_bytes(), b'fixture\n')
+            return self.result()
+        with patch.object(checker.subprocess, 'run', side_effect=execute):
+            report = self.run_check()
+        self.assertTrue(report['passed'])
+        self.assertEqual(Path(report['executed_fixture_path']).read_bytes(), b'fixture\n')
+
+    def test_changed_executed_copy_is_rejected_and_expected_input_retained(self):
+        def execute(command, **kwargs):
+            Path(command[2]).write_bytes(b'changed executed copy')
+            return self.result()
+        with patch.object(checker.subprocess, 'run', side_effect=execute):
+            with self.assertRaisesRegex(ValueError, 'retained fixture changed'):
+                self.run_check()
+        self.assertFalse(self.reports()[0]['passed'])
+        self.assertEqual(next(self.out.glob('case-*/fixture.txt')).read_bytes(), b'fixture\n')
 
     def test_invalid_fixture_is_attributed_before_rejection(self):
         self.fixture.write_bytes(b'bad fixture')

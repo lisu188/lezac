@@ -47,7 +47,16 @@ timeout or a passing replay is not accepted as mutant rejection. Its generated
 source manifest, binary identity, stdout, stderr and report are retained in CI.
 The production source remains unchanged by mutation generation. The mutant
 target is test-only, and ordinary distribution builds with `BUILD_TESTING=OFF`
-do not include it. The checker has twelve stdlib contracts.
+do not include it. The checker has fourteen stdlib contracts.
+
+The checker reads and hashes the original fixture once, retains that expected
+buffer, and executes a separate retained copy of those same bytes. It checks
+the executed copy again after the child exits. Replacing the caller's fixture
+path cannot change the child's input; modifying the executed copy is rejected
+while the expected preimage remains available. These controls fix owner finding
+T72-F1 without changing the original fixture, production code or mutant source.
+The contract tests do not substitute for the separately compiled App mutant:
+fresh exact-head hosted execution and review remain required after this change.
 
 Large local game builds and native captures remain deferred under disk reserves.
 During preparation, asking Ninja for the generated mutant source unexpectedly

@@ -33,9 +33,12 @@ def check(exe, fixture, output):
         normalized = packed.replace(b'\r\n', b'\n')
         if hashlib.sha256(normalized).hexdigest() != FIXTURE_SHA256:
             raise ValueError('shared-order fixture identity mismatch')
+        executed_fixture = retained / 'input.txt'
+        executed_fixture.write_bytes(packed)
+        report['executed_fixture_path'] = str(executed_fixture.resolve())
         binary = checked_bytes(exe, 64 * 1024**2)
         report['binary_sha256'] = hashlib.sha256(binary).hexdigest()
-        command = [str(exe.resolve()), '--debug-shared-actor-order-original', str(fixture.resolve())]
+        command = [str(exe.resolve()), '--debug-shared-actor-order-original', str(executed_fixture.resolve())]
         report['command'] = command
         try:
             result = subprocess.run(command, cwd=fixture.resolve().parents[2], capture_output=True, timeout=60,
@@ -47,6 +50,8 @@ def check(exe, fixture, output):
         (retained / 'stdout.txt').write_bytes(result.stdout)
         (retained / 'stderr.txt').write_bytes(result.stderr)
         report['returncode'] = result.returncode
+        if hashlib.sha256(checked_bytes(executed_fixture, 2 * 1024**2)).hexdigest() != report['fixture_sha256']:
+            raise ValueError('retained fixture changed during execution')
         if hashlib.sha256(checked_bytes(exe, 64 * 1024**2)).hexdigest() != report['binary_sha256']:
             raise ValueError('mutant binary changed during execution')
         text = (result.stdout + result.stderr).decode('utf-8', errors='replace')

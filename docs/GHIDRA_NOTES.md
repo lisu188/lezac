@@ -1259,16 +1259,19 @@ cursors, not offsets into `PROEFS.SON`.
 The priority latch at `1000:165a..167d` implements:
 
 ```text
-if DS:79c4 != 0 and (DS:799e - 1) >= DS:799f:
+if DS:79c4 != 0 and signed8(byte(DS:799e - 1)) >= signed8(DS:799f):
     return
 DS:799e = DS:799f
 DS:78c0 = DS:2074
 DS:79c4 = 1
 ```
 
-So an inactive latch accepts every request. While active, same-or-higher numeric
-priority refreshes/replaces the latched cursor, but one-below-or-lower priority
-is rejected. The C++ port maps this to `latchSoundRequest`, `requestSoundOffset`,
+So an inactive latch accepts every request. The original reject branch is
+signed `JGE` (`7d 11`), after a byte-width `DEC`. For positive priorities 1..127,
+same-or-higher positive priority refreshes/replaces the cursor, but boundary
+bytes must follow the signed comparison. In particular, active priority zero
+accepts positive requests, and current `0x80` rejects every pending byte after
+its decrement becomes signed 127. The C++ port maps this to `latchSoundRequest`, `requestSoundOffset`,
 and `pumpSoundLatch`; explosion sounds now enter through this path.
 `--debug-sound-latch-static-model` validates the shipped bytes at
 `1000:165a..167d`, including the inactive jump to `1000:166c`, the active

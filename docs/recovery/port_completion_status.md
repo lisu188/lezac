@@ -3,6 +3,10 @@
 Last reviewed: 2026-10-08
 
 The C++17/SDL2 reconstruction of `LEZAC.EXE` is not yet functionally complete.
+The [2026-10-08 signed-priority and interrupt-state recovery](sound_interrupt_state_2026-10-08.md)
+corrects the production latch's signed `JGE` comparison and verifies per-IRQ
+state transitions. The latter still needs live scheduling integration; the
+one-shot pump's premature clear and whole-game sound parity remain open.
 The earlier claim was based on a subsystem inventory and compatible tests,
 not a complete comparison with original behavior. The 2026-09-05 player and
 collapse captures exposed absent pickup handling and a placeholder collapse

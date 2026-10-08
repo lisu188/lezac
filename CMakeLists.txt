@@ -177,6 +177,14 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_sound_interrupt_test tests/sound/sound_interrupt_test.cpp
+        src/sound/sound_engine.cpp)
+    target_link_libraries(lezac_sound_interrupt_test PRIVATE lezac_resources)
+    add_test(NAME sound_interrupt
+        COMMAND lezac_sound_interrupt_test ${CMAKE_CURRENT_SOURCE_DIR}/PROEFS.SON)
+    set_tests_properties(sound_interrupt PROPERTIES PASS_REGULAR_EXPRESSION
+        "sound_interrupt=ok phase_cases=16777216 bank_cases=8320 direct_cases=149445 inactive_cases=65536 priority_cases=65536 trajectories=14 observed_seed_ticks=8")
+
     add_executable(lezac_main_menu_test tests/ui/main_menu_test.cpp src/app/input_mapper.cpp)
     target_compile_definitions(lezac_main_menu_test PRIVATE SDL_MAIN_HANDLED)
     target_include_directories(lezac_main_menu_test PRIVATE ${SDL2_INCLUDE_DIRS})
@@ -268,6 +276,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION "^render_state_boundary=ok repeat_pixels=1 nonblank=1 rng_unchanged=1 actor_order_unchanged=1 palette_unchanged=1 live_map_alias=1")
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
+
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME sound_interrupt_original
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_interrupt_original.py
+                    --exe $<TARGET_FILE:lezac_sound_interrupt_test>)
+        set_tests_properties(sound_interrupt_original PROPERTIES PASS_REGULAR_EXPRESSION
+            "sound_interrupt_original=ok windows=4 phase_cases=16777216 bank_cases=8320 direct_cases=149445 priority_cases=65536")
+    endif()
 
     if(Python3_Interpreter_FOUND)
         add_test(NAME level_exporter_counts

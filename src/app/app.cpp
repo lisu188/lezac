@@ -1,6 +1,7 @@
 #include "diagnostics/frame_inspector.hpp"
 #include "rendering/game_renderer.hpp"
 #include "gameplay/actor_models.hpp"
+#include "gameplay/collapse_seed.hpp"
 #include "ui/models.hpp"
 #include "rendering/presentation_state.hpp"
 #include <SDL.h>
@@ -28625,49 +28626,18 @@ private:
         }
 
         if (collapseQueue_.size() >= kCollapseCapacity) return;
-        std::vector<size_t> stack{start};
-        std::vector<size_t> group;
-        while (!stack.empty()) {
-            size_t index = stack.back();
-            stack.pop_back();
-            if (index >= level_.wordLayer.size() || level_.wordLayer[index] != word) continue;
-            level_.wordLayer[index] = static_cast<uint16_t>(word | kDamagedWordBit);
-            group.push_back(index);
-
+        auto geometry = lezac::gameplay::seedCollapseWordGroup(level_.wordLayer, level_.width, start);
+        for (size_t index : geometry.cells) {
             int x = static_cast<int>(index % static_cast<size_t>(level_.width));
             int y = static_cast<int>(index / static_cast<size_t>(level_.width));
-            auto pushNeighbor = [&](int nx, int ny) {
-                if (nx < 0 || ny < 0 || nx >= level_.width || ny >= level_.height) return;
-                size_t next = static_cast<size_t>(ny) * level_.width + nx;
-                if (next < level_.wordLayer.size() && level_.wordLayer[next] == word) {
-                    stack.push_back(next);
-                }
-            };
-            pushNeighbor(x + 1, y);
-            pushNeighbor(x - 1, y);
-            pushNeighbor(x, y + 1);
-            pushNeighbor(x, y - 1);
-        }
-
-        int minX = level_.width;
-        int minY = level_.height;
-        int maxX = 0;
-        int maxY = 0;
-        for (size_t index : group) {
-            int x = static_cast<int>(index % static_cast<size_t>(level_.width));
-            int y = static_cast<int>(index / static_cast<size_t>(level_.width));
-            minX = std::min(minX, x);
-            minY = std::min(minY, y);
-            maxX = std::max(maxX, x);
-            maxY = std::max(maxY, y);
             if (!preserveCollapseGlyphs) markDamagedTile(x, y);
         }
-        if (!group.empty() && collapseQueue_.size() < kCollapseCapacity) {
+        if (!geometry.cells.empty() && collapseQueue_.size() < kCollapseCapacity) {
             CollapseRecord record;
             record.x = tx;
             record.y = ty;
-            record.startOffsetBytes = static_cast<uint16_t>((minY * level_.width + minX) * 2);
-            record.endOffsetBytes = static_cast<uint16_t>((maxY * level_.width + maxX) * 2);
+            record.startOffsetBytes = geometry.firstOffsetBytes;
+            record.endOffsetBytes = geometry.lastOffsetBytes;
             record.word = word;
             record.flaggedWord = static_cast<uint16_t>(word | kDamagedWordBit);
             record.forwardPhase = forwardPhase;
@@ -28676,8 +28646,8 @@ private:
             int signedReverse = static_cast<int>(static_cast<int8_t>(reversePhase));
             record.argMagnitude = static_cast<uint16_t>(std::abs(signedForward) +
                                                         std::abs(signedReverse));
-            record.affectedBytes = static_cast<uint8_t>((group.size() * 2) & 0xff);
-            record.count = static_cast<int>(group.size());
+            record.affectedBytes = static_cast<uint8_t>((geometry.cells.size() * 2) & 0xff);
+            record.count = static_cast<int>(geometry.cells.size());
             collapseQueue_.push_back(record);
         }
     }

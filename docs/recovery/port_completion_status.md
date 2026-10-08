@@ -69,6 +69,14 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [original collapse seeding geometry](collapse_seed_geometry_2026-10-08.md)
+recovers simultaneous rectangle expansion in place of a four-neighbor flood.
+The 1,124-case executed-original fixture includes 540 unchanged shipped-map
+components and 540 controlled-clearing variants. The latter are not natural
+route evidence. The production geometry regression does not close all seeder
+record fields, full collapse update, explosion playback or campaign fidelity;
+all broad completion and original-fidelity flags remain false.
+
 The [natural Level 4 support-column regression](natural_level4_support_column_runtime_2026-10-08.md)
 extends the unchanged third-objective route through tick 11740 and an ordinary
 stationary Medium-bomb placement at tick 11466. Its original-only fixture has

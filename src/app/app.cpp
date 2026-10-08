@@ -28717,8 +28717,7 @@ private:
                         const size_t other = static_cast<size_t>(match.slotIndex - 1);
                         const int weight = match.debris ? 1 : collapseQueue_[other].affectedBytes;
                         auto blend = [&](int own, int incoming) {
-                            const int16_t numerator = static_cast<int16_t>(own * ray.mass + incoming * weight);
-                            return static_cast<int8_t>(numerator / (ray.mass + weight));
+                            return lezac::gameplay::blendFlameVelocity(own, incoming, ray.mass, weight);
                         };
                         if (match.debris) {
                             auto& debris = debrisQueue_[other];

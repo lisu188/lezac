@@ -81,6 +81,11 @@ jobs:
           name: collapse-contact-linux
           path: build/collapse-contact-failures/
           if-no-files-found: ignore
+      - name: Flame contact word regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^flame_contact_word(_contract)?$'
       - name: Test
         env:
           SDL_VIDEODRIVER: dummy
@@ -200,6 +205,11 @@ jobs:
           name: collapse-contact-windows
           path: build/collapse-contact-failures/
           if-no-files-found: ignore
+      - name: Flame contact word regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^flame_contact_word(_contract)?$'
       - name: Test
         env:
           SDL_VIDEODRIVER: dummy

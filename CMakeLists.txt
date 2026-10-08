@@ -284,6 +284,9 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
 
+    add_executable(lezac_flame_contact_word_test tests/gameplay/flame_contact_word_test.cpp)
+    target_include_directories(lezac_flame_contact_word_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
     if(Python3_Interpreter_FOUND)
         add_test(NAME sound_pitch_original
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_pitch_original.py
@@ -293,6 +296,15 @@ if(BUILD_TESTING)
     endif()
 
     if(Python3_Interpreter_FOUND)
+        add_test(NAME flame_contact_word
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_flame_contact_word.py
+                    --exe $<TARGET_FILE:lezac_flame_contact_word_test>)
+        set_tests_properties(flame_contact_word PROPERTIES
+            PASS_REGULAR_EXPRESSION "flame_contact_word=ok cases=1376256 groups=21 executed_original_fixture=1 output_mutants=4 natural_gameplay=0 whole_game_parity=0")
+        add_test(NAME flame_contact_word_contract
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_flame_contact_word.py --self-check)
+        set_tests_properties(flame_contact_word_contract PROPERTIES
+            PASS_REGULAR_EXPRESSION "flame_contact_word_contract=ok source_mutants=7 compiled_cpp=0 natural_gameplay=0")
         add_test(NAME level_exporter_counts
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_level_exporter_counts.py)
         set_tests_properties(level_exporter_counts PROPERTIES

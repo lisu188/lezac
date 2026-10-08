@@ -77,6 +77,7 @@ using lezac::gameplay::Bomb;
 using lezac::gameplay::Flash;
 using lezac::gameplay::LaunchPadMarker;
 using lezac::gameplay::ActorAnimation;
+using lezac::gameplay::clampConstructedActorVelocity8;
 using lezac::gameplay::TransientActor;
 using lezac::gameplay::Player;
 using lezac::gameplay::ActiveMonster;
@@ -3134,6 +3135,38 @@ public:
         if (!complete) fail("missing completion");
         std::cout << "shared_actor_order_original=ok cases=" << cases << " samples=" << total << " actor_states=" << compared
                   << " stable_compaction=1 same_pass_appends=1 in_place_conversion=1 rng=1 map=1 seeded=1 natural_route=0 whole_game_parity=0\n";
+    }
+
+    void debugOriginalActorConstructorVelocity(const std::string& outputPath) {
+        SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
+        load();
+        resetLevel(0);
+        if (sharedActorCount() != 0)
+            throw std::runtime_error("constructor velocity probe requires an empty actor pool");
+        std::ofstream output(outputPath, std::ios::binary);
+        if (!output) throw std::runtime_error("cannot open constructor velocity output");
+        auto word = [&](int16_t value) {
+            const uint16_t bits = static_cast<uint16_t>(value);
+            output.put(static_cast<char>(bits & 0xff));
+            output.put(static_cast<char>(bits >> 8));
+        };
+        for (int axis = 0; axis != 2; ++axis) {
+            for (int input = 0; input != 65536; ++input) {
+                transientActors_.clear();
+                const int16_t value = static_cast<int16_t>(input);
+                auto* actor = spawnTransientActor(184, 160, axis == 1 ? value : 0,
+                                                 74, 0x0b, 8);
+                if (!actor || sharedActorCount() != 1 || actor->vx8 != 0)
+                    throw std::runtime_error("constructor velocity probe did not create one transient");
+                // Transient creation exposes only Y; X tests the same shared helper.
+                word(axis == 0 ? clampConstructedActorVelocity8(value) : actor->vx8);
+                word(actor->vy8);
+            }
+        }
+        output.flush();
+        if (!output) throw std::runtime_error("cannot write constructor velocity output");
+        std::cout << "actor_constructor_velocity_scan=ok axis_inputs=131072 transient_constructors=131072"
+                  << " x_shared_helper=65536 y_transient_path=65536 audio=dummy\n";
     }
 
     void debugSharedCapacityOriginal(const std::string& fixture, const std::string& outDir) {
@@ -26622,7 +26655,7 @@ private:
         TransientActor actor;
         actor.x = x;
         actor.y = y;
-        actor.vy8 = vy8;
+        actor.vy8 = clampConstructedActorVelocity8(vy8);
         actor.kind = kind;
         actor.timer = timer;
         actor.spriteIndex = static_cast<uint8_t>(sprite - 1);
@@ -28267,14 +28300,8 @@ private:
         bomb.pixelX = static_cast<int>(player.x);
         bomb.pixelY = static_cast<int>(player.y);
         // 6C2B..6C41 wraps the multiply/subtraction before signed division.
-        // Constructor 2FC1..3001 uses a WORD absolute value: -32768 passes
-        // its signed <=0x07ff test unchanged.
-        const auto clampLaunch = [](int16_t velocity) {
-            const auto magnitude = static_cast<int16_t>(velocity < 0 ? -int(velocity) : velocity);
-            return magnitude <= 0x07ff ? velocity : static_cast<int16_t>(velocity < 0 ? -0x07ff : 0x07ff);
-        };
-        bomb.vx8 = clampLaunch(static_cast<int16_t>(3 * player.vx8) / 2);
-        bomb.vy8 = clampLaunch(static_cast<int16_t>(player.vy8 - 500));
+        bomb.vx8 = clampConstructedActorVelocity8(static_cast<int16_t>(3 * player.vx8) / 2);
+        bomb.vy8 = clampConstructedActorVelocity8(static_cast<int16_t>(player.vy8 - 500));
         bomb.moving = true;
         requestBombPlaceSound();
         --inventory.counts[static_cast<size_t>(bombTypeIndex(inventory.selected))];
@@ -30338,6 +30365,12 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-red-palette-lifecycle") {
             app.debugRedPaletteLifecycle();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-original-actor-constructor-velocity") {
+            if (argc != 3)
+                throw std::runtime_error("usage: --debug-original-actor-constructor-velocity OUTPUT");
+            app.debugOriginalActorConstructorVelocity(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-shared-capacity-original") {

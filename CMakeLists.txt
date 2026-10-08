@@ -4891,6 +4891,20 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "timed_writeback_self_check=ok cases=1184 kinds=12,13 profiles=10 live=0")
 
+    add_test(NAME actor_constructor_velocity_original
+        COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_constructor_velocity.py
+                --exe $<TARGET_FILE:lezac_cpp> --out "${CMAKE_CURRENT_BINARY_DIR}/actor-constructor-velocity-checks")
+    set_tests_properties(actor_constructor_velocity_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 60
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "actor_constructor_velocity_original=ok axis_cases=131072 x_shared_helper=65536 y_transient_path=65536 original_complete_constructor=1 natural_reachability=0 whole_game_parity=0")
+    add_test(NAME actor_constructor_velocity_contract
+        COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_constructor_velocity.py --self-check)
+    set_tests_properties(actor_constructor_velocity_contract PROPERTIES
+        PASS_REGULAR_EXPRESSION "actor_constructor_velocity_contract=ok source_mutations=8 comparator_mutations=12 compiled_claim=0")
+    add_test(NAME actor_constructor_velocity_checker_failures
+        COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_constructor_velocity_checker.py -v)
+
     add_test(NAME bomb_launch_word
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_bomb_launch_word.py --exe $<TARGET_FILE:lezac_cpp>)
     set_tests_properties(bomb_launch_word PROPERTIES

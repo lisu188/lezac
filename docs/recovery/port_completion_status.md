@@ -69,6 +69,13 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [actor-constructor velocity recovery](actor_constructor_velocity_2026-10-08.md)
+adds 131,072 complete original constructor executions and preserves its
+signed-WORD -32768 exception. Transient creation now shares the original clamp
+with bomb construction. The compiled comparison distinguishes actual transient
+Y creation from the shared X helper; natural out-of-range reachability, other
+actor fields and whole-game fidelity remain unproved. Broad flags are unchanged.
+
 The [original collapse seeding geometry](collapse_seed_geometry_2026-10-08.md)
 recovers simultaneous rectangle expansion in place of a four-neighbor flood.
 The 1,124-case executed-original fixture includes 540 unchanged shipped-map

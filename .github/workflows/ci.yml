@@ -48,6 +48,18 @@ jobs:
           name: debris-updater-linux
           path: build/debris-update-failures/
           if-no-files-found: ignore
+      - name: Complete collapse updater regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^original_collapse_update(_contract)?$'
+      - name: Preserve complete collapse updater diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collapse-updater-linux
+          path: build/collapse-update-failures/
+          if-no-files-found: ignore
       - name: Collapse seed geometry regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -143,6 +155,18 @@ jobs:
         with:
           name: debris-updater-windows
           path: build/debris-update-failures/
+          if-no-files-found: ignore
+      - name: Complete collapse updater regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^original_collapse_update(_contract)?$'
+      - name: Preserve complete collapse updater diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collapse-updater-windows
+          path: build/collapse-update-failures/
           if-no-files-found: ignore
       - name: Collapse seed geometry regressions
         env:

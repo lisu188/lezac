@@ -69,6 +69,14 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [complete collapse updater oracle](collapse_update_oracle_2026-10-08.md)
+executes original `1000:5102` without instruction patches or call stubs. It
+independently reproduces all 27 retained native routine cases and supplies
+2,395 controlled cases for full live debris/collapse records, both map planes,
+RNG, destruction and fragment-word counters through the production updater.
+Actor creation executes but actor records, sound state, presentation, natural
+routes and whole-game fidelity are not compared. Broad claims remain false.
+
 The [complete debris updater oracle](debris_update_oracle_2026-10-08.md)
 executes the original full debris pass without call stubs or instruction
 patches. It independently reproduces 18 retained native collision/retirement

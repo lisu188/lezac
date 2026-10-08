@@ -14,6 +14,17 @@ The [2026-10-08 PC speaker pitch correction](sound_pitch_2026-10-08.md) fixes
 frequency/reload inversion, low-frequency silence and pitch clamping. Its
 exhaustive compiled conversion and PCM checks are bounded opcode-model
 evidence, not native sound timing, priority-latch lifetime or whole-game parity.
+
+The [2026-10-08 signed-priority and interrupt-state recovery](sound_interrupt_state_2026-10-08.md)
+corrects the production latch's signed `JGE` comparison and verifies per-IRQ
+state transitions. The [clocked playback follow-up](clocked_sound_2026-10-08.md)
+integrates those transitions into interactive and replay scheduling, retaining
+priority through menus, pause and replacement requests. Original IRQ cadence
+and phase, hardware waveform and whole-game sound parity remain open.
+The PR #308 long-stall review finding has a bounded catch-up implementation:
+discarded time advances logical IRQ state without PCM allocation, while only
+the latest 200 ms is synthesized. Exact logical-state and bounded-output tests
+are required on the fresh head; skipped-interval PCM equivalence is not claimed.
 The earlier claim was based on a subsystem inventory and compatible tests,
 not a complete comparison with original behavior. The 2026-09-05 player and
 collapse captures exposed absent pickup handling and a placeholder collapse
@@ -104,6 +115,13 @@ cases and provides 1,061 controlled cases for complete live record, map-plane,
 count and RNG comparison through the production updater. Spark count is zero
 by setup; sound, rendering, full collapse updates and natural route completion
 remain outside the comparison. This closes no broad OPEN item or global flag.
+
+The [live sound deadline review repair](clocked_sound_live_deadline_2026-10-08.md)
+removes host-scheduling assumptions from menu/pause diagnostics, adds final
+production-clock servicing and two deliberately stalled live regressions.
+This is a diagnostic reliability repair, not evidence of original hardware
+timing or whole-game sound fidelity. All broad completion/fidelity flags remain
+unchanged; hosted compiled validation is required before merge.
 
 The [original collapse seeding geometry](collapse_seed_geometry_2026-10-08.md)
 recovers simultaneous rectangle expansion in place of a four-neighbor flood.

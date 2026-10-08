@@ -6,8 +6,10 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import struct
 import subprocess
+import sys
 import tempfile
 
 from source_guardrails import function_ranges, mask_cpp, source_files
@@ -84,6 +86,7 @@ def metadata():
 
 def unpack(data, incoming=None, expected=None):
     input_hash, output_hash = hashlib.sha256(), hashlib.sha256()
+    case_sizes = []
     with gzip.open(FIXTURE, 'rb') as fixture:
         if fixture.read(12) != b'LZCF0001' + struct.pack('<I', data['cases']):
             raise ValueError('original contact fixture header differs')
@@ -108,6 +111,7 @@ def unpack(data, incoming=None, expected=None):
                 raise ValueError('original contact record layout differs')
             input_hash.update(request)
             output_hash.update(result)
+            case_sizes.append(result_size)
             if incoming:
                 incoming.write(request)
                 expected.write(result)
@@ -115,17 +119,59 @@ def unpack(data, incoming=None, expected=None):
             raise ValueError('trailing original contact records')
     if (input_hash.hexdigest() != data['input_sha256'] or output_hash.hexdigest() != data['output_sha256']):
         raise ValueError('original contact record digest differs')
+    return tuple(case_sizes)
 
 
-def compare(paths):
+def compare(paths, case_sizes=()):
     actual, expected = paths
+    offset = 0
     with actual.open('rb') as left, expected.open('rb') as right:
         while True:
             a, b = left.read(65536), right.read(65536)
             if a != b:
-                raise ValueError('compiled contact live pool/map record differs')
+                local = next((i for i, (x, y) in enumerate(zip(a, b)) if x != y), min(len(a), len(b)))
+                byte_offset = offset + local
+                case_byte = byte_offset
+                case_index = 'unknown'
+                # Use validated expected sizes, never potentially corrupt output headers.
+                for index, size in enumerate(case_sizes):
+                    if case_byte < size:
+                        case_index = str(index)
+                        break
+                    case_byte -= size
+                else:
+                    if case_sizes:
+                        case_index = 'after_last'
+                raise ValueError('compiled contact live pool/map record differs '
+                                 f'byte_offset={byte_offset} case_index={case_index} case_byte={case_byte} '
+                                 f'actual_size={actual.stat().st_size} expected_size={expected.stat().st_size}')
             if not a:
                 return
+            offset += len(a)
+
+
+def retain_failure(directory, command, result, error, case_sizes):
+    failures = ROOT / 'build/collapse-contact-failures'
+    failures.mkdir(parents=True, exist_ok=True)
+    retained = Path(tempfile.mkdtemp(prefix='contact-', dir=failures))
+    for name in ('input.bin', 'expected.bin', 'actual.bin'):
+        path = directory / name
+        if path.exists():
+            shutil.copy2(path, retained / name)
+
+    def text(value):
+        return value.decode('utf-8', errors='replace') if isinstance(value, bytes) else value
+
+    context = result if result is not None else error
+    diagnostic = dict(error=str(error), error_type=type(error).__name__, command=command,
+                      replay_command=[command[0], command[1], str(retained / 'input.bin'),
+                                      str(retained / 'rerun-actual.bin')],
+                      returncode=getattr(context, 'returncode', None),
+                      stdout=text(getattr(context, 'stdout', None)), stderr=text(getattr(context, 'stderr', None)),
+                      case_sizes=case_sizes, case_indices_zero_based=True,
+                      github_sha=os.environ.get('GITHUB_SHA'), original_fidelity_claim=False)
+    (retained / 'failure.json').write_text(json.dumps(diagnostic, indent=2) + '\n', encoding='utf-8')
+    print('collapse_contact_failure_retained=' + str(retained), flush=True)
 
 
 def main():
@@ -158,14 +204,23 @@ def main():
         directory = Path(directory)
         incoming, expected, actual = (directory / name for name in ('input.bin', 'expected.bin', 'actual.bin'))
         with incoming.open('wb') as input_file, expected.open('wb') as expected_file:
-            unpack(data, input_file, expected_file)
-        result = subprocess.run([str(args.exe.resolve()), '--debug-collapse-contacts-original',
-                                 str(incoming), str(actual)], cwd=ROOT, capture_output=True, text=True,
-                                env=dict(os.environ, SDL_AUDIODRIVER='dummy', SDL_VIDEODRIVER='dummy'), timeout=60)
-        if (result.returncode or result.stderr or result.stdout.strip() !=
-                'collapse_contacts_probe=ok cases=9184 original_fidelity_claim=0'):
-            raise RuntimeError('compiled contact probe failed: ' + result.stdout + result.stderr)
-        compare((actual, expected))
+            case_sizes = unpack(data, input_file, expected_file)
+        command = [str(args.exe.resolve()), '--debug-collapse-contacts-original', str(incoming), str(actual)]
+        result = None
+        try:
+            result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True,
+                                    env=dict(os.environ, SDL_AUDIODRIVER='dummy', SDL_VIDEODRIVER='dummy'), timeout=60)
+            if (result.returncode or result.stderr or result.stdout.strip() !=
+                    'collapse_contacts_probe=ok cases=9184 original_fidelity_claim=0'):
+                raise RuntimeError('compiled contact probe failed: ' + result.stdout + result.stderr)
+            compare((actual, expected), case_sizes)
+        except Exception as error:
+            try:
+                retain_failure(directory, command, result, error, case_sizes)
+            except Exception as retention_error:
+                print('collapse_contact_failure_retention_failed=' + str(retention_error), file=sys.stderr)
+            raise
+        # Expected negative controls must not be recorded as real probe failures.
         for offset in (0, actual.stat().st_size - 1):
             with actual.open('r+b') as output:
                 output.seek(offset)

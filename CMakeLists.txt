@@ -202,6 +202,14 @@ if(BUILD_TESTING)
         "^level_results=ok count_bonus=1 whole_award=1 reel_steps=41 rng_draws=41 delayed_rng=1 typing_steps=89 typing_boundaries=1 batching=1 rollover=1 zero_bonus=1 word_wrap=1 original_runtime_claim=0")
     add_executable(lezac_core_primitives_test tests/core/core_primitives_test.cpp)
     target_link_libraries(lezac_core_primitives_test PRIVATE lezac_core)
+    add_executable(lezac_collapse_seed_geometry_test tests/gameplay/collapse_seed_geometry_test.cpp)
+    target_include_directories(lezac_collapse_seed_geometry_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_executable(lezac_collapse_seed_four_neighbor_mutant tests/gameplay/collapse_seed_geometry_test.cpp)
+    target_include_directories(lezac_collapse_seed_four_neighbor_mutant PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_compile_definitions(lezac_collapse_seed_four_neighbor_mutant PRIVATE LEZAC_FOUR_NEIGHBOR_MUTANT)
+    add_executable(lezac_collapse_seed_eight_neighbor_mutant tests/gameplay/collapse_seed_geometry_test.cpp)
+    target_include_directories(lezac_collapse_seed_eight_neighbor_mutant PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_compile_definitions(lezac_collapse_seed_eight_neighbor_mutant PRIVATE LEZAC_EIGHT_NEIGHBOR_MUTANT)
     add_executable(lezac_hud_test tests/core/hud_test.cpp)
     target_link_libraries(lezac_hud_test PRIVATE lezac_core)
     add_test(NAME hud_models COMMAND lezac_hud_test)
@@ -4404,6 +4412,22 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^original_debris_table=ok stale_tail_cases=3 full_live_range=1 invalid_bounds=2 truncated_guard=1")
+
+    add_test(NAME collapse_seed_geometry_original
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_seed_geometry.py
+                --exe $<TARGET_FILE:lezac_collapse_seed_geometry_test>
+                --four-neighbor-exe $<TARGET_FILE:lezac_collapse_seed_four_neighbor_mutant>
+                --eight-neighbor-exe $<TARGET_FILE:lezac_collapse_seed_eight_neighbor_mutant>)
+    set_tests_properties(collapse_seed_geometry_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^collapse_seed_geometry=ok cases=1124 compiled_flood_mutants=2 output_mutants=1 natural_gameplay=0 full_seeder_claim=0")
+    add_test(NAME collapse_seed_geometry_contract
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_seed_geometry.py --self-check)
+    set_tests_properties(collapse_seed_geometry_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^collapse_seed_contract=ok source_mutants=6 compiled_cpp=0 natural_gameplay=0")
 
     add_test(NAME actor_contact_level2_evidence
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-contact-level2-evidence

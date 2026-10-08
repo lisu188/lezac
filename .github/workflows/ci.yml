@@ -52,7 +52,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --output-on-failure -R '^(shared_actor_order_original|shared_actor_order_fixture_guard|corpse_conversion_identity_mutant|corpse_conversion_identity_checker_contract)$'
+        run: ctest --test-dir build --output-on-failure -R '^(shared_actor_order_original|shared_actor_order_fixture_guard|corpse_conversion_identity_mutant|corpse_conversion_identity_checker_contract|corpse_conversion_identity_live_binding)$'
       - name: Preserve corpse conversion diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -61,6 +61,7 @@ jobs:
           path: |
             build/actor-identity-mutant/app.cpp.manifest.json
             build/actor-identity-mutant-checks/
+            build/actor-identity-live-binding/
           if-no-files-found: ignore
       - name: Complete debris updater regressions
         env:
@@ -198,6 +199,7 @@ jobs:
         with:
           name: recovery-diagnostics-linux-final
           path: |
+            build/actor-identity-live-binding/
             build/actor-storage-checks/
             build/debris-update-failures/
             build/collapse-update-failures/
@@ -301,7 +303,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --output-on-failure -R '^(shared_actor_order_original|shared_actor_order_fixture_guard|corpse_conversion_identity_mutant|corpse_conversion_identity_checker_contract)$'
+        run: ctest --test-dir build --output-on-failure -R '^(shared_actor_order_original|shared_actor_order_fixture_guard|corpse_conversion_identity_mutant|corpse_conversion_identity_checker_contract|corpse_conversion_identity_live_binding)$'
       - name: Preserve corpse conversion diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -310,6 +312,7 @@ jobs:
           path: |
             build/actor-identity-mutant/app.cpp.manifest.json
             build/actor-identity-mutant-checks/
+            build/actor-identity-live-binding/
           if-no-files-found: ignore
       - name: Complete debris updater regressions
         env:
@@ -447,6 +450,7 @@ jobs:
         with:
           name: recovery-diagnostics-windows-final
           path: |
+            build/actor-identity-live-binding/
             build/actor-storage-checks/
             build/debris-update-failures/
             build/collapse-update-failures/

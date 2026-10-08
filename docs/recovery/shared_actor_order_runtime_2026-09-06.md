@@ -58,6 +58,25 @@ T72-F1 without changing the original fixture, production code or mutant source.
 The contract tests do not substitute for the separately compiled App mutant:
 fresh exact-head hosted execution and review remain required after this change.
 
+`corpse_conversion_identity_live_binding` adds three real-child checks. It
+replaces the caller's fixture immediately before launching the production App
+and then the compiled mutant. Both must still consume the retained, pinned
+input: the production replay passes and the mutant fails specifically on an
+unused birth identity. A third child runs with a deliberately changed executed
+copy; that tampering must be rejected while the expected preimage is retained.
+Only the file-replacement boundary is controlled. The subprocess result is
+returned unchanged from a real compiled child, never synthesized or mocked.
+The checker itself is compiled from its single-read hashed source buffer.
+
+The live helper copies the ten raw assets and the caller fixture into a private
+workspace, keeps each retained attempt below 8 MiB, creates a unique attempt
+directory without overwriting prior results, and verifies the original inputs
+are unchanged.
+It can run locally with only `--exe`, explicitly reporting two baseline checks
+and `compiled_mutant=0`; hosted CTest always supplies both compiled executables
+and requires all three checks with `compiled_mutant=1`. Reusing an older retained
+baseline executable is not exact-head binary or compiled-mutant validation.
+
 Large local game builds and native captures remain deferred under disk reserves.
 During preparation, asking Ninja for the generated mutant source unexpectedly
 followed an explicit executable dependency and compiled/linked the main game,

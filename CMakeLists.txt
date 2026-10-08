@@ -706,6 +706,14 @@ if(BUILD_TESTING)
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_corpse_identity_checker.py -v)
         set_tests_properties(corpse_conversion_identity_checker_contract PROPERTIES
             ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 30)
+        add_test(NAME corpse_conversion_identity_live_binding
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_corpse_identity_live_binding.py
+                --exe $<TARGET_FILE:lezac_cpp> --mutant $<TARGET_FILE:lezac_actor_identity_mutant>
+                --fixture ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/shared_actor_order_original.txt
+                --out ${CMAKE_CURRENT_BINARY_DIR}/actor-identity-live-binding)
+        set_tests_properties(corpse_conversion_identity_live_binding PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+            TIMEOUT 210 PASS_REGULAR_EXPRESSION "^corpse_identity_live_binding=ok cases=3 compiled_baseline=1 compiled_mutant=1 real_children=1 retained_input=1 audio=dummy whole_game_claim=0")
         add_test(NAME shared_actor_order_capture_contract
             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_shared_actor_order.py --self-check)
         set_tests_properties(shared_actor_order_capture_contract PROPERTIES

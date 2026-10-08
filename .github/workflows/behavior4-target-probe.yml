@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - tools/capture_original_behavior4_targets.py
+      - tools/capture_original_behavior4_lockstep.py
+      - tools/capture_original_death_transients.py
+      - tools/capture_original_bomb_fuses.py
+      - tools/seed_original_level.py
       - .github/workflows/behavior4-target-probe.yml
   workflow_dispatch:
 

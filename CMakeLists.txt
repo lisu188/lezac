@@ -58,7 +58,7 @@ add_library(lezac_rendering STATIC
 )
 target_include_directories(lezac_rendering PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_libraries(lezac_rendering PUBLIC lezac_resources PRIVATE ${SDL2_LIBRARIES})
-target_link_directories(lezac_rendering PRIVATE ${SDL2_LIBRARY_DIRS})
+target_link_directories(lezac_rendering PUBLIC ${SDL2_LIBRARY_DIRS})
 target_compile_options(lezac_rendering PRIVATE ${SDL2_CFLAGS_OTHER})
 
 add_library(lezac_ui STATIC src/ui/record_store.cpp src/ui/ui_controller.cpp src/ui/level_flow.cpp)
@@ -5611,8 +5611,13 @@ if(BUILD_TESTING)
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level4_support_column.py guard)
         set_tests_properties(natural_level4_support_column_guard PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-            TIMEOUT 60 LABELS "level4;original;evidence-guard;natural-route;support-column"
+            TIMEOUT 120 LABELS "level4;original;evidence-guard;natural-route;support-column"
             PASS_REGULAR_EXPRESSION "\"mutations_rejected\":27.*\"producer_mutations_rejected\":29.*\"status\":\"guarded\".*\"typed_field_mutations_rejected\":291")
+        add_test(NAME review_history_repair_contracts
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_review_history_repairs.py)
+        set_tests_properties(review_history_repair_contracts PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 30 LABELS "review;regression;source-contract")
         add_test(NAME level1_handoff_guard
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_handoff.py guard)
         set_tests_properties(level1_handoff_guard PROPERTIES

@@ -95,6 +95,18 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure --timeout 120
+      - name: Preserve final recovery diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-diagnostics-linux-final
+          path: |
+            build/debris-update-failures/
+            build/collapse-update-failures/
+            build/collapse-contact-failures/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
       - name: Preserve startup RNG comparisons
         if: always()
         uses: actions/upload-artifact@v4
@@ -223,6 +235,18 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure --timeout 120
+      - name: Preserve final recovery diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-diagnostics-windows-final
+          path: |
+            build/debris-update-failures/
+            build/collapse-update-failures/
+            build/collapse-contact-failures/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
       - name: Preserve startup RNG comparisons
         if: always()
         uses: actions/upload-artifact@v4

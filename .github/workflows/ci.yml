@@ -41,11 +41,33 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure -R '^collapse_seed_geometry_(original|contract)$'
+      - name: Pickup post-allocation initialization regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^(pickup_post_init_(original|contract|checker_failures)|transient_actor_limits)$'
+      - name: Preserve focused pickup initialization comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pickup-post-init-linux-focused
+          path: build/pickup-post-init-checks/
+          if-no-files-found: ignore
       - name: Test
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure --timeout 120
+      - name: Preserve final pickup initialization comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pickup-post-init-linux-final
+          path: |
+            build/pickup-post-init-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
       - name: Preserve startup RNG comparisons
         if: always()
         uses: actions/upload-artifact@v4
@@ -120,11 +142,33 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure -R '^collapse_seed_geometry_(original|contract)$'
+      - name: Pickup post-allocation initialization regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^(pickup_post_init_(original|contract|checker_failures)|transient_actor_limits)$'
+      - name: Preserve focused pickup initialization comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pickup-post-init-windows-focused
+          path: build/pickup-post-init-checks/
+          if-no-files-found: ignore
       - name: Test
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure --timeout 120
+      - name: Preserve final pickup initialization comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pickup-post-init-windows-final
+          path: |
+            build/pickup-post-init-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
       - name: Preserve startup RNG comparisons
         if: always()
         uses: actions/upload-artifact@v4

@@ -69,6 +69,13 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [pickup post-allocation recovery](pickup_post_init_runtime_2026-10-08.md)
+restores unconditional tail-animation initialization after a pickup constructor
+attempt, including a full-pool refusal. Its 480 executed-original controlled
+cases cover animation/count/RNG boundaries and distinguish the fourteen-pickup
+cap. Natural saturation, inherited animated bombs, subsequent updates, rendering,
+sound and whole-game parity remain unproved; no broad completion flag changes.
+
 The [original collapse seeding geometry](collapse_seed_geometry_2026-10-08.md)
 recovers simultaneous rectangle expansion in place of a four-neighbor flood.
 The 1,124-case executed-original fixture includes 540 unchanged shipped-map

@@ -5225,6 +5225,28 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^walker_ledge_original=ok samples=32 first_frame=572 final_frame=603 local_map_unchanged=1 motion=1 fractions=1 animation=1 seeded_cpp=1 natural_source=1 frame_inspection=1")
 
+    add_test(NAME pickup_post_init_original
+        COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pickup_post_init.py
+            --exe $<TARGET_FILE:lezac_cpp> --out "${CMAKE_CURRENT_BINARY_DIR}/pickup-post-init-checks")
+    set_tests_properties(pickup_post_init_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 45
+        PASS_REGULAR_EXPRESSION "^pickup_post_init_original=ok cases=480 admissions=240 full_pool_attempts=120 pickup_cap_skips=120 natural_reachability=0 whole_game_parity=0")
+
+    add_test(NAME pickup_post_init_contract
+        COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pickup_post_init.py --self-check)
+    set_tests_properties(pickup_post_init_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^pickup_post_init_contract=ok cases=480 source_mutations=14 comparator_mutations=8 compiled_claim=0")
+
+    add_test(NAME pickup_post_init_checker_failures
+        COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_pickup_post_init_checker.py -v)
+    set_tests_properties(pickup_post_init_checker_failures PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
     add_test(NAME transient_actor_limits
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-transient-actor-limits)
     set_tests_properties(transient_actor_limits PROPERTIES

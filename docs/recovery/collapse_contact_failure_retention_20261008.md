@@ -27,6 +27,14 @@ temporary inputs disappear while retained copies remain byte-exact, and that a
 successful probe's four deliberate mutation controls create no failure folder.
 The baseline failed because no retained directory existed for failed probes.
 
+The initial Windows MSYS2 CI run exposed a test-only path spelling difference:
+`Path.iterdir()` and the printed retention path used equivalent mixed slash
+forms. All nine failure modes had already verified their retained binary files.
+The reporting assertion now parses the single reported path and checks its
+filesystem identity with `Path.samefile()`, retaining exact file-content checks.
+The original failed job log and live Linux head are preserved; a fresh branch
+requires new MSYS2 CI and exact-head review before delivery.
+
 This follow-up changes diagnostics only. The original fixture, generator,
 metadata and production C++ are unchanged from the integration branch. Mocked
 tests do not establish compiled comparison, original execution, natural gameplay

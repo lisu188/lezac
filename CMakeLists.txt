@@ -184,7 +184,8 @@ if(BUILD_TESTING)
         COMMAND lezac_clocked_sound_test ${CMAKE_CURRENT_SOURCE_DIR}/PROEFS.SON)
     set_tests_properties(clocked_sound PROPERTIES PASS_REGULAR_EXPRESSION
         "clocked_sound=ok boundaries=1000 trajectories=16 terminal_order=1 priority_lifetime=1 ignored_commands=2 replacement_phase=1 period_zero=1 native_timing_claim=0")
-    add_test(NAME clocked_sound_app COMMAND lezac_cpp --debug-clocked-sound)
+    add_test(NAME clocked_sound_app COMMAND lezac_cpp --debug-clocked-sound
+        "${CMAKE_CURRENT_BINARY_DIR}/clocked-sound-checks")
     set_tests_properties(clocked_sound_app PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
@@ -196,7 +197,8 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION "clocked_sound_app=ok menu=1 pause=1 pending_priority=1 terminal_order=1 rollover=1 replay_clock=1 bounded_queue=1 frames=2 native_timing_claim=0 device_enabled=0 audio=dummy")
     foreach(clock_state IN ITEMS menu pause)
         add_test(NAME clocked_sound_live_${clock_state}
-            COMMAND lezac_cpp --debug-clocked-sound-live ${clock_state})
+            COMMAND lezac_cpp --debug-clocked-sound-live ${clock_state}
+                    "${CMAKE_CURRENT_BINARY_DIR}/clocked-sound-checks")
         set_tests_properties(clocked_sound_live_${clock_state} PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 15
             ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"

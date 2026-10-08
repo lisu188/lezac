@@ -7,6 +7,33 @@ The original word-plane segment cache at `DS:206E` is initialized consistently
 with the far word-plane pointer. The original setup stores that cache at code
 `1000:2B28` (file `0x3298`).
 
+Before every case, four original startup instructions at `1000:293D..2949`
+(file `0x30AD..30B9`) initialize `DS:207A=0x6620` and `DS:207C=0x209E`.
+Their bytes and digest, execution count, end IP and resulting bases are checked.
+These are the collapse and debris table bases used by live-record removal.
+
+## Corrected Initialization Precondition
+
+The first PR #314 oracle omitted the collapse-table base, leaving it zero.
+Both compiled platforms disagreed in exactly 90 of 2,395 cases: removing a
+collapse record with a following survivor compacted the wrong original memory.
+Inputs, maps, RNG, counters and debris outputs otherwise agreed. The failed
+head, fixture, raw outputs and CI artifacts are preserved, not overwritten.
+
+The base values are established by original startup instructions, not inferred
+from C++ output. An independent retained native Level 4 DS capture also contains
+`0x6620` and `0x209E`. Its gzip SHA-256 is
+`2e62fa99c8f7ab277931706d82d5f0e504fb00592ec0a67effcf1f4107595191`;
+the first 65,536-byte DS snapshot SHA-256 is
+`a97b7a5dc3439c63aa9a25abb5882e788a183abe75b38986232fb384c5354674`.
+
+Executing those startup instructions before each case changes exactly the 90
+failed expected outputs. All input bytes and 27 native cross-checks stay
+unchanged. All 2,395 corrected outputs match both retained compiled-platform
+outputs byte-for-byte. Production C++ is unchanged. This is a corrected original
+execution precondition, not normalized output or a new native gameplay capture.
+Fresh-head CI is still required independently of the retained-output comparison.
+
 ## Independent Native Cross-Check
 
 Before expanding cases, execution reproduces all 27 retained DOSBox collapse
@@ -47,8 +74,9 @@ env SDL_AUDIODRIVER=dummy python3 tools/capture_original_collapse_update.py \
 `--debug-original-collapse-update INPUT OUTPUT` shares the debris diagnostic's
 binary deserializer/serializer but calls the actual `updateCollapseRecords`.
 The existing debris wire format and command remain unchanged. The checker
-compares every output byte, rejects an output mutation and eight source-routing
-mutations. CI runs it early on both platforms before unchanged complete suites.
+compares every output byte, rejects an output mutation, eight source-routing
+mutations and eight initialization mutations. CI runs it early on both platforms
+before unchanged complete suites.
 Failed compiled inputs, reference and actual outputs are retained and uploaded.
 Source/oracle checks alone do not establish compiled parity.
 

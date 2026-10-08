@@ -33,6 +33,18 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure -R '^collapse_seed_geometry_(original|contract)$'
+      - name: Clocked sound regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure --timeout 30 -R '^clocked_sound'
+      - name: Preserve clocked sound frames
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clocked-sound-linux
+          path: build/clocked-sound-checks/
+          if-no-files-found: ignore
       - name: Test
         env:
           SDL_VIDEODRIVER: dummy
@@ -104,6 +116,18 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure -R '^collapse_seed_geometry_(original|contract)$'
+      - name: Clocked sound regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure --timeout 30 -R '^clocked_sound'
+      - name: Preserve clocked sound frames
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clocked-sound-windows
+          path: build/clocked-sound-checks/
+          if-no-files-found: ignore
       - name: Test
         env:
           SDL_VIDEODRIVER: dummy

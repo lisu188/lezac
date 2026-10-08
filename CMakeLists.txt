@@ -4444,6 +4444,27 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^original_debris_table=ok stale_tail_cases=3 full_live_range=1 invalid_bounds=2 truncated_guard=1")
 
+    add_test(NAME original_collapse_actors
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_collapse_actors.py
+                --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(original_collapse_actors PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 120
+        PASS_REGULAR_EXPRESSION "^original_collapse_actors=ok cases=2476 actor_states=1822 admissions=414 output_mutants=6 clean_unused_slots=1 natural_gameplay=0")
+    add_test(NAME original_collapse_actors_contract
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_collapse_actors.py --self-check)
+    set_tests_properties(original_collapse_actors_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        TIMEOUT 30
+        PASS_REGULAR_EXPRESSION "^original_collapse_actors_contract=ok source_mutants=23 comparator_mutants=6 compiled_cpp=0")
+    add_test(NAME original_collapse_actors_checker
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_collapse_actor_checker.py)
+    set_tests_properties(original_collapse_actors_checker PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        TIMEOUT 30
+        PASS_REGULAR_EXPRESSION "^collapse_actor_checker=ok probe_modes=10 comparison_cases=9 mocked_probe=1 game_execution_claim=0")
+
     add_test(NAME original_collapse_update
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_collapse_update.py
                 --exe $<TARGET_FILE:lezac_cpp>)

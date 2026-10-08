@@ -2,6 +2,13 @@
 
 Last reviewed: 2026-10-08
 
+The [collapse fracture actor oracle](collapse_actor_creation_2026-10-08.md)
+adds original-backed creation order, clean-slot record, placement, animation
+and capacity evidence over 2,476 controlled cases. It does not establish
+stale-slot inheritance, mixed actor pools, natural campaign completion,
+rendered parity or sound timing. Hosted compiled comparison remains a separate
+delivery gate; source/oracle checks alone do not prove C++ parity.
+
 The C++17/SDL2 reconstruction of `LEZAC.EXE` is not yet functionally complete.
 The [2026-10-08 PC speaker pitch correction](sound_pitch_2026-10-08.md) fixes
 frequency/reload inversion, low-frequency silence and pitch clamping. Its

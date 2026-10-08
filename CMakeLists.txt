@@ -243,6 +243,12 @@ if(BUILD_TESTING)
         "^level_results=ok count_bonus=1 whole_award=1 reel_steps=41 rng_draws=41 delayed_rng=1 typing_steps=89 typing_boundaries=1 batching=1 rollover=1 zero_bonus=1 word_wrap=1 original_runtime_claim=0")
     add_executable(lezac_core_primitives_test tests/core/core_primitives_test.cpp)
     target_link_libraries(lezac_core_primitives_test PRIVATE lezac_core)
+    add_executable(lezac_actor_storage_test tests/gameplay/actor_storage_test.cpp)
+    target_include_directories(lezac_actor_storage_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME actor_storage_api_contract COMMAND lezac_actor_storage_test --api-contract)
+    set_tests_properties(actor_storage_api_contract PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^actor_storage_api=ok rejected=7 mutable_writebacks=2 stable_tail=1 compiled_core=1 production_app=0")
     add_executable(lezac_monster_animation_selectors_test tests/gameplay/monster_animation_selectors_test.cpp)
     target_include_directories(lezac_monster_animation_selectors_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME monster_animation_selectors
@@ -336,6 +342,17 @@ if(BUILD_TESTING)
     target_include_directories(lezac_flame_contact_word_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
     if(Python3_Interpreter_FOUND)
+        add_test(NAME actor_storage_core_original
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_storage_core.py
+                --exe $<TARGET_FILE:lezac_actor_storage_test>
+                --out ${CMAKE_CURRENT_BINARY_DIR}/actor-storage-checks)
+        set_tests_properties(actor_storage_core_original PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 60
+            PASS_REGULAR_EXPRESSION "^actor_storage_core=ok operations=5852 compared_bytes=9216900 compiled_core=1 production_app=0 whole_game_claim=0")
+        add_test(NAME actor_storage_checker_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_storage_checker.py -v)
+        set_tests_properties(actor_storage_checker_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
         add_test(NAME clocked_sound_routing
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_clocked_sound_routing.py)
         set_tests_properties(clocked_sound_routing PROPERTIES PASS_REGULAR_EXPRESSION

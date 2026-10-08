@@ -180,6 +180,7 @@ jobs:
         with:
           name: recovery-diagnostics-linux-final
           path: |
+            build/actor-storage-checks/
             build/debris-update-failures/
             build/collapse-update-failures/
             build/collapse-contact-failures/
@@ -410,6 +411,7 @@ jobs:
         with:
           name: recovery-diagnostics-windows-final
           path: |
+            build/actor-storage-checks/
             build/debris-update-failures/
             build/collapse-update-failures/
             build/collapse-contact-failures/

@@ -1,0 +1,200 @@
+{
+  "capture_kind": "controlled_instruction_execution",
+  "cases": 1376256,
+  "compiled_cpp_comparison_at_generation": false,
+  "full_flame_update_comparison": false,
+  "groups": [
+    {
+      "cases": 65536,
+      "mass": 1,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "779d278a3f28fb83e298bbc5210d4848eebff15e3b00e06e882890f94aa522a7",
+      "unwrapped_arithmetic_differences": 0,
+      "weight": 0
+    },
+    {
+      "cases": 65536,
+      "mass": 1,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "43a15d18522246c110f113606229a590f4305ef4590fa9e547b7164d007e5a9d",
+      "unwrapped_arithmetic_differences": 0,
+      "weight": 1
+    },
+    {
+      "cases": 65536,
+      "mass": 1,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "1d6fc4fbab0ca820e7f9222b8e9091cf484b14b4ecce517c38c0401723d6e650",
+      "unwrapped_arithmetic_differences": 0,
+      "weight": 2
+    },
+    {
+      "cases": 65536,
+      "mass": 1,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "63ea84a4b374afcc821796f4aba17fc8729341a353e00397c1069d46b8d08860",
+      "unwrapped_arithmetic_differences": 0,
+      "weight": 8
+    },
+    {
+      "cases": 65536,
+      "mass": 1,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "18021284bd79eb7879be6ed331d2b49d7614ad6ce6e8fe19b64bf1e79911f275",
+      "unwrapped_arithmetic_differences": 0,
+      "weight": 18
+    },
+    {
+      "cases": 65536,
+      "mass": 1,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "3a7fb9dc31b216a2a653a48e3d5802adc512ec0570bd69c5cc328597292056f0",
+      "unwrapped_arithmetic_differences": 0,
+      "weight": 128
+    },
+    {
+      "cases": 65536,
+      "mass": 1,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "3534201ac1d4f1db7032e02e8f0e14b412d984c8bd037000379991989d37b752",
+      "unwrapped_arithmetic_differences": 0,
+      "weight": 254
+    },
+    {
+      "cases": 65536,
+      "mass": 9,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "ed2ef3839d5543cbac20a8867a1985d3f07d655e06a64150bb28caf125945175",
+      "unwrapped_arithmetic_differences": 0,
+      "weight": 0
+    },
+    {
+      "cases": 65536,
+      "mass": 9,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "8bf5f61d386d161898e138056d1effaeff745443a016ffbe5e1931f563c5eb9d",
+      "unwrapped_arithmetic_differences": 0,
+      "weight": 1
+    },
+    {
+      "cases": 65536,
+      "mass": 9,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "e7f8a6f0e17a6bf66565916bae4168237a2e9471f09c66f1711edc7e3b36af5c",
+      "unwrapped_arithmetic_differences": 0,
+      "weight": 2
+    },
+    {
+      "cases": 65536,
+      "mass": 9,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "6aec3bc9b4e1ba0a354e39d2087297729e87b071518c3d651ec71df1b3a514bd",
+      "unwrapped_arithmetic_differences": 0,
+      "weight": 8
+    },
+    {
+      "cases": 65536,
+      "mass": 9,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "1ed9b858061ab37052fecb0dbaac6d1c6e575d55a3f100881441ad2df2205052",
+      "unwrapped_arithmetic_differences": 0,
+      "weight": 18
+    },
+    {
+      "cases": 65536,
+      "mass": 9,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "5a5637f7d01d34cc229db63aa08b08a81795cc9cbb14eb43ddb5a18d596e5f5e",
+      "unwrapped_arithmetic_differences": 0,
+      "weight": 128
+    },
+    {
+      "cases": 65536,
+      "mass": 9,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "278f86a24998ec193efc231eafa0a91fb4b494f279bc3de5961d97aeae08d722",
+      "unwrapped_arithmetic_differences": 461,
+      "weight": 254
+    },
+    {
+      "cases": 65536,
+      "mass": 221,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "f322845e0b81aa56a6aa50bbe0173823a8d68891d4c6f352b5ccda64b06821f1",
+      "unwrapped_arithmetic_differences": 0,
+      "weight": 0
+    },
+    {
+      "cases": 65536,
+      "mass": 221,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "6332485a48774a6cb9a420e95aecc6fb881e88ed2da50aec50251e3791d3bff6",
+      "unwrapped_arithmetic_differences": 0,
+      "weight": 1
+    },
+    {
+      "cases": 65536,
+      "mass": 221,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "ed2ce19e2076e9e2a8582eb04348bc74c0ab6360c8c080cb2b40a4e0d2eec7dd",
+      "unwrapped_arithmetic_differences": 0,
+      "weight": 2
+    },
+    {
+      "cases": 65536,
+      "mass": 221,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "934355312297b1e46b169deacf39dd6e1aa92ad8e34f2e3a9f01173f7e7e10d3",
+      "unwrapped_arithmetic_differences": 0,
+      "weight": 8
+    },
+    {
+      "cases": 65536,
+      "mass": 221,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "155523d17a2dda32eb5f809e3e518d516f2dc742031a569c896ab843c45c8dba",
+      "unwrapped_arithmetic_differences": 0,
+      "weight": 18
+    },
+    {
+      "cases": 65536,
+      "mass": 221,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "5701862f1e88142a10fd9bdb5f84af333a53b72fe45e4767c7f513d0f0b15be4",
+      "unwrapped_arithmetic_differences": 5157,
+      "weight": 128
+    },
+    {
+      "cases": 65536,
+      "mass": 221,
+      "original_vs_word_model_mismatches": 0,
+      "records_sha256": "2d5db1aa08107acbc65e9021a96811847540e74f1ef6ba65e2f1ffb2f460e779",
+      "unwrapped_arithmetic_differences": 14237,
+      "weight": 254
+    }
+  ],
+  "instruction_bytes": 114,
+  "instruction_end_exclusive": 18513,
+  "instruction_hex": "8b7efe8a85d5788846ed8a46ed30e48bd08a46ef30e403c28bd88a46f1988bd08a46ef30e4f7e28bc8a0d278988bd08a46ed30e4f7e203c199f7fb8846f18a46ed30e48bd08a46ef30e403c28bd88a46f0988bd08a46ef30e4f7e28bc8a0d478988bd08a46ed30e4f7e203c199f7fb8846f0",
+  "instruction_sha256": "dfc32eedc458f1c493ca7ef00d7ea9592878face8189f21d02c096fe1b964f3a",
+  "instruction_start": 18399,
+  "interpreter": "Unicorn 2.1.4, original relocated 16-bit instructions",
+  "natural_gameplay_comparison": false,
+  "original_exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "record_bytes": 8,
+  "record_layout": [
+    "own_x",
+    "own_y",
+    "incoming_x",
+    "incoming_y",
+    "mass",
+    "weight",
+    "result_x",
+    "result_y"
+  ],
+  "records_sha256": "32cf3bc4ab1007646427c621bc2d9ad6a0a8a7e8f46ae8aaab75cced03d18250",
+  "relocated_image_sha256": "3ce03c5434d54490e663ef405457fc665dbf87cdf956056eac823733f95d5102",
+  "schema": "lezac.flame-contact-word-oracle.v1",
+  "source": "Executed original relocated instructions; no patched instructions or stubbed calls.",
+  "unwrapped_arithmetic_differences": 19855
+}

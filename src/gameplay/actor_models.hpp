@@ -289,6 +289,12 @@ struct SharedActorEntry {
     size_t index;
 };
 
+inline int8_t blendFlameVelocity(int own, int incoming, uint8_t mass, int weight) {
+    // 1000:47DF..4850 wraps the signed numerator to a word before IDIV.
+    const int16_t numerator = static_cast<int16_t>(own * mass + incoming * weight);
+    return static_cast<int8_t>(numerator / (mass + weight));
+}
+
 inline bool originalState2VisualRow(uint8_t frame, State2VisualRow& row) {
     if (frame < kState2VisualStartFrame || frame > kState2VisualEndFrame) {
         return false;

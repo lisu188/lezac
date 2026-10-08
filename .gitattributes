@@ -2,6 +2,7 @@
 *.py text eol=lf
 *.route text eol=lf
 .gitattributes text eol=lf
+tests/gameplay/flame_contact_word_original.json -text
 tests/fixtures/level1_original/** -text
 tests/fixtures/level1_results/** -text
 tests/fixtures/startup_rng_original/** -text

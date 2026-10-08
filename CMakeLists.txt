@@ -1253,6 +1253,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gran_data_evidence_map.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_bundle_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_workflow.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_ppm.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_state2_visual_compare_workflow.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_blocker_note.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_environment.py
@@ -1449,6 +1450,14 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^frame_compare=ok size=2x2 normalized=none pixels=4 exact_match=1 exact_different_pixels=0 threshold=0 threshold_different_pixels=0 max_delta=0")
+
+        add_test(NAME frame_compare_ppm_raster_boundary
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_ppm.py)
+        set_tests_properties(frame_compare_ppm_raster_boundary PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^frame_compare_ppm=ok cases=1551 malformed_rejected=12 first_samples=256 separators=6 pillow_fallback=0")
 
         add_test(NAME frame_compare_workflow_contract
             COMMAND ${Python3_EXECUTABLE}

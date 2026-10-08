@@ -36,6 +36,10 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: python3 -B tools/check_collapse_contact_failure_retention.py
+      - name: PPM raster boundary regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python3 -B tools/check_frame_compare_ppm.py
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
@@ -160,6 +164,10 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: python -B tools/check_collapse_contact_failure_retention.py
+      - name: PPM raster boundary regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python -B tools/check_frame_compare_ppm.py
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build

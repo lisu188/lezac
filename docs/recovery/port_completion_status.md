@@ -69,6 +69,14 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [complete debris updater oracle](debris_update_oracle_2026-10-08.md)
+executes the original full debris pass without call stubs or instruction
+patches. It independently reproduces 18 retained native collision/retirement
+cases and provides 1,061 controlled cases for complete live record, map-plane,
+count and RNG comparison through the production updater. Spark count is zero
+by setup; sound, rendering, full collapse updates and natural route completion
+remain outside the comparison. This closes no broad OPEN item or global flag.
+
 The [original collapse seeding geometry](collapse_seed_geometry_2026-10-08.md)
 recovers simultaneous rectangle expansion in place of a four-neighbor flood.
 The 1,124-case executed-original fixture includes 540 unchanged shipped-map

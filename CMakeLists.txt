@@ -177,12 +177,46 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_clocked_sound_test tests/sound/clocked_sound_test.cpp
+        src/sound/sound_engine.cpp)
+    target_link_libraries(lezac_clocked_sound_test PRIVATE lezac_resources)
+    add_test(NAME clocked_sound
+        COMMAND lezac_clocked_sound_test ${CMAKE_CURRENT_SOURCE_DIR}/PROEFS.SON)
+    set_tests_properties(clocked_sound PROPERTIES PASS_REGULAR_EXPRESSION
+        "clocked_sound=ok boundaries=1000 trajectories=16 terminal_order=1 priority_lifetime=1 ignored_commands=2 replacement_phase=1 period_zero=1 native_timing_claim=0")
+    add_test(NAME clocked_sound_app COMMAND lezac_cpp --debug-clocked-sound
+        "${CMAKE_CURRENT_BINARY_DIR}/clocked-sound-checks")
+    set_tests_properties(clocked_sound_app PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "clocked_sound_app=ok menu=1 pause=1 pending_priority=1 terminal_order=1 rollover=1 replay_clock=1 bounded_queue=1 frames=2 native_timing_claim=0 device_enabled=1 audio=dummy")
+    add_test(NAME clocked_sound_no_device COMMAND lezac_cpp --debug-clocked-sound-no-device)
+    set_tests_properties(clocked_sound_no_device PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "clocked_sound_app=ok menu=1 pause=1 pending_priority=1 terminal_order=1 rollover=1 replay_clock=1 bounded_queue=1 frames=2 native_timing_claim=0 device_enabled=0 audio=dummy")
+    foreach(clock_state IN ITEMS menu pause)
+        add_test(NAME clocked_sound_live_${clock_state}
+            COMMAND lezac_cpp --debug-clocked-sound-live ${clock_state}
+                    "${CMAKE_CURRENT_BINARY_DIR}/clocked-sound-checks")
+        set_tests_properties(clocked_sound_live_${clock_state} PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 15
+            ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "clocked_sound_live=ok state=${clock_state} independent_clock=1 gameplay_ticks=0 sweep_stopped=1 bounded_queue=1 frame_inspection=1 native_timing_claim=0 audio=dummy")
+    endforeach()
     add_executable(lezac_sound_pitch_test tests/sound/sound_pitch_test.cpp
         src/sound/sound_engine.cpp src/resources/binary.cpp)
     target_include_directories(lezac_sound_pitch_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME sound_pitch COMMAND lezac_sound_pitch_test)
     set_tests_properties(sound_pitch PROPERTIES PASS_REGULAR_EXPRESSION
         "sound_pitch=ok frequencies=65536 pcm_cases=10 ignored_command_states=3 cursor_playback=1 direct_sweep=1 original_runtime_claim=0")
+    add_executable(lezac_sound_interrupt_test tests/sound/sound_interrupt_test.cpp
+        src/sound/sound_engine.cpp)
+    target_link_libraries(lezac_sound_interrupt_test PRIVATE lezac_resources)
+    add_test(NAME sound_interrupt
+        COMMAND lezac_sound_interrupt_test ${CMAKE_CURRENT_SOURCE_DIR}/PROEFS.SON)
+    set_tests_properties(sound_interrupt PROPERTIES PASS_REGULAR_EXPRESSION
+        "sound_interrupt=ok phase_cases=16777216 bank_cases=8320 direct_cases=149445 inactive_cases=65536 priority_cases=65536 trajectories=14 observed_seed_ticks=8")
 
     add_executable(lezac_main_menu_test tests/ui/main_menu_test.cpp src/app/input_mapper.cpp)
     target_compile_definitions(lezac_main_menu_test PRIVATE SDL_MAIN_HANDLED)
@@ -277,11 +311,20 @@ if(BUILD_TESTING)
     find_package(Python3 COMPONENTS Interpreter QUIET)
 
     if(Python3_Interpreter_FOUND)
+        add_test(NAME clocked_sound_routing
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_clocked_sound_routing.py)
+        set_tests_properties(clocked_sound_routing PROPERTIES PASS_REGULAR_EXPRESSION
+            "clocked_sound_routing=ok live_paths=2 request_paths=4 mutations=7 native_timing_claim=0")
         add_test(NAME sound_pitch_original
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_pitch_original.py
                     --exe $<TARGET_FILE:lezac_sound_pitch_test>)
         set_tests_properties(sound_pitch_original PROPERTIES PASS_REGULAR_EXPRESSION
             "sound_pitch_original=ok frequencies=65536 helper_bytes=45 numerator=1193181 ignored_max=18")
+        add_test(NAME sound_interrupt_original
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_interrupt_original.py
+                    --exe $<TARGET_FILE:lezac_sound_interrupt_test>)
+        set_tests_properties(sound_interrupt_original PROPERTIES PASS_REGULAR_EXPRESSION
+            "sound_interrupt_original=ok windows=4 phase_cases=16777216 bank_cases=8320 direct_cases=149445 priority_cases=65536")
     endif()
 
     if(Python3_Interpreter_FOUND)

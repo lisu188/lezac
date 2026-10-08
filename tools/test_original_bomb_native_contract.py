@@ -161,6 +161,65 @@ class NativeBombContractTests(unittest.TestCase):
         self.assertEqual(report['native_prerequisite_sha256'], digest)
         self.assertEqual(report['independent_native_crosscheck']['sha256'], digest)
 
+    def alternate_helper_cli(self, script, local_helper_report=False):
+        with tempfile.TemporaryDirectory(prefix='lezac-bomb-alternate-helper-') as directory:
+            root = Path(directory)
+            tools = root / 'tools'
+            tools.mkdir()
+            helper = tools / 'original_bomb_cpu.py'
+            helper.write_text(
+                "import hashlib\nimport unicorn\n"
+                "EXE_SHA = LEVELS_SHA = DESCRIPTOR_SHA = 'not-executed'\n"
+                "def sha(value): return hashlib.sha256(value).hexdigest()\n"
+                "class BombCPU:\n"
+                "    def __init__(self, root):\n"
+                "        raise RuntimeError('alternate executor selected')\n", encoding='utf-8')
+            (tools / 'scan_livels_debris_sites.py').write_text(
+                "def load_levels(path): return [dict(width=60, height=33)]\n", encoding='utf-8')
+            unicorn = tools / 'unicorn'
+            unicorn.mkdir()
+            (unicorn / '__init__.py').write_text('', encoding='utf-8')
+            (unicorn / 'x86_const.py').write_text(
+                'UC_X86_REG_IP = UC_X86_REG_CS = UC_X86_REG_SP = '
+                'UC_X86_REG_BP = UC_X86_REG_EFLAGS = 0\n', encoding='utf-8')
+            helper_sha = hashlib.sha256(helper.read_bytes()).hexdigest()
+            native = self.native_report()
+            native['helper_sha256'] = (hashlib.sha256(
+                CHECKER.with_name('original_bomb_cpu.py').read_bytes()).hexdigest()
+                if local_helper_report else helper_sha)
+            native['generator_sha256'] = hashlib.sha256(CHECKER.read_bytes()).hexdigest()
+            prerequisite = root / 'native.json'
+            prerequisite.write_text(json.dumps(native), encoding='utf-8')
+            output = root / 'result.json'
+            command = [sys.executable, '-S', '-B', str(script), '--root', str(root), '--out', str(output)]
+            if script == LIFETIME:
+                command += ['--native-report', str(prerequisite)]
+            result = subprocess.run(command, capture_output=True, text=True, timeout=30,
+                env=dict(os.environ, SDL_AUDIODRIVER='dummy', PYTHONDONTWRITEBYTECODE='1'))
+            self.assertNotEqual(result.returncode, 0)
+            report = json.loads(output.read_text(encoding='utf-8'))
+            self.assertFalse(report['passed'])
+            self.assertEqual(report['helper_path'], str(helper.resolve()))
+            self.assertEqual(report['helper_sha256'], helper_sha)
+            return result, report
+
+    def test_checker_records_actual_imported_helper(self):
+        result, report = self.alternate_helper_cli(CHECKER)
+        self.assertIn('alternate executor selected', result.stderr)
+        self.assertEqual(report['traces'], [])
+
+    def test_lifetime_binds_actual_imported_helper(self):
+        result, report = self.alternate_helper_cli(LIFETIME)
+        self.assertIn('alternate executor selected', result.stderr)
+        self.assertIn('independent_native_crosscheck', report)
+        self.assertEqual(report['cases'], [])
+
+    def test_lifetime_rejects_local_helper_report_for_alternate_executor(self):
+        result, report = self.alternate_helper_cli(LIFETIME, local_helper_report=True)
+        self.assertIn('native prerequisite executor hash mismatch', result.stderr)
+        self.assertNotIn('alternate executor selected', result.stderr)
+        self.assertNotIn('independent_native_crosscheck', report)
+
     def test_optimized_checker_rejected(self):
         result = subprocess.run([sys.executable, '-O', '-S', '-B', str(CHECKER), '--self-check'],
             capture_output=True, text=True, timeout=30)
@@ -191,5 +250,5 @@ if __name__ == '__main__':
     result = unittest.TextTestRunner(verbosity=2).run(
         unittest.defaultTestLoader.loadTestsFromTestCase(NativeBombContractTests))
     if result.wasSuccessful():
-        print('original_bomb_native_contract=ok tests=19 executor_required=0')
+        print('original_bomb_native_contract=ok tests=22 executor_required=0')
     raise SystemExit(0 if result.wasSuccessful() else 1)

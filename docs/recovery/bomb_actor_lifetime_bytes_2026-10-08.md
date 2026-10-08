@@ -78,14 +78,22 @@ The prerequisite bytes are read once and their digest is recorded before JSON
 decoding or validation. That same buffer is validated and attributed in the
 successful cross-check metadata. Failed and malformed prerequisites retain
 their digest without acquiring a successful cross-check claim.
+Both reports identify the executor using the imported module's resolved
+`__file__`, including when `--root` selects a different checkout. They record
+that actual path and source digest before execution. The lifetime prerequisite
+must match that executor and the checker module actually used for validation;
+a hash of an unused neighboring helper is not accepted as its identity.
 
 The lifetime probe fails closed if any preserved byte is read or a stale
-pattern changes state outside those bytes. Nineteen standard-library contract
+pattern changes state outside those bytes. Twenty-two standard-library contract
 regressions cover LF/CRLF fixtures, trace corruption/truncation, unregistered
 traces, clean/contradictory lifetime outcomes, stale prerequisite producers,
 modified/missing/duplicate trace identities, failed/malformed prerequisite
-identity retention, changing-input single-read attribution, and optimized Python without
-importing Unicorn. Both CLIs reject `-O` and `PYTHONOPTIMIZE`; the outcome
+identity retention, changing-input single-read attribution, alternate-root
+executor identity and prerequisite binding, and optimized Python without
+importing the optional executor. The alternate-root tests use deliberately
+failing stand-ins, not original-code or game-parity evidence.
+Both CLIs reject `-O` and `PYTHONOPTIMIZE`; the outcome
 validators also use explicit exceptions that remain active under optimization.
 
 ## Boundaries

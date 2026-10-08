@@ -32,6 +32,11 @@ def sha(value):
     return hashlib.sha256(value).hexdigest()
 
 
+def imported_helper_identity(module):
+    path = Path(module.__file__).resolve(strict=True)
+    return dict(helper_path=str(path), helper_sha256=sha(path.read_bytes()))
+
+
 def fields(line):
     pairs = [token.split('=', 1) for token in line.split()[1:]]
     assert all(len(pair) == 2 for pair in pairs)
@@ -90,6 +95,7 @@ def main():
     if args.unicorn_path:
         sys.path.insert(0, str(args.unicorn_path.resolve()))
     sys.path.insert(0, str(ROOT / 'tools'))
+    import original_bomb_cpu
     from original_bomb_cpu import BombCPU, DESCRIPTOR_SHA, EXE_SHA, LEVELS_SHA
     from scan_livels_debris_sites import load_levels
     OUT = args.out.resolve()
@@ -108,6 +114,7 @@ def main():
 
 
     try:
+        report.update(imported_helper_identity(original_bomb_cpu))
         level = load_levels(ROOT / 'LIVELS.SCH')[0]
         assert (level['width'], level['height']) == (60, 33)
         cpu = BombCPU(ROOT)
@@ -151,7 +158,6 @@ def main():
         report.update(passed=True, native_traces=16, native_updates=2304, original_exe_sha256=EXE_SHA,
             levels_sha256=LEVELS_SHA, descriptor_fixture_sha256=DESCRIPTOR_SHA,
             compared_bytes=sum(row['bytes'] for row in report['checks']),
-            helper_sha256=sha(Path(__file__).with_name('original_bomb_cpu.py').read_bytes()),
             generator_sha256=sha(Path(__file__).read_bytes()),
             limitation='Native actors/visuals cross-checked through pre-expiry; post-explosion maps and effects are not captured in these fixtures.')
         print(json.dumps(dict(passed=True, traces=16, updates=2304,

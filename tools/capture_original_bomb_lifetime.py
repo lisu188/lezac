@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import sys
 import traceback
+import check_original_bomb_native as native_checker
 
 def validate_lifetime_result(report):
     """Reject a lifetime result that contradicts preserved-byte independence."""
@@ -19,7 +20,7 @@ def validate_lifetime_result(report):
 
 def validate_native_report(native, helper_sha, checker_sha):
     """Bind prerequisite evidence to the current executor, checker and traces."""
-    from check_original_bomb_native import NATIVE_FIXTURES
+    NATIVE_FIXTURES = native_checker.NATIVE_FIXTURES
     if (native.get('passed') is not True or native.get('native_updates') != 2304
             or native.get('native_traces') != 16 or native.get('compared_bytes') != 106720):
         raise ValueError('native prerequisite totals do not match')
@@ -60,6 +61,7 @@ def main():
     if args.unicorn_path:
         sys.path.insert(0, str(args.unicorn_path.resolve()))
     sys.path.insert(0, str(ROOT / 'tools'))
+    import original_bomb_cpu
     from original_bomb_cpu import BombCPU, sha, unicorn
     from unicorn.x86_const import UC_X86_REG_IP, UC_X86_REG_CS, UC_X86_REG_SP, UC_X86_REG_BP, UC_X86_REG_EFLAGS
     from scan_livels_debris_sites import load_levels
@@ -71,10 +73,11 @@ def main():
         visual_parity_claim=False, sound_parity_claim=False, whole_game_complete=False)
 
     try:
+        report.update(native_checker.imported_helper_identity(original_bomb_cpu))
         native_path = args.native_report.resolve()
         load_native_prerequisite(native_path,
-            sha(Path(__file__).with_name('original_bomb_cpu.py').read_bytes()),
-            sha(Path(__file__).with_name('check_original_bomb_native.py').read_bytes()), report)
+            report['helper_sha256'],
+            hashlib.sha256(Path(native_checker.__file__).read_bytes()).hexdigest(), report)
         shipped = load_levels(ROOT / 'LIVELS.SCH')[0]
         empty = dict(shipped, tiles=[0] * 1980, words=[0] * 1980)
         levels = {'shipped_level1': shipped, 'controlled_empty': empty}
@@ -212,7 +215,6 @@ def main():
             positive_placement_write_controls_verified=True,
             preserved_offsets_read=sorted({int(key) for row in report['cases'] for key in row['preserved_reads']}),
             differential_groups_with_outside_preserved_differences=differences,
-            helper_sha256=sha(Path(__file__).with_name('original_bomb_cpu.py').read_bytes()),
             generator_sha256=sha(Path(__file__).read_bytes()),
             limitation='Controlled one-bomb lifetimes on shipped Level1 and a zero-filled map; native crosscheck covers ordinary trajectories, not these poisoned slots, mixed pools or all callers.')
         validate_lifetime_result(report)

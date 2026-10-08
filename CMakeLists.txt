@@ -1253,6 +1253,8 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_div_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_div_route_sweep_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_word_classification.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contact_failure_retention.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contacts_original.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_branch_anchor_route_sweep_summary.py
@@ -4478,6 +4480,12 @@ if(BUILD_TESTING)
     set_tests_properties(collapse_contacts_contract PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^collapse_contacts_contract=ok source_mutants=10 compiled_cpp=0 natural_gameplay=0")
+    add_test(NAME collapse_contacts_failure_retention
+        COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contact_failure_retention.py)
+    set_tests_properties(collapse_contacts_failure_retention PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        TIMEOUT 30
+        PASS_REGULAR_EXPRESSION "^collapse_contact_failure_retention=ok probe_modes=10 comparison_cases=12 mocked_probe=1 original_game_claim=0")
 
     add_test(NAME actor_contact_level2_evidence
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-contact-level2-evidence

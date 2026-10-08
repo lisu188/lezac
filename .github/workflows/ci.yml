@@ -32,6 +32,10 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: python3 -B tools/check_lane_word_classification.py
+      - name: Contact checker failure-retention regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python3 -B tools/check_collapse_contact_failure_retention.py
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
@@ -69,7 +73,14 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --output-on-failure -R '^collapse_contacts_(original|contract)$'
+        run: ctest --test-dir build --output-on-failure -R '^collapse_contacts_(original|contract|failure_retention)$'
+      - name: Preserve collapse contact diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collapse-contact-linux
+          path: build/collapse-contact-failures/
+          if-no-files-found: ignore
       - name: Test
         env:
           SDL_VIDEODRIVER: dummy
@@ -140,6 +151,10 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: python -B tools/check_lane_word_classification.py
+      - name: Contact checker failure-retention regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python -B tools/check_collapse_contact_failure_retention.py
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
@@ -177,7 +192,14 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --output-on-failure -R '^collapse_contacts_(original|contract)$'
+        run: ctest --test-dir build --output-on-failure -R '^collapse_contacts_(original|contract|failure_retention)$'
+      - name: Preserve collapse contact diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collapse-contact-windows
+          path: build/collapse-contact-failures/
+          if-no-files-found: ignore
       - name: Test
         env:
           SDL_VIDEODRIVER: dummy

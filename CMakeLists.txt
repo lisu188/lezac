@@ -1252,6 +1252,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_route_sweep_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_div_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_div_route_sweep_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_word_classification.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_branch_anchor_route_sweep_summary.py
@@ -1654,6 +1655,13 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^lane_div_route_sweep_summary_check=ok cases=21")
+        add_test(NAME explosion_lane_word_classification
+            COMMAND ${Python3_EXECUTABLE} -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_word_classification.py)
+        set_tests_properties(explosion_lane_word_classification PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 30
+            PASS_REGULAR_EXPRESSION "^lane_word_classification=ok boundary_cases=16 raw_words=65536 summarizers=2 cli_cases=12 original_byte_binding=1 natural_capture_claim=0")
 
         add_test(NAME explosion_lane_write_route_sweep_default_dry_run
             COMMAND ${Python3_EXECUTABLE}

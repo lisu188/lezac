@@ -20,6 +20,14 @@ inline constexpr uint8_t kPortalMarkerLastFrame = 0x4f;
 inline constexpr uint8_t kPortalMarkerDelay = 2;
 inline constexpr uint8_t kPortalMarkerTimer = 8;
 
+inline constexpr int16_t clampConstructedActorVelocity8(int16_t velocity) {
+    // 1000:2FC1..3001: WORD abs(-32768) stays negative and passes JLE.
+    if (velocity == -32768) return velocity;
+    if (velocity < -0x07ff) return -0x07ff;
+    if (velocity > 0x07ff) return 0x07ff;
+    return velocity;
+}
+
 enum class SharedActorKind { Effect, Marker, Bomb, Monster, Reward };
 
 enum class BombType : uint8_t {

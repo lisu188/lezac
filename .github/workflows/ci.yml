@@ -41,11 +41,36 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure -R '^collapse_seed_geometry_(original|contract)$'
+      - name: Actor constructor velocity regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^(actor_constructor_velocity_(original|contract|checker_failures)|bomb_launch_word)$'
+      - name: Preserve actor constructor diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actor-constructor-velocity-linux
+          path: |
+            build/actor-constructor-velocity-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
       - name: Test
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure --timeout 120
+      - name: Preserve final actor constructor diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actor-constructor-velocity-linux-final
+          path: |
+            build/actor-constructor-velocity-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
       - name: Preserve startup RNG comparisons
         if: always()
         uses: actions/upload-artifact@v4
@@ -120,11 +145,36 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure -R '^collapse_seed_geometry_(original|contract)$'
+      - name: Actor constructor velocity regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^(actor_constructor_velocity_(original|contract|checker_failures)|bomb_launch_word)$'
+      - name: Preserve actor constructor diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actor-constructor-velocity-windows
+          path: |
+            build/actor-constructor-velocity-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
       - name: Test
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure --timeout 120
+      - name: Preserve final actor constructor diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actor-constructor-velocity-windows-final
+          path: |
+            build/actor-constructor-velocity-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
       - name: Preserve startup RNG comparisons
         if: always()
         uses: actions/upload-artifact@v4

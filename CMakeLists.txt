@@ -4433,7 +4433,7 @@ if(BUILD_TESTING)
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_collapse_update.py --self-check)
     set_tests_properties(original_collapse_update_contract PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        PASS_REGULAR_EXPRESSION "^original_collapse_contract=ok source_mutants=8 compiled_cpp=0")
+        PASS_REGULAR_EXPRESSION "^original_collapse_contract=ok source_mutants=8 initializer_mutants=8 compiled_cpp=0")
 
     add_test(NAME original_debris_update
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_update.py

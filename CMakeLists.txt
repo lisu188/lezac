@@ -4329,7 +4329,7 @@ if(BUILD_TESTING)
     set_tests_properties(original_bomb_native_contract_regression PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
-        PASS_REGULAR_EXPRESSION "original_bomb_native_contract=ok tests=16 executor_required=0")
+        PASS_REGULAR_EXPRESSION "original_bomb_native_contract=ok tests=19 executor_required=0")
 
     add_test(NAME natural_bomb_visual_original
         COMMAND ${Python3_EXECUTABLE} tools/check_natural_bomb_visual_fixture.py

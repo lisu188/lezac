@@ -1,15 +1,19 @@
 """Exercise the native fixture contract without importing the optional executor."""
+import argparse
+import hashlib
+import json
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
-from capture_original_bomb_lifetime import validate_lifetime_result, validate_native_report
+from capture_original_bomb_lifetime import load_native_prerequisite, validate_lifetime_result, validate_native_report
 from check_original_bomb_native import NATIVE_FIXTURES
 
 ROOT = Path(__file__).resolve().parents[1]
 CHECKER = ROOT / 'tools/check_original_bomb_native.py'
+LIFETIME = Path(load_native_prerequisite.__code__.co_filename).resolve()
 
 
 class NativeBombContractTests(unittest.TestCase):
@@ -118,6 +122,45 @@ class NativeBombContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'trace identities mismatch'):
             validate_native_report(report, 'executor', 'checker')
 
+    def test_failed_prerequisite_identity_retained(self):
+        with tempfile.TemporaryDirectory(prefix='lezac-bomb-prerequisite-failed-') as directory:
+            path = Path(directory) / 'failed.json'
+            raw = b'{"passed":false}'
+            path.write_bytes(raw)
+            report = {}
+            with self.assertRaisesRegex(ValueError, 'native prerequisite totals do not match'):
+                load_native_prerequisite(path, 'executor', 'checker', report)
+            self.assertEqual(report['native_prerequisite_sha256'], hashlib.sha256(raw).hexdigest())
+            self.assertNotIn('independent_native_crosscheck', report)
+
+    def test_malformed_prerequisite_identity_retained(self):
+        with tempfile.TemporaryDirectory(prefix='lezac-bomb-prerequisite-malformed-') as directory:
+            path = Path(directory) / 'malformed.json'
+            raw = b'{"passed":true, invalid json'
+            path.write_bytes(raw)
+            report = {}
+            with self.assertRaises(json.JSONDecodeError):
+                load_native_prerequisite(path, 'executor', 'checker', report)
+            self.assertEqual(report['native_prerequisite_sha256'], hashlib.sha256(raw).hexdigest())
+            self.assertNotIn('independent_native_crosscheck', report)
+
+    def test_changing_prerequisite_read_once(self):
+        first = json.dumps(self.native_report()).encode('utf-8')
+
+        class ChangingPath:
+            reads = 0
+
+            def read_bytes(self):
+                self.reads += 1
+                return first if self.reads == 1 else b'{"passed":false}'
+
+        path, report = ChangingPath(), {}
+        self.assertEqual(load_native_prerequisite(path, 'executor', 'checker', report), self.native_report())
+        self.assertEqual(path.reads, 1)
+        digest = hashlib.sha256(first).hexdigest()
+        self.assertEqual(report['native_prerequisite_sha256'], digest)
+        self.assertEqual(report['independent_native_crosscheck']['sha256'], digest)
+
     def test_optimized_checker_rejected(self):
         result = subprocess.run([sys.executable, '-O', '-S', '-B', str(CHECKER), '--self-check'],
             capture_output=True, text=True, timeout=30)
@@ -126,7 +169,7 @@ class NativeBombContractTests(unittest.TestCase):
 
     def test_optimized_lifetime_rejected(self):
         result = subprocess.run([sys.executable, '-S', '-B',
-            str(ROOT / 'tools/capture_original_bomb_lifetime.py'), '--help'],
+            str(LIFETIME), '--help'],
             env=dict(os.environ, PYTHONOPTIMIZE='1'), capture_output=True, text=True, timeout=30)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('optimized Python is not supported', result.stderr)
@@ -136,14 +179,17 @@ class NativeBombContractTests(unittest.TestCase):
             "from capture_original_bomb_lifetime import validate_lifetime_result;"
             "validate_lifetime_result({'preserved_offsets_read':[3],"
             "'differential_groups_with_outside_preserved_differences':[]})"],
-            cwd=ROOT / 'tools', capture_output=True, text=True, timeout=30)
+            cwd=LIFETIME.parent, capture_output=True, text=True, timeout=30)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('preserved constructor bytes were read', result.stderr)
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--root', type=Path, default=ROOT)
+    ROOT = parser.parse_args().root.resolve()
     result = unittest.TextTestRunner(verbosity=2).run(
         unittest.defaultTestLoader.loadTestsFromTestCase(NativeBombContractTests))
     if result.wasSuccessful():
-        print('original_bomb_native_contract=ok tests=16 executor_required=0')
+        print('original_bomb_native_contract=ok tests=19 executor_required=0')
     raise SystemExit(0 if result.wasSuccessful() else 1)

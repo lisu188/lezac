@@ -74,12 +74,17 @@ are hash-pinned. The 16 native traces are also pinned; sparse checkouts may
 read their exact committed blobs instead of materializing them. The native
 cross-check must match the executor and checker source hashes, the complete
 16-trace name/hash set, and expected totals before the lifetime probe accepts it.
+The prerequisite bytes are read once and their digest is recorded before JSON
+decoding or validation. That same buffer is validated and attributed in the
+successful cross-check metadata. Failed and malformed prerequisites retain
+their digest without acquiring a successful cross-check claim.
 
 The lifetime probe fails closed if any preserved byte is read or a stale
-pattern changes state outside those bytes. Sixteen standard-library contract
+pattern changes state outside those bytes. Nineteen standard-library contract
 regressions cover LF/CRLF fixtures, trace corruption/truncation, unregistered
 traces, clean/contradictory lifetime outcomes, stale prerequisite producers,
-modified/missing/duplicate trace identities, and optimized Python without
+modified/missing/duplicate trace identities, failed/malformed prerequisite
+identity retention, changing-input single-read attribution, and optimized Python without
 importing Unicorn. Both CLIs reject `-O` and `PYTHONOPTIMIZE`; the outcome
 validators also use explicit exceptions that remain active under optimization.
 

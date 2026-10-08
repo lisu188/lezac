@@ -2,6 +2,7 @@
 from collections import defaultdict
 from datetime import datetime, timezone
 import argparse
+import hashlib
 import itertools
 import json
 from pathlib import Path
@@ -34,6 +35,18 @@ def validate_native_report(native, helper_sha, checker_sha):
         raise ValueError('native prerequisite trace identities mismatch')
 
 
+def load_native_prerequisite(path, helper_sha, checker_sha, report):
+    """Attribute and validate the same input buffer, including rejected inputs."""
+    raw = path.read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    report['native_prerequisite_sha256'] = digest
+    native = json.loads(raw.decode('utf-8'))
+    validate_native_report(native, helper_sha, checker_sha)
+    report['independent_native_crosscheck'] = dict(path=str(path), sha256=digest,
+        native_traces=16, native_updates=2304, compared_bytes=106720, differing_bytes=0)
+    return native
+
+
 def main():
     if sys.flags.optimize:
         raise RuntimeError('optimized Python is not supported by original bomb analysis')
@@ -59,12 +72,9 @@ def main():
 
     try:
         native_path = args.native_report.resolve()
-        native = json.loads(native_path.read_text())
-        validate_native_report(native,
+        load_native_prerequisite(native_path,
             sha(Path(__file__).with_name('original_bomb_cpu.py').read_bytes()),
-            sha(Path(__file__).with_name('check_original_bomb_native.py').read_bytes()))
-        report['independent_native_crosscheck'] = dict(path=str(native_path), sha256=sha(native_path.read_bytes()),
-            native_traces=16, native_updates=2304, compared_bytes=106720, differing_bytes=0)
+            sha(Path(__file__).with_name('check_original_bomb_native.py').read_bytes()), report)
         shipped = load_levels(ROOT / 'LIVELS.SCH')[0]
         empty = dict(shipped, tiles=[0] * 1980, words=[0] * 1980)
         levels = {'shipped_level1': shipped, 'controlled_empty': empty}

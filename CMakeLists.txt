@@ -1252,6 +1252,8 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_route_sweep_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_div_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_div_route_sweep_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contact_failure_retention.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contacts_original.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_branch_anchor_route_sweep_summary.py
@@ -4413,6 +4415,55 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^original_debris_table=ok stale_tail_cases=3 full_live_range=1 invalid_bounds=2 truncated_guard=1")
 
+    add_test(NAME original_collapse_actors
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_collapse_actors.py
+                --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(original_collapse_actors PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 120
+        PASS_REGULAR_EXPRESSION "^original_collapse_actors=ok cases=2476 actor_states=1822 admissions=414 output_mutants=6 clean_unused_slots=1 natural_gameplay=0")
+    add_test(NAME original_collapse_actors_contract
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_collapse_actors.py --self-check)
+    set_tests_properties(original_collapse_actors_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        TIMEOUT 30
+        PASS_REGULAR_EXPRESSION "^original_collapse_actors_contract=ok source_mutants=23 comparator_mutants=6 compiled_cpp=0")
+    add_test(NAME original_collapse_actors_checker
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_collapse_actor_checker.py)
+    set_tests_properties(original_collapse_actors_checker PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        TIMEOUT 30
+        PASS_REGULAR_EXPRESSION "^collapse_actor_checker=ok probe_modes=10 comparison_cases=9 mocked_probe=1 game_execution_claim=0")
+
+    add_test(NAME original_collapse_update
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_collapse_update.py
+                --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(original_collapse_update PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 120
+        PASS_REGULAR_EXPRESSION "^original_collapse_update=ok cases=2395 native_crosschecks=27 output_mutants=1 natural_gameplay=0 actors_claim=0")
+    add_test(NAME original_collapse_update_contract
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_collapse_update.py --self-check)
+    set_tests_properties(original_collapse_update_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^original_collapse_contract=ok source_mutants=8 initializer_mutants=8 compiled_cpp=0")
+
+    add_test(NAME original_debris_update
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_update.py
+                --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(original_debris_update PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 120
+        PASS_REGULAR_EXPRESSION "^original_debris_update=ok cases=1061 native_crosschecks=18 output_mutants=1 natural_gameplay=0 sound_claim=0")
+    add_test(NAME original_debris_update_contract
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_update.py --self-check)
+    set_tests_properties(original_debris_update_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^original_debris_contract=ok source_mutants=6 compiled_cpp=0")
+
     add_test(NAME collapse_seed_geometry_original
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_seed_geometry.py
                 --exe $<TARGET_FILE:lezac_collapse_seed_geometry_test>
@@ -4428,6 +4479,26 @@ if(BUILD_TESTING)
     set_tests_properties(collapse_seed_geometry_contract PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^collapse_seed_contract=ok source_mutants=6 compiled_cpp=0 natural_gameplay=0")
+
+    add_test(NAME collapse_contacts_original
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contacts_original.py
+                --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(collapse_contacts_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^collapse_contacts_original=ok cases=9184 groups=14 capacity_failures=1248 partial_allocation_failures=672 output_mutants=4 natural_gameplay=0 whole_game_parity=0")
+    add_test(NAME collapse_contacts_contract
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contacts_original.py --self-check)
+    set_tests_properties(collapse_contacts_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^collapse_contacts_contract=ok source_mutants=10 compiled_cpp=0 natural_gameplay=0")
+    add_test(NAME collapse_contacts_failure_retention
+        COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contact_failure_retention.py)
+    set_tests_properties(collapse_contacts_failure_retention PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        TIMEOUT 30
+        PASS_REGULAR_EXPRESSION "^collapse_contact_failure_retention=ok probe_modes=10 comparison_cases=12 mocked_probe=1 original_game_claim=0")
 
     add_test(NAME actor_contact_level2_evidence
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-contact-level2-evidence

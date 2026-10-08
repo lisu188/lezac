@@ -23222,7 +23222,9 @@ public:
                 const size_t raw = state + 6, visual = state + 44;
                 if (m.kind != bytes[raw] || m.behavior != bytes[raw + 21] ||
                     !m.hasSpawner || m.spawnerIndex + 1 != bytes[raw + 37] ||
-                    m.hotspotY != bytes[raw + 20] || m.hp - 1 != bytes[raw + 36]) fail("identity/health/hotspot", tick);
+                    m.hotspotY != bytes[raw + 20] || m.hp - 1 != bytes[raw + 36] ||
+                    m.animationSetLeft != bytes[raw + 3] || m.animationSetRight != bytes[raw + 4])
+                    fail("identity/health/hotspot/selectors", tick);
                 if (m.x != signedWord(visual) || gameRenderer_.monsterVisualY(m) != signedWord(visual + 2) ||
                     m.vx8 != signedWord(raw + 6) || m.vy8 != signedWord(raw + 8) ||
                     m.fracX != word(raw + 10) || m.fracY != word(raw + 12)) fail("motion/fractions", tick);
@@ -27488,13 +27490,8 @@ private:
     }
 
     std::array<int, 2> monsterFrameRange(uint8_t kind) const {
-        switch (kind) {
-            case 1: return {43, 44};
-            case 2: return {39, 41};
-            case 3: return {49, 51};
-            case 4: return {53, 55};
-            default: return {39, 41};
-        }
+        return lezac::gameplay::monsterAnimationSetRange(
+            lezac::gameplay::monsterAnimationSelectors(kind)[0]);
     }
 
     std::array<int, 2> monsterDirectionalFrameRange(uint8_t kind, int16_t vx8) const {
@@ -27503,9 +27500,8 @@ private:
         // the reselection; the spawn default is the actor+0x03 (left) set --
         // both captured spawns show frame 44, the left pair's high member --
         // so the vx == 0 mapping here is the left set.
-        if (kind == 1) return vx8 > 0 ? std::array<int, 2>{45, 46}
-                                      : std::array<int, 2>{43, 44};
-        return monsterFrameRange(kind);
+        return lezac::gameplay::monsterAnimationSetRange(
+            lezac::gameplay::monsterAnimationSelectors(kind)[vx8 > 0 ? 1 : 0]);
     }
 
     // Original actor byte +0x14: natural kind-1 lockstep pins 6, and the
@@ -27553,7 +27549,7 @@ private:
     // range it is a no-op; the recovered walker path uses
     // reselectWalkerFacing instead.
     void refreshMonsterAnimationProfile(ActiveMonster& monster) {
-        auto frames = monsterDirectionalFrameRange(monster.kind, monster.vx8);
+        auto frames = lezac::gameplay::monsterFacingFrameRange(monster);
         if (monster.animStart != frames[0] || monster.animEnd != frames[1]) {
             monster.animStart = static_cast<uint8_t>(frames[0]);
             monster.animEnd = static_cast<uint8_t>(frames[1]);
@@ -27624,7 +27620,7 @@ private:
     // to static ranges: Level 3 kind 4 sample 345 resets {53,55} after a ledge turn.
     void reselectWalkerFacing(ActiveMonster& monster) {
         if (monster.vx8 == 0) return;
-        auto frames = monsterDirectionalFrameRange(monster.kind, monster.vx8);
+        auto frames = lezac::gameplay::monsterFacingFrameRange(monster);
         monster.animStart = static_cast<uint8_t>(frames[0]);
         monster.animEnd = static_cast<uint8_t>(frames[1]);
         monster.animCursor = monster.animStart;
@@ -28150,6 +28146,9 @@ private:
             monster.hotspotY = monsterHotspotY(spawner.monsterKind);
             monster.y = static_cast<int>(spawner.y) - monster.hotspotY;
             monster.kind = spawner.monsterKind;
+            const auto selectors = lezac::gameplay::monsterAnimationSelectors(monster.kind);
+            monster.animationSetLeft = selectors[0];
+            monster.animationSetRight = selectors[1];
             monster.spawnerIndex = i;
             monster.hasSpawner = true;
             monster.behavior = spawner.spawnArg;
@@ -28157,7 +28156,7 @@ private:
             monster.ai1 = randomRangeValue(spawner.param1Base, spawner.param1Range);
             monster.ai2 = randomRangeValue(spawner.param2Base, spawner.param2Range);
             monster.hp = 1 + static_cast<uint8_t>(randomRangeValue(spawner.randomBase, spawner.randomRange));
-            auto frames = monsterDirectionalFrameRange(monster.kind, monster.vx8);
+            auto frames = lezac::gameplay::monsterFacingFrameRange(monster);
             monster.animStart = static_cast<uint8_t>(frames[0]);
             monster.animEnd = static_cast<uint8_t>(frames[1]);
             monster.animFrame = monster.animStart;

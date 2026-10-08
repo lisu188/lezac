@@ -167,6 +167,29 @@ struct Player {
     bool singlePixelSprite = false;
 };
 
+inline constexpr std::array<uint8_t, 2> monsterAnimationSelectors(uint8_t kind) {
+    // DS:0080/0081 pairs used by the shipped kind-1..4 constructors.
+    switch (kind) {
+        case 1: return {1, 2};
+        case 2: return {11, 11};
+        case 3: return {12, 12};
+        case 4: return {13, 13};
+        default: return {11, 11};
+    }
+}
+
+inline constexpr std::array<int, 2> monsterAnimationSetRange(uint8_t selector) {
+    // DS:0058 pairs are one-based; the port's sprite indexes are zero-based.
+    switch (selector) {
+        case 1: return {43, 44};
+        case 2: return {45, 46};
+        case 11: return {39, 41};
+        case 12: return {49, 51};
+        case 13: return {53, 55};
+        default: return {39, 41};
+    }
+}
+
 struct ActiveMonster {
     int x = 0;
     int y = 0;
@@ -175,6 +198,9 @@ struct ActiveMonster {
     uint8_t fracX = 0;
     uint8_t fracY = 0;
     uint8_t kind = 0;
+    // Original actor +3/+4, retained independently of the animation cursor.
+    uint8_t animationSetLeft = 0;
+    uint8_t animationSetRight = 0;
     uint8_t behavior = 0;
     uint16_t ai0 = 0;
     uint16_t ai1 = 0;
@@ -235,6 +261,14 @@ struct ActiveMonster {
     bool bossDebris = false;
     uint16_t bossGroup = 0;
 };
+
+inline constexpr std::array<int, 2> monsterFacingFrameRange(const ActiveMonster& monster) {
+    const bool right = monster.vx8 > 0;
+    uint8_t selector = right ? monster.animationSetRight : monster.animationSetLeft;
+    // Existing seeded diagnostics construct monsters without the spawner.
+    if (selector == 0) selector = monsterAnimationSelectors(monster.kind)[right ? 1 : 0];
+    return monsterAnimationSetRange(selector);
+}
 
 enum class BonusType : uint8_t {
     Present,

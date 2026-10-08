@@ -1,5 +1,6 @@
 """Compare complete production collapse updates with executed-original outputs."""
 import argparse
+import copy
 import gzip
 import hashlib
 import json
@@ -16,7 +17,8 @@ from source_guardrails import function_ranges, source_files
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = ROOT / 'tests/gameplay/collapse_update_original.bin.gz'
 META = ROOT / 'tests/gameplay/collapse_update_original.json'
-META_SHA = 'db487db04524e2f2017c2dcff6b58a752cef39e2b338b6da00683cfe111280dd'
+META_SHA = '1eee3a429a6b2fbfca3691b588846a4dab9c61c2b6f5102a1549c328bdfcf99e'
+INITIALIZER_SHA = 'aaef4f5b7b8e4a213d7a9c11a2cc003cddd8026c89bd5cc0ee80006e945aefde'
 CONTRACT = ('if (collapseUpdate) updateCollapseRecords();', 'level_.tiles = take(cells);',
             'randomSeed_ = le32(parameters, 6);', 'monsters_.clear();',
             'destroyed_ = le16(parameters, 14);', 'nextCollapseFragmentWord_ = le16(parameters, 16);',
@@ -31,6 +33,18 @@ def contract(source):
         raise ValueError('complete collapse production routing differs')
 
 
+def verify_initialization(data, original):
+    if (data.get('schema') != 'lezac.original-collapse-update.v2'
+            or data.get('record_table_initializers_executed') is not True
+            or data.get('record_table_initialization_boundaries_verified') is not True
+            or data.get('initialization_start') != 0x293D or data.get('initialization_end') != 0x2949
+            or data.get('collapse_table_base') != 0x6620 or data.get('debris_table_base') != 0x209E
+            or data.get('initialization_sha256') != INITIALIZER_SHA
+            or data.get('entry_counts', {}).get('record_table_initializer') != 2395
+            or hashlib.sha256(original[0x30AD:0x30B9]).hexdigest() != INITIALIZER_SHA):
+        raise ValueError('collapse original record-table initialization differs')
+
+
 def metadata():
     raw = META.read_bytes()
     if hashlib.sha256(raw).hexdigest() != META_SHA: raise ValueError('collapse metadata differs')
@@ -43,6 +57,7 @@ def metadata():
         if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
             raise ValueError('collapse provenance differs: ' + str(path.relative_to(ROOT)))
     original = (ROOT / 'LEZAC.EXE').read_bytes()
+    verify_initialization(data, original)
     if hashlib.sha256(original[0x770 + data['instruction_start']:0x770 + data['instruction_end']]).hexdigest() != data['instruction_sha256']:
         raise ValueError('collapse original instruction window differs')
     if (data['cases'] != 2395 or data['native_crosschecked_cases'] != 27 or data['executor'] != 'Unicorn 2.1.4'
@@ -109,7 +124,20 @@ def main():
             try: contract(changed)
             except ValueError: continue
             raise ValueError('collapse checker accepted source mutation')
-        print('original_collapse_contract=ok source_mutants=8 compiled_cpp=0')
+        original = (ROOT / 'LEZAC.EXE').read_bytes()
+        mutations = (('collapse_table_base', 0), ('debris_table_base', 0),
+                     ('record_table_initializers_executed', False),
+                     ('record_table_initialization_boundaries_verified', False),
+                     ('initialization_start', 0x293E), ('initialization_end', 0x2948),
+                     ('initialization_sha256', '0' * 64), ('record_table_initializer', 2394))
+        for key, value in mutations:
+            changed = copy.deepcopy(data)
+            target = changed['entry_counts'] if key == 'record_table_initializer' else changed
+            target[key] = value
+            try: verify_initialization(changed, original)
+            except ValueError: continue
+            raise ValueError('collapse checker accepted initialization mutation: ' + key)
+        print('original_collapse_contract=ok source_mutants=8 initializer_mutants=8 compiled_cpp=0')
         return
     if args.oracle_only:
         list(records(data))

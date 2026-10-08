@@ -74,6 +74,12 @@ executes original `1000:5102` without instruction patches or call stubs. It
 independently reproduces all 27 retained native routine cases and supplies
 2,395 controlled cases for full live debris/collapse records, both map planes,
 RNG, destruction and fragment-word counters through the production updater.
+The corrected oracle executes four original startup instructions to initialize
+the record-table bases before every case. This repairs the PR #314 harness
+precondition behind 90 live-record compaction mismatches. All corrected outputs
+match retained Linux and Windows compiled outputs; all inputs and 27 native
+cross-checks are unchanged. Production C++ is unchanged and fresh-head CI is
+required separately. The failed fixture and diagnostics remain preserved.
 Actor creation executes but actor records, sound state, presentation, natural
 routes and whole-game fidelity are not compared. Broad claims remain false.
 

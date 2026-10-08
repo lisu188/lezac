@@ -70,6 +70,8 @@ def main():
     assert hashlib.sha256(args.levels.read_bytes()).hexdigest() == LEVELS_SHA
     header = struct.unpack_from('<14H', raw)
     assert header[3] == 468 and header[4] * 16 == 0x770
+    initializer = raw[0x30AD:0x30B9]
+    assert hashlib.sha256(initializer).hexdigest() == 'aaef4f5b7b8e4a213d7a9c11a2cc003cddd8026c89bd5cc0ee80006e945aefde'
     image = bytearray(raw[0x770:])
     for index in range(header[3]):
         offset, segment = struct.unpack_from('<HH', raw, header[12] + 4 * index)
@@ -85,7 +87,7 @@ def main():
     descriptors = bytes.fromhex(descriptor_row.split('=', 1)[1])
     assert len(descriptors) == 92 * 4
     counts, steps = Counter(), [0]
-    entries = {0x15102: 'updater', 0x1508B: 'remove', 0x1370E: 'seed',
+    entries = {0x1293D: 'record_table_initializer', 0x15102: 'updater', 0x1508B: 'remove', 0x1370E: 'seed',
                0x1A5A8: 'random', 0x1165A: 'sound_latch', 0x12F9F: 'actor_constructor'}
 
     def observe(cpu, address, size, _):
@@ -105,7 +107,7 @@ def main():
         cpu.mem_write(data + 0x1AFA, bytes(2))
         cpu.mem_write(data + 0x1AFE, struct.pack('<I', rng))
         cpu.mem_write(data + 0x1BAE, bytes(31 * 38))
-        cpu.mem_write(data + 0x2076, struct.pack('<6H', 0, 0, 0, 0x209E, 199 + len(fragments), len(collapses)))
+        cpu.mem_write(data + 0x2076, struct.pack('<6H', 0, 0, 0, 0, 199 + len(fragments), len(collapses)))
         cpu.mem_write(data + 0x208D, bytes(1))
         cpu.mem_write(data + 0x2093, bytes(0x6611 - 0x2093))
         cpu.mem_write(data + 0x6620, bytes(250 * 15))
@@ -128,6 +130,11 @@ def main():
                                 (UC_X86_REG_SS, 0x8000), (UC_X86_REG_SP, 0xFF00), (UC_X86_REG_EFLAGS, 0x202)):
             cpu.reg_write(register, value)
         cpu.mem_write(0x8FF00, struct.pack('<H', 0xFF00))
+        # Startup 1000:293D..2949 sets the bases used by pool compaction.
+        steps[0] = 0
+        cpu.emu_start(0x1293D, 0x12949, count=4)
+        assert steps[0] == 4 and cpu.reg_read(UC_X86_REG_IP) == 0x2949
+        assert bytes(cpu.mem_read(data + 0x207A, 4)) == struct.pack('<HH', 0x6620, 0x209E)
         steps[0] = 0
         cpu.emu_start(0x15102, 0x1FF00, count=1000000)
         assert (cpu.reg_read(UC_X86_REG_CS), cpu.reg_read(UC_X86_REG_IP), cpu.reg_read(UC_X86_REG_SP)) == (0x1000, 0xFF00, 0xFF02)
@@ -178,7 +185,7 @@ def main():
             fixture.write(struct.pack('<II', len(request), len(result)) + request + result)
             ih.update(request)
             oh.update(result)
-    metadata = dict(schema='lezac.original-collapse-update.v1', cases=len(cases),
+    metadata = dict(schema='lezac.original-collapse-update.v2', cases=len(cases),
         groups=dict(Counter(case[0] for case in cases)), native_crosschecked_cases=27,
         native_fixture_sha256={path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in (native, actor_fixture)},
         original_exe_sha256=EXE_SHA, livels_sha256=LEVELS_SHA,
@@ -188,6 +195,10 @@ def main():
         relocated_image_sha256=hashlib.sha256(image).hexdigest(),
         instruction_start=0x5102, instruction_end=0x568A,
         instruction_sha256=hashlib.sha256(raw[0x5872:0x5DFA]).hexdigest(),
+        record_table_initializers_executed=True, record_table_initialization_boundaries_verified=True,
+        initialization_start=0x293D, initialization_end=0x2949,
+        initialization_sha256=hashlib.sha256(initializer).hexdigest(),
+        collapse_table_base=0x6620, debris_table_base=0x209E,
         input_sha256=ih.hexdigest(), output_sha256=oh.hexdigest(), fixture_sha256=hashlib.sha256(args.out.read_bytes()).hexdigest(),
         executor='Unicorn 2.1.4', original_calls_stubbed=False, original_instructions_patched=False,
         original_return_boundaries_verified=True, word_segment_cache_initialized=True,

@@ -5036,6 +5036,20 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^shipped_monster_profiles_self_check=ok profiles=15 cases=45 ticks=64 live=0")
 
+    add_test(NAME original_shipped_profile_cpu_capture_contract
+        COMMAND ${Python3_EXECUTABLE} -B tools/check_original_shipped_profile_native.py --self-check)
+    set_tests_properties(original_shipped_profile_cpu_capture_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        PASS_REGULAR_EXPRESSION "^original_shipped_profile_self_check=ok profiles=15 constructors=45 updates=2880 executor_required=0 live=0")
+
+    add_test(NAME original_shipped_profile_native_contract_regression
+        COMMAND ${Python3_EXECUTABLE} -B tools/test_original_shipped_profile_native_contract.py)
+    set_tests_properties(original_shipped_profile_native_contract_regression PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        PASS_REGULAR_EXPRESSION "original_shipped_profile_native_contract=ok tests=23 executor_required=0")
+
     add_test(NAME timed_writeback_original
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-timed-actor-writeback
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/timed_actor_writeback_original.bin)

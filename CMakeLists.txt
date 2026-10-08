@@ -177,6 +177,13 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_sound_pitch_test tests/sound/sound_pitch_test.cpp
+        src/sound/sound_engine.cpp src/resources/binary.cpp)
+    target_include_directories(lezac_sound_pitch_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME sound_pitch COMMAND lezac_sound_pitch_test)
+    set_tests_properties(sound_pitch PROPERTIES PASS_REGULAR_EXPRESSION
+        "sound_pitch=ok frequencies=65536 pcm_cases=10 ignored_command_states=3 cursor_playback=1 direct_sweep=1 original_runtime_claim=0")
+
     add_executable(lezac_main_menu_test tests/ui/main_menu_test.cpp src/app/input_mapper.cpp)
     target_compile_definitions(lezac_main_menu_test PRIVATE SDL_MAIN_HANDLED)
     target_include_directories(lezac_main_menu_test PRIVATE ${SDL2_INCLUDE_DIRS})
@@ -268,6 +275,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION "^render_state_boundary=ok repeat_pixels=1 nonblank=1 rng_unchanged=1 actor_order_unchanged=1 palette_unchanged=1 live_map_alias=1")
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
+
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME sound_pitch_original
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_pitch_original.py
+                    --exe $<TARGET_FILE:lezac_sound_pitch_test>)
+        set_tests_properties(sound_pitch_original PROPERTIES PASS_REGULAR_EXPRESSION
+            "sound_pitch_original=ok frequencies=65536 helper_bytes=45 numerator=1193181 ignored_max=18")
+    endif()
 
     if(Python3_Interpreter_FOUND)
         add_test(NAME level_exporter_counts

@@ -31,8 +31,9 @@ public:
     uint8_t soundStepGateTick(size_t stepIndex) const;
     uint8_t soundStepPeriodTicks(size_t stepIndex) const;
     uint16_t soundStopCursorFor(uint16_t cursor) const;
-    void appendToneSamples(std::vector<int16_t>& samples, uint16_t period,
-                       int sampleCount, int amplitude, double& phase) const;
+    static uint16_t speakerDivisorForFrequency(uint16_t frequency);
+    void appendToneSamples(std::vector<int16_t>& samples, uint16_t frequency,
+                       int sampleCount, int amplitude, SpeakerToneState& tone) const;
     std::vector<int16_t> synthesizeSoundCursor(uint16_t cursor) const;
     std::vector<int16_t> synthesizeSound(size_t index) const;
     std::vector<int16_t> synthesizeDirectSweep(uint16_t startCursor) const;

@@ -156,4 +156,10 @@ struct SoundPlaybackSnapshot {
     uint8_t selector = 0;
 };
 
+struct SpeakerToneState {
+    uint16_t divisor = 0;
+    bool enabled = false;
+    double phase = 0.0;
+};
+
 }  // namespace lezac::sound

@@ -3,6 +3,10 @@
 Last reviewed: 2026-10-08
 
 The C++17/SDL2 reconstruction of `LEZAC.EXE` is not yet functionally complete.
+The [2026-10-08 PC speaker pitch correction](sound_pitch_2026-10-08.md) fixes
+frequency/reload inversion, low-frequency silence and pitch clamping. Its
+exhaustive compiled conversion and PCM checks are bounded opcode-model
+evidence, not native sound timing, priority-latch lifetime or whole-game parity.
 The earlier claim was based on a subsystem inventory and compatible tests,
 not a complete comparison with original behavior. The 2026-09-05 player and
 collapse captures exposed absent pickup handling and a placeholder collapse

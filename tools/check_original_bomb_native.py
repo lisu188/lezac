@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 import traceback
+from types import ModuleType
 
 NATIVE_FIXTURES = {
     'weapon1_jump.txt': '8966baa5f29f325daec1732d20ade643ac714abe785bfb56cca648b7428fbb7b',
@@ -32,9 +33,16 @@ def sha(value):
     return hashlib.sha256(value).hexdigest()
 
 
-def imported_helper_identity(module):
-    path = Path(module.__file__).resolve(strict=True)
-    return dict(helper_path=str(path), helper_sha256=sha(path.read_bytes()))
+def load_source_module(path, source=None):
+    """Execute the attributed buffer directly, without import bytecode caches."""
+    path = path.resolve(strict=True)
+    source = path.read_bytes() if source is None else source
+    module = ModuleType(path.stem)
+    module.__file__ = str(path)
+    module.__package__ = ''
+    exec(compile(source, str(path), 'exec', dont_inherit=True), vars(module))
+    module.__source_sha256__ = sha(source)
+    return module
 
 
 def fields(line):
@@ -95,8 +103,6 @@ def main():
     if args.unicorn_path:
         sys.path.insert(0, str(args.unicorn_path.resolve()))
     sys.path.insert(0, str(ROOT / 'tools'))
-    import original_bomb_cpu
-    from original_bomb_cpu import BombCPU, DESCRIPTOR_SHA, EXE_SHA, LEVELS_SHA
     from scan_livels_debris_sites import load_levels
     OUT = args.out.resolve()
     assert not OUT.exists()
@@ -114,10 +120,13 @@ def main():
 
 
     try:
-        report.update(imported_helper_identity(original_bomb_cpu))
+        helper_path = (ROOT / 'tools/original_bomb_cpu.py').resolve(strict=True)
+        helper_source = helper_path.read_bytes()
+        report.update(helper_path=str(helper_path), helper_sha256=sha(helper_source))
+        original_bomb_cpu = load_source_module(helper_path, helper_source)
         level = load_levels(ROOT / 'LIVELS.SCH')[0]
         assert (level['width'], level['height']) == (60, 33)
-        cpu = BombCPU(ROOT)
+        cpu = original_bomb_cpu.BombCPU(ROOT)
         for path, blob, raw_blob in read_native(ROOT):
             report['active_trace'] = path.name
             lines = blob.decode('ascii').splitlines()
@@ -155,8 +164,8 @@ def main():
                 full_visual_compared=True, complete_updates_and_expiry_executed=True,
                 original_helpers_entered=dict(cpu.entries)))
         assert sum(row['updates'] for row in report['traces']) == 2304
-        report.update(passed=True, native_traces=16, native_updates=2304, original_exe_sha256=EXE_SHA,
-            levels_sha256=LEVELS_SHA, descriptor_fixture_sha256=DESCRIPTOR_SHA,
+        report.update(passed=True, native_traces=16, native_updates=2304, original_exe_sha256=original_bomb_cpu.EXE_SHA,
+            levels_sha256=original_bomb_cpu.LEVELS_SHA, descriptor_fixture_sha256=original_bomb_cpu.DESCRIPTOR_SHA,
             compared_bytes=sum(row['bytes'] for row in report['checks']),
             generator_sha256=sha(Path(__file__).read_bytes()),
             limitation='Native actors/visuals cross-checked through pre-expiry; post-explosion maps and effects are not captured in these fixtures.')

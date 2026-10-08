@@ -1,15 +1,19 @@
 """Exercise the native fixture contract without importing the optional executor."""
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
+import py_compile
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
+import capture_original_bomb_lifetime as lifetime_module
 from capture_original_bomb_lifetime import load_native_prerequisite, validate_lifetime_result, validate_native_report
-from check_original_bomb_native import NATIVE_FIXTURES
+from check_original_bomb_native import NATIVE_FIXTURES, load_source_module
 
 ROOT = Path(__file__).resolve().parents[1]
 CHECKER = ROOT / 'tools/check_original_bomb_native.py'
@@ -161,7 +165,7 @@ class NativeBombContractTests(unittest.TestCase):
         self.assertEqual(report['native_prerequisite_sha256'], digest)
         self.assertEqual(report['independent_native_crosscheck']['sha256'], digest)
 
-    def alternate_helper_cli(self, script, local_helper_report=False):
+    def alternate_helper_cli(self, script, local_helper_report=False, stale_cache=False):
         with tempfile.TemporaryDirectory(prefix='lezac-bomb-alternate-helper-') as directory:
             root = Path(directory)
             tools = root / 'tools'
@@ -174,6 +178,13 @@ class NativeBombContractTests(unittest.TestCase):
                 "class BombCPU:\n"
                 "    def __init__(self, root):\n"
                 "        raise RuntimeError('alternate executor selected')\n", encoding='utf-8')
+            if stale_cache:
+                fresh = helper.read_bytes()
+                helper.write_bytes(fresh.replace(b'alternate executor', b'cachedxxx executor'))
+                stamp = helper.stat()
+                py_compile.compile(str(helper), doraise=True)
+                helper.write_bytes(fresh)
+                os.utime(helper, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
             (tools / 'scan_livels_debris_sites.py').write_text(
                 "def load_levels(path): return [dict(width=60, height=33)]\n", encoding='utf-8')
             unicorn = tools / 'unicorn'
@@ -220,6 +231,45 @@ class NativeBombContractTests(unittest.TestCase):
         self.assertNotIn('alternate executor selected', result.stderr)
         self.assertNotIn('independent_native_crosscheck', report)
 
+    def test_timestamp_valid_bytecode_is_bypassed(self):
+        with tempfile.TemporaryDirectory(prefix='lezac-bomb-stale-cache-') as directory:
+            path = Path(directory) / 'executor.py'
+            old, current = b"def value(): return 'old'\n", b"def value(): return 'new'\n"
+            path.write_bytes(old)
+            stamp = path.stat()
+            cache = Path(py_compile.compile(str(path), doraise=True))
+            path.write_bytes(current)
+            os.utime(path, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+            spec = importlib.util.spec_from_file_location('stale_executor_control', path)
+            cached = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(cached)
+            self.assertEqual(cached.value(), 'old')
+            cached_bytes = cache.read_bytes()
+            for loader in (load_source_module, lifetime_module.load_source_module):
+                actual = loader(path)
+                self.assertEqual(actual.value(), 'new')
+                self.assertEqual(actual.__source_sha256__, hashlib.sha256(current).hexdigest())
+            self.assertEqual(cache.read_bytes(), cached_bytes)
+
+    def test_executor_source_is_read_once(self):
+        with tempfile.TemporaryDirectory(prefix='lezac-bomb-source-buffer-') as directory:
+            path = Path(directory) / 'executor.py'
+            current, replacement = b"def value(): return 'new'\n", b"def value(): return 'old'\n"
+            path.write_bytes(current)
+            for loader in (load_source_module, lifetime_module.load_source_module):
+                with mock.patch.object(Path, 'read_bytes', side_effect=[current, replacement]) as read:
+                    actual = loader(path)
+                self.assertEqual(read.call_count, 1)
+                self.assertEqual(actual.value(), 'new')
+                self.assertEqual(actual.__source_sha256__, hashlib.sha256(current).hexdigest())
+
+    def test_cached_live_executor_is_not_used(self):
+        for script in (CHECKER, LIFETIME):
+            result, report = self.alternate_helper_cli(script, stale_cache=True)
+            self.assertIn('alternate executor selected', result.stderr)
+            self.assertNotIn('cachedxxx executor selected', result.stderr)
+            self.assertFalse(report['passed'])
+
     def test_optimized_checker_rejected(self):
         result = subprocess.run([sys.executable, '-O', '-S', '-B', str(CHECKER), '--self-check'],
             capture_output=True, text=True, timeout=30)
@@ -250,5 +300,5 @@ if __name__ == '__main__':
     result = unittest.TextTestRunner(verbosity=2).run(
         unittest.defaultTestLoader.loadTestsFromTestCase(NativeBombContractTests))
     if result.wasSuccessful():
-        print('original_bomb_native_contract=ok tests=22 executor_required=0')
+        print('original_bomb_native_contract=ok tests=25 executor_required=0')
     raise SystemExit(0 if result.wasSuccessful() else 1)

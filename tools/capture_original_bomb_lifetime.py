@@ -8,7 +8,26 @@ import json
 from pathlib import Path
 import sys
 import traceback
-import check_original_bomb_native as native_checker
+from types import ModuleType
+
+
+def sha(value):
+    return hashlib.sha256(value).hexdigest()
+
+
+def load_source_module(path, source=None):
+    """Execute the attributed buffer directly, without import bytecode caches."""
+    path = path.resolve(strict=True)
+    source = path.read_bytes() if source is None else source
+    module = ModuleType(path.stem)
+    module.__file__ = str(path)
+    module.__package__ = ''
+    exec(compile(source, str(path), 'exec', dont_inherit=True), vars(module))
+    module.__source_sha256__ = sha(source)
+    return module
+
+
+native_checker = load_source_module(Path(__file__).with_name('check_original_bomb_native.py'))
 
 def validate_lifetime_result(report):
     """Reject a lifetime result that contradicts preserved-byte independence."""
@@ -61,9 +80,6 @@ def main():
     if args.unicorn_path:
         sys.path.insert(0, str(args.unicorn_path.resolve()))
     sys.path.insert(0, str(ROOT / 'tools'))
-    import original_bomb_cpu
-    from original_bomb_cpu import BombCPU, sha, unicorn
-    from unicorn.x86_const import UC_X86_REG_IP, UC_X86_REG_CS, UC_X86_REG_SP, UC_X86_REG_BP, UC_X86_REG_EFLAGS
     from scan_livels_debris_sites import load_levels
     OUT = args.out.resolve()
     assert not OUT.exists()
@@ -73,11 +89,16 @@ def main():
         visual_parity_claim=False, sound_parity_claim=False, whole_game_complete=False)
 
     try:
-        report.update(native_checker.imported_helper_identity(original_bomb_cpu))
+        helper_path = (ROOT / 'tools/original_bomb_cpu.py').resolve(strict=True)
+        helper_source = helper_path.read_bytes()
+        report.update(helper_path=str(helper_path), helper_sha256=sha(helper_source))
         native_path = args.native_report.resolve()
         load_native_prerequisite(native_path,
             report['helper_sha256'],
-            hashlib.sha256(Path(native_checker.__file__).read_bytes()).hexdigest(), report)
+            native_checker.__source_sha256__, report)
+        original_bomb_cpu = load_source_module(helper_path, helper_source)
+        BombCPU, unicorn = original_bomb_cpu.BombCPU, original_bomb_cpu.unicorn
+        from unicorn.x86_const import UC_X86_REG_IP, UC_X86_REG_CS, UC_X86_REG_SP, UC_X86_REG_BP, UC_X86_REG_EFLAGS
         shipped = load_levels(ROOT / 'LIVELS.SCH')[0]
         empty = dict(shipped, tiles=[0] * 1980, words=[0] * 1980)
         levels = {'shipped_level1': shipped, 'controlled_empty': empty}

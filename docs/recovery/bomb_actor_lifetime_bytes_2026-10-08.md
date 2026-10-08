@@ -78,19 +78,22 @@ The prerequisite bytes are read once and their digest is recorded before JSON
 decoding or validation. That same buffer is validated and attributed in the
 successful cross-check metadata. Failed and malformed prerequisites retain
 their digest without acquiring a successful cross-check claim.
-Both reports identify the executor using the imported module's resolved
-`__file__`, including when `--root` selects a different checkout. They record
-that actual path and source digest before execution. The lifetime prerequisite
-must match that executor and the checker module actually used for validation;
-a hash of an unused neighboring helper is not accepted as its identity.
+Both reports identify the executor selected explicitly from `--root/tools`.
+They read its source bytes once, record that path and digest, then compile and
+execute that same buffer directly. Existing module objects, timestamp-valid
+`.pyc` files and dependency-path shadowing do not select the executor.
+`-B` alone prevents cache writes, not cache reads. The lifetime tool likewise
+loads its prerequisite checker directly from source and binds the report to
+the digest of the checker buffer actually executed, not a later file read.
 
 The lifetime probe fails closed if any preserved byte is read or a stale
-pattern changes state outside those bytes. Twenty-two standard-library contract
+pattern changes state outside those bytes. Twenty-five standard-library contract
 regressions cover LF/CRLF fixtures, trace corruption/truncation, unregistered
 traces, clean/contradictory lifetime outcomes, stale prerequisite producers,
 modified/missing/duplicate trace identities, failed/malformed prerequisite
 identity retention, changing-input single-read attribution, alternate-root
-executor identity and prerequisite binding, and optimized Python without
+executor identity and prerequisite binding, stale same-size/same-mtime bytecode,
+single-read source attribution, live CLI cache bypass, and optimized Python without
 importing the optional executor. The alternate-root tests use deliberately
 failing stand-ins, not original-code or game-parity evidence.
 Both CLIs reject `-O` and `PYTHONOPTIMIZE`; the outcome

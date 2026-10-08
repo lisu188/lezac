@@ -243,6 +243,13 @@ if(BUILD_TESTING)
         "^level_results=ok count_bonus=1 whole_award=1 reel_steps=41 rng_draws=41 delayed_rng=1 typing_steps=89 typing_boundaries=1 batching=1 rollover=1 zero_bonus=1 word_wrap=1 original_runtime_claim=0")
     add_executable(lezac_core_primitives_test tests/core/core_primitives_test.cpp)
     target_link_libraries(lezac_core_primitives_test PRIVATE lezac_core)
+    add_executable(lezac_monster_animation_selectors_test tests/gameplay/monster_animation_selectors_test.cpp)
+    target_include_directories(lezac_monster_animation_selectors_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME monster_animation_selectors
+        COMMAND lezac_monster_animation_selectors_test ${CMAKE_CURRENT_SOURCE_DIR})
+    set_tests_properties(monster_animation_selectors PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^monster_animation_selectors=ok constructors=45 states=5805 ranges=17415 overrides=2 fallback=15 compiled_helper=1 full_game_claim=0")
     add_executable(lezac_collapse_seed_geometry_test tests/gameplay/collapse_seed_geometry_test.cpp)
     target_include_directories(lezac_collapse_seed_geometry_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_executable(lezac_collapse_seed_four_neighbor_mutant tests/gameplay/collapse_seed_geometry_test.cpp)

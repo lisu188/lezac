@@ -18196,6 +18196,52 @@ public:
                   << " landing=" << landingCases << " seeded_original=1 natural_route_claim=0 visual_claim=0\n";
     }
 
+    void debugBombLaunchWordScan() {
+        load();
+        prepareAutoplayerMonsterFixtureLevel();
+        playerCount_ = 2;
+        player2Dead_ = false;
+        const auto append = [](std::vector<uint8_t>& bytes, int16_t value) {
+            bytes.push_back(static_cast<uint8_t>(value));
+            bytes.push_back(static_cast<uint8_t>(static_cast<uint16_t>(value) >> 8));
+        };
+        for (int weapon = 0; weapon < 4; ++weapon) {
+            for (uint8_t owner = 1; owner <= 2; ++owner) {
+                std::vector<uint8_t> horizontal, vertical;
+                horizontal.reserve(131072);
+                vertical.reserve(131072);
+                auto& player = owner == 1 ? player_ : player2_;
+                auto& inventory = owner == 1 ? bombInventory_ : bombInventory2_;
+                player.x = 40;
+                player.y = 24;
+                for (int value = -32768; value <= 32767; ++value) {
+                    bombs_.clear();
+                    player.vx8 = player.vy8 = static_cast<int16_t>(value);
+                    inventory.selected = static_cast<BombType>(weapon);
+                    inventory.counts.fill(2);
+                    reentryFire1_ = reentryFire2_ = true;
+                    placeBombAt(player, inventory, owner);
+                    if (bombs_.size() != 1 || inventory.counts[static_cast<size_t>(weapon)] != 1 ||
+                        reentryFire1_ || reentryFire2_) {
+                        throw std::runtime_error("bomb launch scan constructor/latch mismatch");
+                    }
+                    const auto& bomb = bombs_.front();
+                    const auto profile = bombProfile(inventory.selected);
+                    if (bomb.owner != owner || bomb.type != inventory.selected || !bomb.moving ||
+                        bomb.pixelX != 40 || bomb.pixelY != 24 || bomb.fracX != 0 || bomb.fracY != 0 ||
+                        bomb.fuseTicks != profile.fuseTicks || bomb.timer != profile.fuseTicks - 1) {
+                        throw std::runtime_error("bomb launch scan nonvelocity state mismatch");
+                    }
+                    append(horizontal, bomb.vx8);
+                    append(vertical, bomb.vy8);
+                }
+                std::cout << "bomb_launch_word_scan inputs=65536 weapon=" << weapon << " owner=" << int(owner)
+                          << " vx=" << lezac::diagnostics::level1::fingerprint(horizontal)
+                          << " vy=" << lezac::diagnostics::level1::fingerprint(vertical) << '\n';
+            }
+        }
+    }
+
     void debugActorFloorFrictionScan() {
         std::vector<uint8_t> helper, idleGround, idleAir;
         const auto append = [](std::vector<uint8_t>& bytes, int16_t value) {
@@ -28219,11 +28265,15 @@ private:
         bomb.actorOrder = actorOrder;
         bomb.pixelX = static_cast<int>(player.x);
         bomb.pixelY = static_cast<int>(player.y);
-        // 6C2B..6C41 scales vx by 3/2 (signed truncation), and subtracts
-        // 500 from vy. The actor constructor clamps each to +/-0x07ff
-        // and clears both fractional accumulators.
-        bomb.vx8 = static_cast<int16_t>(std::clamp(3 * player.vx8 / 2, -0x07ff, 0x07ff));
-        bomb.vy8 = static_cast<int16_t>(std::clamp(player.vy8 - 500, -0x07ff, 0x07ff));
+        // 6C2B..6C41 wraps the multiply/subtraction before signed division.
+        // Constructor 2FC1..3001 uses a WORD absolute value: -32768 passes
+        // its signed <=0x07ff test unchanged.
+        const auto clampLaunch = [](int16_t velocity) {
+            const auto magnitude = static_cast<int16_t>(velocity < 0 ? -int(velocity) : velocity);
+            return magnitude <= 0x07ff ? velocity : static_cast<int16_t>(velocity < 0 ? -0x07ff : 0x07ff);
+        };
+        bomb.vx8 = clampLaunch(static_cast<int16_t>(3 * player.vx8) / 2);
+        bomb.vy8 = clampLaunch(static_cast<int16_t>(player.vy8 - 500));
         bomb.moving = true;
         requestBombPlaceSound();
         --inventory.counts[static_cast<size_t>(bombTypeIndex(inventory.selected))];
@@ -30064,6 +30114,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc == 3 && std::string(argv[1]) == "--debug-natural-bomb-visual-original") {
             app.debugNaturalBombVisualOriginal(argv[2]);
+            return 0;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--debug-bomb-launch-word-scan") {
+            app.debugBombLaunchWordScan();
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-bomb-motion-original") {

@@ -4844,6 +4844,13 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "timed_writeback_self_check=ok cases=1184 kinds=12,13 profiles=10 live=0")
 
+    add_test(NAME bomb_launch_word
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_bomb_launch_word.py --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(bomb_launch_word PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^bomb_launch_word=ok inputs=65536 constructors=524288 weapons=4 owners=2 guarded_static_oracle=1 mutants_discriminated=4 live_original_inputs=0")
+
     add_test(NAME actor_floor_friction_word
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_floor_friction.py --exe $<TARGET_FILE:lezac_cpp>)
     set_tests_properties(actor_floor_friction_word PROPERTIES

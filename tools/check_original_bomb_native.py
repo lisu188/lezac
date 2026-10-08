@@ -33,6 +33,13 @@ def sha(value):
     return hashlib.sha256(value).hexdigest()
 
 
+def producer_sha256():
+    value = globals().get('__source_sha256__')
+    if value is None:
+        raise RuntimeError('producer must execute from a bound source buffer')
+    return value
+
+
 def load_source_module(path, source=None):
     """Execute the attributed buffer directly, without import bytecode caches."""
     path = path.resolve(strict=True)
@@ -106,7 +113,7 @@ def main():
     from scan_livels_debris_sites import load_levels
     OUT = args.out.resolve()
     assert not OUT.exists()
-    report = dict(passed=False, traces=[], checks=[], original_calls_stubbed=False,
+    report = dict(passed=False, traces=[], checks=[], generator_sha256=producer_sha256(), original_calls_stubbed=False,
         original_instructions_patched=False, hardware_io_permitted=False,
         new_native_capture=False, complete_campaign_claim=False, compiled_cpp_comparison=False)
 
@@ -167,7 +174,6 @@ def main():
         report.update(passed=True, native_traces=16, native_updates=2304, original_exe_sha256=original_bomb_cpu.EXE_SHA,
             levels_sha256=original_bomb_cpu.LEVELS_SHA, descriptor_fixture_sha256=original_bomb_cpu.DESCRIPTOR_SHA,
             compared_bytes=sum(row['bytes'] for row in report['checks']),
-            generator_sha256=sha(Path(__file__).read_bytes()),
             limitation='Native actors/visuals cross-checked through pre-expiry; post-explosion maps and effects are not captured in these fixtures.')
         print(json.dumps(dict(passed=True, traces=16, updates=2304,
             compared_bytes=report['compared_bytes'], report=str(OUT))), flush=True)
@@ -180,4 +186,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    load_source_module(Path(__file__)).main()

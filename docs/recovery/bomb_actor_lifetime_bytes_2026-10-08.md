@@ -85,15 +85,22 @@ execute that same buffer directly. Existing module objects, timestamp-valid
 `-B` alone prevents cache writes, not cache reads. The lifetime tool likewise
 loads its prerequisite checker directly from source and binds the report to
 the digest of the checker buffer actually executed, not a later file read.
+Each report producer also bootstraps its own execution from one source buffer.
+Its generator digest is bound to that executed buffer before the comparison,
+including failed reports; replacing the producer file during execution cannot
+attribute the old run to replacement code. Unbound imported producers fail
+closed instead of hashing a file that they may not have executed.
 
 The lifetime probe fails closed if any preserved byte is read or a stale
-pattern changes state outside those bytes. Twenty-five standard-library contract
+pattern changes state outside those bytes. Twenty-seven standard-library contract
 regressions cover LF/CRLF fixtures, trace corruption/truncation, unregistered
 traces, clean/contradictory lifetime outcomes, stale prerequisite producers,
 modified/missing/duplicate trace identities, failed/malformed prerequisite
 identity retention, changing-input single-read attribution, alternate-root
 executor identity and prerequisite binding, stale same-size/same-mtime bytecode,
-single-read source attribution, live CLI cache bypass, and optimized Python without
+single-read source attribution, producer replacement/unbound identity, CLI
+bootstrap execution of its selected source buffer, live CLI
+cache bypass, and optimized Python without
 importing the optional executor. The alternate-root tests use deliberately
 failing stand-ins, not original-code or game-parity evidence.
 Both CLIs reject `-O` and `PYTHONOPTIMIZE`; the outcome

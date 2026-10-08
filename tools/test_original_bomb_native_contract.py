@@ -1,11 +1,14 @@
 """Exercise the native fixture contract without importing the optional executor."""
 import argparse
+import contextlib
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import py_compile
 from pathlib import Path
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -270,6 +273,34 @@ class NativeBombContractTests(unittest.TestCase):
             self.assertNotIn('cachedxxx executor selected', result.stderr)
             self.assertFalse(report['passed'])
 
+    def test_producer_source_identity_survives_replacement(self):
+        with tempfile.TemporaryDirectory(prefix='lezac-bomb-producer-replaced-') as directory:
+            root = Path(directory)
+            for script in (CHECKER, LIFETIME):
+                (root / script.name).write_bytes(script.read_bytes())
+            for script in (CHECKER, LIFETIME):
+                path = root / script.name
+                current = path.read_bytes()
+                actual = load_source_module(path)
+                path.write_bytes(b"raise RuntimeError('replacement producer')\n")
+                with mock.patch.object(Path, 'read_bytes', side_effect=RuntimeError('late producer read')):
+                    self.assertEqual(actual.producer_sha256(), hashlib.sha256(current).hexdigest())
+                path.write_bytes(current)
+        selected = b'def main(): print(__source_sha256__)\n'
+        for script in (CHECKER, LIFETIME):
+            output = io.StringIO()
+            with mock.patch.object(Path, 'read_bytes', return_value=selected):
+                with contextlib.redirect_stdout(output):
+                    runpy.run_path(str(script), run_name='__main__')
+            self.assertEqual(output.getvalue().strip(), hashlib.sha256(selected).hexdigest())
+
+    def test_unbound_producer_is_rejected(self):
+        for script in (CHECKER, LIFETIME):
+            actual = load_source_module(script)
+            del actual.__source_sha256__
+            with self.assertRaisesRegex(RuntimeError, 'producer must execute from a bound source buffer'):
+                actual.producer_sha256()
+
     def test_optimized_checker_rejected(self):
         result = subprocess.run([sys.executable, '-O', '-S', '-B', str(CHECKER), '--self-check'],
             capture_output=True, text=True, timeout=30)
@@ -300,5 +331,5 @@ if __name__ == '__main__':
     result = unittest.TextTestRunner(verbosity=2).run(
         unittest.defaultTestLoader.loadTestsFromTestCase(NativeBombContractTests))
     if result.wasSuccessful():
-        print('original_bomb_native_contract=ok tests=25 executor_required=0')
+        print('original_bomb_native_contract=ok tests=27 executor_required=0')
     raise SystemExit(0 if result.wasSuccessful() else 1)

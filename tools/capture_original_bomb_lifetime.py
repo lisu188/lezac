@@ -15,6 +15,13 @@ def sha(value):
     return hashlib.sha256(value).hexdigest()
 
 
+def producer_sha256():
+    value = globals().get('__source_sha256__')
+    if value is None:
+        raise RuntimeError('producer must execute from a bound source buffer')
+    return value
+
+
 def load_source_module(path, source=None):
     """Execute the attributed buffer directly, without import bytecode caches."""
     path = path.resolve(strict=True)
@@ -83,7 +90,7 @@ def main():
     from scan_livels_debris_sites import load_levels
     OUT = args.out.resolve()
     assert not OUT.exists()
-    report = dict(passed=False, cases=[], original_instructions_patched=False,
+    report = dict(passed=False, cases=[], generator_sha256=producer_sha256(), original_instructions_patched=False,
         original_calls_stubbed=False, hardware_io_permitted=False, new_native_capture=False,
         natural_stale_slot_reachability_proven=False, compiled_cpp_comparison=False,
         visual_parity_claim=False, sound_parity_claim=False, whole_game_complete=False)
@@ -236,7 +243,6 @@ def main():
             positive_placement_write_controls_verified=True,
             preserved_offsets_read=sorted({int(key) for row in report['cases'] for key in row['preserved_reads']}),
             differential_groups_with_outside_preserved_differences=differences,
-            generator_sha256=sha(Path(__file__).read_bytes()),
             limitation='Controlled one-bomb lifetimes on shipped Level1 and a zero-filled map; native crosscheck covers ordinary trajectories, not these poisoned slots, mixed pools or all callers.')
         validate_lifetime_result(report)
         report['passed'] = True
@@ -252,4 +258,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    load_source_module(Path(__file__)).main()

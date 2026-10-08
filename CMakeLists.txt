@@ -4405,6 +4405,20 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^original_debris_table=ok stale_tail_cases=3 full_live_range=1 invalid_bounds=2 truncated_guard=1")
 
+    add_test(NAME collapse_contacts_original
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contacts_original.py
+                --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(collapse_contacts_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^collapse_contacts_original=ok cases=9184 groups=14 capacity_failures=1248 partial_allocation_failures=672 output_mutants=4 natural_gameplay=0 whole_game_parity=0")
+    add_test(NAME collapse_contacts_contract
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contacts_original.py --self-check)
+    set_tests_properties(collapse_contacts_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^collapse_contacts_contract=ok source_mutants=10 compiled_cpp=0 natural_gameplay=0")
+
     add_test(NAME actor_contact_level2_evidence
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-contact-level2-evidence
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/actor_contact_original_level2.txt)

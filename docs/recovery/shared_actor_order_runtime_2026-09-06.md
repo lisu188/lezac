@@ -24,6 +24,43 @@ whole-game rendering result. The renderer still groups sprites by type.
 No sprite-overlap, natural-route, boss-link repair or two-player parity
 claim is made.
 
+### Corpse Conversion Identity Follow-Up (2026-10-08)
+
+The reward branch previously called `spawnBonusDrop`, consuming a fresh
+port birth ID, and then overwrote that ID with the corpse's existing one.
+It now constructs the reward representation directly and preserves the corpse
+ID without an intervening allocation claim. Position, hotspot, velocity,
+fractions, inherited animation, RNG draws and particle allocation are unchanged.
+This prepares the existing in-place conversion for physical storage ownership;
+it does not integrate `ActorStorage` into production or recover opaque fields.
+
+The existing ten-case/410-pass original replay also checks birth-ID conservation.
+In these controlled cases every successfully appended particle remains active
+through its birth pass, so all newly consumed IDs must belong to an active
+entry. This is a port-side identity invariant derived from the original's
+in-place conversion and append rules, not comparison of an original ID field.
+
+`corpse_conversion_identity_mutant` runs a separately compiled `App` variant
+with exactly one extra `claimActorOrder()` in the reward conversion. It must
+fail specifically with `unused birth identity`; another runtime failure,
+timeout or a passing replay is not accepted as mutant rejection. Its generated
+source manifest, binary identity, stdout, stderr and report are retained in CI.
+The production source remains unchanged by mutation generation. The mutant
+target is test-only, and ordinary distribution builds with `BUILD_TESTING=OFF`
+do not include it. The checker has twelve stdlib contracts.
+
+Large local game builds and native captures remain deferred under disk reserves.
+During preparation, asking Ninja for the generated mutant source unexpectedly
+followed an explicit executable dependency and compiled/linked the main game,
+then failed on missing sparse-checkout resource copies. That failed attempt and
+its outputs are retained; it is not a passing bounded build or runtime test.
+The unnecessary executable dependency was removed. Local validation thereafter
+uses direct source generation and syntax-only checks, without Ninja builds.
+Hosted compiled production replay, fixture negatives and actual mutant execution
+are separate validation gates; source checks and mocked checker contracts alone
+do not prove them. No new natural-route, full-record, RGB, sound or whole-game
+fidelity claim is made.
+
 ## Original Rules
 
 - Main CS:3358 (file 0x3ac8) deletes an actor by copying each following

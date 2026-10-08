@@ -18887,7 +18887,8 @@ public:
                   << " visual_claim=0\n";
     }
 
-    void debugOriginalDebrisUpdate(const std::string& inputPath, const std::string& outputPath) {
+    void debugOriginalDebrisUpdate(const std::string& inputPath, const std::string& outputPath,
+                                  bool collapseUpdate = false) {
         load();
         std::ifstream input(inputPath, std::ios::binary);
         std::ofstream output(outputPath, std::ios::binary);
@@ -18901,7 +18902,7 @@ public:
             return bytes;
         };
         const auto header = take(12);
-        if (std::string(header.begin(), header.begin() + 8) != "LZDU0001") {
+        if (std::string(header.begin(), header.begin() + 8) != (collapseUpdate ? "LZCU0001" : "LZDU0001")) {
             throw std::runtime_error("invalid debris update input header");
         }
         const uint32_t cases = le32(header, 8);
@@ -18911,7 +18912,7 @@ public:
             bytes.push_back(static_cast<uint8_t>(value >> 8));
         };
         for (uint32_t index = 0; index < cases; ++index) {
-            const auto parameters = take(14);
+            const auto parameters = take(collapseUpdate ? 18 : 14);
             const int width = le16(parameters, 0), height = le16(parameters, 2);
             const size_t cells = static_cast<size_t>(width) * height;
             const size_t debrisCount = le16(parameters, 10), collapseCount = le16(parameters, 12);
@@ -18930,6 +18931,11 @@ public:
             collapseQueue_.clear();
             logicTick_ = le16(parameters, 4);
             randomSeed_ = le32(parameters, 6);
+            if (collapseUpdate) {
+                monsters_.clear();
+                destroyed_ = le16(parameters, 14);
+                nextCollapseFragmentWord_ = le16(parameters, 16);
+            }
             for (size_t record = 0; record < debrisCount; ++record) {
                 const auto raw = take(11);
                 DebrisRecord value;
@@ -18961,12 +18967,17 @@ public:
                 value.affectedBytes = raw[14];
                 collapseQueue_.push_back(value);
             }
-            updateDebrisRecords();
+            if (collapseUpdate) updateCollapseRecords();
+            else updateDebrisRecords();
             std::vector<uint8_t> result;
             appendWord(result, static_cast<uint16_t>(randomSeed_));
             appendWord(result, static_cast<uint16_t>(randomSeed_ >> 16));
             appendWord(result, static_cast<uint16_t>(debrisQueue_.size()));
             appendWord(result, static_cast<uint16_t>(collapseQueue_.size()));
+            if (collapseUpdate) {
+                appendWord(result, static_cast<uint16_t>(destroyed_));
+                appendWord(result, nextCollapseFragmentWord_);
+            }
             result.insert(result.end(), level_.tiles.begin(), level_.tiles.end());
             for (uint16_t word : level_.wordLayer) appendWord(result, word);
             for (const auto& record : debrisQueue_) {
@@ -18991,7 +19002,8 @@ public:
         if (input.peek() != std::char_traits<char>::eof()) throw std::runtime_error("trailing debris update input");
         output.flush();
         if (!output) throw std::runtime_error("cannot flush debris update output");
-        std::cout << "original_debris_update=ok cases=" << cases << '\n';
+        std::cout << (collapseUpdate ? "original_collapse_update=ok cases=" : "original_debris_update=ok cases=")
+                  << cases << '\n';
     }
 
     void debugCollapseContactsOriginal(const std::string& inputPath, const std::string& outputPath) {
@@ -30337,6 +30349,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-original-debris-update") {
             app.debugOriginalDebrisUpdate(argv[2], argv[3]);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-update") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3], true);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-natural-forward-debris-writeback") {

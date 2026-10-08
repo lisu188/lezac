@@ -28,15 +28,55 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: python3 -S -B tools/test_review_history_repairs.py -v
+      - name: Contact checker failure-retention regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python3 -B tools/check_collapse_contact_failure_retention.py
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
         run: cmake --build build --parallel
+      - name: Complete debris updater regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^original_debris_update(_contract)?$'
+      - name: Preserve complete debris updater diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debris-updater-linux
+          path: build/debris-update-failures/
+          if-no-files-found: ignore
+      - name: Complete collapse updater regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^original_collapse_update(_contract)?$'
+      - name: Preserve complete collapse updater diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collapse-updater-linux
+          path: build/collapse-update-failures/
+          if-no-files-found: ignore
       - name: Collapse seed geometry regressions
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure -R '^collapse_seed_geometry_(original|contract)$'
+      - name: Collapse contact regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^collapse_contacts_(original|contract|failure_retention)$'
+      - name: Preserve collapse contact diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collapse-contact-linux
+          path: build/collapse-contact-failures/
+          if-no-files-found: ignore
       - name: Test
         env:
           SDL_VIDEODRIVER: dummy
@@ -103,15 +143,55 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: python3 -S -B tools/test_review_history_repairs.py -v
+      - name: Contact checker failure-retention regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python -B tools/check_collapse_contact_failure_retention.py
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
         run: cmake --build build --parallel
+      - name: Complete debris updater regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^original_debris_update(_contract)?$'
+      - name: Preserve complete debris updater diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debris-updater-windows
+          path: build/debris-update-failures/
+          if-no-files-found: ignore
+      - name: Complete collapse updater regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^original_collapse_update(_contract)?$'
+      - name: Preserve complete collapse updater diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collapse-updater-windows
+          path: build/collapse-update-failures/
+          if-no-files-found: ignore
       - name: Collapse seed geometry regressions
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure -R '^collapse_seed_geometry_(original|contract)$'
+      - name: Collapse contact regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^collapse_contacts_(original|contract|failure_retention)$'
+      - name: Preserve collapse contact diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collapse-contact-windows
+          path: build/collapse-contact-failures/
+          if-no-files-found: ignore
       - name: Test
         env:
           SDL_VIDEODRIVER: dummy

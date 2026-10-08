@@ -1,0 +1,57 @@
+{
+  "actor_pool_controlled_empty": true,
+  "actor_records_compared": false,
+  "cases": 2395,
+  "compiled_cpp_comparison": false,
+  "complete_live_records_maps_rng": true,
+  "dependency_sha256": {
+    "capture_original_debris_update.py": "3d0d105142d2ea57cbce1038531008c8398766b23d8c27f06daded1e535cbcd2",
+    "scan_livels_debris_sites.py": "240cb49cac605ac784fdc7c5b3e6e661b0d0dac84085d537a1bada4d08b7c4d7"
+  },
+  "destruction_fragment_counter_compared": true,
+  "entry_counts": {
+    "actor_constructor": 301,
+    "random": 1429,
+    "remove": 388,
+    "seed": 507,
+    "sound_latch": 423,
+    "updater": 2395
+  },
+  "executor": "Unicorn 2.1.4",
+  "fixture_sha256": "efcd52e8d5e91450fae51d858cbad3ee9fda56bbb244b9b3bfe530fc9b3facd4",
+  "generator_sha256": "626e9c295d493641f8e4dea7adcaebadbdf7ed835fddb7e00888450c93a7cb56",
+  "groups": {
+    "collapse_contact": 512,
+    "debris_contact": 128,
+    "diagonal_airborne": 288,
+    "diagonal_supported": 288,
+    "horizontal_airborne": 288,
+    "horizontal_supported": 288,
+    "native_crosscheck": 27,
+    "vertical_airborne": 288,
+    "vertical_supported": 288
+  },
+  "input_sha256": "2fd028b3793a587f363d4264503c67e5f41340975cb66e579b6b3c9b03d60b8e",
+  "instruction_end": 22154,
+  "instruction_sha256": "59d3e4f2faec6b30834f35a255daac062a7387032a6ec446871d4b139be91351",
+  "instruction_start": 20738,
+  "livels_sha256": "d8b553871014108515d6af05b0853de8ccc22e4d3e44d63533ba1167fdc8c7b2",
+  "maximum_instructions": 2585,
+  "native_crosschecked_cases": 27,
+  "native_fixture_sha256": {
+    "collapse_steps_original.txt": "a581bf59bbaac43af4ba330f0b8f6782fee468c16e7a1688b94ca2e3751f9957",
+    "fracture_actor_original.txt": "8604621c87c91e23bbe02f66cedfb312fd95b2c5a5cc429b0eca37872345f55e"
+  },
+  "native_initial_map_outside_fixture_not_claimed": true,
+  "natural_gameplay": false,
+  "original_calls_stubbed": false,
+  "original_exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "original_instructions_patched": false,
+  "original_return_boundaries_verified": true,
+  "output_sha256": "dbe19b64202b5825bb1b27294aa2f278f5564a076e5fe83b192c3f37c243dcda",
+  "relocated_image_sha256": "3ce03c5434d54490e663ef405457fc665dbf87cdf956056eac823733f95d5102",
+  "schema": "lezac.original-collapse-update.v1",
+  "sound_state_compared": false,
+  "whole_game_complete": false,
+  "word_segment_cache_initialized": true
+}

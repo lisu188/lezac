@@ -4413,6 +4413,20 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^original_debris_table=ok stale_tail_cases=3 full_live_range=1 invalid_bounds=2 truncated_guard=1")
 
+    add_test(NAME original_collapse_update
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_collapse_update.py
+                --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(original_collapse_update PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 120
+        PASS_REGULAR_EXPRESSION "^original_collapse_update=ok cases=2395 native_crosschecks=27 output_mutants=1 natural_gameplay=0 actors_claim=0")
+    add_test(NAME original_collapse_update_contract
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_collapse_update.py --self-check)
+    set_tests_properties(original_collapse_update_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^original_collapse_contract=ok source_mutants=8 compiled_cpp=0")
+
     add_test(NAME original_debris_update
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_update.py
                 --exe $<TARGET_FILE:lezac_cpp>)

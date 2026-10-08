@@ -1,0 +1,72 @@
+{
+  "allocation_failure_cases": 1248,
+  "audio": "dummy",
+  "cases": 9184,
+  "compiled_cpp_comparison": false,
+  "executed_entry_counts": {
+    "forward": 4592,
+    "forward_matcher": 7088,
+    "long_divider": 7936,
+    "reverse": 4592,
+    "reverse_matcher": 7088,
+    "seeder": 9120,
+    "stack_check": 18304
+  },
+  "executor": "Unicorn 2.1.4",
+  "fixture_sha256": "9d3e979774bd058aa834d09343d661e9b0475230e426735143cb34223f2e1576",
+  "full_collapse_update": false,
+  "generator_sha256": "29539957662f4e86a0fc521e9509aba6059316f6d25c1a6eac83a1c3b7412504",
+  "groups": {
+    "allocate_existing_mixed_thirty": 384,
+    "allocate_existing_then_new": 384,
+    "allocate_new_single": 384,
+    "allocate_new_then_existing": 384,
+    "allocate_new_thirty": 384,
+    "allocate_new_two": 384,
+    "mixed_10": 128,
+    "mixed_2": 128,
+    "mixed_3": 128,
+    "mixed_30": 128,
+    "mixed_5": 128,
+    "no_contact": 96,
+    "single_collapse": 5376,
+    "single_debris": 768
+  },
+  "input_sha256": "278a03f962632dca1fc03377ea7cefc2d16cf7208b498223cc9bf4606aa57866",
+  "instruction_budget": 200000,
+  "instruction_windows": [
+    {
+      "end": 14931,
+      "sha256": "2104300af3506fabb0911b4ad9c77f267fcd84fd0bfeab502fb4e76fbb8f9934",
+      "start": 14094
+    },
+    {
+      "end": 16090,
+      "sha256": "5a5dd23cebab72f5b012828de2a3a027fc101efd96d5eb6c55703979e14868b0",
+      "start": 14974
+    },
+    {
+      "end": 38674,
+      "sha256": "838ce536f4fc851b4171cfb7fa3367230a15060b7952bc961e2153db575951cd",
+      "start": 38623
+    },
+    {
+      "end": 39884,
+      "sha256": "6a4d8142593be1c0a1f70f33b515e27274d7908a4649e3d7f0d1d08c8ccb9203",
+      "start": 39749
+    }
+  ],
+  "maximum_instructions": 7919,
+  "minimum_instructions": 94,
+  "mz_relocations": 468,
+  "natural_gameplay": false,
+  "original_calls_stubbed": false,
+  "original_exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "original_fidelity_claim": false,
+  "original_instructions_patched": false,
+  "output_sha256": "77d2bd954ccd452fba1ce53e162571c3ee5b4b4a13bbbadd98c2f61c8b11bbd5",
+  "partial_allocation_failure_cases": 672,
+  "return_boundaries_verified": true,
+  "schema": "lezac.collapse-contact-original.v1",
+  "whole_game_complete": false
+}

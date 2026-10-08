@@ -10442,6 +10442,37 @@ public:
                   << " mode0_unchanged=1 ghidra=1000:6053\n";
     }
 
+    void debugOriginalTransientAnimationBackup() {
+        // Seeded original behavior-5 returns; see the 2026-10-09 recovery note.
+        constexpr std::array<std::array<uint8_t, 7>, 6> restored{{
+            {{43, 43, 46, 2, 2, 2, 255}}, {{42, 43, 46, 0, 2, 2, 1}},
+            {{42, 43, 46, 1, 2, 2, 1}}, {{42, 43, 46, 2, 2, 2, 1}},
+            {{43, 43, 46, 0, 2, 2, 255}}, {{43, 43, 46, 1, 2, 2, 255}},
+        }};
+        const ActorAnimation backup{43, 43, 46, 2, 2, 2, -1};
+        for (const uint8_t mode : {uint8_t{0}, uint8_t{3}}) {
+            TransientActor actor;
+            actor.x = 192; actor.y = 88; actor.kind = 0;
+            actor.timer = 64; actor.spriteIndex = 68;
+            actor.animation = {9, 6, 9, 0, 0, mode, 1};
+            actor.animationBackup = backup;
+            for (size_t sample = 0; sample < restored.size(); ++sample) {
+                logicTick_ = static_cast<uint32_t>(101 + sample);
+                updateTransientActor(actor);
+                const auto expected = mode == 0 ? std::array<uint8_t, 7>{{9, 6, 9, 0, 0, 0, 1}}
+                                                : restored[sample];
+                const uint8_t sprite = mode == 0 ? 68 : static_cast<uint8_t>(expected[0] - 1);
+                if (actor.animation.packed() != expected || actor.animationBackup.packed() != backup.packed() ||
+                    actor.spriteIndex != sprite || actor.timer != 64 - (sample + 2) / 2 ||
+                    actor.x != 192 || actor.y != 88 || actor.fracX || actor.fracY || actor.vx8 || actor.vy8) {
+                    throw std::runtime_error("original transient animation backup mismatch");
+                }
+            }
+        }
+        std::cout << "transient_animation_backup_original=ok cases=2 updates=12 production_updater=1 "
+                     "backup_preserved=1 seeded=1 natural_route=0 whole_game_parity=0\n";
+    }
+
     void debugOriginalState2VisualRowModel() {
         constexpr uint8_t kDrawOffsetXByte = 0x10;
         constexpr uint8_t kDrawOffsetYByte = 0x10;
@@ -27264,7 +27295,7 @@ private:
     }
 
     void updateTransientActor(TransientActor& actor) {
-        if (actor.animation.advance(ActorAnimation{})) {
+        if (actor.animation.advance(actor.animationBackup)) {
             actor.spriteIndex = static_cast<uint8_t>(actor.animation.current - 1);
         }
         // 1000:65A2..65D7 bypasses collision/gravity and deletes before
@@ -30535,6 +30566,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-animation-advance") {
             app.debugOriginalState2AnimationAdvance();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-original-transient-animation-backup") {
+            app.debugOriginalTransientAnimationBackup();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-visual-row-model") {

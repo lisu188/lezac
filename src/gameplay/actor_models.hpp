@@ -142,6 +142,7 @@ struct TransientActor {
     ActorAnimation animation{0, 0, 0, 0, 0, 0, 1};
     uint64_t actorOrder = 0;
     uint64_t bossVisualOrder = 0;
+    ActorAnimation animationBackup{0, 0, 0, 0, 0, 0, 0};
 };
 
 struct Player {

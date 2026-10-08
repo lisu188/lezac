@@ -85,6 +85,14 @@ route evidence. The production geometry regression does not close all seeder
 record fields, full collapse update, explosion playback or campaign fidelity;
 all broad completion and original-fidelity flags remain false.
 
+The [controlled collapse contact helper execution](collapse_contact_helpers_2026-10-08.md)
+adds 9,184 complete original forward/reverse helper cases, including new debris
+allocation, 1,248 capacity failures and 672 partial-allocation failures. The C++
+runtime blend is exposed through a shared helper for byte-exact production
+regression. This does not close full collapse update, natural explosion
+playback, unflagged collapse-group allocation, actor or campaign fidelity.
+All broad completion and original-fidelity flags remain false.
+
 The [natural Level 4 support-column regression](natural_level4_support_column_runtime_2026-10-08.md)
 extends the unchanged third-objective route through tick 11740 and an ordinary
 stationary Medium-bomb placement at tick 11466. Its original-only fixture has

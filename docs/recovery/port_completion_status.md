@@ -2,6 +2,13 @@
 
 Last reviewed: 2026-10-08
 
+The [current-main recovery convergence](recovery_convergence_2026-10-08.md)
+combines the exact reviewed collapse, sound and pickup heads with main's
+constructor-velocity fix. Local provenance and bounded checks preserve
+their contracts; fresh combined-tree Windows/Linux compiled, full-suite,
+package and review evidence remains required before merge. This integration
+does not change any broad completion or fidelity claim.
+
 The [collapse fracture actor oracle](collapse_actor_creation_2026-10-08.md)
 adds original-backed creation order, clean-slot record, placement, animation
 and capacity evidence over 2,476 controlled cases. It does not establish

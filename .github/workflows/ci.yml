@@ -117,6 +117,11 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure -R '^flame_contact_word(_contract)?$'
+      - name: Original sound interrupt regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure --timeout 30 -R '^sound_interrupt(_original)?$'
       - name: Clocked sound regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -149,6 +154,16 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure --timeout 120
+      - name: Preserve final sound diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clocked-sound-linux-final
+          path: |
+            build/clocked-sound-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
       - name: Preserve final actor constructor diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -332,6 +347,11 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure -R '^flame_contact_word(_contract)?$'
+      - name: Original sound interrupt regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure --timeout 30 -R '^sound_interrupt(_original)?$'
       - name: Clocked sound regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -364,6 +384,16 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure --timeout 120
+      - name: Preserve final sound diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clocked-sound-windows-final
+          path: |
+            build/clocked-sound-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
       - name: Preserve final actor constructor diagnostics
         if: always()
         uses: actions/upload-artifact@v4

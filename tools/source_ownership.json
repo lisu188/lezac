@@ -87,6 +87,7 @@
       "runtime": [
         "src/app/app.cpp",
         "src/gameplay/actor_models.hpp",
+        "src/gameplay/collapse_seed.hpp",
         "src/gameplay/frame_controls.hpp"
       ]
     },

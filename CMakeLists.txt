@@ -4317,6 +4317,20 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^bomb_motion_original=ok cases=16 samples=2304 seeds=20,30,40,200 first_update_next_frame=1 pause=1 live_motion_states=2288 expiry_positions=16 sprites=57,58,59,60")
 
+    add_test(NAME original_bomb_lifetime_capture_contract
+        COMMAND ${Python3_EXECUTABLE} tools/check_original_bomb_native.py --self-check)
+    set_tests_properties(original_bomb_lifetime_capture_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        PASS_REGULAR_EXPRESSION "^original_bomb_lifetime_self_check=ok native_traces=16 updates=2304 executor_required=0 live=0")
+
+    add_test(NAME original_bomb_native_contract_regression
+        COMMAND ${Python3_EXECUTABLE} -B tools/test_original_bomb_native_contract.py)
+    set_tests_properties(original_bomb_native_contract_regression PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        PASS_REGULAR_EXPRESSION "original_bomb_native_contract=ok tests=27 executor_required=0")
+
     add_test(NAME natural_bomb_visual_original
         COMMAND ${Python3_EXECUTABLE} tools/check_natural_bomb_visual_fixture.py
             --exe $<TARGET_FILE:lezac_cpp>)

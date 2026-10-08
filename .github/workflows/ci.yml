@@ -32,10 +32,54 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: python3 -B tools/check_lane_word_classification.py
+      - name: Contact checker failure-retention regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python3 -B tools/check_collapse_contact_failure_retention.py
+      - name: PPM raster boundary regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python3 -B tools/check_frame_compare_ppm.py
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
         run: cmake --build build --parallel
+      - name: Complete debris updater regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^original_debris_update(_contract)?$'
+      - name: Preserve complete debris updater diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debris-updater-linux
+          path: build/debris-update-failures/
+          if-no-files-found: ignore
+      - name: Complete collapse updater regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^original_collapse_update(_contract)?$'
+      - name: Collapse actor creation regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^original_collapse_actors(_contract|_checker)?$'
+      - name: Preserve collapse actor diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collapse-actors-linux
+          path: build/collapse-actor-failures/
+          if-no-files-found: ignore
+      - name: Preserve complete collapse updater diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collapse-updater-linux
+          path: build/collapse-update-failures/
+          if-no-files-found: ignore
       - name: Collapse seed geometry regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -56,11 +100,70 @@ jobs:
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: ignore
+      - name: Collapse contact regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^collapse_contacts_(original|contract|failure_retention)$'
+      - name: Preserve collapse contact diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collapse-contact-linux
+          path: build/collapse-contact-failures/
+          if-no-files-found: ignore
+      - name: Flame contact word regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^flame_contact_word(_contract)?$'
+      - name: Original sound interrupt regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure --timeout 30 -R '^sound_interrupt(_original)?$'
+      - name: Clocked sound regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure --timeout 30 -R '^clocked_sound'
+      - name: Preserve clocked sound frames
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clocked-sound-linux
+          path: |
+            build/clocked-sound-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
+      - name: Pickup post-allocation initialization regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^(pickup_post_init_(original|contract|checker_failures)|transient_actor_limits)$'
+      - name: Preserve focused pickup initialization comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pickup-post-init-linux-focused
+          path: build/pickup-post-init-checks/
+          if-no-files-found: ignore
       - name: Test
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure --timeout 120
+      - name: Preserve final sound diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clocked-sound-linux-final
+          path: |
+            build/clocked-sound-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
       - name: Preserve final actor constructor diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -68,6 +171,29 @@ jobs:
           name: actor-constructor-velocity-linux-final
           path: |
             build/actor-constructor-velocity-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
+      - name: Preserve final recovery diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-diagnostics-linux-final
+          path: |
+            build/debris-update-failures/
+            build/collapse-update-failures/
+            build/collapse-contact-failures/
+            build/collapse-actor-failures/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
+      - name: Preserve final pickup initialization comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pickup-post-init-linux-final
+          path: |
+            build/pickup-post-init-checks/
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: ignore
@@ -136,10 +262,54 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: python -B tools/check_lane_word_classification.py
+      - name: Contact checker failure-retention regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python -B tools/check_collapse_contact_failure_retention.py
+      - name: PPM raster boundary regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python -B tools/check_frame_compare_ppm.py
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
         run: cmake --build build --parallel
+      - name: Complete debris updater regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^original_debris_update(_contract)?$'
+      - name: Preserve complete debris updater diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debris-updater-windows
+          path: build/debris-update-failures/
+          if-no-files-found: ignore
+      - name: Complete collapse updater regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^original_collapse_update(_contract)?$'
+      - name: Collapse actor creation regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^original_collapse_actors(_contract|_checker)?$'
+      - name: Preserve collapse actor diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collapse-actors-windows
+          path: build/collapse-actor-failures/
+          if-no-files-found: ignore
+      - name: Preserve complete collapse updater diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collapse-updater-windows
+          path: build/collapse-update-failures/
+          if-no-files-found: ignore
       - name: Collapse seed geometry regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -160,11 +330,70 @@ jobs:
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: ignore
+      - name: Collapse contact regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^collapse_contacts_(original|contract|failure_retention)$'
+      - name: Preserve collapse contact diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collapse-contact-windows
+          path: build/collapse-contact-failures/
+          if-no-files-found: ignore
+      - name: Flame contact word regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^flame_contact_word(_contract)?$'
+      - name: Original sound interrupt regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure --timeout 30 -R '^sound_interrupt(_original)?$'
+      - name: Clocked sound regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure --timeout 30 -R '^clocked_sound'
+      - name: Preserve clocked sound frames
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clocked-sound-windows
+          path: |
+            build/clocked-sound-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
+      - name: Pickup post-allocation initialization regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^(pickup_post_init_(original|contract|checker_failures)|transient_actor_limits)$'
+      - name: Preserve focused pickup initialization comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pickup-post-init-windows-focused
+          path: build/pickup-post-init-checks/
+          if-no-files-found: ignore
       - name: Test
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: ctest --test-dir build --output-on-failure --timeout 120
+      - name: Preserve final sound diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clocked-sound-windows-final
+          path: |
+            build/clocked-sound-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
       - name: Preserve final actor constructor diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -172,6 +401,29 @@ jobs:
           name: actor-constructor-velocity-windows-final
           path: |
             build/actor-constructor-velocity-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
+      - name: Preserve final recovery diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovery-diagnostics-windows-final
+          path: |
+            build/debris-update-failures/
+            build/collapse-update-failures/
+            build/collapse-contact-failures/
+            build/collapse-actor-failures/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
+      - name: Preserve final pickup initialization comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pickup-post-init-windows-final
+          path: |
+            build/pickup-post-init-checks/
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: ignore

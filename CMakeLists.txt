@@ -177,12 +177,53 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_clocked_sound_test tests/sound/clocked_sound_test.cpp
+        src/sound/sound_engine.cpp)
+    target_link_libraries(lezac_clocked_sound_test PRIVATE lezac_resources)
+    add_test(NAME clocked_sound
+        COMMAND lezac_clocked_sound_test ${CMAKE_CURRENT_SOURCE_DIR}/PROEFS.SON)
+    set_tests_properties(clocked_sound PROPERTIES PASS_REGULAR_EXPRESSION
+        "clocked_sound=ok boundaries=1000 trajectories=16 terminal_order=1 priority_lifetime=1 ignored_commands=2 replacement_phase=1 period_zero=1 catchup_states=136 active_tail=1 long_stalls=2 sustained_tone=1 skipped_pcm_claim=0 native_timing_claim=0")
+    add_test(NAME clocked_sound_app COMMAND lezac_cpp --debug-clocked-sound
+        "${CMAKE_CURRENT_BINARY_DIR}/clocked-sound-checks")
+    set_tests_properties(clocked_sound_app PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "clocked_sound_app=ok menu=1 pause=1 pending_priority=1 terminal_order=1 rollover=1 replay_clock=1 bounded_queue=1 frames=2 long_stall=1 bounded_tail=4410 native_timing_claim=0 device_enabled=1 audio=dummy")
+    add_test(NAME clocked_sound_no_device COMMAND lezac_cpp --debug-clocked-sound-no-device)
+    set_tests_properties(clocked_sound_no_device PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "clocked_sound_app=ok menu=1 pause=1 pending_priority=1 terminal_order=1 rollover=1 replay_clock=1 bounded_queue=1 frames=2 long_stall=1 bounded_tail=4410 native_timing_claim=0 device_enabled=0 audio=dummy")
+    foreach(clock_state IN ITEMS menu pause)
+        add_test(NAME clocked_sound_live_${clock_state}
+            COMMAND lezac_cpp --debug-clocked-sound-live ${clock_state}
+                    "${CMAKE_CURRENT_BINARY_DIR}/clocked-sound-checks")
+        set_tests_properties(clocked_sound_live_${clock_state} PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 15
+            ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "clocked_sound_live=ok state=${clock_state} independent_clock=1 gameplay_ticks=0 sweep_stopped=1 bounded_queue=1 frame_inspection=1 native_timing_claim=0 audio=dummy")
+        add_test(NAME clocked_sound_live_${clock_state}_stalled
+            COMMAND lezac_cpp --debug-clocked-sound-live ${clock_state}
+                    "${CMAKE_CURRENT_BINARY_DIR}/clocked-sound-checks" --stall-at-deadline)
+        set_tests_properties(clocked_sound_live_${clock_state}_stalled PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 15
+            ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "clocked_sound_live=ok state=${clock_state} .*deadline_service=1 elapsed_ms=[0-9]+ advanced_samples=[0-9]+ advanced_interrupts=[0-9]+ stalled_deadline=1")
+    endforeach()
     add_executable(lezac_sound_pitch_test tests/sound/sound_pitch_test.cpp
         src/sound/sound_engine.cpp src/resources/binary.cpp)
     target_include_directories(lezac_sound_pitch_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME sound_pitch COMMAND lezac_sound_pitch_test)
     set_tests_properties(sound_pitch PROPERTIES PASS_REGULAR_EXPRESSION
         "sound_pitch=ok frequencies=65536 pcm_cases=10 ignored_command_states=3 cursor_playback=1 direct_sweep=1 original_runtime_claim=0")
+    add_executable(lezac_sound_interrupt_test tests/sound/sound_interrupt_test.cpp
+        src/sound/sound_engine.cpp)
+    target_link_libraries(lezac_sound_interrupt_test PRIVATE lezac_resources)
+    add_test(NAME sound_interrupt
+        COMMAND lezac_sound_interrupt_test ${CMAKE_CURRENT_SOURCE_DIR}/PROEFS.SON)
+    set_tests_properties(sound_interrupt PROPERTIES PASS_REGULAR_EXPRESSION
+        "sound_interrupt=ok phase_cases=16777216 bank_cases=8320 direct_cases=149445 inactive_cases=65536 priority_cases=65536 trajectories=14 observed_seed_ticks=8")
 
     add_executable(lezac_main_menu_test tests/ui/main_menu_test.cpp src/app/input_mapper.cpp)
     target_compile_definitions(lezac_main_menu_test PRIVATE SDL_MAIN_HANDLED)
@@ -284,15 +325,40 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
 
+    add_executable(lezac_flame_contact_word_test tests/gameplay/flame_contact_word_test.cpp)
+    target_include_directories(lezac_flame_contact_word_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
     if(Python3_Interpreter_FOUND)
+        add_test(NAME clocked_sound_routing
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_clocked_sound_routing.py)
+        set_tests_properties(clocked_sound_routing PROPERTIES PASS_REGULAR_EXPRESSION
+            "clocked_sound_routing=ok live_paths=2 request_paths=4 mutations=12 native_timing_claim=0")
+        add_test(NAME clocked_sound_deadline_contract
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_clocked_sound_deadline.py)
+        set_tests_properties(clocked_sound_deadline_contract PROPERTIES PASS_REGULAR_EXPRESSION
+            "clocked_sound_deadline_contract=ok mutations=12 compiled_live_claim=0 native_timing_claim=0")
         add_test(NAME sound_pitch_original
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_pitch_original.py
                     --exe $<TARGET_FILE:lezac_sound_pitch_test>)
         set_tests_properties(sound_pitch_original PROPERTIES PASS_REGULAR_EXPRESSION
             "sound_pitch_original=ok frequencies=65536 helper_bytes=45 numerator=1193181 ignored_max=18")
+        add_test(NAME sound_interrupt_original
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_interrupt_original.py
+                    --exe $<TARGET_FILE:lezac_sound_interrupt_test>)
+        set_tests_properties(sound_interrupt_original PROPERTIES PASS_REGULAR_EXPRESSION
+            "sound_interrupt_original=ok windows=4 phase_cases=16777216 bank_cases=8320 direct_cases=149445 priority_cases=65536")
     endif()
 
     if(Python3_Interpreter_FOUND)
+        add_test(NAME flame_contact_word
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_flame_contact_word.py
+                    --exe $<TARGET_FILE:lezac_flame_contact_word_test>)
+        set_tests_properties(flame_contact_word PROPERTIES
+            PASS_REGULAR_EXPRESSION "flame_contact_word=ok cases=1376256 groups=21 executed_original_fixture=1 output_mutants=4 natural_gameplay=0 whole_game_parity=0")
+        add_test(NAME flame_contact_word_contract
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_flame_contact_word.py --self-check)
+        set_tests_properties(flame_contact_word_contract PROPERTIES
+            PASS_REGULAR_EXPRESSION "flame_contact_word_contract=ok source_mutants=7 compiled_cpp=0 natural_gameplay=0")
         add_test(NAME level_exporter_counts
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_level_exporter_counts.py)
         set_tests_properties(level_exporter_counts PROPERTIES
@@ -1241,6 +1307,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gran_data_evidence_map.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_bundle_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_workflow.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_ppm.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_state2_visual_compare_workflow.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_blocker_note.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_environment.py
@@ -1253,6 +1320,8 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_div_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_div_route_sweep_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_word_classification.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contact_failure_retention.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contacts_original.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_branch_anchor_route_sweep_summary.py
@@ -1435,6 +1504,14 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^frame_compare=ok size=2x2 normalized=none pixels=4 exact_match=1 exact_different_pixels=0 threshold=0 threshold_different_pixels=0 max_delta=0")
+
+        add_test(NAME frame_compare_ppm_raster_boundary
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_ppm.py)
+        set_tests_properties(frame_compare_ppm_raster_boundary PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^frame_compare_ppm=ok cases=1551 malformed_rejected=12 first_samples=256 separators=6 pillow_fallback=0")
 
         add_test(NAME frame_compare_workflow_contract
             COMMAND ${Python3_EXECUTABLE}
@@ -4421,6 +4498,55 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^original_debris_table=ok stale_tail_cases=3 full_live_range=1 invalid_bounds=2 truncated_guard=1")
 
+    add_test(NAME original_collapse_actors
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_collapse_actors.py
+                --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(original_collapse_actors PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 120
+        PASS_REGULAR_EXPRESSION "^original_collapse_actors=ok cases=2476 actor_states=1822 admissions=414 output_mutants=6 clean_unused_slots=1 natural_gameplay=0")
+    add_test(NAME original_collapse_actors_contract
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_collapse_actors.py --self-check)
+    set_tests_properties(original_collapse_actors_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        TIMEOUT 30
+        PASS_REGULAR_EXPRESSION "^original_collapse_actors_contract=ok source_mutants=23 comparator_mutants=6 compiled_cpp=0")
+    add_test(NAME original_collapse_actors_checker
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_collapse_actor_checker.py)
+    set_tests_properties(original_collapse_actors_checker PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        TIMEOUT 30
+        PASS_REGULAR_EXPRESSION "^collapse_actor_checker=ok probe_modes=10 comparison_cases=9 mocked_probe=1 game_execution_claim=0")
+
+    add_test(NAME original_collapse_update
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_collapse_update.py
+                --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(original_collapse_update PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 120
+        PASS_REGULAR_EXPRESSION "^original_collapse_update=ok cases=2395 native_crosschecks=27 output_mutants=1 natural_gameplay=0 actors_claim=0")
+    add_test(NAME original_collapse_update_contract
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_collapse_update.py --self-check)
+    set_tests_properties(original_collapse_update_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^original_collapse_contract=ok source_mutants=8 initializer_mutants=8 compiled_cpp=0")
+
+    add_test(NAME original_debris_update
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_update.py
+                --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(original_debris_update PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 120
+        PASS_REGULAR_EXPRESSION "^original_debris_update=ok cases=1061 native_crosschecks=18 output_mutants=1 natural_gameplay=0 sound_claim=0")
+    add_test(NAME original_debris_update_contract
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_update.py --self-check)
+    set_tests_properties(original_debris_update_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^original_debris_contract=ok source_mutants=6 compiled_cpp=0")
+
     add_test(NAME collapse_seed_geometry_original
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_seed_geometry.py
                 --exe $<TARGET_FILE:lezac_collapse_seed_geometry_test>
@@ -4436,6 +4562,26 @@ if(BUILD_TESTING)
     set_tests_properties(collapse_seed_geometry_contract PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^collapse_seed_contract=ok source_mutants=6 compiled_cpp=0 natural_gameplay=0")
+
+    add_test(NAME collapse_contacts_original
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contacts_original.py
+                --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(collapse_contacts_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^collapse_contacts_original=ok cases=9184 groups=14 capacity_failures=1248 partial_allocation_failures=672 output_mutants=4 natural_gameplay=0 whole_game_parity=0")
+    add_test(NAME collapse_contacts_contract
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contacts_original.py --self-check)
+    set_tests_properties(collapse_contacts_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^collapse_contacts_contract=ok source_mutants=10 compiled_cpp=0 natural_gameplay=0")
+    add_test(NAME collapse_contacts_failure_retention
+        COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contact_failure_retention.py)
+    set_tests_properties(collapse_contacts_failure_retention PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        TIMEOUT 30
+        PASS_REGULAR_EXPRESSION "^collapse_contact_failure_retention=ok probe_modes=10 comparison_cases=12 mocked_probe=1 original_game_claim=0")
 
     add_test(NAME actor_contact_level2_evidence
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-contact-level2-evidence
@@ -5238,6 +5384,28 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^walker_ledge_original=ok samples=32 first_frame=572 final_frame=603 local_map_unchanged=1 motion=1 fractions=1 animation=1 seeded_cpp=1 natural_source=1 frame_inspection=1")
+
+    add_test(NAME pickup_post_init_original
+        COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pickup_post_init.py
+            --exe $<TARGET_FILE:lezac_cpp> --out "${CMAKE_CURRENT_BINARY_DIR}/pickup-post-init-checks")
+    set_tests_properties(pickup_post_init_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 45
+        PASS_REGULAR_EXPRESSION "^pickup_post_init_original=ok cases=480 admissions=240 full_pool_attempts=120 pickup_cap_skips=120 natural_reachability=0 whole_game_parity=0")
+
+    add_test(NAME pickup_post_init_contract
+        COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pickup_post_init.py --self-check)
+    set_tests_properties(pickup_post_init_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^pickup_post_init_contract=ok cases=480 source_mutations=14 comparator_mutations=8 compiled_claim=0")
+
+    add_test(NAME pickup_post_init_checker_failures
+        COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_pickup_post_init_checker.py -v)
+    set_tests_properties(pickup_post_init_checker_failures PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
     add_test(NAME transient_actor_limits
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-transient-actor-limits)

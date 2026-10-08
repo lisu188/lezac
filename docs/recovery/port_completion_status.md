@@ -2,11 +2,36 @@
 
 Last reviewed: 2026-10-08
 
+The [current-main recovery convergence](recovery_convergence_2026-10-08.md)
+combines the exact reviewed collapse, sound and pickup heads with main's
+constructor-velocity fix. Local provenance and bounded checks preserve
+their contracts; fresh combined-tree Windows/Linux compiled, full-suite,
+package and review evidence remains required before merge. This integration
+does not change any broad completion or fidelity claim.
+
+The [collapse fracture actor oracle](collapse_actor_creation_2026-10-08.md)
+adds original-backed creation order, clean-slot record, placement, animation
+and capacity evidence over 2,476 controlled cases. It does not establish
+stale-slot inheritance, mixed actor pools, natural campaign completion,
+rendered parity or sound timing. Hosted compiled comparison remains a separate
+delivery gate; source/oracle checks alone do not prove C++ parity.
+
 The C++17/SDL2 reconstruction of `LEZAC.EXE` is not yet functionally complete.
 The [2026-10-08 PC speaker pitch correction](sound_pitch_2026-10-08.md) fixes
 frequency/reload inversion, low-frequency silence and pitch clamping. Its
 exhaustive compiled conversion and PCM checks are bounded opcode-model
 evidence, not native sound timing, priority-latch lifetime or whole-game parity.
+
+The [2026-10-08 signed-priority and interrupt-state recovery](sound_interrupt_state_2026-10-08.md)
+corrects the production latch's signed `JGE` comparison and verifies per-IRQ
+state transitions. The [clocked playback follow-up](clocked_sound_2026-10-08.md)
+integrates those transitions into interactive and replay scheduling, retaining
+priority through menus, pause and replacement requests. Original IRQ cadence
+and phase, hardware waveform and whole-game sound parity remain open.
+The PR #308 long-stall review finding has a bounded catch-up implementation:
+discarded time advances logical IRQ state without PCM allocation, while only
+the latest 200 ms is synthesized. Exact logical-state and bounded-output tests
+are required on the fresh head; skipped-interval PCM equivalence is not claimed.
 The earlier claim was based on a subsystem inventory and compatible tests,
 not a complete comparison with original behavior. The 2026-09-05 player and
 collapse captures exposed absent pickup handling and a placeholder collapse
@@ -76,6 +101,42 @@ with bomb construction. The compiled comparison distinguishes actual transient
 Y creation from the shared X helper; natural out-of-range reachability, other
 actor fields and whole-game fidelity remain unproved. Broad flags are unchanged.
 
+The [complete collapse updater oracle](collapse_update_oracle_2026-10-08.md)
+executes original `1000:5102` without instruction patches or call stubs. It
+independently reproduces all 27 retained native routine cases and supplies
+2,395 controlled cases for full live debris/collapse records, both map planes,
+RNG, destruction and fragment-word counters through the production updater.
+The corrected oracle executes four original startup instructions to initialize
+the record-table bases before every case. This repairs the PR #314 harness
+precondition behind 90 live-record compaction mismatches. All corrected outputs
+match retained Linux and Windows compiled outputs; all inputs and 27 native
+cross-checks are unchanged. Production C++ is unchanged and fresh-head CI is
+required separately. The failed fixture and diagnostics remain preserved.
+Actor creation executes but actor records, sound state, presentation, natural
+routes and whole-game fidelity are not compared. Broad claims remain false.
+
+The [complete debris updater oracle](debris_update_oracle_2026-10-08.md)
+executes the original full debris pass without call stubs or instruction
+patches. It independently reproduces 18 retained native collision/retirement
+cases and provides 1,061 controlled cases for complete live record, map-plane,
+count and RNG comparison through the production updater. Spark count is zero
+by setup; sound, rendering, full collapse updates and natural route completion
+remain outside the comparison. This closes no broad OPEN item or global flag.
+
+The [live sound deadline review repair](clocked_sound_live_deadline_2026-10-08.md)
+removes host-scheduling assumptions from menu/pause diagnostics, adds final
+production-clock servicing and two deliberately stalled live regressions.
+This is a diagnostic reliability repair, not evidence of original hardware
+timing or whole-game sound fidelity. All broad completion/fidelity flags remain
+unchanged; hosted compiled validation is required before merge.
+
+The [pickup post-allocation recovery](pickup_post_init_runtime_2026-10-08.md)
+restores unconditional tail-animation initialization after a pickup constructor
+attempt, including a full-pool refusal. Its 480 executed-original controlled
+cases cover animation/count/RNG boundaries and distinguish the fourteen-pickup
+cap. Natural saturation, inherited animated bombs, subsequent updates, rendering,
+sound and whole-game parity remain unproved; no broad completion flag changes.
+
 The [original collapse seeding geometry](collapse_seed_geometry_2026-10-08.md)
 recovers simultaneous rectangle expansion in place of a four-neighbor flood.
 The 1,124-case executed-original fixture includes 540 unchanged shipped-map
@@ -83,6 +144,14 @@ components and 540 controlled-clearing variants. The latter are not natural
 route evidence. The production geometry regression does not close all seeder
 record fields, full collapse update, explosion playback or campaign fidelity;
 all broad completion and original-fidelity flags remain false.
+
+The [controlled collapse contact helper execution](collapse_contact_helpers_2026-10-08.md)
+adds 9,184 complete original forward/reverse helper cases, including new debris
+allocation, 1,248 capacity failures and 672 partial-allocation failures. The C++
+runtime blend is exposed through a shared helper for byte-exact production
+regression. This does not close full collapse update, natural explosion
+playback, unflagged collapse-group allocation, actor or campaign fidelity.
+All broad completion and original-fidelity flags remain false.
 
 The [natural Level 4 support-column regression](natural_level4_support_column_runtime_2026-10-08.md)
 extends the unchanged third-objective route through tick 11740 and an ordinary

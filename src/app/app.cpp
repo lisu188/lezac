@@ -444,6 +444,11 @@ struct DamagePhaseLookup {
     bool debris = false;
 };
 
+struct DamageContact {
+    int cell = 0;
+    uint16_t word = 0;
+};
+
 struct LaneWriteTagModel {
     uint16_t tag = 0;
     bool debris = false;
@@ -712,6 +717,7 @@ public:
         try {
             load();
             initSdl();
+            startClockedSound();
             resetLevel(0);
             levelFlow_.setInteractiveEnabled(true);
             replayKeyboard_ = keys.data();
@@ -787,6 +793,7 @@ public:
             debugResultReelObserver_ = {};
             debugActorPassObserver_ = {};
             replayKeyboard_ = nullptr;
+            clockedSoundEnabled_ = false;
             replayClockEnabled_ = false;
             replayPresentationOffset_ = 0;
             recordStore_.setPath(oldRecordPath);
@@ -796,6 +803,7 @@ public:
         debugActorPassObserver_ = {};
         debugResultReelObserver_ = {};
         replayKeyboard_ = nullptr;
+        clockedSoundEnabled_ = false;
         replayClockEnabled_ = false;
         replayPresentationOffset_ = 0;
         recordStore_.setPath(oldRecordPath);
@@ -834,6 +842,7 @@ public:
     }
 
     void tickAndPresent(float dt, const std::function<void()>& afterPresent = {}) {
+        serviceSoundClock();
         bool presented = false;
         gameplayPresentation_ = [&] {
             draw();
@@ -909,6 +918,7 @@ public:
         load(false);
         randomSeed_ = readStartupClock();
         initSdl();
+        startClockedSound();
         resetLevel(0);
         levelFlow_.setInteractiveEnabled(true);
         ui_.beginMainMenu(presentationMilliseconds());
@@ -9873,6 +9883,157 @@ public:
                   << " pumped=1 cooldown_gate_removed=1 same_priority_refresh=1"
                   << " second_damage_accepted=1 higher_priority_blocks=1"
                   << " lethal_replaced=1\n";
+    }
+
+    void debugClockedSound(const std::string& outDir, bool withDevice = true) {
+        SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
+        load();
+        initSdl();
+        if (!withDevice) audioOutput_.close();
+        resetLevel(0);
+        replayClockEnabled_ = true;
+        replayMilliseconds_ = 0;
+        startClockedSound();
+        ui_.setMenu(true);
+        ui_.setPage(MenuPage::Records);
+        bool running = true;
+        auto require = [](bool value, const char* message) {
+            if (!value) throw std::runtime_error(message);
+        };
+        auto capture = [&](const std::string& name) {
+            inspectRenderedFrame("clocked-sound-" + name);
+            if (!outDir.empty()) {
+                std::filesystem::create_directories(outDir);
+                writeArgbPpm(joinPath(outDir, name + ".ppm"), fb_, kScreenW, kScreenH);
+            }
+        };
+        require(requestSoundCursor(0xea7e, 5), "clocked initial request rejected");
+        pumpSoundLatch();
+        require(sound_.latch().active && sound_.latch().latchedOffset == 0xea7e &&
+                sound_.clockState().interrupts == 0 && !requestSoundOffset(0, 2),
+                "clocked pump cleared a pending priority");
+        replayMilliseconds_ = 54;
+        processEvents(running);
+        require(sound_.clockState().interrupts == 0 && sound_.latch().latchedOffset == 0xea7e,
+                "sound advanced before the first default BIOS boundary");
+        replayMilliseconds_ = 55;
+        processEvents(running);
+        tickAndPresent(0.04f);
+        require(sound_.clockState().interrupts == 1 && sound_.latch().latchedOffset == 0xea7a &&
+                sound_.speakerState().enabled && logicTick_ == 0,
+                "menu did not advance sound independently of gameplay");
+        capture("menu");
+        ui_.setMenu(false);
+        ui_.setPaused(true);
+        replayMilliseconds_ = 110;
+        tickAndPresent(0.04f);
+        require(sound_.clockState().interrupts == 2 && sound_.latch().latchedOffset == 0xea76 &&
+                logicTick_ == 0 && !requestSoundCursor(0, 2),
+                "pause stopped sound or discarded its priority");
+        capture("pause");
+        replayMilliseconds_ = 440;
+        processEvents(running);
+        require(sound_.clockState().interrupts == 8 && !sound_.latch().active &&
+                !sound_.speakerState().enabled &&
+                sound_.speakerState().divisor == lezac::sound::SoundEngine::speakerDivisorForFrequency(32),
+                "clocked sweep did not program then silence its terminal tone");
+        const auto beforeWrap = sound_.clockState();
+        replayMilliseconds_ = 0xfffffff0u;
+        startClockedSound();
+        require(requestSoundOffset(0, 2), "completed sweep retained priority");
+        replayMilliseconds_ = 84;
+        processEvents(running);
+        require(sound_.clockState().renderedSamples == beforeWrap.renderedSamples + 2205 &&
+                sound_.clockState().interrupts == 9 && sound_.latch().latchedOffset == 1,
+                "sound timestamp rollover changed elapsed time or reset the IRQ clock");
+        require(audioOutput_.enabled() == withDevice && audioOutput_.queuedBytes() <= 11024,
+                "clocked audio device state differs or queue is unbounded");
+        const auto beforeStall = sound_.clockState();
+        constexpr uint64_t stalledSamples = uint64_t{8} * 60 * 60 * kAudioSampleRate;
+        constexpr uint64_t threshold = uint64_t{kAudioSampleRate} * lezac::sound::kBiosTimerDivisor;
+        replayMilliseconds_ += 8 * 60 * 60 * 1000;
+        processEvents(running);
+        const auto afterStall = sound_.clockState();
+        const uint64_t scaledStall = beforeStall.pitAccumulator + stalledSamples * lezac::sound::kPitClockRate;
+        require(afterStall.renderedSamples == beforeStall.renderedSamples + stalledSamples &&
+                afterStall.interrupts == beforeStall.interrupts + scaledStall / threshold &&
+                afterStall.pitAccumulator == scaledStall % threshold &&
+                !sound_.latch().active && !sound_.speakerState().enabled &&
+                audioOutput_.queuedBytes() <= 11024,
+                "eight-hour catch-up changed logical state or exceeded the queue bound");
+        clockedSoundEnabled_ = false;
+        replayClockEnabled_ = false;
+        std::cout << "clocked_sound_app=ok menu=1 pause=1 pending_priority=1 terminal_order=1"
+                  << " rollover=1 replay_clock=1 bounded_queue=1 frames=2 long_stall=1 bounded_tail=4410 native_timing_claim=0"
+                  << " device_enabled=" << withDevice << " audio=dummy\n";
+    }
+
+    void debugClockedSoundLive(bool paused, const std::string& outDir,
+                               bool stallAtDeadline = false) {
+        SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
+        uint32_t start = 0;
+        uint32_t initialRemainder = 0;
+        auto initialClock = sound_.clockState();
+        bool stalled = false;
+        runInteractive([&] {
+            if (stallAtDeadline && !stalled) {
+                SDL_Delay(850);
+                stalled = true;
+            }
+            return SDL_GetTicks() - start >= 600;
+        }, [&] {
+            ui_.setMenu(!paused);
+            ui_.setPage(MenuPage::Records);
+            ui_.setPaused(paused);
+            if (!requestSoundCursor(0xea7e, 5))
+                throw std::runtime_error("live clocked sound request rejected");
+            start = soundClockMilliseconds_;
+            initialRemainder = soundSampleRemainder_;
+            initialClock = sound_.clockState();
+        });
+        // The stop predicate can end the loop before its next sound service.
+        const uint32_t beforeFinalService = SDL_GetTicks();
+        serviceSoundClock();
+        const uint32_t afterFinalService = SDL_GetTicks();
+        const uint32_t elapsed = soundClockMilliseconds_ - start;
+        const uint64_t advancedSamples =
+            (uint64_t{elapsed} * kAudioSampleRate + initialRemainder) / 1000;
+        constexpr uint64_t threshold = uint64_t{kAudioSampleRate} * lezac::sound::kBiosTimerDivisor;
+        const uint64_t scaledPit = initialClock.pitAccumulator +
+                                   advancedSamples * lezac::sound::kPitClockRate;
+        const auto state = sound_.clockState();
+        if (!clockedSoundEnabled_ || elapsed < 600 ||
+            uint32_t{soundClockMilliseconds_ - beforeFinalService} >
+                uint32_t{afterFinalService - beforeFinalService} ||
+            state.renderedSamples != initialClock.renderedSamples + advancedSamples ||
+            state.interrupts != initialClock.interrupts + scaledPit / threshold ||
+            state.pitAccumulator != scaledPit % threshold || logicTick_ != 0 ||
+            sound_.latch().active || sound_.speakerState().enabled || !audioOutput_.enabled() ||
+            audioOutput_.queuedBytes() > 11024)
+            throw std::runtime_error("governed menu/pause loop did not service clocked sound: elapsed_ms=" +
+                std::to_string(elapsed) + " service_ms=" + std::to_string(soundClockMilliseconds_) +
+                " bracket_ms=" + std::to_string(beforeFinalService) + ":" + std::to_string(afterFinalService) +
+                " samples=" + std::to_string(state.renderedSamples) + " expected_samples=" +
+                std::to_string(initialClock.renderedSamples + advancedSamples) +
+                " interrupts=" + std::to_string(state.interrupts) + " expected_interrupts=" +
+                std::to_string(initialClock.interrupts + scaledPit / threshold) +
+                " pit=" + std::to_string(state.pitAccumulator) + " expected_pit=" +
+                std::to_string(scaledPit % threshold));
+        inspectRenderedFrame("clocked-sound-live");
+        if (!outDir.empty()) {
+            std::filesystem::create_directories(outDir);
+            const std::string name = std::string(paused ? "live-pause" : "live-menu") +
+                                     (stallAtDeadline ? "-stalled.ppm" : ".ppm");
+            writeArgbPpm(joinPath(outDir, name),
+                         fb_, kScreenW, kScreenH);
+        }
+        std::cout << "clocked_sound_live=ok state=" << (paused ? "pause" : "menu")
+                  << " independent_clock=1 gameplay_ticks=0 sweep_stopped=1 bounded_queue=1"
+                  << " frame_inspection=1 native_timing_claim=0 audio=dummy"
+                  << " deadline_service=1 elapsed_ms=" << elapsed
+                  << " advanced_samples=" << advancedSamples
+                  << " advanced_interrupts=" << state.interrupts - initialClock.interrupts
+                  << " stalled_deadline=" << stalled << '\n';
     }
 
     void debugOriginalDamageCounters() {
@@ -18915,6 +19076,308 @@ public:
                   << " visual_claim=0\n";
     }
 
+    void debugOriginalDebrisUpdate(const std::string& inputPath, const std::string& outputPath,
+                                  bool collapseUpdate = false, bool actorCreation = false) {
+        if (actorCreation && !collapseUpdate) throw std::runtime_error("actor probe requires collapse update");
+        load();
+        std::ifstream input(inputPath, std::ios::binary);
+        std::ofstream output(outputPath, std::ios::binary);
+        if (!input || !output) throw std::runtime_error("cannot open debris update probe files");
+        auto take = [&](size_t count) {
+            std::vector<uint8_t> bytes(count);
+            input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(count));
+            if (input.gcount() != static_cast<std::streamsize>(count)) {
+                throw std::runtime_error("truncated debris update input");
+            }
+            return bytes;
+        };
+        const auto header = take(12);
+        if (std::string(header.begin(), header.begin() + 8) !=
+            (actorCreation ? "LZCA0001" : (collapseUpdate ? "LZCU0001" : "LZDU0001"))) {
+            throw std::runtime_error("invalid debris update input header");
+        }
+        const uint32_t cases = le32(header, 8);
+        if (cases == 0 || cases > 4096) throw std::runtime_error("invalid debris update case count");
+        auto appendWord = [](std::vector<uint8_t>& bytes, uint16_t value) {
+            bytes.push_back(static_cast<uint8_t>(value));
+            bytes.push_back(static_cast<uint8_t>(value >> 8));
+        };
+        // This diagnostic models clean unused slots with visual slots 1/2 reserved.
+        // It is not a serializer for opaque bytes inherited from retired actors.
+        auto collapseActorBytes = [&](const TransientActor& actor, size_t index) {
+            std::vector<uint8_t> bytes(38, 0);
+            bytes[0] = actor.kind;
+            bytes[1] = static_cast<uint8_t>(index + 3);
+            bytes[2] = actor.timer;
+            auto setWord = [&](size_t offset, uint16_t value) {
+                bytes[offset] = static_cast<uint8_t>(value);
+                bytes[offset + 1] = static_cast<uint8_t>(value >> 8);
+            };
+            setWord(6, static_cast<uint16_t>(actor.vx8));
+            setWord(8, static_cast<uint16_t>(actor.vy8));
+            setWord(10, actor.fracX);
+            setWord(12, actor.fracY);
+            bytes[0x14] = actor.hotspotY;
+            bytes[0x15] = 5;
+            const auto animation = actor.animation.packed();
+            std::copy(animation.begin(), animation.end(), bytes.begin() + 0x16);
+            appendWord(bytes, static_cast<uint16_t>(actor.x));
+            appendWord(bytes, static_cast<uint16_t>(actor.y));
+            const auto& sprite = sprites_.sprites.at(actor.spriteIndex);
+            bytes.push_back(static_cast<uint8_t>(sprite.width));
+            bytes.push_back(static_cast<uint8_t>(sprite.height));
+            size_t pixelOffset = 0;
+            for (size_t frame = 0; frame < actor.spriteIndex; ++frame) {
+                pixelOffset += static_cast<size_t>(sprites_.sprites[frame].width) * sprites_.sprites[frame].height;
+            }
+            appendWord(bytes, static_cast<uint16_t>(pixelOffset));
+            return bytes;
+        };
+        for (uint32_t index = 0; index < cases; ++index) {
+            const auto parameters = take(collapseUpdate ? 18 : 14);
+            const int width = le16(parameters, 0), height = le16(parameters, 2);
+            const size_t cells = static_cast<size_t>(width) * height;
+            const size_t debrisCount = le16(parameters, 10), collapseCount = le16(parameters, 12);
+            if (width <= 0 || width > 300 || height <= 0 || height > 200 || cells > 16384 ||
+                debrisCount > 1401 || collapseCount > 250) {
+                throw std::runtime_error("invalid debris update dimensions or live counts");
+            }
+            resetLevel(0);
+            level_.width = width;
+            level_.height = height;
+            level_.tiles = take(cells);
+            const auto words = take(2 * cells);
+            level_.wordLayer.resize(cells);
+            for (size_t cell = 0; cell < cells; ++cell) level_.wordLayer[cell] = le16(words, 2 * cell);
+            debrisQueue_.clear();
+            collapseQueue_.clear();
+            logicTick_ = le16(parameters, 4);
+            randomSeed_ = le32(parameters, 6);
+            if (collapseUpdate) {
+                monsters_.clear();
+                destroyed_ = le16(parameters, 14);
+                nextCollapseFragmentWord_ = le16(parameters, 16);
+            }
+            for (size_t record = 0; record < debrisCount; ++record) {
+                const auto raw = take(11);
+                DebrisRecord value;
+                value.tileIndex = le16(raw, 0);
+                value.flaggedWord = le16(raw, 2);
+                value.velocityX = static_cast<int8_t>(raw[4]);
+                value.velocityY = static_cast<int8_t>(raw[5]);
+                value.subX = static_cast<int8_t>(raw[6]);
+                value.subY = static_cast<int8_t>(raw[7]);
+                value.restTicks = raw[8];
+                value.lookup = raw[9];
+                value.aux = raw[10];
+                debrisQueue_.push_back(value);
+            }
+            for (size_t record = 0; record < collapseCount; ++record) {
+                const auto raw = take(15);
+                CollapseRecord value;
+                value.startOffsetBytes = le16(raw, 0);
+                value.endOffsetBytes = le16(raw, 2);
+                value.flaggedWord = le16(raw, 4);
+                value.word = static_cast<uint16_t>(value.flaggedWord & ~kDamagedWordBit);
+                value.forwardPhase = raw[6];
+                value.reversePhase = raw[7];
+                value.subX = static_cast<int8_t>(raw[8]);
+                value.subY = static_cast<int8_t>(raw[9]);
+                value.argMagnitude = le16(raw, 10);
+                value.flags = raw[12];
+                value.restTicks = raw[13];
+                value.affectedBytes = raw[14];
+                collapseQueue_.push_back(value);
+            }
+            if (actorCreation) {
+                const size_t actorCount = le16(take(2), 0);
+                if (actorCount > 30) throw std::runtime_error("invalid collapse actor count");
+                for (size_t actorIndex = 0; actorIndex < actorCount; ++actorIndex) {
+                    const auto raw = take(46);
+                    TransientActor actor;
+                    actor.kind = raw[0];
+                    actor.timer = raw[2];
+                    actor.vx8 = static_cast<int16_t>(le16(raw, 6));
+                    actor.vy8 = static_cast<int16_t>(le16(raw, 8));
+                    actor.fracX = raw[10];
+                    actor.fracY = raw[12];
+                    actor.hotspotY = raw[0x14];
+                    actor.animation = {raw[0x16], raw[0x17], raw[0x18], raw[0x19], raw[0x1a], raw[0x1b],
+                                       static_cast<int8_t>(raw[0x1c])};
+                    actor.x = le16(raw, 38);
+                    actor.y = le16(raw, 40);
+                    actor.spriteIndex = 73;
+                    if (actor.kind != 0x0b || collapseActorBytes(actor, actorIndex) != raw) {
+                        throw std::runtime_error("unsupported collapse actor seed");
+                    }
+                    actor.actorOrder = claimActorOrder();
+                    transientActors_.push_back(actor);
+                }
+            }
+            if (collapseUpdate) updateCollapseRecords();
+            else updateDebrisRecords();
+            std::vector<uint8_t> result;
+            appendWord(result, static_cast<uint16_t>(randomSeed_));
+            appendWord(result, static_cast<uint16_t>(randomSeed_ >> 16));
+            appendWord(result, static_cast<uint16_t>(debrisQueue_.size()));
+            appendWord(result, static_cast<uint16_t>(collapseQueue_.size()));
+            if (collapseUpdate) {
+                appendWord(result, static_cast<uint16_t>(destroyed_));
+                appendWord(result, nextCollapseFragmentWord_);
+            }
+            result.insert(result.end(), level_.tiles.begin(), level_.tiles.end());
+            for (uint16_t word : level_.wordLayer) appendWord(result, word);
+            for (const auto& record : debrisQueue_) {
+                appendWord(result, static_cast<uint16_t>(record.tileIndex));
+                appendWord(result, record.flaggedWord);
+                result.insert(result.end(), {static_cast<uint8_t>(record.velocityX),
+                    static_cast<uint8_t>(record.velocityY), static_cast<uint8_t>(record.subX),
+                    static_cast<uint8_t>(record.subY), record.restTicks, record.lookup, record.aux});
+            }
+            for (const auto& record : collapseQueue_) {
+                appendWord(result, record.startOffsetBytes);
+                appendWord(result, record.endOffsetBytes);
+                appendWord(result, record.flaggedWord);
+                result.insert(result.end(), {record.forwardPhase, record.reversePhase,
+                    static_cast<uint8_t>(record.subX), static_cast<uint8_t>(record.subY)});
+                appendWord(result, record.argMagnitude);
+                result.insert(result.end(), {record.flags, record.restTicks, record.affectedBytes});
+            }
+            if (actorCreation) {
+                appendWord(result, static_cast<uint16_t>(transientActors_.size()));
+                for (size_t actorIndex = 0; actorIndex < transientActors_.size(); ++actorIndex) {
+                    const auto actorBytes = collapseActorBytes(transientActors_[actorIndex], actorIndex);
+                    result.insert(result.end(), actorBytes.begin(), actorBytes.end());
+                }
+            }
+            output.write(reinterpret_cast<const char*>(result.data()), static_cast<std::streamsize>(result.size()));
+            if (!output) throw std::runtime_error("cannot write debris update output");
+        }
+        if (input.peek() != std::char_traits<char>::eof()) throw std::runtime_error("trailing debris update input");
+        output.flush();
+        if (!output) throw std::runtime_error("cannot flush debris update output");
+        std::cout << (actorCreation ? "original_collapse_actors=ok cases=" :
+            (collapseUpdate ? "original_collapse_update=ok cases=" : "original_debris_update=ok cases="))
+                  << cases << '\n';
+    }
+
+    void debugCollapseContactsOriginal(const std::string& inputPath, const std::string& outputPath) {
+        std::ifstream input(inputPath, std::ios::binary);
+        std::ofstream output(outputPath, std::ios::binary);
+        if (!input || !output) throw std::runtime_error("cannot open collapse contact probe files");
+        auto readByte = [&]() -> uint8_t {
+            const int value = input.get();
+            if (value == std::char_traits<char>::eof()) throw std::runtime_error("truncated collapse contact input");
+            return static_cast<uint8_t>(value);
+        };
+        auto readWord = [&]() -> uint16_t {
+            const uint16_t low = readByte();
+            return static_cast<uint16_t>(low | (static_cast<uint16_t>(readByte()) << 8));
+        };
+        auto writeByte = [&](uint8_t value) { output.put(static_cast<char>(value)); };
+        auto writeWord = [&](uint16_t value) {
+            writeByte(static_cast<uint8_t>(value));
+            writeByte(static_cast<uint8_t>(value >> 8));
+        };
+        std::string magic;
+        for (int i = 0; i < 8; ++i) magic.push_back(static_cast<char>(readByte()));
+        if (magic != "LZCC0001") throw std::runtime_error("invalid collapse contact header");
+        const uint32_t countLow = readWord();
+        const uint32_t count = countLow | (static_cast<uint32_t>(readWord()) << 16);
+        if (count == 0 || count > 10000) throw std::runtime_error("invalid collapse contact case count");
+        for (uint32_t test = 0; test < count; ++test) {
+            int velocity = static_cast<int8_t>(readByte());
+            const uint8_t weight = readByte();
+            const uint8_t reverse = readByte();
+            const size_t debrisCount = readWord();
+            const size_t collapseCount = readWord();
+            const size_t contactCount = readByte();
+            if (weight == 0 || reverse > 1 || debrisCount > 1401 || collapseCount > 30 || contactCount > 30) {
+                throw std::runtime_error("invalid collapse contact case dimensions");
+            }
+            debrisQueue_.clear();
+            collapseQueue_.clear();
+            for (size_t i = 0; i < debrisCount; ++i) {
+                DebrisRecord record;
+                record.tileIndex = readWord();
+                record.flaggedWord = readWord();
+                record.velocityX = static_cast<int8_t>(readByte());
+                record.velocityY = static_cast<int8_t>(readByte());
+                record.subX = static_cast<int8_t>(readByte());
+                record.subY = static_cast<int8_t>(readByte());
+                record.restTicks = readByte();
+                record.lookup = readByte();
+                record.aux = readByte();
+                debrisQueue_.push_back(record);
+            }
+            for (size_t i = 0; i < collapseCount; ++i) {
+                CollapseRecord record;
+                record.startOffsetBytes = readWord();
+                record.endOffsetBytes = readWord();
+                record.flaggedWord = readWord();
+                record.word = record.flaggedWord & ~kDamagedWordBit;
+                record.forwardPhase = readByte();
+                record.reversePhase = readByte();
+                record.subX = static_cast<int8_t>(readByte());
+                record.subY = static_cast<int8_t>(readByte());
+                record.argMagnitude = readWord();
+                record.flags = readByte();
+                record.restTicks = readByte();
+                record.affectedBytes = readByte();
+                collapseQueue_.push_back(record);
+            }
+            level_.width = 64;
+            level_.height = 2;
+            level_.wordLayer.resize(128);
+            level_.tiles.resize(128);
+            for (auto& word : level_.wordLayer) word = readWord();
+            for (auto& tile : level_.tiles) tile = readByte();
+            std::vector<DamageContact> contacts;
+            for (size_t i = 0; i < contactCount; ++i) {
+                const int cell = readWord();
+                const uint16_t word = readWord();
+                if (cell >= 128) throw std::runtime_error("collapse contact cell outside fixture map");
+                contacts.push_back({cell, word});
+            }
+            randomSeed_ = 0x12345678u;
+            blendCollapseContacts(contacts, velocity, weight, reverse != 0);
+            if (randomSeed_ != 0x12345678u) throw std::runtime_error("collapse contact drew RNG");
+            writeByte(static_cast<uint8_t>(velocity));
+            writeWord(static_cast<uint16_t>(debrisQueue_.size()));
+            writeWord(static_cast<uint16_t>(collapseQueue_.size()));
+            for (const auto& record : debrisQueue_) {
+                writeWord(static_cast<uint16_t>(record.tileIndex));
+                writeWord(record.flaggedWord);
+                writeByte(static_cast<uint8_t>(record.velocityX));
+                writeByte(static_cast<uint8_t>(record.velocityY));
+                writeByte(static_cast<uint8_t>(record.subX));
+                writeByte(static_cast<uint8_t>(record.subY));
+                writeByte(record.restTicks);
+                writeByte(record.lookup);
+                writeByte(record.aux);
+            }
+            for (const auto& record : collapseQueue_) {
+                writeWord(record.startOffsetBytes);
+                writeWord(record.endOffsetBytes);
+                writeWord(record.flaggedWord);
+                writeByte(record.forwardPhase);
+                writeByte(record.reversePhase);
+                writeByte(static_cast<uint8_t>(record.subX));
+                writeByte(static_cast<uint8_t>(record.subY));
+                writeWord(record.argMagnitude);
+                writeByte(record.flags);
+                writeByte(record.restTicks);
+                writeByte(record.affectedBytes);
+            }
+            for (auto word : level_.wordLayer) writeWord(word);
+            for (auto tile : level_.tiles) writeByte(tile);
+        }
+        if (input.peek() != std::char_traits<char>::eof() || !output) {
+            throw std::runtime_error("collapse contact trailing input or output failure");
+        }
+        std::cout << "collapse_contacts_probe=ok cases=" << count << " original_fidelity_claim=0\n";
+    }
+
     void debugDebrisImpacts(const std::string& fixturePath,
                            const std::string& outDir = "", bool restSuite = false,
                            bool collapseSuite = false) {
@@ -24019,6 +24482,105 @@ public:
                   << std::hex << inspected.hash << std::dec << '\n';
     }
 
+    void debugOriginalPickupPostInit(const std::string& outputPath) {
+        SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
+        load();
+        std::ofstream output(outputPath, std::ios::binary);
+        if (!output) throw std::runtime_error("cannot open pickup post-init output");
+        const std::array<ActorAnimation, 3> patterns{{
+            {71, 69, 79, 1, 2, 1, 1}, {79, 69, 79, 250, 2, 2, -1}, {0, 0, 0, 0, 0, 0, 1}}};
+        int cases = 0;
+        for (const auto& boundary : std::array<std::array<int, 2>, 8>{{
+                 {{0, 0}}, {{1, 0}}, {{29, 0}}, {{29, 13}}, {{29, 14}},
+                 {{30, 0}}, {{30, 13}}, {{30, 14}}}}) {
+            const int count = boundary[0], pickups = boundary[1];
+            for (int category = 0; category < 5; ++category) {
+                for (const auto& animation : patterns) {
+                    for (uint32_t seed : {0x12345678u, 0xffffffffu}) {
+                        for (int sprite : {80, 90}) {
+                            resetLevel(0);
+                            monsters_.clear(); bombs_.clear(); bonusDrops_.clear();
+                            launchPadMarkers_.clear(); transientActors_.clear();
+                            level_.width = level_.height = 32;
+                            level_.tiles.assign(1024, 0);
+                            level_.wordLayer.assign(1024, 0);
+                            for (int i = 0; i < count; ++i) {
+                                const uint64_t order = static_cast<uint64_t>(i + 1);
+                                if (i != count - 1 || category == 0) {
+                                    TransientActor actor;
+                                    actor.actorOrder = order; actor.kind = i < pickups ? 0x0a : 0x0b;
+                                    actor.timer = 200; actor.animation = animation;
+                                    transientActors_.push_back(actor);
+                                } else if (category == 1) {
+                                    LaunchPadMarker marker;
+                                    marker.actorOrder = order; marker.animation = animation; marker.frame = 91;
+                                    launchPadMarkers_.push_back(marker);
+                                } else if (category == 2) {
+                                    ActiveMonster monster;
+                                    monster.actorOrder = order; monster.kind = 1; monster.animFrame = 43;
+                                    monster.animCursor = static_cast<uint8_t>(animation.current - 1);
+                                    monster.animStart = static_cast<uint8_t>(animation.first - 1);
+                                    monster.animEnd = static_cast<uint8_t>(animation.last - 1);
+                                    monster.animTick = animation.counter; monster.animDelay = animation.delay;
+                                    monster.animMode = animation.mode; monster.animStep = animation.step;
+                                    monsters_.push_back(monster);
+                                } else if (category == 3) {
+                                    BonusDrop reward;
+                                    reward.actorOrder = order; reward.animation = animation;
+                                    bonusDrops_.push_back(reward);
+                                } else {
+                                    Bomb bomb;
+                                    bomb.actorOrder = order; bombs_.push_back(bomb);
+                                }
+                            }
+                            randomSeed_ = seed;
+                            player_.x = 184; player_.y = 160;
+                            tileRef(23, 20) = static_cast<uint8_t>(sprite == 80 ? 0x67 : 0x71);
+                            collectObjectiveTiles(player_, 1);
+                            const auto entries = sharedActorEntries();
+                            if (entries.size() != sharedActorCount())
+                                throw std::runtime_error("pickup post-init live-count mismatch");
+                            output.put(static_cast<char>(entries.size()));
+                            output.put(static_cast<char>(pickupActorCount()));
+                            for (int shift : {0, 8, 16, 24})
+                                output.put(static_cast<char>(randomSeed_ >> shift));
+                            for (const auto& entry : entries) {
+                                ActorAnimation actual{0, 0, 0, 0, 0, 0, 1};
+                                switch (entry.kind) {
+                                    case SharedActorKind::Effect: actual = transientActors_[entry.index].animation; break;
+                                    case SharedActorKind::Marker:
+                                        actual = launchPadMarkers_[entry.index].animation;
+                                        if (launchPadMarkers_[entry.index].frame != 91)
+                                            throw std::runtime_error("pickup reset changed visible marker");
+                                        break;
+                                    case SharedActorKind::Reward: actual = bonusDrops_[entry.index].animation; break;
+                                    case SharedActorKind::Monster: {
+                                        const auto& monster = monsters_[entry.index];
+                                        actual = {static_cast<uint8_t>(monster.animCursor + 1),
+                                            static_cast<uint8_t>(monster.animStart + 1),
+                                            static_cast<uint8_t>(monster.animEnd + 1),
+                                            static_cast<uint8_t>(monster.animTick), monster.animDelay,
+                                            monster.animMode, monster.animStep};
+                                        if (monster.animFrame != 43)
+                                            throw std::runtime_error("pickup reset changed visible monster");
+                                        break;
+                                    }
+                                    case SharedActorKind::Bomb: break;
+                                }
+                                const auto packed = actual.packed();
+                                output.write(reinterpret_cast<const char*>(packed.data()), packed.size());
+                            }
+                            ++cases;
+                        }
+                    }
+                }
+            }
+        }
+        output.flush();
+        if (!output) throw std::runtime_error("cannot write pickup post-init output");
+        std::cout << "pickup_post_init_probe=ok cases=" << cases << " audio=dummy\n";
+    }
+
     void debugTransientActorLimits() {
         load();
         initSdl();
@@ -25400,6 +25962,9 @@ private:
     const SoundBank& sounds_ = assets_.sounds();
     lezac::sound::SoundEngine sound_{sounds_};
     lezac::sound::SdlAudioOutput audioOutput_;
+    bool clockedSoundEnabled_ = false;
+    uint32_t soundClockMilliseconds_ = 0;
+    uint32_t soundSampleRemainder_ = 0;
     const GranBank& gran_ = assets_.gran();
     const std::vector<Level>& levels_ = assets_.levels();
     Level level_;
@@ -25496,6 +26061,7 @@ private:
     void initAudio() { audioOutput_.open(); }
 
     void processEvents(bool& running) {
+        serviceSoundClock();
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             if (debugPhysicalInputObserver_) debugPhysicalInputObserver_(e);
@@ -25822,28 +26388,57 @@ private:
     }
 
 
+    void startClockedSound() {
+        clockedSoundEnabled_ = true;
+        soundClockMilliseconds_ = presentationMilliseconds();
+        soundSampleRemainder_ = 0;
+    }
+
+    void serviceSoundClock() {
+        if (!clockedSoundEnabled_) return;
+        const uint32_t now = presentationMilliseconds();
+        const uint32_t elapsed = now - soundClockMilliseconds_;
+        soundClockMilliseconds_ = now;
+        const uint64_t scaled = uint64_t{elapsed} * kAudioSampleRate + soundSampleRemainder_;
+        soundSampleRemainder_ = static_cast<uint32_t>(scaled % 1000);
+        const uint64_t remaining = scaled / 1000;
+        if (remaining > lezac::sound::kMaximumClockedTailSamples) {
+            audioOutput_.discardClockedSamples();
+        }
+        audioOutput_.playClockedSamples(sound_.renderClockedTail(remaining));
+    }
+
     bool latchSoundRequest(uint16_t cursor, uint8_t selector) {
+        serviceSoundClock();
         return sound_.latchSoundRequest(cursor, selector);
     }
 
     bool requestSoundCursor(uint16_t cursor, uint8_t selector) {
+        serviceSoundClock();
         return sound_.requestSoundCursor(cursor, selector);
     }
 
     bool requestSoundOffset(uint16_t offset, uint8_t selector) {
+        serviceSoundClock();
         return sound_.requestSoundOffset(offset, selector);
     }
 
     void clearSoundLatch() {
+        serviceSoundClock();
         sound_.clearSoundLatch();
     }
 
     void pumpSoundLatch() {
+        if (clockedSoundEnabled_) {
+            serviceSoundClock();
+            return;
+        }
         audioOutput_.playSamples(sound_.pumpSoundLatch());
     }
 
 
     bool playCompatibilitySound(size_t hookSlot) {
+        serviceSoundClock();
         return sound_.playCompatibilitySound(hookSlot);
     }
 
@@ -26688,6 +27283,28 @@ private:
         collectObjectiveTiles(player, playerIndex, static_cast<int>(player.x), static_cast<int>(player.y));
     }
 
+    void initializePickupTailAnimation() {
+        // 1000:6DDD..6DF3 initializes DS:208D even if 2F9F refused allocation.
+        const auto entries = sharedActorEntries();
+        if (entries.empty()) return;
+        const auto& entry = entries.back();
+        const ActorAnimation stopped{0, 0, 0, 0, 0, 0, 1};
+        switch (entry.kind) {
+            case SharedActorKind::Effect: transientActors_[entry.index].animation = stopped; break;
+            case SharedActorKind::Marker: launchPadMarkers_[entry.index].animation = stopped; break;
+            case SharedActorKind::Reward: bonusDrops_[entry.index].animation = stopped; break;
+            case SharedActorKind::Monster: {
+                auto& monster = monsters_[entry.index];
+                // Monster cursors/ranges are zero-based; visible animFrame stays latched.
+                monster.animCursor = monster.animStart = monster.animEnd = 0xff;
+                monster.animTick = monster.animDelay = monster.animMode = 0;
+                monster.animStep = 1;
+                break;
+            }
+            case SharedActorKind::Bomb: break; // Bombs have an implicit stopped cursor.
+        }
+    }
+
     void collectObjectiveTiles(const Player& player, uint8_t playerIndex, int originX, int originY) {
         // 1000:6CB8..6DAA visits the cached actor interior clockwise. Scores
         // are DS:0002..0019, file 0xB192; consume/seeder are 5AFD / 370E.
@@ -26715,6 +27332,7 @@ private:
                 spawnTransientActor(originX + (x == x0 ? -2 : 10),
                     originY + (y == y0 ? -2 : 10), vy8,
                     pickupSprites[tile - 0x67], 0x0a, 12);
+                initializePickupTailAnimation();
             }
         }
         if (score != 0) {
@@ -28503,8 +29121,7 @@ private:
                         const size_t other = static_cast<size_t>(match.slotIndex - 1);
                         const int weight = match.debris ? 1 : collapseQueue_[other].affectedBytes;
                         auto blend = [&](int own, int incoming) {
-                            const int16_t numerator = static_cast<int16_t>(own * ray.mass + incoming * weight);
-                            return static_cast<int8_t>(numerator / (ray.mass + weight));
+                            return lezac::gameplay::blendFlameVelocity(own, incoming, ray.mass, weight);
                         };
                         if (match.debris) {
                             auto& debris = debrisQueue_[other];
@@ -29312,15 +29929,47 @@ private:
         }
     }
 
+    void blendCollapseContacts(const std::vector<DamageContact>& contacts, int& velocity,
+                               uint8_t ownWeight, bool reverse) {
+        int weight = ownWeight;
+        int sum = velocity * weight;
+        std::vector<DamagePhaseLookup> targets;
+        for (const auto& contact : contacts) {
+            if ((contact.word & kDamagedWordBit) == 0) {
+                const size_t beforeDebris = debrisQueue_.size();
+                const size_t beforeCollapse = collapseQueue_.size();
+                queueTileDamage(contact.cell % level_.width, contact.cell / level_.width, 0, 0, true);
+                if (beforeDebris == debrisQueue_.size() && beforeCollapse == collapseQueue_.size()) return;
+            }
+            auto match = resolveDamagePhase(static_cast<uint16_t>(contact.word | kDamagedWordBit), reverse);
+            if (match.slotIndex == 0) return;
+            const int contribution = match.debris ? 1 : collapseQueue_[match.slotIndex - 1].affectedBytes;
+            weight += contribution;
+            sum += contribution * static_cast<int8_t>(match.phase);
+            targets.push_back(match);
+        }
+        if (weight == 0) return;
+        velocity = static_cast<int8_t>(sum / weight);
+        for (const auto& match : targets) {
+            const size_t index = static_cast<size_t>(match.slotIndex - 1);
+            if (match.debris) {
+                if (reverse) debrisQueue_[index].velocityY = static_cast<int8_t>(velocity);
+                else debrisQueue_[index].velocityX = static_cast<int8_t>(velocity);
+            } else {
+                if (reverse) collapseQueue_[index].reversePhase = static_cast<uint8_t>(velocity);
+                else collapseQueue_[index].forwardPhase = static_cast<uint8_t>(velocity);
+            }
+        }
+    }
+
     void updateCollapseRecords() {
         if (level_.width <= 0 || level_.tiles.empty()) return;
         const int width = level_.width;
-        struct Contact { int cell; uint16_t word; };
         struct Scan {
             bool blocked = false;
             int firstColumn = 10000;
             int lastColumn = 0;
-            std::vector<Contact> contacts;
+            std::vector<DamageContact> contacts;
         };
         auto mapWord = [&](int cell) -> uint16_t {
             return cell >= 0 && static_cast<size_t>(cell) < level_.wordLayer.size() ?
@@ -29361,7 +30010,7 @@ private:
                     result.firstColumn = std::min(result.firstColumn, target % width);
                     result.lastColumn = std::max(result.lastColumn, target % width);
                     if (word != 0 && std::none_of(result.contacts.begin(), result.contacts.end(),
-                        [&](const Contact& contact) { return contact.word == word; })) {
+                        [&](const DamageContact& contact) { return contact.word == word; })) {
                         result.contacts.push_back({target, word});
                     }
                 }
@@ -29393,35 +30042,7 @@ private:
                 return result;
             };
             auto blend = [&](const Scan& result, int& velocity, bool reverse) {
-                int weight = record.affectedBytes;
-                int sum = velocity * weight;
-                std::vector<DamagePhaseLookup> targets;
-                for (const auto& contact : result.contacts) {
-                    if ((contact.word & kDamagedWordBit) == 0) {
-                        const size_t beforeDebris = debrisQueue_.size();
-                        const size_t beforeCollapse = collapseQueue_.size();
-                        queueTileDamage(contact.cell % width, contact.cell / width, 0, 0, true);
-                        if (beforeDebris == debrisQueue_.size() && beforeCollapse == collapseQueue_.size()) return;
-                    }
-                    auto match = resolveDamagePhase(static_cast<uint16_t>(contact.word | kDamagedWordBit), reverse);
-                    if (match.slotIndex == 0) return;
-                    const int contribution = match.debris ? 1 : collapseQueue_[match.slotIndex - 1].affectedBytes;
-                    weight += contribution;
-                    sum += contribution * static_cast<int8_t>(match.phase);
-                    targets.push_back(match);
-                }
-                if (weight == 0) return;
-                velocity = static_cast<int8_t>(sum / weight);
-                for (const auto& match : targets) {
-                    const size_t index = static_cast<size_t>(match.slotIndex - 1);
-                    if (match.debris) {
-                        if (reverse) debrisQueue_[index].velocityY = static_cast<int8_t>(velocity);
-                        else debrisQueue_[index].velocityX = static_cast<int8_t>(velocity);
-                    } else {
-                        if (reverse) collapseQueue_[index].reversePhase = static_cast<uint8_t>(velocity);
-                        else collapseQueue_[index].forwardPhase = static_cast<uint8_t>(velocity);
-                    }
-                }
+                blendCollapseContacts(result.contacts, velocity, record.affectedBytes, reverse);
             };
             auto integrate = [](int velocity, int8_t& fraction) {
                 int sum = fraction + velocity;
@@ -29820,6 +30441,23 @@ int lezac::app::runApplication(int argc, char** argv) {
             app.debugSoundPriorityLatch();
             return 0;
         }
+        if (argc > 1 && std::string(argv[1]) == "--debug-clocked-sound") {
+            app.debugClockedSound(argc > 2 ? argv[2] : "");
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-clocked-sound-no-device") {
+            app.debugClockedSound("", false);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-clocked-sound-live") {
+            const std::string state = argv[2];
+            if (state != "menu" && state != "pause")
+                throw std::runtime_error("clocked sound live state must be menu or pause");
+            if (argc > 5 || (argc == 5 && std::string(argv[4]) != "--stall-at-deadline"))
+                throw std::runtime_error("usage: --debug-clocked-sound-live menu|pause [OUTPUT_DIR [--stall-at-deadline]]");
+            app.debugClockedSoundLive(state == "pause", argc > 3 ? argv[3] : "", argc == 5);
+            return 0;
+        }
         if (argc > 1 && std::string(argv[1]) == "--debug-sound-selector-map") {
             app.debugSoundSelectorMap();
             return 0;
@@ -30097,6 +30735,10 @@ int lezac::app::runApplication(int argc, char** argv) {
             app.debugFlameLifecycleOriginal(argv[2], argc > 3 ? argv[3] : "");
             return 0;
         }
+        if (argc == 3 && std::string(argv[1]) == "--debug-original-pickup-post-init") {
+            app.debugOriginalPickupPostInit(argv[2]);
+            return 0;
+        }
         if (argc > 1 && std::string(argv[1]) == "--debug-transient-actor-limits") {
             app.debugTransientActorLimits();
             return 0;
@@ -30127,6 +30769,18 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-debris-shatter-playback") {
             app.debugDebrisShatterPlayback(argv[2]);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-debris-update") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3]);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-update") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3], true);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-actors") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3], true, true);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-natural-forward-debris-writeback") {
@@ -30199,6 +30853,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-collapse-steps-original") {
             app.debugDebrisImpacts(argv[2], argc > 3 ? argv[3] : "", false, true);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-collapse-contacts-original") {
+            app.debugCollapseContactsOriginal(argv[2], argv[3]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-debris-motion-live") {

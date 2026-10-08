@@ -144,6 +144,8 @@ class ReplayTests(unittest.TestCase):
     def test_production_input_fire_pause_and_clock(self):
         self.assertEqual(self.post[6]["state"]["players"][0]["vx8"], 64)
         self.assertEqual(len(self.post[24]["state"]["bombs"]), 1)
+        self.assertEqual(self.post[24]["state"]["sound_latch"][:3], [1, 3, 0xea74])
+        self.assertEqual(self.post[25]["state"]["sound_latch"][:3], [1, 3, 0xea74])
         self.assertEqual(len(self.post[25]["state"]["bombs"]), 2)
         self.assertEqual(self.post[25]["state"]["players"][0]["inventory"][0], 198)
         self.assertEqual(self.post[51]["state"]["logic_tick"], self.post[54]["state"]["logic_tick"])

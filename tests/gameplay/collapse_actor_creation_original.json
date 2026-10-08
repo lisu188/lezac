@@ -1,0 +1,70 @@
+{
+  "actor_bytes_compared": 38,
+  "actors_in_creation_order": true,
+  "admission_counts": {
+    "0": 2119,
+    "1": 300,
+    "2": 57
+  },
+  "cases": 2476,
+  "clean_unused_actor_slots": true,
+  "compiled_cpp_comparison": false,
+  "complete_live_records_maps_rng": true,
+  "constructor_context": 3,
+  "constructor_context_native_backed": true,
+  "dependency_sha256": {
+    "capture_original_collapse_update.py": "f3bcb52b18469a5f0864f4315223e26154b6650095bc5f244853213a9e443ebb",
+    "capture_original_debris_update.py": "3d0d105142d2ea57cbce1038531008c8398766b23d8c27f06daded1e535cbcd2",
+    "check_original_collapse_update.py": "984b053ae617df271f192c3dac9d51863124215a1bba3dbc9518d60c60a110bd",
+    "check_original_debris_update.py": "80c3c7854e103ec5679295b8e4bdf417d06a7d690a6715522dbec3218fcde947",
+    "scan_livels_debris_sites.py": "240cb49cac605ac784fdc7c5b3e6e661b0d0dac84085d537a1bada4d08b7c4d7",
+    "source_guardrails.py": "ddf90e06a004279c0d4280b7b490b61ea02b2fca442de33299d0fa99ef99e49a"
+  },
+  "entry_counts": {
+    "actor_constructor": 462,
+    "random": 2395,
+    "record_table_initializer": 2476,
+    "sound_latch": 745,
+    "updater": 2476
+  },
+  "executor": "Unicorn 2.1.4",
+  "existing_actors_unchanged": true,
+  "fixture_sha256": "a81f73c6bb9a3224d3c3bd5151c8491d8d1381348dcd5a231db6db6e73ceae57",
+  "generator_sha256": "403ad3dd2b725c44f8ed58334eec5bd920861b552fe4b3d81a4975fabe6ce5aa",
+  "groups": {
+    "legacy_crosscheck": 2395,
+    "native_actor_creation": 1,
+    "two_fractures_pool_0": 16,
+    "two_fractures_pool_1": 16,
+    "two_fractures_pool_28": 16,
+    "two_fractures_pool_29": 16,
+    "two_fractures_pool_30": 16
+  },
+  "initial_pool_counts": [
+    0,
+    1,
+    28,
+    29,
+    30
+  ],
+  "input_sha256": "4970dffd777be079fa3a1dda13b43ffc7d242e172d92cea744161bc6f61e3545",
+  "legacy_crosschecked_cases": 2395,
+  "legacy_metadata_sha256": "1eee3a429a6b2fbfca3691b588846a4dab9c61c2b6f5102a1549c328bdfcf99e",
+  "maximum_instructions": 2585,
+  "native_actor_creation_crosschecks": 1,
+  "native_fixture_sha256": "8604621c87c91e23bbe02f66cedfb312fd95b2c5a5cc429b0eca37872345f55e",
+  "natural_gameplay": false,
+  "original_calls_stubbed": false,
+  "original_exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "original_instructions_patched": false,
+  "original_return_boundaries_verified": true,
+  "output_sha256": "a679e9915937f2d4fadaf7c486f3c9d1e771d87ef0ae33d30adf8a13e8589396",
+  "record_table_initializers_executed": true,
+  "relocated_image_sha256": "3ce03c5434d54490e663ef405457fc665dbf87cdf956056eac823733f95d5102",
+  "schema": "lezac.original-collapse-actors.v1",
+  "sound_state_compared": false,
+  "stale_slot_claim": false,
+  "visual_bytes_compared": 8,
+  "visual_parity_claim": false,
+  "whole_game_complete": false
+}

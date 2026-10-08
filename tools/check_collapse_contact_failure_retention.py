@@ -128,7 +128,11 @@ class ContactFailureRetention(unittest.TestCase):
                 self.assertEqual(diagnostic['command'][1], '--debug-collapse-contacts-original')
                 self.assertEqual(diagnostic['replay_command'][2], str(retained / 'input.bin'))
                 self.assertEqual(diagnostic['replay_command'][3], str(retained / 'rerun-actual.bin'))
-                self.assertIn('collapse_contact_failure_retained=' + str(retained), output.getvalue())
+                prefix = 'collapse_contact_failure_retained='
+                reported = [line.removeprefix(prefix) for line in output.getvalue().splitlines()
+                            if line.startswith(prefix)]
+                self.assertEqual(len(reported), 1)
+                self.assertTrue(Path(reported[0]).samefile(retained))
                 if mode == 'second_case':
                     self.assertIn('byte_offset=389 case_index=1 case_byte=0', diagnostic['error'])
                 if mode == 'nonzero':

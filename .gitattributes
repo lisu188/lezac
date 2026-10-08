@@ -5,6 +5,8 @@
 tests/gameplay/collapse_seed_geometry_original.json -text
 tests/gameplay/debris_update_original.json -text
 tests/gameplay/debris_update_original.bin.gz -text
+tests/fixtures/debris_impacts_original.txt -text
+tests/fixtures/debris_rest_original.txt -text
 tests/gameplay/collapse_seed_geometry_original.bin.gz -text
 tests/fixtures/level1_original/** -text
 tests/fixtures/level1_results/** -text

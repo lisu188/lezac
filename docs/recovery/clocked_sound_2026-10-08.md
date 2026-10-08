@@ -79,6 +79,12 @@ was below the unchanged 5 GiB guard. No new C++ file was compiled or executed
 by that attempt. The compiled tests above are required checks, not claimed
 local passes; exact-head CI validation and current-build screenshots are pending.
 
+CI runs the six focused clocked-sound tests and uploads their four rendered
+menu/pause frames before starting the unchanged full suite. The focused step
+does not replace the actual Linux/Windows full `Test` steps or either extracted
+package gate. Artifacts are named `clocked-sound-linux` and
+`clocked-sound-windows` and must be tied to their exact run/head when inspected.
+
 All agent-launched runs use dummy audio. Native timing/phase, hardware waveform,
 speaker reload phase, physical device latency and whole-game sound parity
 remain unverified. The current square-wave synthesis is not a complete PIT

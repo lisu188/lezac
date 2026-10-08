@@ -1,5 +1,6 @@
 #include "sound/sdl_audio_output.hpp"
 #include "sound/sound_models.hpp"
+#include <algorithm>
 #include <cstring>
 
 namespace lezac::sound {
@@ -11,6 +12,8 @@ void SdlAudioOutput::close() noexcept {
     audioDevice_ = 0;
     audioEnabled_ = false;
     audioSpec_ = {};
+    clockedPrimed_ = false;
+    droppedClockedBytes_ = 0;
 }
 
 void SdlAudioOutput::open() {
@@ -25,10 +28,8 @@ void SdlAudioOutput::open() {
     want.channels = 1;
     want.samples = 1024;
     SDL_AudioSpec have{};
-    audioDevice_ = SDL_OpenAudioDevice(nullptr, 0, &want, &have,
-                                       SDL_AUDIO_ALLOW_FREQUENCY_CHANGE |
-                                           SDL_AUDIO_ALLOW_FORMAT_CHANGE |
-                                           SDL_AUDIO_ALLOW_CHANNELS_CHANGE);
+    // SDL performs any hardware conversion continuously, not per small chunk.
+    audioDevice_ = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0);
     if (audioDevice_ == 0) {
         SDL_ClearError();
         return;
@@ -76,6 +77,33 @@ void SdlAudioOutput::queueAudio(const void* data, Uint32 bytes) {
         SDL_ClearError();
         audioEnabled_ = false;
     }
+}
+
+Uint32 SdlAudioOutput::queuedBytes() const {
+    return audioDevice_ == 0 ? 0 : SDL_GetQueuedAudioSize(audioDevice_);
+}
+
+void SdlAudioOutput::playClockedSamples(const std::vector<int16_t>& samples) {
+    if (!enabled() || samples.empty()) return;
+    constexpr size_t leadSamples = kAudioSampleRate / 20;
+    constexpr size_t maximumSamples = kAudioSampleRate / 5;
+    constexpr Uint32 maximumBytes = (leadSamples + maximumSamples) * sizeof(int16_t);
+    const size_t count = std::min(samples.size(), maximumSamples);
+    const Uint32 bytes = static_cast<Uint32>(count * sizeof(int16_t));
+    const Uint32 queued = queuedBytes();
+    if (queued + bytes > maximumBytes) {
+        droppedClockedBytes_ += queued;
+        SDL_ClearQueuedAudio(audioDevice_);
+        clockedPrimed_ = false;
+    }
+    droppedClockedBytes_ += (samples.size() - count) * sizeof(int16_t);
+    if (!clockedPrimed_) {
+        // Buffer elapsed PCM behind a short initial lead; do not predict future requests.
+        const std::vector<int16_t> silence(leadSamples, 0);
+        queueAudio(silence.data(), static_cast<Uint32>(silence.size() * sizeof(int16_t)));
+        clockedPrimed_ = true;
+    }
+    if (enabled()) queueAudio(samples.data() + samples.size() - count, bytes);
 }
 
 }  // namespace lezac::sound

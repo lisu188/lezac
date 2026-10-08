@@ -1,9 +1,10 @@
 # Sound Interrupt State And Signed Priority
 
 The signed sound-priority comparison is corrected in production. A per-IRQ
-transition method is implemented and opcode-model tested. The live application
-still uses the one-shot pump; scheduling, persistent runtime playback and
-natural audio parity are not yet recovered by this change.
+transition method is implemented and opcode-model tested. This recovery alone
+did not replace the live one-shot pump. The subsequent
+[clocked playback integration](clocked_sound_2026-10-08.md) does so; original
+IRQ timing and natural audio parity remain unverified.
 
 ## Original Instructions
 
@@ -95,16 +96,13 @@ period-zero suppression, gate-before-step ordering, direct accumulator reset,
 omitted final direct tone, sentinel clearing of cursor/priority, and request
 resetting IRQ state. All agent runs are silent.
 
-## Integration Still Required
+## Clocked Integration Follow-Up
 
-`advanceSoundInterrupt()` is not yet called by the runtime scheduler. The old
-`pumpSoundLatch()` still queues a whole synthesized effect and clears the
-latch. This remains the known production lifetime/preemption defect; the new
-method does not fix it merely by existing.
+The [follow-up integration](clocked_sound_2026-10-08.md) calls
+`advanceSoundInterrupt()` from persistent clocked playback in the live and
+ordinary replay paths. The old `pumpSoundLatch()` remains a bounded diagnostic
+API, not a production lifetime mechanism.
 
-Next work must replace that path with clocked transitions in gameplay, menus,
-pause and deterministic replay; retain the original counter phase across
-replacement requests; and drive speaker state without whole-effect queuing.
 Native IRQ count/phase, host cadence, waveform and device latency need separate
 verification. No natural sound-timing or preemption parity is claimed.
 `sound_runtime_parity_claim=false`, `original_fidelity_claim=false`,

@@ -9,6 +9,8 @@ using resources::kSoundStepSize;
 
 inline constexpr int kAudioSampleRate = 22050;
 inline constexpr int kAudioToneSamples = kAudioSampleRate / 28;
+inline constexpr uint32_t kPitClockRate = 1193182;
+inline constexpr uint32_t kBiosTimerDivisor = 65536;
 inline constexpr uint16_t kSoundStopPeriod = 0x7530;
 inline constexpr uint16_t kDirectSoundThreshold = 0xea60;
 inline constexpr uint16_t kDirectSoundPeriodBase = 0xea42;
@@ -173,6 +175,12 @@ struct SoundInterruptAction {
     bool programTone = false;
     // When both are set, the original calls Sound(frequency) before NoSound().
     bool silence = false;
+};
+
+struct SoundClockState {
+    uint64_t pitAccumulator = 0;
+    uint64_t interrupts = 0;
+    uint64_t renderedSamples = 0;
 };
 
 }  // namespace lezac::sound

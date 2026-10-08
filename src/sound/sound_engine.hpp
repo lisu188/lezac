@@ -12,6 +12,8 @@ public:
     const resources::SoundBank& bank() const { return sounds_; }
     SoundLatch latch() const { return soundLatch_; }
     SoundInterruptState interruptState() const { return soundInterrupt_; }
+    SoundClockState clockState() const { return soundClock_; }
+    SpeakerToneState speakerState() const { return speaker_; }
     SoundPlaybackSnapshot lastPumped() const {
         return {lastPumpedSoundRecord_, lastPumpedSoundOffset_, lastPumpedSoundSelector_};
     }
@@ -47,6 +49,8 @@ public:
     bool requestSoundOffset(uint16_t offset, uint8_t selector);
     // One original INT 1Ch transition. Host scheduling is deliberately separate.
     SoundInterruptAction advanceSoundInterrupt();
+    // Persistent default BIOS-clock playback; no SDL or gameplay-tick dependency.
+    std::vector<int16_t> renderClockedSamples(size_t sampleCount);
     void clearSoundLatch();
     bool playCompatibilitySound(size_t hookSlot);
     std::vector<int16_t> pumpSoundLatch();
@@ -56,6 +60,8 @@ private:
     const resources::SoundBank& sounds_;
     SoundLatch soundLatch_;
     SoundInterruptState soundInterrupt_;
+    SoundClockState soundClock_;
+    SpeakerToneState speaker_;
     int lastPumpedSoundRecord_ = -1;
     uint16_t lastPumpedSoundOffset_ = 0;
     uint8_t lastPumpedSoundSelector_ = 0;

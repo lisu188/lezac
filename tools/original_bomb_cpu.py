@@ -3,6 +3,7 @@ from collections import Counter
 import hashlib
 from pathlib import Path
 import struct
+import sys
 import unicorn
 from unicorn.x86_const import (
     UC_X86_INS_IN, UC_X86_INS_OUT, UC_X86_REG_BP, UC_X86_REG_CS,
@@ -22,6 +23,8 @@ class BombCPU:
     DATA = 0x1aa20
 
     def __init__(self, root):
+        if sys.flags.optimize:
+            raise RuntimeError('optimized Python is not supported by original bomb analysis')
         self.root = Path(root)
         self.raw = (self.root / 'LEZAC.EXE').read_bytes()
         assert sha(self.raw) == EXE_SHA and unicorn.__version__ == '2.1.4'
@@ -42,7 +45,8 @@ class BombCPU:
         self.cpu = unicorn.Uc(unicorn.UC_ARCH_X86, unicorn.UC_MODE_16)
         self.cpu.mem_map(0, 1024**2)
         self.cpu.mem_write(0x10000, bytes(image))
-        self.initial = bytes(self.cpu.mem_read(self.DATA, 65536))
+        self.initial_memory = bytes(self.cpu.mem_read(0, 1024**2))
+        self.initial_context = self.cpu.context_save()
         self.boundaries = {}
         self.entries = Counter()
         self.instructions = 0
@@ -81,11 +85,12 @@ class BombCPU:
 
     def reset(self, level, weapon, x, y, vx, vy, visual_cursor=2, slot=1, stale=None):
         cpu, data = self.cpu, self.DATA
+        cpu.context_restore(self.initial_context)
+        cpu.mem_write(0, self.initial_memory)
         self.slot = slot
         self.boundaries.clear()
         self.entries.clear()
         self.instructions = 0
-        cpu.mem_write(data, self.initial)
         cpu.mem_write(data + 0x1bae, bytes(31 * 38))
         if stale is not None:
             assert len(stale) == 38

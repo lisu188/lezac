@@ -70,92 +70,99 @@ def read_native(root):
     assert sum(sum(line.startswith(b'tick ') for line in blob.splitlines()) for _, blob, _ in result) == 2304
     return result
 
-parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[1])
-parser.add_argument('--out', type=Path)
-parser.add_argument('--unicorn-path', type=Path)
-parser.add_argument('--self-check', action='store_true')
-args = parser.parse_args()
-ROOT = args.root.resolve()
-if args.self_check:
-    read_native(ROOT)
-    compile(Path(__file__).with_name('original_bomb_cpu.py').read_text(encoding='utf-8'), 'original_bomb_cpu.py', 'exec')
-    print('original_bomb_lifetime_self_check=ok native_traces=16 updates=2304 executor_required=0 live=0')
-    raise SystemExit(0)
-if args.out is None:
-    parser.error('--out is required unless --self-check is used')
-if args.unicorn_path:
-    sys.path.insert(0, str(args.unicorn_path.resolve()))
-sys.path.insert(0, str(ROOT / 'tools'))
-from original_bomb_cpu import BombCPU, DESCRIPTOR_SHA, EXE_SHA, LEVELS_SHA
-from scan_livels_debris_sites import load_levels
-OUT = args.out.resolve()
-assert not OUT.exists()
-report = dict(passed=False, traces=[], checks=[], original_calls_stubbed=False,
-    original_instructions_patched=False, hardware_io_permitted=False,
-    new_native_capture=False, complete_campaign_claim=False, compiled_cpp_comparison=False)
+def main():
+    if sys.flags.optimize:
+        raise RuntimeError('optimized Python is not supported by original bomb analysis')
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument('--out', type=Path)
+    parser.add_argument('--unicorn-path', type=Path)
+    parser.add_argument('--self-check', action='store_true')
+    args = parser.parse_args()
+    ROOT = args.root.resolve()
+    if args.self_check:
+        read_native(ROOT)
+        compile(Path(__file__).with_name('original_bomb_cpu.py').read_text(encoding='utf-8'), 'original_bomb_cpu.py', 'exec')
+        print('original_bomb_lifetime_self_check=ok native_traces=16 updates=2304 executor_required=0 live=0')
+        raise SystemExit(0)
+    if args.out is None:
+        parser.error('--out is required unless --self-check is used')
+    if args.unicorn_path:
+        sys.path.insert(0, str(args.unicorn_path.resolve()))
+    sys.path.insert(0, str(ROOT / 'tools'))
+    from original_bomb_cpu import BombCPU, DESCRIPTOR_SHA, EXE_SHA, LEVELS_SHA
+    from scan_livels_debris_sites import load_levels
+    OUT = args.out.resolve()
+    assert not OUT.exists()
+    report = dict(passed=False, traces=[], checks=[], original_calls_stubbed=False,
+        original_instructions_patched=False, hardware_io_permitted=False,
+        new_native_capture=False, complete_campaign_claim=False, compiled_cpp_comparison=False)
 
 
-def compare(actual, expected, label):
-    if actual != expected:
-        offsets = [i for i, (left, right) in enumerate(zip(actual, expected)) if left != right]
-        report['mismatch'] = dict(label=label, actual=actual.hex(), expected=expected.hex(), offsets=offsets)
-        raise AssertionError(report['mismatch'])
-    report['checks'].append(dict(label=label, bytes=len(actual), differing_bytes=0))
+    def compare(actual, expected, label):
+        if actual != expected:
+            offsets = [i for i, (left, right) in enumerate(zip(actual, expected)) if left != right]
+            report['mismatch'] = dict(label=label, actual=actual.hex(), expected=expected.hex(), offsets=offsets)
+            raise AssertionError(report['mismatch'])
+        report['checks'].append(dict(label=label, bytes=len(actual), differing_bytes=0))
 
 
-try:
-    level = load_levels(ROOT / 'LIVELS.SCH')[0]
-    assert (level['width'], level['height']) == (60, 33)
-    cpu = BombCPU(ROOT)
-    for path, blob, raw_blob in read_native(ROOT):
-        report['active_trace'] = path.name
-        lines = blob.decode('ascii').splitlines()
-        capture = next(line for line in lines if line.startswith('capture='))
-        weapon = int(dict(token.split('=', 1) for token in capture.split())['weapon'])
-        seed = fields(next(line for line in lines if line.startswith('seed ')))
-        native_actor = bytes.fromhex(seed['raw'])
-        native_visual = bytes.fromhex(seed['visual'])
-        assert len(native_actor) == 38 and len(native_visual) == 8
-        values = [int(part) for part in seed['input'].split(',')]
-        assert len(values) == 4
-        actor, visual = cpu.reset(level, weapon, *values, visual_cursor=native_actor[1], slot=int(seed['slot']))
-        compare(actor, native_actor, path.name + ':constructor:actor')
-        compare(visual, native_visual, path.name + ':constructor:visual')
-        ticks = [fields(line) for line in lines if line.startswith('tick ')]
-        expiry = fields(next(line for line in lines if line.startswith('expiry ')))
-        assert len(ticks) == int(expiry['updates'])
-        start = int(seed['frame'])
-        assert [int(row['frame']) for row in ticks] == list(range(start + 1, start + 1 + len(ticks)))
-        instructions = 0
-        for index, tick in enumerate(ticks):
-            report['active_tick'] = int(tick['frame'])
-            actor, visual = cpu.update(int(tick['frame']))
-            compare(actor, bytes.fromhex(tick['raw']), path.name + ':' + tick['frame'] + ':actor')
-            compare(visual, bytes.fromhex(tick['visual']), path.name + ':' + tick['frame'] + ':visual')
-            instructions += cpu.instructions
-            if index + 1 == len(ticks):
-                assert actor[2] == 0 and '0x175cb' in cpu.boundaries
-                assert int(tick['frame']) == int(expiry['frame'])
-            else:
-                assert actor[2] > 0 and '0x175cb' not in cpu.boundaries
-        report['traces'].append(dict(name=path.name, sha256=sha(blob), raw_sha256=sha(raw_blob),
-            weapon=weapon, updates=len(ticks), instructions=instructions,
-            constructor_full_actor_compared=True, full_pre_expiry_actor_compared=True,
-            full_visual_compared=True, complete_updates_and_expiry_executed=True,
-            original_helpers_entered=dict(cpu.entries)))
-    assert sum(row['updates'] for row in report['traces']) == 2304
-    report.update(passed=True, native_traces=16, native_updates=2304, original_exe_sha256=EXE_SHA,
-        levels_sha256=LEVELS_SHA, descriptor_fixture_sha256=DESCRIPTOR_SHA,
-        compared_bytes=sum(row['bytes'] for row in report['checks']),
-        helper_sha256=sha(Path(__file__).with_name('original_bomb_cpu.py').read_bytes()),
-        generator_sha256=sha(Path(__file__).read_bytes()),
-        limitation='Native actors/visuals cross-checked through pre-expiry; post-explosion maps and effects are not captured in these fixtures.')
-    print(json.dumps(dict(passed=True, traces=16, updates=2304,
-        compared_bytes=report['compared_bytes'], report=str(OUT))), flush=True)
-except BaseException:
-    report['failure'] = traceback.format_exc()
-    raise
-finally:
-    report['recorded_utc'] = datetime.now(timezone.utc).isoformat()
-    OUT.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+    try:
+        level = load_levels(ROOT / 'LIVELS.SCH')[0]
+        assert (level['width'], level['height']) == (60, 33)
+        cpu = BombCPU(ROOT)
+        for path, blob, raw_blob in read_native(ROOT):
+            report['active_trace'] = path.name
+            lines = blob.decode('ascii').splitlines()
+            capture = next(line for line in lines if line.startswith('capture='))
+            weapon = int(dict(token.split('=', 1) for token in capture.split())['weapon'])
+            seed = fields(next(line for line in lines if line.startswith('seed ')))
+            native_actor = bytes.fromhex(seed['raw'])
+            native_visual = bytes.fromhex(seed['visual'])
+            assert len(native_actor) == 38 and len(native_visual) == 8
+            values = [int(part) for part in seed['input'].split(',')]
+            assert len(values) == 4
+            actor, visual = cpu.reset(level, weapon, *values, visual_cursor=native_actor[1], slot=int(seed['slot']))
+            compare(actor, native_actor, path.name + ':constructor:actor')
+            compare(visual, native_visual, path.name + ':constructor:visual')
+            ticks = [fields(line) for line in lines if line.startswith('tick ')]
+            expiry = fields(next(line for line in lines if line.startswith('expiry ')))
+            assert len(ticks) == int(expiry['updates'])
+            start = int(seed['frame'])
+            assert [int(row['frame']) for row in ticks] == list(range(start + 1, start + 1 + len(ticks)))
+            instructions = 0
+            for index, tick in enumerate(ticks):
+                report['active_tick'] = int(tick['frame'])
+                actor, visual = cpu.update(int(tick['frame']))
+                compare(actor, bytes.fromhex(tick['raw']), path.name + ':' + tick['frame'] + ':actor')
+                compare(visual, bytes.fromhex(tick['visual']), path.name + ':' + tick['frame'] + ':visual')
+                instructions += cpu.instructions
+                if index + 1 == len(ticks):
+                    assert actor[2] == 0 and '0x175cb' in cpu.boundaries
+                    assert int(tick['frame']) == int(expiry['frame'])
+                else:
+                    assert actor[2] > 0 and '0x175cb' not in cpu.boundaries
+            report['traces'].append(dict(name=path.name, sha256=sha(blob), raw_sha256=sha(raw_blob),
+                weapon=weapon, updates=len(ticks), instructions=instructions,
+                constructor_full_actor_compared=True, full_pre_expiry_actor_compared=True,
+                full_visual_compared=True, complete_updates_and_expiry_executed=True,
+                original_helpers_entered=dict(cpu.entries)))
+        assert sum(row['updates'] for row in report['traces']) == 2304
+        report.update(passed=True, native_traces=16, native_updates=2304, original_exe_sha256=EXE_SHA,
+            levels_sha256=LEVELS_SHA, descriptor_fixture_sha256=DESCRIPTOR_SHA,
+            compared_bytes=sum(row['bytes'] for row in report['checks']),
+            helper_sha256=sha(Path(__file__).with_name('original_bomb_cpu.py').read_bytes()),
+            generator_sha256=sha(Path(__file__).read_bytes()),
+            limitation='Native actors/visuals cross-checked through pre-expiry; post-explosion maps and effects are not captured in these fixtures.')
+        print(json.dumps(dict(passed=True, traces=16, updates=2304,
+            compared_bytes=report['compared_bytes'], report=str(OUT))), flush=True)
+    except BaseException:
+        report['failure'] = traceback.format_exc()
+        raise
+    finally:
+        report['recorded_utc'] = datetime.now(timezone.utc).isoformat()
+        OUT.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+
+
+if __name__ == '__main__':
+    main()

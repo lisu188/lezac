@@ -10,12 +10,33 @@ import traceback
 
 def validate_lifetime_result(report):
     """Reject a lifetime result that contradicts preserved-byte independence."""
-    assert not report['preserved_offsets_read'], 'preserved constructor bytes were read'
-    assert not report['differential_groups_with_outside_preserved_differences'], \
-        'stale slot pattern changed state outside preserved bytes'
+    if report['preserved_offsets_read']:
+        raise ValueError('preserved constructor bytes were read')
+    if report['differential_groups_with_outside_preserved_differences']:
+        raise ValueError('stale slot pattern changed state outside preserved bytes')
+
+
+def validate_native_report(native, helper_sha, checker_sha):
+    """Bind prerequisite evidence to the current executor, checker and traces."""
+    from check_original_bomb_native import NATIVE_FIXTURES
+    if (native.get('passed') is not True or native.get('native_updates') != 2304
+            or native.get('native_traces') != 16 or native.get('compared_bytes') != 106720):
+        raise ValueError('native prerequisite totals do not match')
+    if native.get('helper_sha256') != helper_sha:
+        raise ValueError('native prerequisite executor hash mismatch')
+    if native.get('generator_sha256') != checker_sha:
+        raise ValueError('native prerequisite checker hash mismatch')
+    traces = native.get('traces', [])
+    if len(traces) != len(NATIVE_FIXTURES):
+        raise ValueError('native prerequisite trace count mismatch')
+    identities = {row.get('name'): row.get('sha256') for row in traces}
+    if len(identities) != len(traces) or identities != NATIVE_FIXTURES:
+        raise ValueError('native prerequisite trace identities mismatch')
 
 
 def main():
+    if sys.flags.optimize:
+        raise RuntimeError('optimized Python is not supported by original bomb analysis')
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument('--out', type=Path, required=True)
@@ -39,9 +60,9 @@ def main():
     try:
         native_path = args.native_report.resolve()
         native = json.loads(native_path.read_text())
-        assert native['passed'] and native['native_updates'] == 2304
-        assert native['native_traces'] == 16 and native['compared_bytes'] == 106720
-        assert native['helper_sha256'] == sha(Path(__file__).with_name('original_bomb_cpu.py').read_bytes())
+        validate_native_report(native,
+            sha(Path(__file__).with_name('original_bomb_cpu.py').read_bytes()),
+            sha(Path(__file__).with_name('check_original_bomb_native.py').read_bytes()))
         report['independent_native_crosscheck'] = dict(path=str(native_path), sha256=sha(native_path.read_bytes()),
             native_traces=16, native_updates=2304, compared_bytes=106720, differing_bytes=0)
         shipped = load_levels(ROOT / 'LIVELS.SCH')[0]
@@ -54,28 +75,44 @@ def main():
         reads = defaultdict(set)
         writes = set()
         early_reads = defaultdict(set)
+        placement_reads = defaultdict(set)
+        update_reads = defaultdict(set)
+        placement_writes = set()
+        phase = 'placement'
 
         def observe(uc, access, address, size, value, user):
             for physical in range(max(address, slot), min(address + size, slot + 38)):
                 offset = physical - slot
                 if access == unicorn.UC_MEM_WRITE:
                     writes.add(offset)
+                    if phase == 'placement':
+                        placement_writes.add(offset)
                 else:
                     ip = uc.reg_read(UC_X86_REG_IP)
                     reads[offset].add(ip)
+                    (placement_reads if phase == 'placement' else update_reads)[offset].add(ip)
                     if offset not in writes:
                         early_reads[offset].add(ip)
 
         def execute(level, weapon, parity, velocities, stale, traced):
-            original.reset(level, weapon, 104, 168, *velocities, visual_cursor=2, stale=stale)
+            nonlocal phase
             reads.clear()
             writes.clear()
             early_reads.clear()
+            placement_reads.clear()
+            update_reads.clear()
+            placement_writes.clear()
+            phase = 'placement'
             hook = cpu.hook_add(unicorn.UC_HOOK_MEM_READ | unicorn.UC_HOOK_MEM_WRITE,
                                 observe, None, slot, slot + 37) if traced else None
             timeline = bytearray()
             instruction_count = 0
             try:
+                original.reset(level, weapon, 104, 168, *velocities, visual_cursor=2, stale=stale)
+                placement_memory = bytes(cpu.mem_read(0, 1024**2))
+                placement_instructions = original.instructions
+                placement_boundaries = dict(original.boundaries)
+                phase = 'updater'
                 for step in range(401):
                     actor, visual = original.update(parity + step)
                     timeline.extend(actor + visual)
@@ -92,6 +129,11 @@ def main():
                 UC_X86_REG_CS, UC_X86_REG_IP, UC_X86_REG_SP, UC_X86_REG_BP, UC_X86_REG_EFLAGS)]
             return dict(memory=bytes(cpu.mem_read(0, 1024**2)), timeline=bytes(timeline),
                         instructions=instruction_count, updates=step + 1, boundary=boundary,
+                        placement_memory=placement_memory, placement_instructions=placement_instructions,
+                        placement_boundaries=placement_boundaries,
+                        placement_writes=sorted(placement_writes),
+                        placement_reads={key: sorted(value) for key, value in placement_reads.items()},
+                        update_reads={key: sorted(value) for key, value in update_reads.items()},
                         reads={key: sorted(value) for key, value in reads.items()},
                         early_reads={key: sorted(value) for key, value in early_reads.items()})
 
@@ -105,10 +147,23 @@ def main():
             traced = execute(levels[scene], weapon, parity, velocities, stale, True)
             observed = {key: value for key, value in traced['reads'].items() if key in preserved}
             early = {key: value for key, value in traced['early_reads'].items() if key in preserved}
-            assert {0, 1, 2, 6, 7, 8, 9, 10, 12, 20, 21, 22, 27} <= set(traced['reads'])
+            assert {0, 1, 2, 6, 7, 8, 9, 10, 12, 20, 21, 22, 27} <= set(traced['update_reads'])
+            assert {0, 1, 2, *range(6, 14), *range(20, 29)} <= set(traced['placement_writes'])
             untraced = execute(levels[scene], weapon, parity, velocities, stale, False)
-            for field in ('memory', 'timeline', 'instructions', 'updates', 'boundary'):
-                assert traced[field] == untraced[field], ('observer changed execution', field)
+            for field in ('memory', 'timeline', 'instructions', 'updates', 'boundary',
+                          'placement_memory', 'placement_instructions', 'placement_boundaries'):
+                if traced[field] != untraced[field]:
+                    mismatch = dict(field=field)
+                    if isinstance(traced[field], bytes):
+                        mismatch.update(traced_sha256=sha(traced[field]),
+                            untraced_sha256=sha(untraced[field]),
+                            first_differing_offsets=[index for index, pair in
+                                enumerate(zip(traced[field], untraced[field])) if pair[0] != pair[1]][:32])
+                    else:
+                        mismatch.update(traced=repr(traced[field])[:1000],
+                                        untraced=repr(untraced[field])[:1000])
+                    report['observer_mismatch'] = mismatch
+                    raise ValueError('observer changed execution: ' + field)
             masked_timeline = bytearray(traced['timeline'])
             for base in range(0, len(masked_timeline), 46):
                 for offset in preserved:
@@ -123,6 +178,12 @@ def main():
                 instructions=traced['instructions'], observer_neutrality_verified=True,
                 compared_mapped_memory_bytes=1024**2, masked_final_state_sha256=projection,
                 masked_timeline_sha256=sha(masked_timeline), preserved_reads=observed,
+                placement_observed=True, placement_instructions=traced['placement_instructions'],
+                placement_write_offsets=traced['placement_writes'],
+                preserved_placement_reads={key: value for key, value in traced['placement_reads'].items()
+                                           if key in preserved},
+                preserved_update_reads={key: value for key, value in traced['update_reads'].items()
+                                        if key in preserved},
                 preserved_read_before_write=early, helpers_entered=dict(original.entries))
             report['cases'].append(row)
             groups[(weapon, parity, scene, velocities)].append(row)
@@ -137,6 +198,8 @@ def main():
             complete_updates=13872, complete_expiry_paths=96,
             traced_and_untraced_updates=27744, observer_neutrality_cases=96,
             positive_read_controls_verified=True, preserved_offsets=preserved,
+            placement_and_update_observed=True, placement_observer_neutrality_cases=96,
+            positive_placement_write_controls_verified=True,
             preserved_offsets_read=sorted({int(key) for row in report['cases'] for key in row['preserved_reads']}),
             differential_groups_with_outside_preserved_differences=differences,
             helper_sha256=sha(Path(__file__).with_name('original_bomb_cpu.py').read_bytes()),

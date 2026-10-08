@@ -15,15 +15,23 @@ The validated executor then ran 96 controlled poisoned-slot lifetimes:
 four weapons, both countdown parities, two input-velocity pairs, shipped
 Level 1 or an explicitly empty map, and three previous-slot byte patterns.
 This covers 13,872 complete updates and 96 complete expiry paths. None of
-the 18 non-animation bytes preserved by placement was read, and all 32
+the 18 non-animation bytes preserved by placement was read during placement
+or subsequent updates, and all 32
 three-pattern groups matched outside those preserved bytes.
 
-Positive controls require reads of the actor's kind, visual index, timer,
-velocity, fractions, hotspot, behavior and animation fields. In each case,
-memory-observed and unobserved execution agree on all 1 MiB of mapped
-memory, the complete pre-expiry timeline, instruction counts, return
+Positive controls require placement writes and updater reads of the actor's
+kind, visual index, timer, velocity, fractions, hotspot, behavior and animation
+fields. Placement controls verify writes without requiring target reads. In each case,
+memory observation starts before the constructor/caller, with placement and
+updater reads recorded separately. Observed and unobserved execution agree
+on all 1 MiB of mapped memory after placement and after expiry, as well as
+the constructor boundaries, complete pre-expiry timeline, instruction counts, return
 registers and FLAGS. Original instructions are not patched, original calls
 are not stubbed, and interrupts/hardware I/O are rejected.
+
+Every controlled case restores the same complete loaded-memory image and CPU
+context before applying its map/slot inputs. This prevents residual stack or
+register state from a previous expiry from contaminating the placement comparison.
 
 ## Why The Caller Matters
 
@@ -64,13 +72,16 @@ Use fresh output filenames. The reports are retained on comparison or
 execution failure. Original executable, level data and native descriptors
 are hash-pinned. The 16 native traces are also pinned; sparse checkouts may
 read their exact committed blobs instead of materializing them. The native
-cross-check must match the executor source hash before the lifetime probe
-will accept it.
+cross-check must match the executor and checker source hashes, the complete
+16-trace name/hash set, and expected totals before the lifetime probe accepts it.
 
 The lifetime probe fails closed if any preserved byte is read or a stale
-pattern changes state outside those bytes. Eight standard-library contract
+pattern changes state outside those bytes. Sixteen standard-library contract
 regressions cover LF/CRLF fixtures, trace corruption/truncation, unregistered
-traces, and clean/contradictory lifetime outcomes without importing Unicorn.
+traces, clean/contradictory lifetime outcomes, stale prerequisite producers,
+modified/missing/duplicate trace identities, and optimized Python without
+importing Unicorn. Both CLIs reject `-O` and `PYTHONOPTIMIZE`; the outcome
+validators also use explicit exceptions that remain active under optimization.
 
 ## Boundaries
 

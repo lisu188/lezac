@@ -5,7 +5,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from capture_original_bomb_lifetime import validate_lifetime_result
+from capture_original_bomb_lifetime import validate_lifetime_result, validate_native_report
+from check_original_bomb_native import NATIVE_FIXTURES
 
 ROOT = Path(__file__).resolve().parents[1]
 CHECKER = ROOT / 'tools/check_original_bomb_native.py'
@@ -75,20 +76,74 @@ class NativeBombContractTests(unittest.TestCase):
             differential_groups_with_outside_preserved_differences=[]))
 
     def test_preserved_byte_read_rejected(self):
-        with self.assertRaisesRegex(AssertionError, 'preserved constructor bytes were read'):
+        with self.assertRaisesRegex(ValueError, 'preserved constructor bytes were read'):
             validate_lifetime_result(dict(preserved_offsets_read=[3],
                 differential_groups_with_outside_preserved_differences=[]))
 
     def test_stale_pattern_difference_rejected(self):
-        with self.assertRaisesRegex(AssertionError, 'changed state outside preserved bytes'):
+        with self.assertRaisesRegex(ValueError, 'changed state outside preserved bytes'):
             validate_lifetime_result(dict(preserved_offsets_read=[],
                 differential_groups_with_outside_preserved_differences=[
                     dict(group=[1, 0, 'shipped_level1', [0, 0]], field='masked_timeline_sha256')]))
+
+    def native_report(self):
+        return dict(passed=True, native_traces=16, native_updates=2304, compared_bytes=106720,
+            helper_sha256='executor', generator_sha256='checker',
+            traces=[dict(name=name, sha256=value) for name, value in NATIVE_FIXTURES.items()])
+
+    def test_current_native_report_accepted(self):
+        validate_native_report(self.native_report(), 'executor', 'checker')
+
+    def test_stale_checker_report_rejected(self):
+        report = self.native_report()
+        report['generator_sha256'] = 'old-checker'
+        with self.assertRaisesRegex(ValueError, 'checker hash mismatch'):
+            validate_native_report(report, 'executor', 'checker')
+
+    def test_changed_fixture_report_rejected(self):
+        report = self.native_report()
+        report['traces'][0]['sha256'] = 'modified-fixture'
+        with self.assertRaisesRegex(ValueError, 'trace identities mismatch'):
+            validate_native_report(report, 'executor', 'checker')
+
+    def test_missing_fixture_report_rejected(self):
+        report = self.native_report()
+        report['traces'].pop()
+        with self.assertRaisesRegex(ValueError, 'trace count mismatch'):
+            validate_native_report(report, 'executor', 'checker')
+
+    def test_duplicate_fixture_report_rejected(self):
+        report = self.native_report()
+        report['traces'][-1] = report['traces'][0].copy()
+        with self.assertRaisesRegex(ValueError, 'trace identities mismatch'):
+            validate_native_report(report, 'executor', 'checker')
+
+    def test_optimized_checker_rejected(self):
+        result = subprocess.run([sys.executable, '-O', '-S', '-B', str(CHECKER), '--self-check'],
+            capture_output=True, text=True, timeout=30)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('optimized Python is not supported', result.stderr)
+
+    def test_optimized_lifetime_rejected(self):
+        result = subprocess.run([sys.executable, '-S', '-B',
+            str(ROOT / 'tools/capture_original_bomb_lifetime.py'), '--help'],
+            env=dict(os.environ, PYTHONOPTIMIZE='1'), capture_output=True, text=True, timeout=30)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('optimized Python is not supported', result.stderr)
+
+    def test_optimized_validation_rejects_mismatch(self):
+        result = subprocess.run([sys.executable, '-O', '-S', '-B', '-c',
+            "from capture_original_bomb_lifetime import validate_lifetime_result;"
+            "validate_lifetime_result({'preserved_offsets_read':[3],"
+            "'differential_groups_with_outside_preserved_differences':[]})"],
+            cwd=ROOT / 'tools', capture_output=True, text=True, timeout=30)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('preserved constructor bytes were read', result.stderr)
 
 
 if __name__ == '__main__':
     result = unittest.TextTestRunner(verbosity=2).run(
         unittest.defaultTestLoader.loadTestsFromTestCase(NativeBombContractTests))
     if result.wasSuccessful():
-        print('original_bomb_native_contract=ok tests=8 executor_required=0')
+        print('original_bomb_native_contract=ok tests=16 executor_required=0')
     raise SystemExit(0 if result.wasSuccessful() else 1)

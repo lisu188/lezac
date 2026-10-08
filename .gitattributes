@@ -19,6 +19,8 @@ tests/gameplay/actor_constructor_velocity_original.bin.gz -text
 tests/gameplay/collapse_contacts_original.json -text
 tests/gameplay/collapse_contacts_original.bin.gz -text
 tests/gameplay/flame_contact_word_original.json -text
+tests/gameplay/pickup_post_init_original.json -text
+tests/gameplay/pickup_post_init_original.bin.gz -text
 tests/fixtures/level1_original/** -text
 tests/fixtures/level1_results/** -text
 tests/fixtures/startup_rng_original/** -text

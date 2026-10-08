@@ -24482,6 +24482,105 @@ public:
                   << std::hex << inspected.hash << std::dec << '\n';
     }
 
+    void debugOriginalPickupPostInit(const std::string& outputPath) {
+        SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
+        load();
+        std::ofstream output(outputPath, std::ios::binary);
+        if (!output) throw std::runtime_error("cannot open pickup post-init output");
+        const std::array<ActorAnimation, 3> patterns{{
+            {71, 69, 79, 1, 2, 1, 1}, {79, 69, 79, 250, 2, 2, -1}, {0, 0, 0, 0, 0, 0, 1}}};
+        int cases = 0;
+        for (const auto& boundary : std::array<std::array<int, 2>, 8>{{
+                 {{0, 0}}, {{1, 0}}, {{29, 0}}, {{29, 13}}, {{29, 14}},
+                 {{30, 0}}, {{30, 13}}, {{30, 14}}}}) {
+            const int count = boundary[0], pickups = boundary[1];
+            for (int category = 0; category < 5; ++category) {
+                for (const auto& animation : patterns) {
+                    for (uint32_t seed : {0x12345678u, 0xffffffffu}) {
+                        for (int sprite : {80, 90}) {
+                            resetLevel(0);
+                            monsters_.clear(); bombs_.clear(); bonusDrops_.clear();
+                            launchPadMarkers_.clear(); transientActors_.clear();
+                            level_.width = level_.height = 32;
+                            level_.tiles.assign(1024, 0);
+                            level_.wordLayer.assign(1024, 0);
+                            for (int i = 0; i < count; ++i) {
+                                const uint64_t order = static_cast<uint64_t>(i + 1);
+                                if (i != count - 1 || category == 0) {
+                                    TransientActor actor;
+                                    actor.actorOrder = order; actor.kind = i < pickups ? 0x0a : 0x0b;
+                                    actor.timer = 200; actor.animation = animation;
+                                    transientActors_.push_back(actor);
+                                } else if (category == 1) {
+                                    LaunchPadMarker marker;
+                                    marker.actorOrder = order; marker.animation = animation; marker.frame = 91;
+                                    launchPadMarkers_.push_back(marker);
+                                } else if (category == 2) {
+                                    ActiveMonster monster;
+                                    monster.actorOrder = order; monster.kind = 1; monster.animFrame = 43;
+                                    monster.animCursor = static_cast<uint8_t>(animation.current - 1);
+                                    monster.animStart = static_cast<uint8_t>(animation.first - 1);
+                                    monster.animEnd = static_cast<uint8_t>(animation.last - 1);
+                                    monster.animTick = animation.counter; monster.animDelay = animation.delay;
+                                    monster.animMode = animation.mode; monster.animStep = animation.step;
+                                    monsters_.push_back(monster);
+                                } else if (category == 3) {
+                                    BonusDrop reward;
+                                    reward.actorOrder = order; reward.animation = animation;
+                                    bonusDrops_.push_back(reward);
+                                } else {
+                                    Bomb bomb;
+                                    bomb.actorOrder = order; bombs_.push_back(bomb);
+                                }
+                            }
+                            randomSeed_ = seed;
+                            player_.x = 184; player_.y = 160;
+                            tileRef(23, 20) = static_cast<uint8_t>(sprite == 80 ? 0x67 : 0x71);
+                            collectObjectiveTiles(player_, 1);
+                            const auto entries = sharedActorEntries();
+                            if (entries.size() != sharedActorCount())
+                                throw std::runtime_error("pickup post-init live-count mismatch");
+                            output.put(static_cast<char>(entries.size()));
+                            output.put(static_cast<char>(pickupActorCount()));
+                            for (int shift : {0, 8, 16, 24})
+                                output.put(static_cast<char>(randomSeed_ >> shift));
+                            for (const auto& entry : entries) {
+                                ActorAnimation actual{0, 0, 0, 0, 0, 0, 1};
+                                switch (entry.kind) {
+                                    case SharedActorKind::Effect: actual = transientActors_[entry.index].animation; break;
+                                    case SharedActorKind::Marker:
+                                        actual = launchPadMarkers_[entry.index].animation;
+                                        if (launchPadMarkers_[entry.index].frame != 91)
+                                            throw std::runtime_error("pickup reset changed visible marker");
+                                        break;
+                                    case SharedActorKind::Reward: actual = bonusDrops_[entry.index].animation; break;
+                                    case SharedActorKind::Monster: {
+                                        const auto& monster = monsters_[entry.index];
+                                        actual = {static_cast<uint8_t>(monster.animCursor + 1),
+                                            static_cast<uint8_t>(monster.animStart + 1),
+                                            static_cast<uint8_t>(monster.animEnd + 1),
+                                            static_cast<uint8_t>(monster.animTick), monster.animDelay,
+                                            monster.animMode, monster.animStep};
+                                        if (monster.animFrame != 43)
+                                            throw std::runtime_error("pickup reset changed visible monster");
+                                        break;
+                                    }
+                                    case SharedActorKind::Bomb: break;
+                                }
+                                const auto packed = actual.packed();
+                                output.write(reinterpret_cast<const char*>(packed.data()), packed.size());
+                            }
+                            ++cases;
+                        }
+                    }
+                }
+            }
+        }
+        output.flush();
+        if (!output) throw std::runtime_error("cannot write pickup post-init output");
+        std::cout << "pickup_post_init_probe=ok cases=" << cases << " audio=dummy\n";
+    }
+
     void debugTransientActorLimits() {
         load();
         initSdl();
@@ -27184,6 +27283,28 @@ private:
         collectObjectiveTiles(player, playerIndex, static_cast<int>(player.x), static_cast<int>(player.y));
     }
 
+    void initializePickupTailAnimation() {
+        // 1000:6DDD..6DF3 initializes DS:208D even if 2F9F refused allocation.
+        const auto entries = sharedActorEntries();
+        if (entries.empty()) return;
+        const auto& entry = entries.back();
+        const ActorAnimation stopped{0, 0, 0, 0, 0, 0, 1};
+        switch (entry.kind) {
+            case SharedActorKind::Effect: transientActors_[entry.index].animation = stopped; break;
+            case SharedActorKind::Marker: launchPadMarkers_[entry.index].animation = stopped; break;
+            case SharedActorKind::Reward: bonusDrops_[entry.index].animation = stopped; break;
+            case SharedActorKind::Monster: {
+                auto& monster = monsters_[entry.index];
+                // Monster cursors/ranges are zero-based; visible animFrame stays latched.
+                monster.animCursor = monster.animStart = monster.animEnd = 0xff;
+                monster.animTick = monster.animDelay = monster.animMode = 0;
+                monster.animStep = 1;
+                break;
+            }
+            case SharedActorKind::Bomb: break; // Bombs have an implicit stopped cursor.
+        }
+    }
+
     void collectObjectiveTiles(const Player& player, uint8_t playerIndex, int originX, int originY) {
         // 1000:6CB8..6DAA visits the cached actor interior clockwise. Scores
         // are DS:0002..0019, file 0xB192; consume/seeder are 5AFD / 370E.
@@ -27211,6 +27332,7 @@ private:
                 spawnTransientActor(originX + (x == x0 ? -2 : 10),
                     originY + (y == y0 ? -2 : 10), vy8,
                     pickupSprites[tile - 0x67], 0x0a, 12);
+                initializePickupTailAnimation();
             }
         }
         if (score != 0) {
@@ -30611,6 +30733,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-flame-lifecycle-original") {
             app.debugFlameLifecycleOriginal(argv[2], argc > 3 ? argv[3] : "");
+            return 0;
+        }
+        if (argc == 3 && std::string(argv[1]) == "--debug-original-pickup-post-init") {
+            app.debugOriginalPickupPostInit(argv[2]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-transient-actor-limits") {

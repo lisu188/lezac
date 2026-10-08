@@ -74,6 +74,10 @@ def require_field(fields: dict[str, str], name: str, record: str) -> int:
 
 
 def parse_fixture(path: Path) -> tuple[dict[str, str], dict[str, dict[str, str]], list[tuple[int, int, int, int]], int]:
+    return parse_fixture_text(path.read_text(encoding="utf-8"))
+
+
+def parse_fixture_text(text: str) -> tuple[dict[str, str], dict[str, dict[str, str]], list[tuple[int, int, int, int]], int]:
     values: dict[str, str] = {}
     records: dict[str, dict[str, str]] = {}
     breaks: list[tuple[int, int, int, int]] = []
@@ -84,7 +88,7 @@ def parse_fixture(path: Path) -> tuple[dict[str, str], dict[str, dict[str, str]]
         r"runtime=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\s+label=([^\s]+).*$"
     )
     row_re = re.compile(r"^([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\s+(.+)$")
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
+    for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
@@ -105,6 +109,8 @@ def parse_fixture(path: Path) -> tuple[dict[str, str], dict[str, dict[str, str]]
             continue
         if line.startswith(("spawner ", "actor_before ", "actor_after ", "players ")):
             record, fields = parse_record(line)
+            if record in records:
+                raise RuntimeError(f"duplicate record record={record}")
             records[record] = fields
             continue
         match = row_re.match(line)
@@ -250,6 +256,21 @@ def check_parser_rejection_guards(path: Path) -> int:
             f"missing field record={record} field={name}",
         )
         guards += 1
+    baseline_lines = path.read_text(encoding="utf-8").splitlines()
+    for record in required:
+        index = next(i for i, line in enumerate(baseline_lines) if line.startswith(record + " "))
+        invalid_fields = dict(records[record])
+        invalid_fields[next(iter(invalid_fields))] = "999999"
+        invalid_line = record + " " + " ".join(f"{key}={value}" for key, value in invalid_fields.items())
+        for duplicate in (baseline_lines[index], invalid_line):
+            for insertion in (index, index + 1):
+                candidate = list(baseline_lines)
+                candidate.insert(insertion, duplicate)
+                require_rejection(
+                    lambda: parse_fixture_text("\n".join(candidate)),
+                    f"duplicate record record={record}",
+                )
+                guards += 1
     return guards
 
 

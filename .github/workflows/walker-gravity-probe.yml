@@ -5,6 +5,11 @@ on:
     paths:
       - tools/capture_original_walker_gravity.py
       - tools/check_walker_gravity_word_fixture.py
+      - tools/capture_original_behavior4_targets.py
+      - tools/capture_original_behavior4_lockstep.py
+      - tools/capture_original_death_transients.py
+      - tools/capture_original_bomb_fuses.py
+      - tools/seed_original_level.py
       - tests/fixtures/walker_gravity_word_original.bin
       - .github/workflows/walker-gravity-probe.yml
   workflow_dispatch:

@@ -14,6 +14,10 @@ state transitions. The [clocked playback follow-up](clocked_sound_2026-10-08.md)
 integrates those transitions into interactive and replay scheduling, retaining
 priority through menus, pause and replacement requests. Original IRQ cadence
 and phase, hardware waveform and whole-game sound parity remain open.
+The PR #308 long-stall review finding has a bounded catch-up implementation:
+discarded time advances logical IRQ state without PCM allocation, while only
+the latest 200 ms is synthesized. Exact logical-state and bounded-output tests
+are required on the fresh head; skipped-interval PCM equivalence is not claimed.
 The earlier claim was based on a subsystem inventory and compatible tests,
 not a complete comparison with original behavior. The 2026-09-05 player and
 collapse captures exposed absent pickup handling and a placeholder collapse

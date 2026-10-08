@@ -9910,10 +9910,23 @@ public:
                 "sound timestamp rollover changed elapsed time or reset the IRQ clock");
         require(audioOutput_.enabled() == withDevice && audioOutput_.queuedBytes() <= 11024,
                 "clocked audio device state differs or queue is unbounded");
+        const auto beforeStall = sound_.clockState();
+        constexpr uint64_t stalledSamples = uint64_t{8} * 60 * 60 * kAudioSampleRate;
+        constexpr uint64_t threshold = uint64_t{kAudioSampleRate} * lezac::sound::kBiosTimerDivisor;
+        replayMilliseconds_ += 8 * 60 * 60 * 1000;
+        processEvents(running);
+        const auto afterStall = sound_.clockState();
+        const uint64_t scaledStall = beforeStall.pitAccumulator + stalledSamples * lezac::sound::kPitClockRate;
+        require(afterStall.renderedSamples == beforeStall.renderedSamples + stalledSamples &&
+                afterStall.interrupts == beforeStall.interrupts + scaledStall / threshold &&
+                afterStall.pitAccumulator == scaledStall % threshold &&
+                !sound_.latch().active && !sound_.speakerState().enabled &&
+                audioOutput_.queuedBytes() <= 11024,
+                "eight-hour catch-up changed logical state or exceeded the queue bound");
         clockedSoundEnabled_ = false;
         replayClockEnabled_ = false;
         std::cout << "clocked_sound_app=ok menu=1 pause=1 pending_priority=1 terminal_order=1"
-                  << " rollover=1 replay_clock=1 bounded_queue=1 frames=2 native_timing_claim=0"
+                  << " rollover=1 replay_clock=1 bounded_queue=1 frames=2 long_stall=1 bounded_tail=4410 native_timing_claim=0"
                   << " device_enabled=" << withDevice << " audio=dummy\n";
     }
 
@@ -25909,12 +25922,11 @@ private:
         soundClockMilliseconds_ = now;
         const uint64_t scaled = uint64_t{elapsed} * kAudioSampleRate + soundSampleRemainder_;
         soundSampleRemainder_ = static_cast<uint32_t>(scaled % 1000);
-        uint64_t remaining = scaled / 1000;
-        while (remaining != 0) {
-            const size_t count = static_cast<size_t>(std::min<uint64_t>(remaining, kAudioSampleRate / 50));
-            audioOutput_.playClockedSamples(sound_.renderClockedSamples(count));
-            remaining -= count;
+        const uint64_t remaining = scaled / 1000;
+        if (remaining > lezac::sound::kMaximumClockedTailSamples) {
+            audioOutput_.discardClockedSamples();
         }
+        audioOutput_.playClockedSamples(sound_.renderClockedTail(remaining));
     }
 
     bool latchSoundRequest(uint16_t cursor, uint8_t selector) {

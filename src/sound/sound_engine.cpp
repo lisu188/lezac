@@ -205,23 +205,84 @@ std::vector<int16_t> SoundEngine::renderClockedSamples(size_t sampleCount) {
         soundClock_.renderedSamples += count;
         if (soundClock_.pitAccumulator < threshold) continue;
         soundClock_.pitAccumulator -= threshold;
-        ++soundClock_.interrupts;
-        const SoundLatch before = soundLatch_;
-        const SoundInterruptAction action = advanceSoundInterrupt();
-        if (action.programTone) {
-            lastPumpedSoundRecord_ = static_cast<int>(before.recordIndex);
-            lastPumpedSoundOffset_ = before.latchedOffset;
-            lastPumpedSoundSelector_ = before.currentSelector;
-            const uint16_t divisor = speakerDivisorForFrequency(action.frequency);
-            if (divisor != 0) {
-                speaker_.divisor = divisor;
-                speaker_.enabled = true;
-            }
-        }
-        // A terminal direct sweep programs its last tone before disabling it.
-        if (action.silence) speaker_.enabled = false;
+        applyClockedInterrupt();
     }
     return samples;
+}
+
+void SoundEngine::applyClockedInterrupt() {
+    ++soundClock_.interrupts;
+    const SoundLatch before = soundLatch_;
+    const SoundInterruptAction action = advanceSoundInterrupt();
+    if (action.programTone) {
+        lastPumpedSoundRecord_ = static_cast<int>(before.recordIndex);
+        lastPumpedSoundOffset_ = before.latchedOffset;
+        lastPumpedSoundSelector_ = before.currentSelector;
+        const uint16_t divisor = speakerDivisorForFrequency(action.frequency);
+        if (divisor != 0) {
+            speaker_.divisor = divisor;
+            speaker_.enabled = true;
+        }
+    }
+    // A terminal direct sweep programs its last tone before disabling it.
+    if (action.silence) speaker_.enabled = false;
+}
+
+void SoundEngine::advanceSpeakerPhase(uint64_t sampleCount) {
+    if (!speaker_.enabled || speaker_.divisor == 0) return;
+    double increment = 1193182.0 /
+        (static_cast<double>(speaker_.divisor) * static_cast<double>(kAudioSampleRate));
+    increment -= std::floor(increment);
+    // Modular doubling avoids both a per-sample loop and a large floating
+    // product. Skipped PCM is not emitted; accumulated roundoff can differ
+    // from repeated sample additions, but the oscillator increment is unchanged.
+    while (sampleCount != 0) {
+        if (sampleCount & 1) {
+            speaker_.phase += increment;
+            if (speaker_.phase >= 1.0) speaker_.phase -= 1.0;
+        }
+        increment *= 2.0;
+        if (increment >= 1.0) increment -= 1.0;
+        sampleCount >>= 1;
+    }
+}
+
+uint64_t SoundEngine::skipClockedSamples(uint64_t sampleCount) {
+    constexpr uint64_t threshold = uint64_t{kAudioSampleRate} * kBiosTimerDivisor;
+    uint64_t visitedInterrupts = 0;
+    while (sampleCount != 0) {
+        if (!soundLatch_.active) {
+            advanceSpeakerPhase(sampleCount);
+            // Split the product so even a uint64_t-sized interval cannot
+            // overflow before division by the rational clock threshold.
+            const uint64_t whole = sampleCount / threshold;
+            const uint64_t partial = (sampleCount % threshold) * kPitClockRate + soundClock_.pitAccumulator;
+            soundClock_.interrupts += whole * kPitClockRate + partial / threshold;
+            soundClock_.pitAccumulator = partial % threshold;
+            soundClock_.renderedSamples += sampleCount;
+            break;
+        }
+        const uint64_t untilInterrupt =
+            (threshold - soundClock_.pitAccumulator + kPitClockRate - 1) / kPitClockRate;
+        const uint64_t count = std::min(sampleCount, untilInterrupt);
+        advanceSpeakerPhase(count);
+        soundClock_.pitAccumulator += count * kPitClockRate;
+        soundClock_.renderedSamples += count;
+        sampleCount -= count;
+        if (soundClock_.pitAccumulator < threshold) continue;
+        soundClock_.pitAccumulator -= threshold;
+        applyClockedInterrupt();
+        ++visitedInterrupts;
+    }
+    return visitedInterrupts;
+}
+
+std::vector<int16_t> SoundEngine::renderClockedTail(uint64_t sampleCount) {
+    if (sampleCount > kMaximumClockedTailSamples) {
+        skipClockedSamples(sampleCount - kMaximumClockedTailSamples);
+        sampleCount = kMaximumClockedTailSamples;
+    }
+    return renderClockedSamples(static_cast<size_t>(sampleCount));
 }
 
 void SoundEngine::clearSoundLatch() {

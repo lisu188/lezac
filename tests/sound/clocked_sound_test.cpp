@@ -2,6 +2,7 @@
 #include "sound/sound_engine.hpp"
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <iostream>
 #include <initializer_list>
 #include <stdexcept>
@@ -38,7 +39,7 @@ SoundBank synthetic(std::initializer_list<std::array<uint16_t, 3>> entries) {
     return bank;
 }
 
-void sameState(const SoundEngine& a, const SoundEngine& b) {
+void sameState(const SoundEngine& a, const SoundEngine& b, bool exactPhase = true, bool sameClock = true) {
     const auto x = a.latch(), y = b.latch();
     const auto p = a.interruptState(), q = b.interruptState();
     const auto c = a.clockState(), d = b.clockState();
@@ -47,9 +48,22 @@ void sameState(const SoundEngine& a, const SoundEngine& b) {
             x.currentSelector == y.currentSelector && x.recordIndex == y.recordIndex &&
             x.directSweep == y.directSweep && p.accumulator == q.accumulator &&
             p.gateTick == q.gateTick && p.periodTicks == q.periodTicks &&
-            c.pitAccumulator == d.pitAccumulator && c.interrupts == d.interrupts &&
-            c.renderedSamples == d.renderedSamples && s.enabled == t.enabled &&
-            s.divisor == t.divisor && s.phase == t.phase, "render partition changed state");
+            (!sameClock || (c.pitAccumulator == d.pitAccumulator && c.interrupts == d.interrupts &&
+            c.renderedSamples == d.renderedSamples)) && s.enabled == t.enabled &&
+            s.divisor == t.divisor, "sound state differs");
+    const double difference = std::abs(s.phase - t.phase);
+    require(exactPhase ? s.phase == t.phase : std::min(difference, 1.0 - difference) < 1e-9,
+            "oscillator phase differs beyond roundoff");
+    const auto played = a.lastPumped(), reference = b.lastPumped();
+    require(played.record == reference.record && played.offset == reference.offset &&
+            played.selector == reference.selector, "last programmed sound differs");
+}
+
+void expectedClock(const SoundEngine& engine, uint64_t samples) {
+    constexpr uint64_t threshold = uint64_t{22050} * 65536;
+    const auto clock = engine.clockState();
+    require(clock.renderedSamples == samples && clock.interrupts == samples * 1193182 / threshold &&
+            clock.pitAccumulator == samples * 1193182 % threshold, "catch-up rational clock differs");
 }
 }
 
@@ -161,8 +175,77 @@ int main(int argc, char** argv) {
         through(wrap, 257);
         require(!wrap.latch().active && wrap.latch().latchedOffset == 2 &&
                 !wrap.speakerState().enabled, "zero period wrap did not reach stop");
+
+        constexpr uint64_t eightHours = uint64_t{8} * 60 * 60 * 22050;
+        for (uint16_t cursor : starts) {
+            SoundEngine reference(bank), caughtUp(bank);
+            reference.requestSoundCursor(cursor, 5);
+            caughtUp.requestSoundCursor(cursor, 5);
+            reference.renderClockedSamples(500000);
+            require(!reference.latch().active && !reference.speakerState().enabled,
+                    "reference trajectory did not terminate within its tested bound");
+            const auto tail = caughtUp.renderClockedTail(eightHours);
+            require(tail.size() == 4410 && silent(tail), "long stall did not retain only the silent tail");
+            sameState(reference, caughtUp, false, false);
+            expectedClock(caughtUp, eightHours);
+        }
+        SoundEngine activeReference(wrapBank), activeTail(wrapBank);
+        activeReference.requestSoundCursor(0, 5);
+        activeTail.requestSoundCursor(0, 5);
+        const auto allActive = activeReference.renderClockedSamples(100000);
+        const auto keptActive = activeTail.renderClockedTail(100000);
+        require(keptActive.size() == 4410 && !silent(keptActive) && activeTail.latch().active &&
+                std::equal(keptActive.begin(), keptActive.end(), allActive.end() - keptActive.size()),
+                "active catch-up changed the retained PCM tail");
+        sameState(activeReference, activeTail, false);
+
+        const std::array<const SoundBank*, 4> catchupBanks{&ignoredBank, &gateBank, &replacementBank, &wrapBank};
+        constexpr std::array<SoundInterruptState, 3> inherited{{{0, 0, 1}, {254, 255, 0}, {17, 5, 3}}};
+        constexpr std::array<size_t, 10> intervals{0, 1, 1211, 1212, 2205, 4410, 4411, 10000, 100000, 400000};
+        for (const auto* testedBank : catchupBanks) {
+            for (const auto phase : inherited) {
+                for (const auto count : intervals) {
+                    SoundEngine reference(*testedBank), caughtUp(*testedBank);
+                    reference.restoreInterruptForFixture(phase);
+                    caughtUp.restoreInterruptForFixture(phase);
+                    reference.requestSoundCursor(0, 5);
+                    caughtUp.requestSoundCursor(0, 5);
+                    reference.renderClockedSamples(count);
+                    const auto tail = caughtUp.renderClockedTail(count);
+                    require(tail.size() == std::min(count, kMaximumClockedTailSamples),
+                            "catch-up synthesized more than the queue can retain");
+                    sameState(reference, caughtUp, count <= kMaximumClockedTailSamples);
+                }
+            }
+        }
+
+        constexpr uint64_t maximumHostGap = uint64_t{0xffffffffu} * 22050 / 1000;
+        SoundEngine longestSweep(bank);
+        longestSweep.requestSoundCursor(0xffff, 5);
+        const auto visited = longestSweep.skipClockedSamples(maximumHostGap);
+        require(visited == 1384 && !longestSweep.latch().active &&
+                !longestSweep.speakerState().enabled, "maximum sweep catch-up work was not bounded");
+        expectedClock(longestSweep, maximumHostGap);
+
+        SoundEngine heldWhole(ignoredBank), heldPieces(ignoredBank);
+        heldWhole.requestSoundCursor(0, 5);
+        heldPieces.requestSoundCursor(0, 5);
+        through(heldWhole, 1);
+        through(heldPieces, 1);
+        heldWhole.clearSoundLatch();
+        heldPieces.clearSoundLatch();
+        const auto heldPhase = heldWhole.interruptState();
+        require(heldWhole.skipClockedSamples(eightHours) == 0,
+                "inactive retained tone visited IRQs individually");
+        heldPieces.skipClockedSamples(eightHours / 3);
+        heldPieces.skipClockedSamples(eightHours - eightHours / 3);
+        sameState(heldWhole, heldPieces, false);
+        require(heldWhole.speakerState().enabled &&
+                heldWhole.interruptState().accumulator == heldPhase.accumulator,
+                "cleared latch lost its retained speaker or changed IRQ counters");
         std::cout << "clocked_sound=ok boundaries=1000 trajectories=16 terminal_order=1"
                   << " priority_lifetime=1 ignored_commands=2 replacement_phase=1 period_zero=1"
+                  << " catchup_states=136 active_tail=1 long_stalls=2 sustained_tone=1 skipped_pcm_claim=0"
                   << " native_timing_claim=0\n";
     } catch (const std::exception& error) {
         std::cerr << "clocked_sound=failed " << error.what() << '\n';

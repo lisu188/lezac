@@ -51,12 +51,18 @@ public:
     SoundInterruptAction advanceSoundInterrupt();
     // Persistent default BIOS-clock playback; no SDL or gameplay-tick dependency.
     std::vector<int16_t> renderClockedSamples(size_t sampleCount);
+    // Advance discarded host-time samples without allocating PCM. Returns
+    // the number of active interrupt transitions actually visited.
+    uint64_t skipClockedSamples(uint64_t sampleCount);
+    std::vector<int16_t> renderClockedTail(uint64_t sampleCount);
     void clearSoundLatch();
     bool playCompatibilitySound(size_t hookSlot);
     std::vector<int16_t> pumpSoundLatch();
     std::vector<int16_t> playSound(size_t index, bool outputEnabled);
 
 private:
+    void applyClockedInterrupt();
+    void advanceSpeakerPhase(uint64_t sampleCount);
     const resources::SoundBank& sounds_;
     SoundLatch soundLatch_;
     SoundInterruptState soundInterrupt_;

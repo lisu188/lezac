@@ -11,6 +11,7 @@ public:
     explicit SoundEngine(const resources::SoundBank& sounds) : sounds_(sounds) {}
     const resources::SoundBank& bank() const { return sounds_; }
     SoundLatch latch() const { return soundLatch_; }
+    SoundInterruptState interruptState() const { return soundInterrupt_; }
     SoundPlaybackSnapshot lastPumped() const {
         return {lastPumpedSoundRecord_, lastPumpedSoundOffset_, lastPumpedSoundSelector_};
     }
@@ -21,6 +22,7 @@ public:
     void clearCompatibilityAttempts() { compatibilitySoundAttempts_.clear(); }
     // Explicit replay operations preserve existing diagnostic seed boundaries.
     void restoreLatchForFixture(SoundLatch latch) { soundLatch_ = latch; }
+    void restoreInterruptForFixture(SoundInterruptState state) { soundInterrupt_ = state; }
     void restorePlaybackForFixture(SoundPlaybackSnapshot playback) {
         lastPumpedSoundRecord_ = playback.record;
         lastPumpedSoundOffset_ = playback.offset;
@@ -42,6 +44,8 @@ public:
     bool latchSoundRequest(uint16_t cursor, uint8_t selector);
     bool requestSoundCursor(uint16_t cursor, uint8_t selector);
     bool requestSoundOffset(uint16_t offset, uint8_t selector);
+    // One original INT 1Ch transition. Host scheduling is deliberately separate.
+    SoundInterruptAction advanceSoundInterrupt();
     void clearSoundLatch();
     bool playCompatibilitySound(size_t hookSlot);
     std::vector<int16_t> pumpSoundLatch();
@@ -50,6 +54,7 @@ public:
 private:
     const resources::SoundBank& sounds_;
     SoundLatch soundLatch_;
+    SoundInterruptState soundInterrupt_;
     int lastPumpedSoundRecord_ = -1;
     uint16_t lastPumpedSoundOffset_ = 0;
     uint8_t lastPumpedSoundSelector_ = 0;

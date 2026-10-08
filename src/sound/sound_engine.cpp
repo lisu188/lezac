@@ -126,8 +126,11 @@ size_t SoundEngine::soundIndexForOffsetFallback(uint16_t offset, uint8_t selecto
 }
 
 bool SoundEngine::latchSoundRequest(uint16_t cursor, uint8_t selector) {
+    // Original byte DEC followed by CMP/JGE compares signed byte values.
+    const uint8_t previous = static_cast<uint8_t>(soundLatch_.currentSelector - 1u);
     bool accept = !soundLatch_.active ||
-                  static_cast<uint8_t>(soundLatch_.currentSelector - 1u) < selector;
+                  static_cast<uint8_t>(previous ^ 0x80u) <
+                      static_cast<uint8_t>(selector ^ 0x80u);
     if (!accept) return false;
     soundLatch_.active = true;
     soundLatch_.currentSelector = selector;
@@ -145,6 +148,39 @@ bool SoundEngine::requestSoundCursor(uint16_t cursor, uint8_t selector) {
 
 bool SoundEngine::requestSoundOffset(uint16_t offset, uint8_t selector) {
     return requestSoundCursor(offset, selector);
+}
+
+SoundInterruptAction SoundEngine::advanceSoundInterrupt() {
+    if (!soundLatch_.active) return {};
+    if (soundLatch_.latchedOffset > kDirectSoundThreshold) {
+        const uint16_t frequency = static_cast<uint16_t>(
+            soundLatch_.latchedOffset - kDirectSoundPeriodBase);
+        soundLatch_.latchedOffset = static_cast<uint16_t>(soundLatch_.latchedOffset - 4);
+        const bool ended = soundLatch_.latchedOffset <= kDirectSoundThreshold;
+        if (ended) soundLatch_.active = false;
+        return {frequency, true, ended};
+    }
+
+    soundInterrupt_.accumulator = static_cast<uint8_t>(soundInterrupt_.accumulator + 1);
+    if (soundInterrupt_.accumulator != soundInterrupt_.periodTicks) {
+        return {0, false, soundInterrupt_.accumulator == soundInterrupt_.gateTick};
+    }
+
+    const size_t index = soundLatch_.latchedOffset;
+    if (index >= sounds_.stepCount || index * kSoundStepSize + 3 >= sounds_.payload.size()) {
+        throw std::runtime_error("sound interrupt reads outside the recovered bank extent");
+    }
+    soundLatch_.latchedOffset = static_cast<uint16_t>(soundLatch_.latchedOffset + 1);
+    const uint16_t frequency = soundStepPeriodWord(index);
+    soundInterrupt_.accumulator = 0;
+    if (frequency == kSoundStopPeriod) {
+        soundLatch_.active = false;
+        soundInterrupt_.periodTicks = 1;
+        return {0, false, true};
+    }
+    soundInterrupt_.gateTick = soundStepGateTick(index);
+    soundInterrupt_.periodTicks = soundStepPeriodTicks(index);
+    return {frequency, true, false};
 }
 
 void SoundEngine::clearSoundLatch() {

@@ -31,9 +31,9 @@ inline constexpr size_t kCompatibilityObjectivePickupSound = 0;
 inline constexpr size_t kCompatibilityLevelCompleteSound = 5;
 inline constexpr size_t kObjectivePickupCompatibilityHookSlot = 0;
 inline constexpr size_t kLevelCompleteCompatibilityHookSlot = 1;
-// Diagnostic-only latch seed: a pending selector no captured hook priority can
-// outrank, used to show the hooks really go through the priority latch.
-inline constexpr uint8_t kCompatibilityLatchRejectionSeedPriority = 0xff;
+// Diagnostic-only: byte DEC turns 0x80 into signed 127, so JGE rejects every
+// pending byte. This shows that compatibility hooks use the priority latch.
+inline constexpr uint8_t kCompatibilityLatchRejectionSeedPriority = 0x80;
 struct RemainingSoundCompatibilityHook {
     const char* hook;
     size_t index;
@@ -154,6 +154,19 @@ struct SoundPlaybackSnapshot {
     int record = -1;
     uint16_t offset = 0;
     uint8_t selector = 0;
+};
+
+struct SoundInterruptState {
+    uint8_t accumulator = 0;
+    uint8_t gateTick = 0;
+    uint8_t periodTicks = 1;
+};
+
+struct SoundInterruptAction {
+    uint16_t frequency = 0;
+    bool programTone = false;
+    // When both are set, the original calls Sound(frequency) before NoSound().
+    bool silence = false;
 };
 
 }  // namespace lezac::sound

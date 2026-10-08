@@ -49,6 +49,13 @@ mutations. CI runs this before its unchanged complete suites on both platforms.
 Any failed input, reference and C++ output are retained and uploaded before
 later steps. Source/oracle checks alone do not establish compiled parity.
 
+The historical `debris_impacts_original.txt` and `debris_rest_original.txt`
+inputs are byte-preserved with `-text` attributes. Git's CRLF checkout otherwise
+changes both raw provenance hashes on Windows before the production comparison
+can run. An actual `checkout-index` with `core.autocrlf=true` and `core.eol=crlf`
+reproduced exactly those two mismatches before the attributes and none after.
+Neither fixture content nor its recorded hash is normalized or replaced.
+
 The collapse-seeding correction from #311 is a prerequisite for the diagonal
 low-word cascade case. Its running source and checks remain untouched.
 

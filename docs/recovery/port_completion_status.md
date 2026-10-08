@@ -69,6 +69,38 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [complete collapse updater oracle](collapse_update_oracle_2026-10-08.md)
+executes original `1000:5102` without instruction patches or call stubs. It
+independently reproduces all 27 retained native routine cases and supplies
+2,395 controlled cases for full live debris/collapse records, both map planes,
+RNG, destruction and fragment-word counters through the production updater.
+Actor creation executes but actor records, sound state, presentation, natural
+routes and whole-game fidelity are not compared. Broad claims remain false.
+
+The [complete debris updater oracle](debris_update_oracle_2026-10-08.md)
+executes the original full debris pass without call stubs or instruction
+patches. It independently reproduces 18 retained native collision/retirement
+cases and provides 1,061 controlled cases for complete live record, map-plane,
+count and RNG comparison through the production updater. Spark count is zero
+by setup; sound, rendering, full collapse updates and natural route completion
+remain outside the comparison. This closes no broad OPEN item or global flag.
+
+The [original collapse seeding geometry](collapse_seed_geometry_2026-10-08.md)
+recovers simultaneous rectangle expansion in place of a four-neighbor flood.
+The 1,124-case executed-original fixture includes 540 unchanged shipped-map
+components and 540 controlled-clearing variants. The latter are not natural
+route evidence. The production geometry regression does not close all seeder
+record fields, full collapse update, explosion playback or campaign fidelity;
+all broad completion and original-fidelity flags remain false.
+
+The [controlled collapse contact helper execution](collapse_contact_helpers_2026-10-08.md)
+adds 9,184 complete original forward/reverse helper cases, including new debris
+allocation, 1,248 capacity failures and 672 partial-allocation failures. The C++
+runtime blend is exposed through a shared helper for byte-exact production
+regression. This does not close full collapse update, natural explosion
+playback, unflagged collapse-group allocation, actor or campaign fidelity.
+All broad completion and original-fidelity flags remain false.
+
 The [natural Level 4 support-column regression](natural_level4_support_column_runtime_2026-10-08.md)
 extends the unchanged third-objective route through tick 11740 and an ordinary
 stationary Medium-bomb placement at tick 11466. Its original-only fixture has

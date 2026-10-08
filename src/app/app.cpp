@@ -1,6 +1,7 @@
 #include "diagnostics/frame_inspector.hpp"
 #include "rendering/game_renderer.hpp"
 #include "gameplay/actor_models.hpp"
+#include "gameplay/collapse_seed.hpp"
 #include "ui/models.hpp"
 #include "rendering/presentation_state.hpp"
 #include <SDL.h>
@@ -440,6 +441,11 @@ struct DamagePhaseLookup {
     int slotIndex = 0;
     uint8_t phase = 0;
     bool debris = false;
+};
+
+struct DamageContact {
+    int cell = 0;
+    uint16_t word = 0;
 };
 
 struct LaneWriteTagModel {
@@ -18881,6 +18887,242 @@ public:
                   << " visual_claim=0\n";
     }
 
+    void debugOriginalDebrisUpdate(const std::string& inputPath, const std::string& outputPath,
+                                  bool collapseUpdate = false) {
+        load();
+        std::ifstream input(inputPath, std::ios::binary);
+        std::ofstream output(outputPath, std::ios::binary);
+        if (!input || !output) throw std::runtime_error("cannot open debris update probe files");
+        auto take = [&](size_t count) {
+            std::vector<uint8_t> bytes(count);
+            input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(count));
+            if (input.gcount() != static_cast<std::streamsize>(count)) {
+                throw std::runtime_error("truncated debris update input");
+            }
+            return bytes;
+        };
+        const auto header = take(12);
+        if (std::string(header.begin(), header.begin() + 8) != (collapseUpdate ? "LZCU0001" : "LZDU0001")) {
+            throw std::runtime_error("invalid debris update input header");
+        }
+        const uint32_t cases = le32(header, 8);
+        if (cases == 0 || cases > 4096) throw std::runtime_error("invalid debris update case count");
+        auto appendWord = [](std::vector<uint8_t>& bytes, uint16_t value) {
+            bytes.push_back(static_cast<uint8_t>(value));
+            bytes.push_back(static_cast<uint8_t>(value >> 8));
+        };
+        for (uint32_t index = 0; index < cases; ++index) {
+            const auto parameters = take(collapseUpdate ? 18 : 14);
+            const int width = le16(parameters, 0), height = le16(parameters, 2);
+            const size_t cells = static_cast<size_t>(width) * height;
+            const size_t debrisCount = le16(parameters, 10), collapseCount = le16(parameters, 12);
+            if (width <= 0 || width > 300 || height <= 0 || height > 200 || cells > 16384 ||
+                debrisCount > 1401 || collapseCount > 250) {
+                throw std::runtime_error("invalid debris update dimensions or live counts");
+            }
+            resetLevel(0);
+            level_.width = width;
+            level_.height = height;
+            level_.tiles = take(cells);
+            const auto words = take(2 * cells);
+            level_.wordLayer.resize(cells);
+            for (size_t cell = 0; cell < cells; ++cell) level_.wordLayer[cell] = le16(words, 2 * cell);
+            debrisQueue_.clear();
+            collapseQueue_.clear();
+            logicTick_ = le16(parameters, 4);
+            randomSeed_ = le32(parameters, 6);
+            if (collapseUpdate) {
+                monsters_.clear();
+                destroyed_ = le16(parameters, 14);
+                nextCollapseFragmentWord_ = le16(parameters, 16);
+            }
+            for (size_t record = 0; record < debrisCount; ++record) {
+                const auto raw = take(11);
+                DebrisRecord value;
+                value.tileIndex = le16(raw, 0);
+                value.flaggedWord = le16(raw, 2);
+                value.velocityX = static_cast<int8_t>(raw[4]);
+                value.velocityY = static_cast<int8_t>(raw[5]);
+                value.subX = static_cast<int8_t>(raw[6]);
+                value.subY = static_cast<int8_t>(raw[7]);
+                value.restTicks = raw[8];
+                value.lookup = raw[9];
+                value.aux = raw[10];
+                debrisQueue_.push_back(value);
+            }
+            for (size_t record = 0; record < collapseCount; ++record) {
+                const auto raw = take(15);
+                CollapseRecord value;
+                value.startOffsetBytes = le16(raw, 0);
+                value.endOffsetBytes = le16(raw, 2);
+                value.flaggedWord = le16(raw, 4);
+                value.word = static_cast<uint16_t>(value.flaggedWord & ~kDamagedWordBit);
+                value.forwardPhase = raw[6];
+                value.reversePhase = raw[7];
+                value.subX = static_cast<int8_t>(raw[8]);
+                value.subY = static_cast<int8_t>(raw[9]);
+                value.argMagnitude = le16(raw, 10);
+                value.flags = raw[12];
+                value.restTicks = raw[13];
+                value.affectedBytes = raw[14];
+                collapseQueue_.push_back(value);
+            }
+            if (collapseUpdate) updateCollapseRecords();
+            else updateDebrisRecords();
+            std::vector<uint8_t> result;
+            appendWord(result, static_cast<uint16_t>(randomSeed_));
+            appendWord(result, static_cast<uint16_t>(randomSeed_ >> 16));
+            appendWord(result, static_cast<uint16_t>(debrisQueue_.size()));
+            appendWord(result, static_cast<uint16_t>(collapseQueue_.size()));
+            if (collapseUpdate) {
+                appendWord(result, static_cast<uint16_t>(destroyed_));
+                appendWord(result, nextCollapseFragmentWord_);
+            }
+            result.insert(result.end(), level_.tiles.begin(), level_.tiles.end());
+            for (uint16_t word : level_.wordLayer) appendWord(result, word);
+            for (const auto& record : debrisQueue_) {
+                appendWord(result, static_cast<uint16_t>(record.tileIndex));
+                appendWord(result, record.flaggedWord);
+                result.insert(result.end(), {static_cast<uint8_t>(record.velocityX),
+                    static_cast<uint8_t>(record.velocityY), static_cast<uint8_t>(record.subX),
+                    static_cast<uint8_t>(record.subY), record.restTicks, record.lookup, record.aux});
+            }
+            for (const auto& record : collapseQueue_) {
+                appendWord(result, record.startOffsetBytes);
+                appendWord(result, record.endOffsetBytes);
+                appendWord(result, record.flaggedWord);
+                result.insert(result.end(), {record.forwardPhase, record.reversePhase,
+                    static_cast<uint8_t>(record.subX), static_cast<uint8_t>(record.subY)});
+                appendWord(result, record.argMagnitude);
+                result.insert(result.end(), {record.flags, record.restTicks, record.affectedBytes});
+            }
+            output.write(reinterpret_cast<const char*>(result.data()), static_cast<std::streamsize>(result.size()));
+            if (!output) throw std::runtime_error("cannot write debris update output");
+        }
+        if (input.peek() != std::char_traits<char>::eof()) throw std::runtime_error("trailing debris update input");
+        output.flush();
+        if (!output) throw std::runtime_error("cannot flush debris update output");
+        std::cout << (collapseUpdate ? "original_collapse_update=ok cases=" : "original_debris_update=ok cases=")
+                  << cases << '\n';
+    }
+
+    void debugCollapseContactsOriginal(const std::string& inputPath, const std::string& outputPath) {
+        std::ifstream input(inputPath, std::ios::binary);
+        std::ofstream output(outputPath, std::ios::binary);
+        if (!input || !output) throw std::runtime_error("cannot open collapse contact probe files");
+        auto readByte = [&]() -> uint8_t {
+            const int value = input.get();
+            if (value == std::char_traits<char>::eof()) throw std::runtime_error("truncated collapse contact input");
+            return static_cast<uint8_t>(value);
+        };
+        auto readWord = [&]() -> uint16_t {
+            const uint16_t low = readByte();
+            return static_cast<uint16_t>(low | (static_cast<uint16_t>(readByte()) << 8));
+        };
+        auto writeByte = [&](uint8_t value) { output.put(static_cast<char>(value)); };
+        auto writeWord = [&](uint16_t value) {
+            writeByte(static_cast<uint8_t>(value));
+            writeByte(static_cast<uint8_t>(value >> 8));
+        };
+        std::string magic;
+        for (int i = 0; i < 8; ++i) magic.push_back(static_cast<char>(readByte()));
+        if (magic != "LZCC0001") throw std::runtime_error("invalid collapse contact header");
+        const uint32_t countLow = readWord();
+        const uint32_t count = countLow | (static_cast<uint32_t>(readWord()) << 16);
+        if (count == 0 || count > 10000) throw std::runtime_error("invalid collapse contact case count");
+        for (uint32_t test = 0; test < count; ++test) {
+            int velocity = static_cast<int8_t>(readByte());
+            const uint8_t weight = readByte();
+            const uint8_t reverse = readByte();
+            const size_t debrisCount = readWord();
+            const size_t collapseCount = readWord();
+            const size_t contactCount = readByte();
+            if (weight == 0 || reverse > 1 || debrisCount > 1401 || collapseCount > 30 || contactCount > 30) {
+                throw std::runtime_error("invalid collapse contact case dimensions");
+            }
+            debrisQueue_.clear();
+            collapseQueue_.clear();
+            for (size_t i = 0; i < debrisCount; ++i) {
+                DebrisRecord record;
+                record.tileIndex = readWord();
+                record.flaggedWord = readWord();
+                record.velocityX = static_cast<int8_t>(readByte());
+                record.velocityY = static_cast<int8_t>(readByte());
+                record.subX = static_cast<int8_t>(readByte());
+                record.subY = static_cast<int8_t>(readByte());
+                record.restTicks = readByte();
+                record.lookup = readByte();
+                record.aux = readByte();
+                debrisQueue_.push_back(record);
+            }
+            for (size_t i = 0; i < collapseCount; ++i) {
+                CollapseRecord record;
+                record.startOffsetBytes = readWord();
+                record.endOffsetBytes = readWord();
+                record.flaggedWord = readWord();
+                record.word = record.flaggedWord & ~kDamagedWordBit;
+                record.forwardPhase = readByte();
+                record.reversePhase = readByte();
+                record.subX = static_cast<int8_t>(readByte());
+                record.subY = static_cast<int8_t>(readByte());
+                record.argMagnitude = readWord();
+                record.flags = readByte();
+                record.restTicks = readByte();
+                record.affectedBytes = readByte();
+                collapseQueue_.push_back(record);
+            }
+            level_.width = 64;
+            level_.height = 2;
+            level_.wordLayer.resize(128);
+            level_.tiles.resize(128);
+            for (auto& word : level_.wordLayer) word = readWord();
+            for (auto& tile : level_.tiles) tile = readByte();
+            std::vector<DamageContact> contacts;
+            for (size_t i = 0; i < contactCount; ++i) {
+                const int cell = readWord();
+                const uint16_t word = readWord();
+                if (cell >= 128) throw std::runtime_error("collapse contact cell outside fixture map");
+                contacts.push_back({cell, word});
+            }
+            randomSeed_ = 0x12345678u;
+            blendCollapseContacts(contacts, velocity, weight, reverse != 0);
+            if (randomSeed_ != 0x12345678u) throw std::runtime_error("collapse contact drew RNG");
+            writeByte(static_cast<uint8_t>(velocity));
+            writeWord(static_cast<uint16_t>(debrisQueue_.size()));
+            writeWord(static_cast<uint16_t>(collapseQueue_.size()));
+            for (const auto& record : debrisQueue_) {
+                writeWord(static_cast<uint16_t>(record.tileIndex));
+                writeWord(record.flaggedWord);
+                writeByte(static_cast<uint8_t>(record.velocityX));
+                writeByte(static_cast<uint8_t>(record.velocityY));
+                writeByte(static_cast<uint8_t>(record.subX));
+                writeByte(static_cast<uint8_t>(record.subY));
+                writeByte(record.restTicks);
+                writeByte(record.lookup);
+                writeByte(record.aux);
+            }
+            for (const auto& record : collapseQueue_) {
+                writeWord(record.startOffsetBytes);
+                writeWord(record.endOffsetBytes);
+                writeWord(record.flaggedWord);
+                writeByte(record.forwardPhase);
+                writeByte(record.reversePhase);
+                writeByte(static_cast<uint8_t>(record.subX));
+                writeByte(static_cast<uint8_t>(record.subY));
+                writeWord(record.argMagnitude);
+                writeByte(record.flags);
+                writeByte(record.restTicks);
+                writeByte(record.affectedBytes);
+            }
+            for (auto word : level_.wordLayer) writeWord(word);
+            for (auto tile : level_.tiles) writeByte(tile);
+        }
+        if (input.peek() != std::char_traits<char>::eof() || !output) {
+            throw std::runtime_error("collapse contact trailing input or output failure");
+        }
+        std::cout << "collapse_contacts_probe=ok cases=" << count << " original_fidelity_claim=0\n";
+    }
+
     void debugDebrisImpacts(const std::string& fixturePath,
                            const std::string& outDir = "", bool restSuite = false,
                            bool collapseSuite = false) {
@@ -28625,49 +28867,18 @@ private:
         }
 
         if (collapseQueue_.size() >= kCollapseCapacity) return;
-        std::vector<size_t> stack{start};
-        std::vector<size_t> group;
-        while (!stack.empty()) {
-            size_t index = stack.back();
-            stack.pop_back();
-            if (index >= level_.wordLayer.size() || level_.wordLayer[index] != word) continue;
-            level_.wordLayer[index] = static_cast<uint16_t>(word | kDamagedWordBit);
-            group.push_back(index);
-
+        auto geometry = lezac::gameplay::seedCollapseWordGroup(level_.wordLayer, level_.width, start);
+        for (size_t index : geometry.cells) {
             int x = static_cast<int>(index % static_cast<size_t>(level_.width));
             int y = static_cast<int>(index / static_cast<size_t>(level_.width));
-            auto pushNeighbor = [&](int nx, int ny) {
-                if (nx < 0 || ny < 0 || nx >= level_.width || ny >= level_.height) return;
-                size_t next = static_cast<size_t>(ny) * level_.width + nx;
-                if (next < level_.wordLayer.size() && level_.wordLayer[next] == word) {
-                    stack.push_back(next);
-                }
-            };
-            pushNeighbor(x + 1, y);
-            pushNeighbor(x - 1, y);
-            pushNeighbor(x, y + 1);
-            pushNeighbor(x, y - 1);
-        }
-
-        int minX = level_.width;
-        int minY = level_.height;
-        int maxX = 0;
-        int maxY = 0;
-        for (size_t index : group) {
-            int x = static_cast<int>(index % static_cast<size_t>(level_.width));
-            int y = static_cast<int>(index / static_cast<size_t>(level_.width));
-            minX = std::min(minX, x);
-            minY = std::min(minY, y);
-            maxX = std::max(maxX, x);
-            maxY = std::max(maxY, y);
             if (!preserveCollapseGlyphs) markDamagedTile(x, y);
         }
-        if (!group.empty() && collapseQueue_.size() < kCollapseCapacity) {
+        if (!geometry.cells.empty() && collapseQueue_.size() < kCollapseCapacity) {
             CollapseRecord record;
             record.x = tx;
             record.y = ty;
-            record.startOffsetBytes = static_cast<uint16_t>((minY * level_.width + minX) * 2);
-            record.endOffsetBytes = static_cast<uint16_t>((maxY * level_.width + maxX) * 2);
+            record.startOffsetBytes = geometry.firstOffsetBytes;
+            record.endOffsetBytes = geometry.lastOffsetBytes;
             record.word = word;
             record.flaggedWord = static_cast<uint16_t>(word | kDamagedWordBit);
             record.forwardPhase = forwardPhase;
@@ -28676,8 +28887,8 @@ private:
             int signedReverse = static_cast<int>(static_cast<int8_t>(reversePhase));
             record.argMagnitude = static_cast<uint16_t>(std::abs(signedForward) +
                                                         std::abs(signedReverse));
-            record.affectedBytes = static_cast<uint8_t>((group.size() * 2) & 0xff);
-            record.count = static_cast<int>(group.size());
+            record.affectedBytes = static_cast<uint8_t>((geometry.cells.size() * 2) & 0xff);
+            record.count = static_cast<int>(geometry.cells.size());
             collapseQueue_.push_back(record);
         }
     }
@@ -29315,15 +29526,47 @@ private:
         }
     }
 
+    void blendCollapseContacts(const std::vector<DamageContact>& contacts, int& velocity,
+                               uint8_t ownWeight, bool reverse) {
+        int weight = ownWeight;
+        int sum = velocity * weight;
+        std::vector<DamagePhaseLookup> targets;
+        for (const auto& contact : contacts) {
+            if ((contact.word & kDamagedWordBit) == 0) {
+                const size_t beforeDebris = debrisQueue_.size();
+                const size_t beforeCollapse = collapseQueue_.size();
+                queueTileDamage(contact.cell % level_.width, contact.cell / level_.width, 0, 0, true);
+                if (beforeDebris == debrisQueue_.size() && beforeCollapse == collapseQueue_.size()) return;
+            }
+            auto match = resolveDamagePhase(static_cast<uint16_t>(contact.word | kDamagedWordBit), reverse);
+            if (match.slotIndex == 0) return;
+            const int contribution = match.debris ? 1 : collapseQueue_[match.slotIndex - 1].affectedBytes;
+            weight += contribution;
+            sum += contribution * static_cast<int8_t>(match.phase);
+            targets.push_back(match);
+        }
+        if (weight == 0) return;
+        velocity = static_cast<int8_t>(sum / weight);
+        for (const auto& match : targets) {
+            const size_t index = static_cast<size_t>(match.slotIndex - 1);
+            if (match.debris) {
+                if (reverse) debrisQueue_[index].velocityY = static_cast<int8_t>(velocity);
+                else debrisQueue_[index].velocityX = static_cast<int8_t>(velocity);
+            } else {
+                if (reverse) collapseQueue_[index].reversePhase = static_cast<uint8_t>(velocity);
+                else collapseQueue_[index].forwardPhase = static_cast<uint8_t>(velocity);
+            }
+        }
+    }
+
     void updateCollapseRecords() {
         if (level_.width <= 0 || level_.tiles.empty()) return;
         const int width = level_.width;
-        struct Contact { int cell; uint16_t word; };
         struct Scan {
             bool blocked = false;
             int firstColumn = 10000;
             int lastColumn = 0;
-            std::vector<Contact> contacts;
+            std::vector<DamageContact> contacts;
         };
         auto mapWord = [&](int cell) -> uint16_t {
             return cell >= 0 && static_cast<size_t>(cell) < level_.wordLayer.size() ?
@@ -29364,7 +29607,7 @@ private:
                     result.firstColumn = std::min(result.firstColumn, target % width);
                     result.lastColumn = std::max(result.lastColumn, target % width);
                     if (word != 0 && std::none_of(result.contacts.begin(), result.contacts.end(),
-                        [&](const Contact& contact) { return contact.word == word; })) {
+                        [&](const DamageContact& contact) { return contact.word == word; })) {
                         result.contacts.push_back({target, word});
                     }
                 }
@@ -29396,35 +29639,7 @@ private:
                 return result;
             };
             auto blend = [&](const Scan& result, int& velocity, bool reverse) {
-                int weight = record.affectedBytes;
-                int sum = velocity * weight;
-                std::vector<DamagePhaseLookup> targets;
-                for (const auto& contact : result.contacts) {
-                    if ((contact.word & kDamagedWordBit) == 0) {
-                        const size_t beforeDebris = debrisQueue_.size();
-                        const size_t beforeCollapse = collapseQueue_.size();
-                        queueTileDamage(contact.cell % width, contact.cell / width, 0, 0, true);
-                        if (beforeDebris == debrisQueue_.size() && beforeCollapse == collapseQueue_.size()) return;
-                    }
-                    auto match = resolveDamagePhase(static_cast<uint16_t>(contact.word | kDamagedWordBit), reverse);
-                    if (match.slotIndex == 0) return;
-                    const int contribution = match.debris ? 1 : collapseQueue_[match.slotIndex - 1].affectedBytes;
-                    weight += contribution;
-                    sum += contribution * static_cast<int8_t>(match.phase);
-                    targets.push_back(match);
-                }
-                if (weight == 0) return;
-                velocity = static_cast<int8_t>(sum / weight);
-                for (const auto& match : targets) {
-                    const size_t index = static_cast<size_t>(match.slotIndex - 1);
-                    if (match.debris) {
-                        if (reverse) debrisQueue_[index].velocityY = static_cast<int8_t>(velocity);
-                        else debrisQueue_[index].velocityX = static_cast<int8_t>(velocity);
-                    } else {
-                        if (reverse) collapseQueue_[index].reversePhase = static_cast<uint8_t>(velocity);
-                        else collapseQueue_[index].forwardPhase = static_cast<uint8_t>(velocity);
-                    }
-                }
+                blendCollapseContacts(result.contacts, velocity, record.affectedBytes, reverse);
             };
             auto integrate = [](int velocity, int8_t& fraction) {
                 int sum = fraction + velocity;
@@ -30132,6 +30347,14 @@ int lezac::app::runApplication(int argc, char** argv) {
             app.debugDebrisShatterPlayback(argv[2]);
             return 0;
         }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-debris-update") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3]);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-update") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3], true);
+            return 0;
+        }
         if (argc > 2 && std::string(argv[1]) == "--debug-natural-forward-debris-writeback") {
             app.debugNaturalForwardDebrisWriteback(argv[2]);
             return 0;
@@ -30202,6 +30425,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-collapse-steps-original") {
             app.debugDebrisImpacts(argv[2], argc > 3 ? argv[3] : "", false, true);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-collapse-contacts-original") {
+            app.debugCollapseContactsOriginal(argv[2], argv[3]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-debris-motion-live") {

@@ -116,6 +116,7 @@ jobs:
             build/debris-update-failures/
             build/collapse-update-failures/
             build/collapse-contact-failures/
+            build/collapse-actor-failures/
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: ignore
@@ -268,6 +269,7 @@ jobs:
             build/debris-update-failures/
             build/collapse-update-failures/
             build/collapse-contact-failures/
+            build/collapse-actor-failures/
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: ignore

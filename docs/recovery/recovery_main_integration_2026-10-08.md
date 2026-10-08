@@ -6,6 +6,10 @@ restarting them:
 - PR322, `398ac9a580440e3f59c96b27cdf581be3e051947`: complete original-backed
   debris and collapse update probes, collapse contact probes, original record
   initialization, and retained contact failure diagnostics.
+- PR323, `89bcc97ecae5f90fcf572e8afe156f64319760ab`: the complete original
+  collapse actor-creation extension. Its full Linux and Windows suites finished
+  successfully before inclusion here. The controlled 2,476-update fixture
+  includes 1,822 actor states and 414 admissions; unused actor slots are clean.
 - PR309, `18bb982051b680a7057b90e20739beafdfcec0a1`: the original flame contact
   signed-WORD blend, with all 1,376,256 controlled original instruction records.
 - PR319, `0bbf55b7cb2ecfd2d3a2f046719d14c9324b53ba`: PPM raster separator and
@@ -19,7 +23,8 @@ no updater ordering, fixture protocol, or expected original bytes are changed.
 
 CI retains the existing early focused checks and uploads. An additional
 `if: always()` upload after each full suite preserves failures produced by the
-second invocation, plus `LastTest.log` and `LastTestsFailed.log`. Artifact names
+second invocation, including actor-creation failures, plus `LastTest.log` and
+`LastTestsFailed.log`. Artifact names
 are distinct between platforms and from earlier uploads.
 
 Historical review dispositions:

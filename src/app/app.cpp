@@ -711,6 +711,7 @@ public:
         try {
             load();
             initSdl();
+            startClockedSound();
             resetLevel(0);
             levelFlow_.setInteractiveEnabled(true);
             replayKeyboard_ = keys.data();
@@ -786,6 +787,7 @@ public:
             debugResultReelObserver_ = {};
             debugActorPassObserver_ = {};
             replayKeyboard_ = nullptr;
+            clockedSoundEnabled_ = false;
             replayClockEnabled_ = false;
             replayPresentationOffset_ = 0;
             recordStore_.setPath(oldRecordPath);
@@ -795,6 +797,7 @@ public:
         debugActorPassObserver_ = {};
         debugResultReelObserver_ = {};
         replayKeyboard_ = nullptr;
+        clockedSoundEnabled_ = false;
         replayClockEnabled_ = false;
         replayPresentationOffset_ = 0;
         recordStore_.setPath(oldRecordPath);
@@ -833,6 +836,7 @@ public:
     }
 
     void tickAndPresent(float dt, const std::function<void()>& afterPresent = {}) {
+        serviceSoundClock();
         bool presented = false;
         gameplayPresentation_ = [&] {
             draw();
@@ -908,6 +912,7 @@ public:
         load(false);
         randomSeed_ = readStartupClock();
         initSdl();
+        startClockedSound();
         resetLevel(0);
         levelFlow_.setInteractiveEnabled(true);
         ui_.beginMainMenu(presentationMilliseconds());
@@ -9840,6 +9845,117 @@ public:
                   << " pumped=1 cooldown_gate_removed=1 same_priority_refresh=1"
                   << " second_damage_accepted=1 higher_priority_blocks=1"
                   << " lethal_replaced=1\n";
+    }
+
+    void debugClockedSound(const std::string& outDir, bool withDevice = true) {
+        SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
+        load();
+        initSdl();
+        if (!withDevice) audioOutput_.close();
+        resetLevel(0);
+        replayClockEnabled_ = true;
+        replayMilliseconds_ = 0;
+        startClockedSound();
+        ui_.setMenu(true);
+        ui_.setPage(MenuPage::Records);
+        bool running = true;
+        auto require = [](bool value, const char* message) {
+            if (!value) throw std::runtime_error(message);
+        };
+        auto capture = [&](const std::string& name) {
+            inspectRenderedFrame("clocked-sound-" + name);
+            if (!outDir.empty()) {
+                std::filesystem::create_directories(outDir);
+                writeArgbPpm(joinPath(outDir, name + ".ppm"), fb_, kScreenW, kScreenH);
+            }
+        };
+        require(requestSoundCursor(0xea7e, 5), "clocked initial request rejected");
+        pumpSoundLatch();
+        require(sound_.latch().active && sound_.latch().latchedOffset == 0xea7e &&
+                sound_.clockState().interrupts == 0 && !requestSoundOffset(0, 2),
+                "clocked pump cleared a pending priority");
+        replayMilliseconds_ = 54;
+        processEvents(running);
+        require(sound_.clockState().interrupts == 0 && sound_.latch().latchedOffset == 0xea7e,
+                "sound advanced before the first default BIOS boundary");
+        replayMilliseconds_ = 55;
+        processEvents(running);
+        tickAndPresent(0.04f);
+        require(sound_.clockState().interrupts == 1 && sound_.latch().latchedOffset == 0xea7a &&
+                sound_.speakerState().enabled && logicTick_ == 0,
+                "menu did not advance sound independently of gameplay");
+        capture("menu");
+        ui_.setMenu(false);
+        ui_.setPaused(true);
+        replayMilliseconds_ = 110;
+        tickAndPresent(0.04f);
+        require(sound_.clockState().interrupts == 2 && sound_.latch().latchedOffset == 0xea76 &&
+                logicTick_ == 0 && !requestSoundCursor(0, 2),
+                "pause stopped sound or discarded its priority");
+        capture("pause");
+        replayMilliseconds_ = 440;
+        processEvents(running);
+        require(sound_.clockState().interrupts == 8 && !sound_.latch().active &&
+                !sound_.speakerState().enabled &&
+                sound_.speakerState().divisor == lezac::sound::SoundEngine::speakerDivisorForFrequency(32),
+                "clocked sweep did not program then silence its terminal tone");
+        const auto beforeWrap = sound_.clockState();
+        replayMilliseconds_ = 0xfffffff0u;
+        startClockedSound();
+        require(requestSoundOffset(0, 2), "completed sweep retained priority");
+        replayMilliseconds_ = 84;
+        processEvents(running);
+        require(sound_.clockState().renderedSamples == beforeWrap.renderedSamples + 2205 &&
+                sound_.clockState().interrupts == 9 && sound_.latch().latchedOffset == 1,
+                "sound timestamp rollover changed elapsed time or reset the IRQ clock");
+        require(audioOutput_.enabled() == withDevice && audioOutput_.queuedBytes() <= 11024,
+                "clocked audio device state differs or queue is unbounded");
+        const auto beforeStall = sound_.clockState();
+        constexpr uint64_t stalledSamples = uint64_t{8} * 60 * 60 * kAudioSampleRate;
+        constexpr uint64_t threshold = uint64_t{kAudioSampleRate} * lezac::sound::kBiosTimerDivisor;
+        replayMilliseconds_ += 8 * 60 * 60 * 1000;
+        processEvents(running);
+        const auto afterStall = sound_.clockState();
+        const uint64_t scaledStall = beforeStall.pitAccumulator + stalledSamples * lezac::sound::kPitClockRate;
+        require(afterStall.renderedSamples == beforeStall.renderedSamples + stalledSamples &&
+                afterStall.interrupts == beforeStall.interrupts + scaledStall / threshold &&
+                afterStall.pitAccumulator == scaledStall % threshold &&
+                !sound_.latch().active && !sound_.speakerState().enabled &&
+                audioOutput_.queuedBytes() <= 11024,
+                "eight-hour catch-up changed logical state or exceeded the queue bound");
+        clockedSoundEnabled_ = false;
+        replayClockEnabled_ = false;
+        std::cout << "clocked_sound_app=ok menu=1 pause=1 pending_priority=1 terminal_order=1"
+                  << " rollover=1 replay_clock=1 bounded_queue=1 frames=2 long_stall=1 bounded_tail=4410 native_timing_claim=0"
+                  << " device_enabled=" << withDevice << " audio=dummy\n";
+    }
+
+    void debugClockedSoundLive(bool paused, const std::string& outDir) {
+        SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
+        uint32_t start = 0;
+        runInteractive([&] { return SDL_GetTicks() - start >= 600; }, [&] {
+            start = SDL_GetTicks();
+            ui_.setMenu(!paused);
+            ui_.setPage(MenuPage::Records);
+            ui_.setPaused(paused);
+            if (!requestSoundCursor(0xea7e, 5))
+                throw std::runtime_error("live clocked sound request rejected");
+        });
+        const auto state = sound_.clockState();
+        if (!clockedSoundEnabled_ || state.interrupts < 10 || state.interrupts > 14 ||
+            state.renderedSamples < 12000 || state.renderedSamples > 18000 || logicTick_ != 0 ||
+            sound_.latch().active || sound_.speakerState().enabled || !audioOutput_.enabled() ||
+            audioOutput_.queuedBytes() > 11024)
+            throw std::runtime_error("governed menu/pause loop did not service clocked sound");
+        inspectRenderedFrame("clocked-sound-live");
+        if (!outDir.empty()) {
+            std::filesystem::create_directories(outDir);
+            writeArgbPpm(joinPath(outDir, paused ? "live-pause.ppm" : "live-menu.ppm"),
+                         fb_, kScreenW, kScreenH);
+        }
+        std::cout << "clocked_sound_live=ok state=" << (paused ? "pause" : "menu")
+                  << " independent_clock=1 gameplay_ticks=0 sweep_stopped=1 bounded_queue=1"
+                  << " frame_inspection=1 native_timing_claim=0 audio=dummy\n";
     }
 
     void debugOriginalDamageCounters() {
@@ -25367,6 +25483,9 @@ private:
     const SoundBank& sounds_ = assets_.sounds();
     lezac::sound::SoundEngine sound_{sounds_};
     lezac::sound::SdlAudioOutput audioOutput_;
+    bool clockedSoundEnabled_ = false;
+    uint32_t soundClockMilliseconds_ = 0;
+    uint32_t soundSampleRemainder_ = 0;
     const GranBank& gran_ = assets_.gran();
     const std::vector<Level>& levels_ = assets_.levels();
     Level level_;
@@ -25463,6 +25582,7 @@ private:
     void initAudio() { audioOutput_.open(); }
 
     void processEvents(bool& running) {
+        serviceSoundClock();
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             if (debugPhysicalInputObserver_) debugPhysicalInputObserver_(e);
@@ -25789,28 +25909,57 @@ private:
     }
 
 
+    void startClockedSound() {
+        clockedSoundEnabled_ = true;
+        soundClockMilliseconds_ = presentationMilliseconds();
+        soundSampleRemainder_ = 0;
+    }
+
+    void serviceSoundClock() {
+        if (!clockedSoundEnabled_) return;
+        const uint32_t now = presentationMilliseconds();
+        const uint32_t elapsed = now - soundClockMilliseconds_;
+        soundClockMilliseconds_ = now;
+        const uint64_t scaled = uint64_t{elapsed} * kAudioSampleRate + soundSampleRemainder_;
+        soundSampleRemainder_ = static_cast<uint32_t>(scaled % 1000);
+        const uint64_t remaining = scaled / 1000;
+        if (remaining > lezac::sound::kMaximumClockedTailSamples) {
+            audioOutput_.discardClockedSamples();
+        }
+        audioOutput_.playClockedSamples(sound_.renderClockedTail(remaining));
+    }
+
     bool latchSoundRequest(uint16_t cursor, uint8_t selector) {
+        serviceSoundClock();
         return sound_.latchSoundRequest(cursor, selector);
     }
 
     bool requestSoundCursor(uint16_t cursor, uint8_t selector) {
+        serviceSoundClock();
         return sound_.requestSoundCursor(cursor, selector);
     }
 
     bool requestSoundOffset(uint16_t offset, uint8_t selector) {
+        serviceSoundClock();
         return sound_.requestSoundOffset(offset, selector);
     }
 
     void clearSoundLatch() {
+        serviceSoundClock();
         sound_.clearSoundLatch();
     }
 
     void pumpSoundLatch() {
+        if (clockedSoundEnabled_) {
+            serviceSoundClock();
+            return;
+        }
         audioOutput_.playSamples(sound_.pumpSoundLatch());
     }
 
 
     bool playCompatibilitySound(size_t hookSlot) {
+        serviceSoundClock();
         return sound_.playCompatibilitySound(hookSlot);
     }
 
@@ -29791,6 +29940,21 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sound-priority-latch") {
             app.debugSoundPriorityLatch();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-clocked-sound") {
+            app.debugClockedSound(argc > 2 ? argv[2] : "");
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-clocked-sound-no-device") {
+            app.debugClockedSound("", false);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-clocked-sound-live") {
+            const std::string state = argv[2];
+            if (state != "menu" && state != "pause")
+                throw std::runtime_error("clocked sound live state must be menu or pause");
+            app.debugClockedSoundLive(state == "pause", argc > 3 ? argv[3] : "");
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sound-selector-map") {

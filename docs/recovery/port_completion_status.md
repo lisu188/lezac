@@ -10,8 +10,10 @@ evidence, not native sound timing, priority-latch lifetime or whole-game parity.
 
 The [2026-10-08 signed-priority and interrupt-state recovery](sound_interrupt_state_2026-10-08.md)
 corrects the production latch's signed `JGE` comparison and verifies per-IRQ
-state transitions. The latter still needs live scheduling integration; the
-one-shot pump's premature clear and whole-game sound parity remain open.
+state transitions. The [clocked playback follow-up](clocked_sound_2026-10-08.md)
+integrates those transitions into interactive and replay scheduling, retaining
+priority through menus, pause and replacement requests. Original IRQ cadence
+and phase, hardware waveform and whole-game sound parity remain open.
 The earlier claim was based on a subsystem inventory and compatible tests,
 not a complete comparison with original behavior. The 2026-09-05 player and
 collapse captures exposed absent pickup handling and a placeholder collapse

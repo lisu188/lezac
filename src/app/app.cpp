@@ -18882,6 +18882,113 @@ public:
                   << " visual_claim=0\n";
     }
 
+    void debugOriginalDebrisUpdate(const std::string& inputPath, const std::string& outputPath) {
+        load();
+        std::ifstream input(inputPath, std::ios::binary);
+        std::ofstream output(outputPath, std::ios::binary);
+        if (!input || !output) throw std::runtime_error("cannot open debris update probe files");
+        auto take = [&](size_t count) {
+            std::vector<uint8_t> bytes(count);
+            input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(count));
+            if (input.gcount() != static_cast<std::streamsize>(count)) {
+                throw std::runtime_error("truncated debris update input");
+            }
+            return bytes;
+        };
+        const auto header = take(12);
+        if (std::string(header.begin(), header.begin() + 8) != "LZDU0001") {
+            throw std::runtime_error("invalid debris update input header");
+        }
+        const uint32_t cases = le32(header, 8);
+        if (cases == 0 || cases > 4096) throw std::runtime_error("invalid debris update case count");
+        auto appendWord = [](std::vector<uint8_t>& bytes, uint16_t value) {
+            bytes.push_back(static_cast<uint8_t>(value));
+            bytes.push_back(static_cast<uint8_t>(value >> 8));
+        };
+        for (uint32_t index = 0; index < cases; ++index) {
+            const auto parameters = take(14);
+            const int width = le16(parameters, 0), height = le16(parameters, 2);
+            const size_t cells = static_cast<size_t>(width) * height;
+            const size_t debrisCount = le16(parameters, 10), collapseCount = le16(parameters, 12);
+            if (width <= 0 || width > 300 || height <= 0 || height > 200 || cells > 16384 ||
+                debrisCount > 1401 || collapseCount > 250) {
+                throw std::runtime_error("invalid debris update dimensions or live counts");
+            }
+            resetLevel(0);
+            level_.width = width;
+            level_.height = height;
+            level_.tiles = take(cells);
+            const auto words = take(2 * cells);
+            level_.wordLayer.resize(cells);
+            for (size_t cell = 0; cell < cells; ++cell) level_.wordLayer[cell] = le16(words, 2 * cell);
+            debrisQueue_.clear();
+            collapseQueue_.clear();
+            logicTick_ = le16(parameters, 4);
+            randomSeed_ = le32(parameters, 6);
+            for (size_t record = 0; record < debrisCount; ++record) {
+                const auto raw = take(11);
+                DebrisRecord value;
+                value.tileIndex = le16(raw, 0);
+                value.flaggedWord = le16(raw, 2);
+                value.velocityX = static_cast<int8_t>(raw[4]);
+                value.velocityY = static_cast<int8_t>(raw[5]);
+                value.subX = static_cast<int8_t>(raw[6]);
+                value.subY = static_cast<int8_t>(raw[7]);
+                value.restTicks = raw[8];
+                value.lookup = raw[9];
+                value.aux = raw[10];
+                debrisQueue_.push_back(value);
+            }
+            for (size_t record = 0; record < collapseCount; ++record) {
+                const auto raw = take(15);
+                CollapseRecord value;
+                value.startOffsetBytes = le16(raw, 0);
+                value.endOffsetBytes = le16(raw, 2);
+                value.flaggedWord = le16(raw, 4);
+                value.word = static_cast<uint16_t>(value.flaggedWord & ~kDamagedWordBit);
+                value.forwardPhase = raw[6];
+                value.reversePhase = raw[7];
+                value.subX = static_cast<int8_t>(raw[8]);
+                value.subY = static_cast<int8_t>(raw[9]);
+                value.argMagnitude = le16(raw, 10);
+                value.flags = raw[12];
+                value.restTicks = raw[13];
+                value.affectedBytes = raw[14];
+                collapseQueue_.push_back(value);
+            }
+            updateDebrisRecords();
+            std::vector<uint8_t> result;
+            appendWord(result, static_cast<uint16_t>(randomSeed_));
+            appendWord(result, static_cast<uint16_t>(randomSeed_ >> 16));
+            appendWord(result, static_cast<uint16_t>(debrisQueue_.size()));
+            appendWord(result, static_cast<uint16_t>(collapseQueue_.size()));
+            result.insert(result.end(), level_.tiles.begin(), level_.tiles.end());
+            for (uint16_t word : level_.wordLayer) appendWord(result, word);
+            for (const auto& record : debrisQueue_) {
+                appendWord(result, static_cast<uint16_t>(record.tileIndex));
+                appendWord(result, record.flaggedWord);
+                result.insert(result.end(), {static_cast<uint8_t>(record.velocityX),
+                    static_cast<uint8_t>(record.velocityY), static_cast<uint8_t>(record.subX),
+                    static_cast<uint8_t>(record.subY), record.restTicks, record.lookup, record.aux});
+            }
+            for (const auto& record : collapseQueue_) {
+                appendWord(result, record.startOffsetBytes);
+                appendWord(result, record.endOffsetBytes);
+                appendWord(result, record.flaggedWord);
+                result.insert(result.end(), {record.forwardPhase, record.reversePhase,
+                    static_cast<uint8_t>(record.subX), static_cast<uint8_t>(record.subY)});
+                appendWord(result, record.argMagnitude);
+                result.insert(result.end(), {record.flags, record.restTicks, record.affectedBytes});
+            }
+            output.write(reinterpret_cast<const char*>(result.data()), static_cast<std::streamsize>(result.size()));
+            if (!output) throw std::runtime_error("cannot write debris update output");
+        }
+        if (input.peek() != std::char_traits<char>::eof()) throw std::runtime_error("trailing debris update input");
+        output.flush();
+        if (!output) throw std::runtime_error("cannot flush debris update output");
+        std::cout << "original_debris_update=ok cases=" << cases << '\n';
+    }
+
     void debugDebrisImpacts(const std::string& fixturePath,
                            const std::string& outDir = "", bool restSuite = false,
                            bool collapseSuite = false) {
@@ -30100,6 +30207,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-debris-shatter-playback") {
             app.debugDebrisShatterPlayback(argv[2]);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-debris-update") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-natural-forward-debris-writeback") {

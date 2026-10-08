@@ -28,6 +28,18 @@ jobs:
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
         run: cmake --build build --parallel
+      - name: Complete debris updater regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^original_debris_update(_contract)?$'
+      - name: Preserve complete debris updater diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debris-updater-linux
+          path: build/debris-update-failures/
+          if-no-files-found: ignore
       - name: Collapse seed geometry regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -99,6 +111,18 @@ jobs:
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
         run: cmake --build build --parallel
+      - name: Complete debris updater regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^original_debris_update(_contract)?$'
+      - name: Preserve complete debris updater diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debris-updater-windows
+          path: build/debris-update-failures/
+          if-no-files-found: ignore
       - name: Collapse seed geometry regressions
         env:
           SDL_VIDEODRIVER: dummy

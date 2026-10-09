@@ -5445,6 +5445,13 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+    add_test(NAME corpse_reward_animation_mode_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-corpse-reward-animation-mode)
+    set_tests_properties(corpse_reward_animation_mode_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^corpse_reward_animation_mode_original=ok cases=4 mode_disabled=1 production_conversion=1 seeded=1 natural_route=0 whole_game_parity=0")
+
     add_test(NAME transient_actor_limits
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-transient-actor-limits)
     set_tests_properties(transient_actor_limits PROPERTIES

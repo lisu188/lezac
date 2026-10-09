@@ -25083,15 +25083,23 @@ public:
         level_.monsterSpawners = {spawner};
         SpawnerState state; state.remaining = 1; state.availableSlots = 1; state.cooldown = 1;
         spawnerStates_ = {state};
+        // Production spawning reads the physical row, not the typed fixture counters.
+        auto physicalSpawner = lezac::resources::packMonsterSpawner(spawner);
+        physicalSpawner[9] = 1; physicalSpawner[10] = 1; physicalSpawner[27] = 1;
+        spawnerStorage_.loadRecord(1, physicalSpawner);
         updateMonsterSpawners();
-        require(monsters_.size() == 1 && actorSlots_.count() == 1 &&
-            monsters_.front().animationBackup.packed() == actorSlots_.animationBackup(monsters_.front().actorOrder).packed(),
+        require(monsters_.size() == 1 && actorSlots_.count() == 1, "spawner constructor was not reached");
+        require(monsters_.front().animationBackup.packed() ==
+            actorSlots_.animationBackup(monsters_.front().actorOrder).packed(),
             "spawner constructor lost physical backup");
         const uint64_t corpseOrder = monsters_.front().actorOrder;
         const auto corpseBackup = actorSlots_.animationBackup(corpseOrder).packed();
         while (actorSlots_.count() < 30) spawnTransientActor(184, 100, 0, 69, 0x0a, 60);
         enterMonsterDeath(monsters_.front());
+        require(actorSlots_.actor(corpseOrder)[0] == 0x0c && actorSlots_.actor(corpseOrder)[2] == 25,
+            "fatal conversion did not initialize the physical corpse timer");
         monsters_.front().stateTimer = 1;
+        actorSlots_.writeCorpse(corpseOrder, monsters_.front(), 1, false, {});
         randomSeed_ = 0x12345678u;
         const uint64_t nextAtCorpseConversion = nextActorOrder_;
         updateMonsters(0, corpseOrder);
@@ -25115,7 +25123,7 @@ public:
         std::cout << "production_actor_lifecycle=ok capacity=30 stable_retirement=1 inactive_backup_inheritance=1 "
                      "mode3_restore=1 reset_retains_backup=1 full_capacity_conversions=2 constructors=7 "
                      "production_app=1 legacy_adoptions=0 legacy_retirements=0 seeded=1 natural_route=0 "
-                     "full_raw_record_owner=0 whole_game_claim=0\n";
+                     "physical_fixture_seeds=1 full_raw_record_owner=0 whole_game_claim=0\n";
     }
 
     void debugMonsterObjectBranchOriginal(const std::string& fixturePath) {

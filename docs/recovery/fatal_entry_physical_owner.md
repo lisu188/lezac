@@ -203,3 +203,35 @@ This boundary fixture does not establish complete physical-bank equivalence,
 multi-cell collapse geometry, natural-route behavior, rendered parity, sound
 interrupt parity, or whole-game completion. The zero-word direct caller state
 remains outside this fixture; the existing C++ zero-word guard is unchanged.
+
+## Multi-Cell Seeder Integration
+
+The same actual-App seeder diagnostic now accepts the complete input terrain
+planes for 384 unmodified-original cases: 16 layouts, four low-word boundary
+values and six signed velocity pairs. Layouts include connected edges, diagonal
+expansion, disconnected islands, hollow/irregular regions and a 153-cell block.
+Both available collapse-counter boundaries (0 and 249), two debris counters and
+four previous result bytes are covered. Each original case is independently
+repeated with full 1 MiB memory and 14 registers compared, without instruction
+patches, stubs or hardware I/O.
+
+The existing production geometry owner matches all 1,522,560 recorded word-plane,
+bounding-offset and affected-byte bytes. The cases flag 7,152 cells in total;
+24 cases wrap the byte-sized affected count. Velocity magnitudes include 255
+and 256, retaining the full original word. This owner-only proof is not App
+acceptance: the new App checker must independently compare all 2,293,248 state
+bytes, including both complete terrain planes, both queue counts, both salted
+candidate records and the result/class bytes. The existing capacity protocol is
+retained through the shared diagnostic implementation.
+
+Multi-cell fixture SHA-256 (gzip):
+`1a6982b697f781921c34255dd89137bb577fbe74f8170211e18f878cae6560eb`.
+Multi-cell fixture SHA-256 (raw):
+`a75c151aa445fe8af4980ce55ac96842abc1430a6085547c35c4227726eb94bb`.
+Expected App output SHA-256:
+`f62479bc246f175396365df766ff71bab202a1497569d35153b4d8e06b31954e`.
+
+These seeded boundary cases do not establish complete physical-bank equivalence,
+natural-route or campaign behavior, rendered parity, sound-interrupt parity or
+whole-game completion. Actual-App host comparisons, required full CI, dependency
+delivery and current-head external review remain separate gates.

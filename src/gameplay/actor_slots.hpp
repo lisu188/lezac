@@ -19,6 +19,7 @@ public:
 
     size_t count() const { return storage_.state().count; }
     const State& state() const { return storage_.state(); }
+    void setSharedResult(uint16_t value) { storage_.setSharedResult(value); }
     const ActorStorage::Actor& actor(uint64_t order) const { return state().actors[require(order)]; }
     const ActorStorage::Visual& visual(uint64_t order) const { return state().visuals[actor(order)[1]]; }
 
@@ -85,6 +86,32 @@ public:
         auto& row = storage_.visual(raw[1]);
         std::copy(descriptor.begin(), descriptor.end(), row.begin() + 4);
         raw[20] = static_cast<uint8_t>(16 - descriptor[1]);
+    }
+
+    void applyMonsterImpact(uint64_t order, const Descriptor& descriptor) {
+        setSpriteDescriptor(order, descriptor);
+        auto& raw = storage_.actor(require(order));
+        raw[25] = static_cast<uint8_t>(raw[26] - 4);
+    }
+
+    void enterMonsterCorpse(uint64_t order) {
+        auto& raw = storage_.actor(require(order));
+        // 1000:74BB..7517 preserves stored HP, source, backup and opaque bytes.
+        raw[0] = 12;
+        raw[2] = 25;
+        raw[21] = 2;
+        raw[27] = 0;
+    }
+
+    bool applyMonsterDamage(uint64_t order, int8_t delta) {
+        auto& raw = storage_.actor(require(order));
+        const int health = static_cast<int>(raw[36]) + delta;
+        if (health < 0) {
+            enterMonsterCorpse(order);
+            return true;
+        }
+        raw[36] = static_cast<uint8_t>(health);
+        return false;
     }
 
     void writeCorpse(uint64_t order, const ActiveMonster& corpse, uint8_t timer,

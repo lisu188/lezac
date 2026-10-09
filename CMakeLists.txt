@@ -4845,7 +4845,18 @@ if(BUILD_TESTING)
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contacts_original.py --self-check)
     set_tests_properties(collapse_contacts_contract PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        PASS_REGULAR_EXPRESSION "^collapse_contacts_contract=ok source_mutants=22 compiled_cpp=0 natural_gameplay=0")
+        PASS_REGULAR_EXPRESSION "^collapse_contacts_contract=ok source_mutants=23 compiled_cpp=0 natural_gameplay=0")
+    add_test(NAME collapse_seed_history_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_seed_history.py)
+    add_test(NAME collapse_seed_history_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_seed_history.py --self-check)
+    add_test(NAME collapse_seed_history_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_seed_history.py
+                --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-seed-history-app)
+    set_tests_properties(collapse_seed_history_fixture collapse_seed_history_checker collapse_seed_history_original
+        PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(collapse_seed_history_original PROPERTIES TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^collapse_seed_history_original=ok cases=576 production_app=1 masks=0 natural_gameplay=0 whole_game_claim=0")
     add_test(NAME collapse_contacts_failure_retention
         COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contact_failure_retention.py)
     set_tests_properties(collapse_contacts_failure_retention PROPERTIES

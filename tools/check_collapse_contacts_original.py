@@ -25,8 +25,9 @@ CONTRACT = {
         'lezac::gameplay::writeDamageLaneWord(memory, static_cast<uint16_t>(0x655e + 2 * index), contacts[index].word);',
         'lezac::gameplay::writeDamageLaneWord(memory, static_cast<uint16_t>(0x659a + 2 * index),\n'
         '                static_cast<uint16_t>(contacts[index].cell * 2));',
+        'uint8_t seededClass = 0;',
         'const auto phase = lezac::gameplay::blendDamageLaneValue(memory, static_cast<uint8_t>(velocity),\n'
-        '            ownWeight, reverse, [&](uint16_t cell) { return seedDamageLaneContact(cell); });',
+        '            ownWeight, reverse, [&](uint16_t cell) { return seedDamageLaneContact(cell, seededClass); });',
         'if (phase) velocity = lezac::gameplay::damageLaneSignedByte(*phase);',
     ),
     'damageLaneMemory': (
@@ -125,10 +126,10 @@ def metadata():
     return data
 
 
-def unpack(data, incoming=None, expected=None):
+def unpack(data, incoming=None, expected=None, fixture_path=FIXTURE):
     input_hash, output_hash = hashlib.sha256(), hashlib.sha256()
     case_sizes = []
-    with gzip.open(FIXTURE, 'rb') as fixture:
+    with gzip.open(fixture_path, 'rb') as fixture:
         if fixture.read(12) != b'LZCF0001' + struct.pack('<I', data['cases']):
             raise ValueError('original contact fixture header differs')
         if incoming:

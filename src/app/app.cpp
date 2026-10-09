@@ -30694,8 +30694,7 @@ private:
             flameRecords_, sound_, tileSeederResult_, lanes);
     }
 
-    lezac::gameplay::DamageLaneSeed seedDamageLaneContact(uint16_t cell) {
-        uint8_t seededClass = 0;
+    lezac::gameplay::DamageLaneSeed seedDamageLaneContact(uint16_t cell, uint8_t& seededClass) {
         queueTileDamage(cell % level_.width, cell / level_.width, 0, 0, true, &seededClass);
         if (tileSeederResult_ == 0) return lezac::gameplay::DamageLaneSeed::Failed;
         return seededClass ? lezac::gameplay::DamageLaneSeed::Debris : lezac::gameplay::DamageLaneSeed::Collapse;
@@ -30709,8 +30708,9 @@ private:
         auto memory = damageLaneMemory({&vx, &subX, &vy, &subY});
         lezac::gameplay::writeDamageLaneWord(memory, 0x2078, 1);
         lezac::gameplay::writeDamageLaneWord(memory, 0x659a, static_cast<uint16_t>(target * 2));
+        uint8_t seededClass = 0;
         lezac::gameplay::blendDamageLaneBytes(memory, reverse ? 0x78d4 : 0x78d2, 1, reverse,
-            [&](uint16_t cell) { return seedDamageLaneContact(cell); });
+            [&](uint16_t cell) { return seedDamageLaneContact(cell, seededClass); });
     }
 
     void explode(const Bomb& bomb) {
@@ -31241,8 +31241,10 @@ private:
                 static_cast<uint16_t>(contacts[index].cell * 2));
         }
         // The collapse caller passes SS:BP-0B / SS:BP-0C, not a DS address.
+        // The helper's SS seed-class local survives every contact in this call.
+        uint8_t seededClass = 0;
         const auto phase = lezac::gameplay::blendDamageLaneValue(memory, static_cast<uint8_t>(velocity),
-            ownWeight, reverse, [&](uint16_t cell) { return seedDamageLaneContact(cell); });
+            ownWeight, reverse, [&](uint16_t cell) { return seedDamageLaneContact(cell, seededClass); });
         if (phase) velocity = lezac::gameplay::damageLaneSignedByte(*phase);
     }
 

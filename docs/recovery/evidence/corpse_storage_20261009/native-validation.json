@@ -1,0 +1,88 @@
+{
+  "actual_app_executed": false,
+  "additional_observer_output_neutrality": true,
+  "cases": 940,
+  "complete_countdown_cases": 8,
+  "construction_boundaries": 1880,
+  "constructors": "corpse in-place reward/fade conversion plus full-pass particle allocation; no direct reward allocation",
+  "continuing_corpse_steps_verified": 404,
+  "conversion_kinds": {
+    "0": 118,
+    "19": 182,
+    "20": 102,
+    "21": 103,
+    "22": 101,
+    "23": 102,
+    "24": 100,
+    "25": 132
+  },
+  "corpse_motion_negative_controls_rejected": [
+    "velocity_x",
+    "velocity_y",
+    "fraction_x",
+    "fraction_y",
+    "timer",
+    "animation",
+    "visual_x",
+    "visual_y",
+    "visual_dimensions",
+    "opaque",
+    "backup"
+  ],
+  "corpse_motion_steps_verified": 1344,
+  "delayed_expiry_cases": 24,
+  "full_constructor_states_validated": 940,
+  "full_cpp_comparison": false,
+  "masks_applied": false,
+  "native_bytes_compared_per_execution": 5180436,
+  "natural_route": false,
+  "operations": 3252,
+  "original_repeat_equal": true,
+  "passed": true,
+  "pool_cases": {
+    "1": 220,
+    "28": 240,
+    "29": 240,
+    "30": 240
+  },
+  "recorded_utc": "2026-10-09T04:37:36.423196+00:00",
+  "reward_allocation_executed": false,
+  "seeded": true,
+  "semantic_negative_controls_rejected": [
+    "reward_kind",
+    "reward_timer",
+    "reward_impulse",
+    "reward_mode",
+    "backup_preservation",
+    "opaque_preservation",
+    "fraction_preservation",
+    "fade_behavior",
+    "fade_animation_delay",
+    "rng_second_draw",
+    "request_priority",
+    "active_sound_cursor",
+    "early_allocation",
+    "pending_bonus_preservation",
+    "unused_actor_tail",
+    "unused_link_tail",
+    "visual_dimensions",
+    "visual_position"
+  ],
+  "sound": "request/priority latch only; no interrupt or playback parity",
+  "streams": {
+    "construction": {
+      "bytes": 3008012,
+      "raw_sha256": "8fa2f3734cd59452855c87de488f00f91889b006e3ee50754035cc4222d71729"
+    },
+    "expected": {
+      "bytes": 5180448,
+      "raw_sha256": "5ecc7a2666dc2444261d5332bfbdc8ea162df13fa6a9c92c9b27d31b3408febc"
+    },
+    "requests": {
+      "bytes": 1511616,
+      "raw_sha256": "2f623d2a057425b71466c1b3fa75d5c6968a9f347a094c0fc034aa7b2a659790"
+    }
+  },
+  "validator_sha256": "5b7348a4137feb335a0ce2c7e70a56725ccf7fcd7a30a09627edd3b3e7bd4a27",
+  "whole_game_claim": false
+}

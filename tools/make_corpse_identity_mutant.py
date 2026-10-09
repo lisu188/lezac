@@ -4,7 +4,8 @@ import hashlib
 import json
 from pathlib import Path
 
-ANCHOR = b"            // Reuse the corpse's identity; this conversion is not an allocation.\n            BonusDrop reward;\n"
+ANCHOR = b"        if (conversion.hasReward) bonusDrops_.push_back(conversion.reward);\n"
+MUTATION = b"        if (conversion.hasReward) (void)claimActorOrder();\n"
 
 
 def generate(source, output):
@@ -14,7 +15,7 @@ def generate(source, output):
     normalized = raw.replace(b'\r\n', b'\n')
     if normalized.count(ANCHOR) != 1:
         raise ValueError('expected exactly one corpse conversion anchor')
-    mutated = normalized.replace(ANCHOR, ANCHOR + b'            (void)claimActorOrder();\n', 1)
+    mutated = normalized.replace(ANCHOR, ANCHOR + MUTATION, 1)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(mutated)
     manifest = dict(source=str(source.resolve()), source_sha256=hashlib.sha256(raw).hexdigest(),

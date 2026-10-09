@@ -11,6 +11,8 @@ public:
     explicit SoundEngine(const resources::SoundBank& sounds) : sounds_(sounds) {}
     const resources::SoundBank& bank() const { return sounds_; }
     SoundLatch latch() const { return soundLatch_; }
+    uint16_t requestCursor() const { return requestCursor_; }
+    uint8_t requestSelector() const { return requestSelector_; }
     SoundInterruptState interruptState() const { return soundInterrupt_; }
     SoundClockState clockState() const { return soundClock_; }
     SpeakerToneState speakerState() const { return speaker_; }
@@ -24,6 +26,10 @@ public:
     void clearCompatibilityAttempts() { compatibilitySoundAttempts_.clear(); }
     // Explicit replay operations preserve existing diagnostic seed boundaries.
     void restoreLatchForFixture(SoundLatch latch) { soundLatch_ = latch; }
+    void restoreRequestForFixture(uint16_t cursor, uint8_t selector) {
+        requestCursor_ = cursor;
+        requestSelector_ = selector;
+    }
     void restoreInterruptForFixture(SoundInterruptState state) { soundInterrupt_ = state; }
     void restorePlaybackForFixture(SoundPlaybackSnapshot playback) {
         lastPumpedSoundRecord_ = playback.record;
@@ -65,6 +71,8 @@ private:
     void advanceSpeakerPhase(uint64_t sampleCount);
     const resources::SoundBank& sounds_;
     SoundLatch soundLatch_;
+    uint16_t requestCursor_ = 0;
+    uint8_t requestSelector_ = 0;
     SoundInterruptState soundInterrupt_;
     SoundClockState soundClock_;
     SpeakerToneState speaker_;

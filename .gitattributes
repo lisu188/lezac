@@ -104,3 +104,5 @@ tests/fixtures/reward_storage/*.bin.gz binary
 docs/recovery/evidence/reward_storage_20261009/** -text
 tests/fixtures/corpse_storage/*.bin.gz binary
 docs/recovery/evidence/corpse_storage_20261009/** -text
+tests/gameplay/collapse_continuity_original.json -text
+tests/gameplay/collapse_continuity_original.bin.gz -text

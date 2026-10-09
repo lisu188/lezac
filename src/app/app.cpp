@@ -19284,7 +19284,8 @@ public:
                 throw std::runtime_error("invalid debris update dimensions or live counts");
             }
             if (physicalStorage && (width != 60 || height != 33 || (!completeFracturePools && debrisCount != 0) ||
-                                    collapseCount == 0 || collapseCount > (completeFracturePools ? 250 : (fractureStorage ? 2 : 3)))) {
+                                    (!collapseLaneHistory && collapseCount == 0) ||
+                                    collapseCount > (completeFracturePools ? 250 : (fractureStorage ? 2 : 3)))) {
                 throw std::runtime_error("unsupported retirement storage input");
             }
             resetLevel(0);

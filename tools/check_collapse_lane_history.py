@@ -20,15 +20,33 @@ METADATA = ROOT / 'tests/gameplay/collapse_lane_history_original.json'
 META_SHA = 'bc4858b73a8081cca6b996061d0e7be28c38862341a5d4237215889beba1ea4e'
 CASES, INPUT, STATE = 96, 26730, 26724
 RESERVE = 8 * 1024**2
+PROFILES = {
+    'lane': dict(schema='lezac.collapse-lane-history.v1', fixture=FIXTURE, metadata=METADATA,
+        metadata_sha256=META_SHA, producer='capture_original_collapse_lane_history.py',
+        groups={'debris': 36, 'collapse': 12, 'alternating': 36, 'collapse-group': 12}),
+    'support': dict(schema='lezac.collapse-support-history.v1',
+        fixture=ROOT / 'tests/gameplay/collapse_support_history_original.bin.gz',
+        metadata=ROOT / 'tests/gameplay/collapse_support_history_original.json',
+        metadata_sha256='a822125d99a78815dc4e7f1c831c01423858132285d3352d1002ce3332e59844',
+        producer='capture_original_collapse_support_history.py',
+        groups={'centered': 24, 'left-edge': 24, 'right-edge': 24, 'none': 24}),
+}
 
 
 def sha(raw):
     return hashlib.sha256(raw).hexdigest()
 
 
+def profile(data):
+    for name, spec in PROFILES.items():
+        if data.get('schema') == spec['schema']:
+            return name, spec
+    raise ValueError('unknown collapse history profile')
+
+
 def validate_metadata(data):
-    required = dict(schema='lezac.collapse-lane-history.v1', passed=True, cases=CASES,
-        groups={'debris': 36, 'collapse': 12, 'alternating': 36, 'collapse-group': 12},
+    name, spec = profile(data)
+    required = dict(schema=spec['schema'], passed=True, cases=CASES, groups=spec['groups'],
         input_bytes=INPUT, state_bytes=STATE, observer_neutrality_memory_bytes=1024**2,
         observer_neutrality_registers=14, poison_variants_per_case=3, stack_poison_address=0x8fed2,
         observable_stack_poison_independence=True, original_calls_stubbed=False,
@@ -36,22 +54,34 @@ def validate_metadata(data):
         actual_app_executed=False, seeded=True, natural_route=False,
         first_seed_stack_history_generally_proven=False, original_fidelity_claim=False,
         whole_game_complete=False)
+    if name == 'support':
+        required.update(widths=[2, 3, 6, 7], heights=[1, 3], horizontal_velocities=[-15, 0, 15],
+            initial_live_collapse_records=1, final_phases={'0': 68, '1': 28},
+            original_visits={'contact_scan': 112, 'seed': 48, 'support_scan': 96, 'balance_scan': 32,
+                'increment_rest': 96, 'normal_writeback': 96, 'timer_remove': 8, 'remove': 8},
+            restoration_adapter='pinned count-2 data restorer, DS:2080 restored to requested count 1 before execution')
     if any(data.get(key) != value or type(data.get(key)) is not type(value)
            for key, value in required.items()):
         raise ValueError('collapse history original evidence boundary differs')
 
 
-def metadata():
-    raw = METADATA.read_bytes()
-    if sha(raw) != META_SHA:
+def metadata(name='lane'):
+    spec = PROFILES[name]
+    raw = spec['metadata'].read_bytes()
+    if sha(raw) != spec['metadata_sha256']:
         raise ValueError('collapse history metadata pin differs')
     data = json.loads(raw)
+    if data.get('schema') != spec['schema']:
+        raise ValueError('collapse history profile and schema differ')
     validate_metadata(data)
-    for path, key in ((ROOT / 'LEZAC.EXE', 'original_exe_sha256'),
+    pins = [(ROOT / 'LEZAC.EXE', 'original_exe_sha256'),
                       (ROOT / 'tools/original_bomb_cpu.py', 'executor_sha256'),
                       (ROOT / 'tools/capture_original_contact_staging.py', 'staging_sha256'),
                       (ROOT / 'tools/capture_original_fracture_retirement.py', 'reader_sha256'),
-                      (ROOT / 'tools/capture_original_collapse_lane_history.py', 'producer_sha256')):
+                      (ROOT / 'tools' / spec['producer'], 'producer_sha256')]
+    if name == 'support':
+        pins.append((ROOT / 'tools/capture_original_collapse_lane_history.py', 'capture_helper_sha256'))
+    for path, key in pins:
         if sha(path.read_bytes()) != data[key]:
             raise ValueError('collapse history original source pin differs: ' + path.name)
     return data
@@ -90,7 +120,9 @@ def check_source(source):
         raise ValueError('input-only collapse history command dispatch differs')
 
 
-def decode(data, path=FIXTURE):
+def decode(data, path=None):
+    if path is None:
+        path = profile(data)[1]['fixture']
     packed = path.read_bytes()
     if len(packed) > 256 * 1024 or sha(packed) != data['fixture_sha256']:
         raise ValueError('collapse history packed fixture pin differs')
@@ -122,14 +154,15 @@ def compare(actual, expected):
 
 
 def run_probe(exe, out, data):
-    if out.exists():
-        raise ValueError('refusing to overwrite collapse history diagnostics')
     incoming, expected = decode(data)
-    out.mkdir(parents=True)
+    retained_root = out
+    retained_root.mkdir(parents=True, exist_ok=True)
+    out = Path(tempfile.mkdtemp(prefix='attempt-', dir=retained_root))
     report = dict(passed=False, production_app=True, cases=CASES, masks=0, input_only=True,
         seeded=True, natural_route=False, whole_game_claim=False, github_sha=os.environ.get('GITHUB_SHA'),
         input_sha256=sha(incoming), input_bytes=len(incoming), expected_sha256=sha(expected),
-        expected_bytes=len(expected), original_metadata_sha256=META_SHA)
+        expected_bytes=len(expected), original_metadata_sha256=profile(data)[1]['metadata_sha256'],
+        fixture_profile=profile(data)[0])
     for name, raw in (('input.bin.gz', incoming), ('expected.bin.gz', expected)):
         (out / name).write_bytes(gzip.compress(raw, mtime=0))
     with tempfile.TemporaryDirectory(prefix='lezac-collapse-history-input-') as input_dir, \
@@ -167,7 +200,7 @@ def run_probe(exe, out, data):
                 (out / 'actual.bin.gz').write_bytes(gzip.compress(raw, mtime=0))
             (out / 'result.json').write_text(json.dumps(report, indent=2) + '\n')
             print('collapse_lane_history_retained=' + str(out.resolve()), flush=True)
-            if sum(path.stat().st_size for path in out.rglob('*') if path.is_file()) >= RESERVE:
+            if sum(path.stat().st_size for path in retained_root.rglob('*') if path.is_file()) >= RESERVE:
                 raise ValueError('collapse history retained bundle exceeds local reserve')
 
 
@@ -186,14 +219,20 @@ def self_check(data, source):
         if mutant == source:
             raise ValueError('collapse history source mutant did not apply')
         rejects(check_source, mutant)
-    for key, value in (('cases', 95), ('full_collapse_update', False),
+    metadata_mutants = [('cases', 95), ('full_collapse_update', False),
                        ('observer_neutrality_registers', 13), ('original_calls_stubbed', True),
-                       ('first_seed_stack_history_generally_proven', True)):
+                       ('first_seed_stack_history_generally_proven', True)]
+    if profile(data)[0] == 'support':
+        metadata_mutants.extend((('initial_live_collapse_records', 2),
+            ('final_phases', {'1': 96}), ('restoration_adapter', 'no adapter recorded')))
+    for key, value in metadata_mutants:
         rejects(validate_metadata, dict(data, **{key: value}))
     incoming, expected = decode(data)
     if struct.unpack_from('<8sII', incoming) != (b'LZCI0001', CASES, INPUT):
         raise ValueError('collapse history input-only header differs')
-    raw = gzip.decompress(FIXTURE.read_bytes())
+    raw = gzip.decompress(profile(data)[1]['fixture'].read_bytes())
+    other = metadata('support' if profile(data)[0] == 'lane' else 'lane')
+    rejects(lambda value: decode(other, value), profile(data)[1]['fixture'])
     variants = (raw[:11], raw[:-1], raw + b'\0', raw[:20] + bytes((raw[20] ^ 1,)) + raw[21:],
                 raw[:-1] + bytes((raw[-1] ^ 1,)))
     with tempfile.TemporaryDirectory(prefix='lezac-collapse-history-checker-') as directory:
@@ -234,12 +273,14 @@ def self_check(data, source):
                 else:
                     if mode != 'ok':
                         raise ValueError('collapse history failure was accepted')
-            report = json.loads((out / 'result.json').read_bytes())
-            if (report['passed'] != (mode == 'ok') or gzip.decompress((out / 'actual.bin.gz').read_bytes()) != written
-                    or gzip.decompress((out / 'input.bin.gz').read_bytes()) != incoming
-                    or gzip.decompress((out / 'expected.bin.gz').read_bytes()) != expected):
+            bundle, = out.glob('attempt-*')
+            report = json.loads((bundle / 'result.json').read_bytes())
+            if (report['passed'] != (mode == 'ok') or gzip.decompress((bundle / 'actual.bin.gz').read_bytes()) != written
+                    or gzip.decompress((bundle / 'input.bin.gz').read_bytes()) != incoming
+                    or gzip.decompress((bundle / 'expected.bin.gz').read_bytes()) != expected):
                 raise ValueError('collapse history runner did not retain exact diagnostic streams')
-    print('collapse_lane_history_checker=ok source_mutants=4 metadata_mutants=5 fixture_mutants=5 output_mutants=5 mocked_runner_modes=4')
+    print('collapse_' + profile(data)[0] + '_history_checker=ok source_mutants=4 metadata_mutants=' +
+          str(len(metadata_mutants)) + ' fixture_mutants=5 output_mutants=5 mocked_runner_modes=4 cross_profile_mutants=1')
 
 
 def main():
@@ -248,20 +289,22 @@ def main():
     mode.add_argument('--exe', type=Path)
     mode.add_argument('--self-check', action='store_true')
     parser.add_argument('--out', type=Path)
+    parser.add_argument('--profile', choices=tuple(PROFILES), default='lane')
     args = parser.parse_args()
     if bool(args.exe) != bool(args.out):
         parser.error('--out is required only with --exe')
-    data = metadata()
+    data = metadata(args.profile)
+    prefix = 'collapse_' + args.profile + '_history'
     source = '\n'.join(item.text for item in source_files(ROOT, ('app', 'gameplay'), 'runtime'))
     check_source(source)
     if args.self_check:
         self_check(data, source)
     elif args.exe:
         run_probe(args.exe, args.out, data)
-        print('collapse_lane_history_original=ok cases=96 production_app=1 input_only=1 masks=0 natural_route=0 whole_game_claim=0')
+        print(prefix + '_original=ok cases=96 production_app=1 input_only=1 masks=0 natural_route=0 whole_game_claim=0')
     else:
         incoming, expected = decode(data)
-        print('collapse_lane_history_fixture=ok cases=96 input_bytes=' + str(len(incoming) - 16) +
+        print(prefix + '_fixture=ok cases=96 input_bytes=' + str(len(incoming) - 16) +
               ' state_bytes=' + str(len(expected) - 16) + ' production_app=0 natural_route=0 whole_game_claim=0')
 
 

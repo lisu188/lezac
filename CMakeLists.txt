@@ -4866,10 +4866,25 @@ if(BUILD_TESTING)
     set_tests_properties(collapse_lane_history_fixture collapse_lane_history_checker collapse_lane_history_original
         PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
     set_tests_properties(collapse_lane_history_original PROPERTIES TIMEOUT 120)
+    add_test(NAME collapse_support_history_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_lane_history.py --profile support)
+    add_test(NAME collapse_support_history_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_lane_history.py --profile support --self-check)
+    add_test(NAME collapse_support_history_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_lane_history.py
+                --profile support --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-support-history-app)
+    set_tests_properties(collapse_support_history_fixture collapse_support_history_checker collapse_support_history_original
+        PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(collapse_support_history_original PROPERTIES TIMEOUT 120)
     add_test(NAME collapse_history_ctest_contract
         COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_history_ctest.py
                 --ctest-dir ${CMAKE_CURRENT_BINARY_DIR} --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-history-ctest)
     set_tests_properties(collapse_history_ctest_contract PROPERTIES TIMEOUT 60
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    add_test(NAME collapse_history_repetition_contract
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_history_repetition.py
+                --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-history-repetition)
+    set_tests_properties(collapse_history_repetition_contract PROPERTIES TIMEOUT 60
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
     add_test(NAME collapse_contacts_failure_retention
         COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contact_failure_retention.py)

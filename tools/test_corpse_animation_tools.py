@@ -14,6 +14,15 @@ import make_corpse_animation_skip_mutant as generator
 
 
 class GeneratorTests(unittest.TestCase):
+    def assert_production_corpse_result_scope(self, mutated):
+        start = mutated.index('    void updateMonsters(')
+        end = mutated.index('\n    void ', start + 1)
+        body = mutated[start:end]
+        self.assertEqual(body.count(generator.DECLARATION), 1)
+        self.assertLess(body.index(generator.DECLARATION), body.index('actorSlots_.writeCorpse('))
+        self.assertLess(body.index('actorSlots_.writeCorpse('), body.index(generator.DEFERRED_PROLOGUE))
+        self.assertNotIn('const bool animationAdvanced =', body)
+
     def test_only_production_prologue_moves(self):
         source = ('prefix\n    void updateMonsters() {\n' + generator.PROLOGUE +
                   '            if (monster.behavior == 2) continue;\n' + generator.ANCHOR +
@@ -35,11 +44,28 @@ class GeneratorTests(unittest.TestCase):
             generator.ANCHOR, generator.ANCHOR + generator.DEFERRED_PROLOGUE, 1)
         self.assertEqual(mutated, expected)
         self.assertEqual(generator.DECLARATION, '            bool animationAdvanced = false;\n')
-        self.assertEqual(mutated.count(generator.DECLARATION), 1)
-        self.assertLess(mutated.index(generator.DECLARATION), mutated.index('actorSlots_.writeCorpse('))
-        self.assertLess(mutated.index('actorSlots_.writeCorpse('), mutated.index(generator.DEFERRED_PROLOGUE))
-        self.assertNotIn('const bool animationAdvanced =', mutated)
+        self.assert_production_corpse_result_scope(mutated)
         self.assertEqual(source.read_bytes(), original)
+
+    def test_unrelated_corpse_writes_do_not_affect_production_scope(self):
+        prefix = '    void debugFixture() { actorSlots_.writeCorpse(1); }\n'
+        suffix = '\n    void other() { actorSlots_.writeCorpse(2); }\n'
+        body = ('    void updateMonsters() {\n' + generator.PROLOGUE +
+                '            if (monster.behavior == 2) {\n' +
+                '                actorSlots_.writeCorpse(3);\n            }\n' + generator.ANCHOR + '    }')
+        mutated = generator.generate(prefix + body + suffix)
+        self.assertTrue(mutated.startswith(prefix) and mutated.endswith(suffix))
+        self.assert_production_corpse_result_scope(mutated)
+
+    def test_production_scope_rejects_wrong_order_and_missing_writeback(self):
+        write = '            actorSlots_.writeCorpse(3);\n'
+        for body in (write + generator.DECLARATION + generator.DEFERRED_PROLOGUE,
+                     generator.DECLARATION + generator.DEFERRED_PROLOGUE + write,
+                     generator.DECLARATION + generator.DEFERRED_PROLOGUE):
+            with self.subTest(body=body), self.assertRaises((AssertionError, ValueError)):
+                self.assert_production_corpse_result_scope(
+                    '    void debugFixture() { actorSlots_.writeCorpse(1); }\n' +
+                    '    void updateMonsters() {\n' + body + '    }\n    void other() {}\n')
 
     def test_cli_preserves_crlf_source_and_records_hashes(self):
         text = ('prefix\n    void updateMonsters() {\n' + generator.PROLOGUE +

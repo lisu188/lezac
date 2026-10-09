@@ -96,7 +96,33 @@ application. It restores each case once, uses `updateOrderedActors(0)` for both
 passes, and compares all 6,441,984 state bytes without masks. CI retains raw
 requests, actual output, stdout, stderr, and the comparison report on failures.
 Exact-head CI execution and external review remain required before acceptance
-and merge. At publication, the full fatal-update comparison is unproven.
+and merge. At initial publication, the full fatal-update comparison was unproven.
+
+At `9f43929`, exact-head Linux and Windows CI both matched all 6,441,984 fatal
+state bytes, without masks, and passed the 6,400-case consume helper and
+1,024-case actual-App branch replay. The raw fatal output SHA-256 on both hosts
+is `93ebfe626427e2ec300dc3e7c98b0d4adeda7ad442dadf3297bcd8691a6a2371`,
+identical to the retained original stream. Both complete CI jobs still failed
+later in `production_actor_lifecycle_app`, before the full-suite Test step.
+
+That seeded lifecycle diagnostic set only typed spawner counters. The physical
+shipped row retained cooldown zero, which the production tick decremented to
+255; no constructor ran. A bounded compiled probe reproduced this mismatch
+against the pinned shipped level data. The diagnostic now loads its intended
+remaining/available/cooldown values into the physical spawner row. It also
+seeds the physical corpse timer for its immediate-expiry scenario, after
+checking that production fatal conversion initialized kind 12 and timer 25.
+Production updaters, lifecycle assertions, native fixtures, and original-byte
+comparisons are unchanged. At `d25f5aba`, both hosts passed the repaired actual-App
+lifecycle scenario, including both full-capacity conversions. CI then failed a
+source-contract assertion that searched for the first `writeCorpse` call in the
+entire file; it found the diagnostic seed before the production updater. The
+assertion now uses the same `updateMonsters` function boundary as the mutant
+generator. Controls cover unrelated writes outside that boundary, incorrect
+writeback ordering, and missing production writeback. The native animation
+helper, monster/corpse actual-App replays, and compiled skip mutant passed on
+both hosts at `d25f5aba`. The full-suite Test step was skipped; new exact-head
+full-suite validation and external review remain required.
 
 All runs use dummy audio. The host's disk reserve blocks local game builds,
 DOSBox, and new screenshots. No natural route, rendered-pixel, sound-interrupt,

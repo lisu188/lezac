@@ -1,6 +1,7 @@
 #include "diagnostics/frame_inspector.hpp"
 #include "diagnostics/monster_animation_fixture.hpp"
 #include "diagnostics/transient_storage_fixture.hpp"
+#include "diagnostics/marker_storage_fixture.hpp"
 #include "rendering/game_renderer.hpp"
 #include "gameplay/actor_models.hpp"
 #include "gameplay/actor_slots.hpp"
@@ -24760,6 +24761,57 @@ public:
                   << " legacy_adoptions=0 legacy_retirements=0 seeded=1 natural_route=0 whole_game_claim=0\n";
     }
 
+    void debugMarkerStorageOriginal(const std::string& requestPath, const std::string& outputPath) {
+        namespace fixture = lezac::diagnostics::marker_storage;
+        load();
+        initSdl();
+        legacyActorSeedsEnabled_ = false;
+        std::ifstream input(requestPath, std::ios::binary);
+        std::ofstream output(outputPath, std::ios::binary);
+        if (!input || !output) throw std::runtime_error("cannot open marker protocol files");
+        const fixture::Header header(input);
+        for (uint16_t sprite = 1; sprite < header.descriptors.size(); ++sprite) {
+            if (actorSpriteDescriptor(sprite) != header.descriptor(sprite))
+                throw std::runtime_error("marker fixture descriptor differs from original assets");
+        }
+        fixture::writeHeader(output, header.operations);
+        size_t seeds = 0, updates = 0, launches = 0, portals = 0;
+        for (uint32_t operation = 0; operation < header.operations; ++operation) {
+            const auto command = fixture::byte(input);
+            if (command == 'S') {
+                const auto state = fixture::readSeed(input);
+                bombs_.clear(); monsters_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear();
+                transientActors_.clear(); pendingActorConversions_.clear();
+                std::array<uint64_t, lezac::gameplay::ActorStorage::capacity + 1> orders{};
+                for (size_t slot = 1; slot <= state.count; ++slot) orders[slot] = nextActorOrder_++;
+                actorSlots_.restoreForFixture(state, orders);
+                for (size_t slot = 1; slot <= state.count; ++slot)
+                    launchPadMarkers_.push_back(fixture::decode(actorSlots_, orders[slot]));
+                ++seeds;
+            } else if (command == 'U') {
+                logicTick_ = fixture::word(input);
+                updateOrderedActors(0);
+                ++updates;
+            } else if (command == 'L' || command == 'P') {
+                const fixture::Position position(input);
+                if (command == 'L') { spawnLaunchPadMarker(position.x, position.y); ++launches; }
+                else { spawnPortalMarker(position.x, position.y); ++portals; }
+            } else throw std::runtime_error("unknown marker command");
+            const auto entries = sharedActorEntries();
+            if (entries.size() != actorSlots_.count() || legacyActorAdoptions_ || legacyActorRetirements_)
+                throw std::runtime_error("marker diagnostic used legacy actor projection");
+            for (size_t slot = 1; slot <= entries.size(); ++slot) {
+                if (actorSlots_.order(slot) != entries[slot - 1].order)
+                    throw std::runtime_error("marker production order differs from physical storage");
+            }
+            fixture::writeState(output, actorSlots_.state());
+        }
+        fixture::finish(input, output);
+        std::cout << "marker_storage_original_app=ok operations=" << header.operations
+                  << " seeds=" << seeds << " updates=" << updates << " launches=" << launches << " portals=" << portals
+                  << " legacy_adoptions=0 legacy_retirements=0 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
     void debugProductionActorLifecycle() {
         load();
         initSdl();
@@ -27136,34 +27188,54 @@ private:
         requestLaunchPadSound();
         // 1000:691F..6950 launches and requests sound before the shared
         // constructor can reject the cosmetic marker at its 30-slot limit.
-        if (sharedActorCount() < 30) {
-            LaunchPadMarker marker;
-            marker.x = static_cast<int>(player.x) + 4;
-            marker.y = localY + 13;
-            marker.actorOrder = allocateActor({marker.kind, marker.timer, marker.mode, marker.frame,
-                marker.velocityX8, marker.velocityY8, static_cast<int16_t>(marker.x), static_cast<int16_t>(marker.y)});
-            launchPadMarkers_.push_back(marker);
-        }
+        spawnLaunchPadMarker(static_cast<int>(player.x), localY);
         return true;
+    }
+
+    void spawnLaunchPadMarker(int playerX, int localY) {
+        LaunchPadMarker marker;
+        marker.x = static_cast<int16_t>(playerX + 4);
+        marker.y = static_cast<int16_t>(localY + 13);
+        marker.actorOrder = allocateActor({marker.kind, marker.timer, marker.mode, marker.frame,
+            marker.velocityX8, marker.velocityY8, static_cast<int16_t>(marker.x), static_cast<int16_t>(marker.y)});
+        if (!marker.actorOrder) return;
+        // 1000:695F clears only mode; the other active/backup bytes survive reuse.
+        actorSlots_.disableAnimation(marker.actorOrder);
+        marker.animation = actorSlots_.activeAnimation(marker.actorOrder);
+        launchPadMarkers_.push_back(marker);
+    }
+
+    void spawnPortalMarker(int x, int y) {
+        LaunchPadMarker marker;
+        marker.x = static_cast<int16_t>(x);
+        marker.y = static_cast<int16_t>(y);
+        marker.velocityY8 = 0;
+        marker.timer = kPortalMarkerTimer;
+        marker.frame = kPortalMarkerFirstFrame;
+        marker.animation = ActorAnimation::initialize(kPortalMarkerFirstFrame,
+            kPortalMarkerLastFrame, kPortalMarkerDelay, 1);
+        marker.actorOrder = allocateActor({marker.kind, marker.timer, marker.mode, marker.frame,
+            marker.velocityX8, marker.velocityY8, static_cast<int16_t>(marker.x), static_cast<int16_t>(marker.y)});
+        if (!marker.actorOrder) return;
+        actorSlots_.setActiveAnimation(marker.actorOrder, marker.animation);
+        launchPadMarkers_.push_back(marker);
     }
 
     void updateLaunchPadMarkers(uint64_t onlyOrder = 0) {
         adoptUnorderedActors();
         for (LaunchPadMarker& marker : launchPadMarkers_) {
             if (onlyOrder && marker.actorOrder != onlyOrder) continue;
-            if (marker.animation.advance(actorSlots_.animationBackup(marker.actorOrder))) marker.frame = marker.animation.current;
-            if ((logicTick_ & 1u) != 0 && marker.timer > 0) {
-                --marker.timer;
-            }
-            if (marker.timer == 0) continue;
-            integrateAxis8_8(marker.x, marker.fracX, marker.velocityX8);
-            integrateAxis8_8(marker.y, marker.fracY, marker.velocityY8);
+            const bool advanced = lezac::gameplay::advanceLaunchPadMarker(marker,
+                actorSlots_.animationBackup(marker.actorOrder), logicTick_);
+            const auto descriptor = advanced ? actorSpriteDescriptor(marker.frame) : lezac::gameplay::ActorSlots::Descriptor{};
+            actorSlots_.writeMarker(marker.actorOrder, marker, advanced, descriptor);
         }
-        for (const auto& marker : launchPadMarkers_) if (marker.timer == 0) retireActor(marker.actorOrder);
+        for (const auto& marker : launchPadMarkers_)
+            if ((!onlyOrder || marker.actorOrder == onlyOrder) && marker.timer == 0) retireActor(marker.actorOrder);
         launchPadMarkers_.erase(
             std::remove_if(launchPadMarkers_.begin(), launchPadMarkers_.end(),
-                           [](const LaunchPadMarker& marker) {
-                               return marker.timer == 0;
+                           [onlyOrder](const LaunchPadMarker& marker) {
+                               return (!onlyOrder || marker.actorOrder == onlyOrder) && marker.timer == 0;
                            }),
             launchPadMarkers_.end());
     }
@@ -27831,19 +27903,7 @@ private:
             x = portal.x;
             y = portal.y;
             requestPortalTeleportSound();
-            if (sharedActorCount() < 30) {
-                LaunchPadMarker marker;
-                marker.x = x;
-                marker.y = y;
-                marker.velocityY8 = 0;
-                marker.timer = kPortalMarkerTimer;
-                marker.frame = kPortalMarkerFirstFrame;
-                marker.animation = ActorAnimation::initialize(kPortalMarkerFirstFrame,
-                    kPortalMarkerLastFrame, kPortalMarkerDelay, 1);
-                marker.actorOrder = allocateActor({marker.kind, marker.timer, marker.mode, marker.frame,
-                    marker.velocityX8, marker.velocityY8, static_cast<int16_t>(x), static_cast<int16_t>(y)});
-                launchPadMarkers_.push_back(marker);
-            }
+            spawnPortalMarker(x, y);
             return true;
         }
         return false;
@@ -31016,6 +31076,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc == 4 && std::string(argv[1]) == "--debug-transient-storage-original") {
             app.debugTransientStorageOriginal(argv[2], argv[3]);
+            return 0;
+        }
+        if (argc == 4 && std::string(argv[1]) == "--debug-marker-storage-original") {
+            app.debugMarkerStorageOriginal(argv[2], argv[3]);
             return 0;
         }
         if (argc == 2 && std::string(argv[1]) == "--debug-production-actor-lifecycle") {

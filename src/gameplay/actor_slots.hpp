@@ -59,6 +59,21 @@ public:
         return {raw[29], raw[30], raw[31], raw[32], raw[33], raw[34], static_cast<int8_t>(raw[35])};
     }
 
+    ActorAnimation activeAnimation(uint64_t order) const {
+        const auto& raw = actor(order);
+        return {raw[22], raw[23], raw[24], raw[25], raw[26], raw[27], static_cast<int8_t>(raw[28])};
+    }
+
+    void disableAnimation(uint64_t order) {
+        storage_.actor(require(order))[27] = 0;
+    }
+
+    void setActiveAnimation(uint64_t order, const ActorAnimation& animation) {
+        auto& raw = storage_.actor(require(order));
+        const auto bytes = animation.packed();
+        std::copy(bytes.begin(), bytes.end(), raw.begin() + 22);
+    }
+
     void setAnimationBackup(uint64_t order, const ActorAnimation& animation) {
         auto& raw = storage_.actor(require(order));
         const auto bytes = animation.packed();
@@ -86,6 +101,27 @@ public:
         word(row, 0, static_cast<uint16_t>(actor.x));
         word(row, 2, static_cast<uint16_t>(actor.y));
         // 1000:6156 changes the pixel-offset word, retaining width/height.
+        if (animationAdvanced) { row[6] = descriptor[2]; row[7] = descriptor[3]; }
+    }
+
+    void writeMarker(uint64_t order, const LaunchPadMarker& marker, bool animationAdvanced,
+                     const Descriptor& descriptor) {
+        auto& raw = storage_.actor(require(order));
+        auto& row = storage_.visual(raw[1]);
+        auto word = [](auto& bytes, size_t offset, uint16_t value) {
+            bytes[offset] = static_cast<uint8_t>(value);
+            bytes[offset + 1] = static_cast<uint8_t>(value >> 8);
+        };
+        raw[0] = marker.kind;
+        raw[2] = marker.timer;
+        word(raw, 6, static_cast<uint16_t>(marker.velocityX8));
+        word(raw, 8, static_cast<uint16_t>(marker.velocityY8));
+        word(raw, 10, marker.fracX);
+        word(raw, 12, marker.fracY);
+        raw[21] = marker.mode;
+        setActiveAnimation(order, marker.animation);
+        word(row, 0, static_cast<uint16_t>(marker.x));
+        word(row, 2, static_cast<uint16_t>(marker.y));
         if (animationAdvanced) { row[6] = descriptor[2]; row[7] = descriptor[3]; }
     }
 

@@ -248,8 +248,38 @@ state, output corruption and a failure after three successful batches.
 These are seeded repeated-state transitions. The App restores each boundary
 independently, so this is not proof of an unbroken C++ campaign, complete hidden
 state, sound runtime, visual fidelity or general first-seed stack history.
-The earlier PR370 matrices have independently verified Linux and Windows App
-outputs: 768 cases and 11288664 state bytes per host, without masks or
-mismatches. App evidence for these additional 768 continuity cases remains
-pending until the new exact-source-tree CI artifacts are independently checked.
-Full required CI and current-head external review remain mandatory before merge.
+PR371's focused artifacts independently verify all four matrices on Linux and
+Windows: 1536 cases and 31812696 state bytes per host, without masks or
+mismatches. This includes all 768 continuity boundaries and 20524032 new state
+bytes per host. Both jobs tested merge commit 3c1ea65829b0d31f836f2ab5084d36a8a8d57640;
+its complete tree 4d9d37c5d882557bfb1cace3a0ab075debc0e3cf equals published
+head 6e6a2a078132a80f08fa95f4b18e46793432f831. Artifacts 11640537571 (Linux)
+and 11639968507 (Windows) retain every input, expected and actual stream.
+An independent native Windows readback reconstructs and compares all original
+streams. Full required CI and current-head external review remain mandatory
+before merge.
+
+## Continuous C++ Collapse Updates
+
+The separate `--debug-original-collapse-continuous` diagnostic restores each
+scene once, then performs eight production collapse updates without restoring
+queues, map bytes, actor storage, sound state or lane-history bytes between
+boundaries. Only the tick advances. Empty queues skip the helper, following the
+pinned original caller. No production updater rule changes.
+
+The checker reuses the pinned original repeated-boundary fixture. Each of eight
+batches sends twelve initial scenes, not intermediate or expected states, and
+receives all 96 intermediate results. All 768 original observations are retained
+in the comparison. Each input, actual-output and retained root remains below
+eight MiB. Existing diagnostic formats and comparisons remain unchanged.
+
+Source controls reject resets or input ingestion inside the repeated-update
+loop. Mocked-child controls cover repeated success and later-batch mismatch,
+nonzero exit, stderr, wrong output marker and timeout, preserving exact partial
+streams and every earlier attempt. These controls are not compiled-App evidence.
+Both host workflows execute and retain the new strict CTest comparison.
+
+Actual continuous-App parity remains pending until the new exact-source-tree CI
+artifacts are independently checked. Even a match proves only these seeded
+collapse-update sequences, not full game ticks, natural campaign reachability,
+visual fidelity, sound-runtime equivalence or whole-game completion.

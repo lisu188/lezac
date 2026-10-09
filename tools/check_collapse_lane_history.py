@@ -36,6 +36,12 @@ PROFILES = {
         metadata_sha256='91e5e17404251bcef67f8f07f82aad73299ce06d1e4aa259e794705ae0ed940d',
         producer='capture_original_collapse_continuity.py', cases=768,
         groups={'active_update': 712, 'empty_queue_skip': 56}),
+    'contact-continuity': dict(schema='lezac.collapse-contact-continuity.v1',
+        fixture=ROOT / 'tests/gameplay/collapse_contact_continuity_original.bin.gz',
+        metadata=ROOT / 'tests/gameplay/collapse_contact_continuity_original.json',
+        metadata_sha256='cb1ed75c0f6e6c2dcb629dec769c131fd3ce16c5879940f4a2cb3e85e2d4a40e',
+        producer='capture_original_collapse_contact_continuity.py', cases=768,
+        groups={'active_update': 768}),
 }
 
 
@@ -59,11 +65,17 @@ def validate_metadata(data):
         actual_app_executed=False, seeded=True, natural_route=False,
         first_seed_stack_history_generally_proven=False, original_fidelity_claim=False,
         whole_game_complete=False)
-    if name == 'continuity':
-        required.update(initial_scenes=96, boundaries_per_scene=8, initial_calls_match_support_fixture=True,
+    if name in ('continuity', 'contact-continuity'):
+        required.update(initial_scenes=96, boundaries_per_scene=8,
             continuous_original_image=True, serialized_state_sufficient_for_observed_sequence=True,
             original_caller_empty_queue_gate='1000:8060-806A', original_caller_gate_hex='833e8020007603e898d0',
             continuous_app_execution_proven=False, masks=0)
+        if name == 'continuity':
+            required['initial_calls_match_support_fixture'] = True
+        else:
+            required.update(initial_calls_match_lane_fixture=True, initial_live_collapse_records=2,
+                initial_scene_groups={'debris': 36, 'collapse': 12, 'alternating': 36, 'collapse-group': 12},
+                original_visits={'0x15102': 768, '0x1370e': 1269, '0x1566c': 18, '0x1557b': 102})
     else:
         required.update(poison_variants_per_case=3, stack_poison_address=0x8fed2,
                         observable_stack_poison_independence=True)
@@ -92,10 +104,12 @@ def metadata(name='lane'):
                       (ROOT / 'tools/capture_original_contact_staging.py', 'staging_sha256'),
                       (ROOT / 'tools/capture_original_fracture_retirement.py', 'reader_sha256'),
                       (ROOT / 'tools' / spec['producer'], 'producer_sha256')]
-    if name in ('support', 'continuity'):
+    if name in ('support', 'continuity', 'contact-continuity'):
         pins.append((ROOT / 'tools/capture_original_collapse_lane_history.py', 'capture_helper_sha256'))
     if name == 'continuity':
         pins.append((ROOT / 'tests/gameplay/collapse_support_history_original.bin.gz', 'support_fixture_sha256'))
+    if name == 'contact-continuity':
+        pins.append((ROOT / 'tests/gameplay/collapse_lane_history_original.bin.gz', 'lane_fixture_sha256'))
     for path, key in pins:
         if sha(path.read_bytes()) != data[key]:
             raise ValueError('collapse history original source pin differs: ' + path.name)
@@ -169,7 +183,7 @@ def compare(actual, expected):
 
 
 def run_probe(exe, out, data, streams=None, continuous=False):
-    if continuous and (streams is None or profile(data)[0] != 'continuity'):
+    if continuous and (streams is None or profile(data)[0] not in ('continuity', 'contact-continuity')):
         raise ValueError('continuous probe requires original continuity input streams')
     incoming, expected = decode(data) if streams is None else streams
     scenes = 12 if continuous else CASES

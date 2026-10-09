@@ -4896,6 +4896,21 @@ if(BUILD_TESTING)
     set_tests_properties(collapse_continuous_fixture collapse_continuous_checker collapse_continuous_original
         PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
     set_tests_properties(collapse_continuous_original PROPERTIES TIMEOUT 240)
+    foreach(mode continuity continuous)
+        add_test(NAME collapse_contact_${mode}_fixture
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_${mode}.py
+                    --profile contact-continuity)
+        add_test(NAME collapse_contact_${mode}_checker
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_${mode}.py
+                    --profile contact-continuity --self-check)
+        add_test(NAME collapse_contact_${mode}_original
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_${mode}.py
+                    --profile contact-continuity --exe $<TARGET_FILE:lezac_cpp>
+                    --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-contact-${mode}-app)
+        set_tests_properties(collapse_contact_${mode}_fixture collapse_contact_${mode}_checker collapse_contact_${mode}_original
+            PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+        set_tests_properties(collapse_contact_${mode}_original PROPERTIES TIMEOUT 240)
+    endforeach()
     add_test(NAME collapse_support_transport_contract
         COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_support_transport.py
                 --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-support-transport)

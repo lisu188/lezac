@@ -331,7 +331,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --output-on-failure -R '^collapse_(contacts_(original|contract|failure_retention)|(seed|lane|support)_history_(fixture|checker|original)|continu(ity|ous)_(fixture|checker|original)|history_(ctest|repetition)_contract|support_transport_contract)$'
+        run: ctest --test-dir build --output-on-failure -R '^collapse_(contacts_(original|contract|failure_retention)|(seed|lane|support)_history_(fixture|checker|original)|(contact_)?continu(ity|ous)_(fixture|checker|original)|history_(ctest|repetition)_contract|support_transport_contract)$'
       - name: Preserve collapse contact diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -347,6 +347,15 @@ jobs:
             build/collapse-history-ctest/
             build/collapse-history-repetition/
             build/collapse-support-transport/
+          if-no-files-found: ignore
+      - name: Preserve multi-record collapse continuity diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collapse-contact-continuity-linux
+          path: |
+            build/collapse-contact-continuity-app/
+            build/collapse-contact-continuous-app/
           if-no-files-found: ignore
       - name: Flame contact word regressions
         env:
@@ -427,6 +436,8 @@ jobs:
             build/collapse-support-history-app/
             build/collapse-continuity-app/
             build/collapse-continuous-app/
+            build/collapse-contact-continuity-app/
+            build/collapse-contact-continuous-app/
             build/collapse-history-ctest/
             build/collapse-history-repetition/
             build/collapse-support-transport/
@@ -807,7 +818,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --output-on-failure -R '^collapse_(contacts_(original|contract|failure_retention)|(seed|lane|support)_history_(fixture|checker|original)|continu(ity|ous)_(fixture|checker|original)|history_(ctest|repetition)_contract|support_transport_contract)$'
+        run: ctest --test-dir build --output-on-failure -R '^collapse_(contacts_(original|contract|failure_retention)|(seed|lane|support)_history_(fixture|checker|original)|(contact_)?continu(ity|ous)_(fixture|checker|original)|history_(ctest|repetition)_contract|support_transport_contract)$'
       - name: Preserve collapse contact diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -823,6 +834,15 @@ jobs:
             build/collapse-history-ctest/
             build/collapse-history-repetition/
             build/collapse-support-transport/
+          if-no-files-found: ignore
+      - name: Preserve multi-record collapse continuity diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collapse-contact-continuity-windows
+          path: |
+            build/collapse-contact-continuity-app/
+            build/collapse-contact-continuous-app/
           if-no-files-found: ignore
       - name: Flame contact word regressions
         env:
@@ -903,6 +923,8 @@ jobs:
             build/collapse-support-history-app/
             build/collapse-continuity-app/
             build/collapse-continuous-app/
+            build/collapse-contact-continuity-app/
+            build/collapse-contact-continuous-app/
             build/collapse-history-ctest/
             build/collapse-history-repetition/
             build/collapse-support-transport/

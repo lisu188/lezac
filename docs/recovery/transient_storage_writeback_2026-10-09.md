@@ -84,6 +84,24 @@ Other actor families, conversion entry points, rendering consumers, natural
 campaign sequences, and sound runtime parity still need broader original-backed
 physical ownership and acceptance. No rendered pixel or whole-game claim is made.
 
+## CI source-contract follow-up
+
+At initial PR342 head `be1d76b7`, the actual App and helper comparisons passed
+on both Windows and Linux, with all 403,200 table bytes equal to the original.
+Later CI failed in collapse actor creation because its source-text contract
+still required the removed pre-allocation early return.
+
+The follow-up changes only that contract, its expected CTest mutation count,
+and documentation/evidence. It requires the actual constructor-to-allocator
+call, refusal handling, full-capacity descriptor bypass, append rejection,
+and success-only identity advancement. Source mutations increase from 23 to 29;
+none of the previous diagnostic or collapse-route checks are removed. The
+original fixture hashes, records, metadata checks, and runtime comparator remain
+unchanged. Local source-contract CTests and all original oracle records pass.
+
+The initial-head runtime evidence is retained separately from the follow-up's
+pending exact-head CI. It is not relabeled as execution of a newer commit.
+
 All processes use `SDL_AUDIODRIVER=dummy`. The isolated source and each bounded
 validation root remain below the 8 MiB cap; originals, failures, and transitive
 Git donor roots are preserved.

@@ -4680,7 +4680,7 @@ if(BUILD_TESTING)
     set_tests_properties(original_collapse_actors_contract PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         TIMEOUT 30
-        PASS_REGULAR_EXPRESSION "^original_collapse_actors_contract=ok source_mutants=23 comparator_mutants=6 compiled_cpp=0")
+        PASS_REGULAR_EXPRESSION "^original_collapse_actors_contract=ok source_mutants=29 comparator_mutants=6 compiled_cpp=0")
     add_test(NAME original_collapse_actors_checker
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_collapse_actor_checker.py)
     set_tests_properties(original_collapse_actors_checker PROPERTIES

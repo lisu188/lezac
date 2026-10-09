@@ -5384,6 +5384,26 @@ if(BUILD_TESTING)
         TIMEOUT 90
         PASS_REGULAR_EXPRESSION "^above_contact_staging_original=ok cases=96 compared_bytes=2565216 production_app=1 masks=0 guard_bytes=11 seed_above=1 seeded=1 natural_route=0 whole_game_claim=0")
 
+    add_test(NAME debris_contact_pools_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_debris_contact_pools_checker.py -v)
+    set_tests_properties(debris_contact_pools_checker PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    add_test(NAME debris_contact_pools_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debris_contact_pools.py)
+    set_tests_properties(debris_contact_pools_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        PASS_REGULAR_EXPRESSION "^debris_contact_pools_fixture=ok cases=96 state_bytes=26721 direct_impacts=1")
+    add_test(NAME debris_contact_pools_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debris_contact_pools.py
+            --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/debris-contact-pools-app)
+    set_tests_properties(debris_contact_pools_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^debris_contact_pools_original=ok cases=96 compared_bytes=2565216 production_app=1 masks=0 direct_impacts=1 seeded=1 natural_route=0 whole_game_claim=0")
+
     add_test(NAME multicell_seeder_fixture
         COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_multicell_seeder.py)
     set_tests_properties(multicell_seeder_fixture PROPERTIES

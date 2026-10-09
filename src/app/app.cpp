@@ -19208,7 +19208,8 @@ public:
 
     void debugOriginalDebrisUpdate(const std::string& inputPath, const std::string& outputPath,
                                   bool collapseUpdate = false, bool actorCreation = false,
-                                  bool retirementStorage = false, bool fractureStorage = false) {
+                                  bool retirementStorage = false, bool fractureStorage = false,
+                                  bool physicalDebrisUpdate = false) {
         namespace storage = lezac::diagnostics::transient_storage;
         const bool physicalStorage = retirementStorage || fractureStorage;
         if (actorCreation && !collapseUpdate) throw std::runtime_error("actor probe requires collapse update");
@@ -19235,6 +19236,9 @@ public:
         const auto header = take(physicalStorage ? 16 : 12);
         const bool completeFracturePools = fractureStorage &&
             std::string(header.begin(), header.begin() + 8) == "LZFC0001";
+        if (physicalDebrisUpdate && !completeFracturePools) {
+            throw std::runtime_error("physical debris update requires complete fracture pools");
+        }
         const size_t physicalDebrisRecords = completeFracturePools ? 1402 : 5;
         const size_t physicalCollapseRecords = completeFracturePools ? 251 : 5;
         const size_t fractureStateBytes = completeFracturePools ? 26721 : 7664;
@@ -19409,8 +19413,8 @@ public:
             // Expected fixture bytes are skipped, never installed as application state.
             if (retirementStorage) take(6027);
             if (fractureStorage) take(fractureStateBytes);
-            if (collapseUpdate) updateCollapseRecords();
-            else updateDebrisRecords();
+            if (physicalDebrisUpdate || !collapseUpdate) updateDebrisRecords();
+            else if (collapseUpdate) updateCollapseRecords();
             if (retirementStorage && (!transientActors_.empty() || !debrisQueue_.empty())) {
                 throw std::runtime_error("retirement fixture unexpectedly created actors or debris");
             }
@@ -19472,7 +19476,8 @@ public:
         output.flush();
         if (!output) throw std::runtime_error("cannot flush debris update output");
         if (fractureStorage) {
-            std::cout << (completeFracturePools ? "fracture_capacity_app=ok cases=" : "fracture_retirement_app=ok cases=") << cases
+            std::cout << (physicalDebrisUpdate ? "debris_contact_pools_app=ok cases=" :
+                          (completeFracturePools ? "fracture_capacity_app=ok cases=" : "fracture_retirement_app=ok cases=")) << cases
                       << " compared_bytes=" << cases * fractureStateBytes
                       << " retained_debris=" << physicalDebrisRecords << " retained_collapse=" << physicalCollapseRecords
                       << " actor_bank_bytes=1575 sound_bytes=7"
@@ -32164,6 +32169,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-original-fracture-retirement") {
             app.debugOriginalDebrisUpdate(argv[2], argv[3], true, false, false, true);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-debris-contact-pools") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3], true, false, false, true, true);
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-actors") {

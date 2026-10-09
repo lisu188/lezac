@@ -168,10 +168,13 @@ def compare(actual, expected):
                      ' actual=' + str(actual[offset]) + ' original=' + str(expected[offset]))
 
 
-def run_probe(exe, out, data, streams=None):
+def run_probe(exe, out, data, streams=None, continuous=False):
+    if continuous and (streams is None or profile(data)[0] != 'continuity'):
+        raise ValueError('continuous probe requires original continuity input streams')
     incoming, expected = decode(data) if streams is None else streams
-    if (len(incoming) != 16 + CASES * INPUT or len(expected) != 16 + CASES * STATE
-            or struct.unpack_from('<8sII', incoming) != (b'LZCI0001', CASES, INPUT)
+    scenes = 12 if continuous else CASES
+    if (len(incoming) != 16 + scenes * INPUT or len(expected) != 16 + CASES * STATE
+            or struct.unpack_from('<8sII', incoming) != (b'LZCI0001', scenes, INPUT)
             or struct.unpack_from('<8sII', expected) != (b'LZCO0001', CASES, STATE)):
         raise ValueError('collapse history batch dimensions differ')
     retained_root = out
@@ -182,13 +185,16 @@ def run_probe(exe, out, data, streams=None):
         input_sha256=sha(incoming), input_bytes=len(incoming), expected_sha256=sha(expected),
         expected_bytes=len(expected), original_metadata_sha256=profile(data)[1]['metadata_sha256'],
         fixture_profile=profile(data)[0])
+    if continuous:
+        report.update(initial_scenes=12, boundaries_per_scene=8, continuous_collapse_updates=True)
     for name, raw in (('input.bin.gz', incoming), ('expected.bin.gz', expected)):
         (out / name).write_bytes(gzip.compress(raw, mtime=0))
     with tempfile.TemporaryDirectory(prefix='lezac-collapse-history-input-') as input_dir, \
             tempfile.TemporaryDirectory(prefix='lezac-collapse-history-actual-') as actual_dir:
         input_path, actual_path = Path(input_dir) / 'input.bin', Path(actual_dir) / 'actual.bin'
         input_path.write_bytes(incoming)
-        command = [str(exe.resolve()), '--debug-original-collapse-lane-history', str(input_path), str(actual_path)]
+        mode = '--debug-original-collapse-continuous' if continuous else '--debug-original-collapse-lane-history'
+        command = [str(exe.resolve()), mode, str(input_path), str(actual_path)]
         report['command'] = command
         result = None
         try:
@@ -199,6 +205,9 @@ def run_probe(exe, out, data, streams=None):
             wanted = ('collapse_lane_history_app=ok cases=96 compared_bytes=2565504 retained_debris=1402 '
                       'retained_collapse=251 actor_bank_bytes=1575 sound_bytes=7 history_bytes=3 '
                       'production_app=1 seeded=1 natural_route=0 whole_game_claim=0')
+            if continuous:
+                wanted = wanted.replace('collapse_lane_history_app=ok cases=96',
+                    'collapse_continuous_app=ok scenes=12 steps=8 cases=96')
             if result.returncode != 0 or result.stderr or result.stdout.strip().decode() != wanted:
                 raise ValueError('collapse history production diagnostic failed')
             if actual_path.stat().st_size >= RESERVE:

@@ -72,7 +72,7 @@ def fixture(data, path=None):
     return batches(raw, data)
 
 
-def run_probe(exe, root, data, streams=None):
+def run_probe(exe, root, data, streams=None, continuous=False):
     streams = fixture(data) if streams is None else streams
     root.mkdir(parents=True, exist_ok=True)
     out = Path(tempfile.mkdtemp(prefix='attempt-', dir=root))
@@ -80,13 +80,15 @@ def run_probe(exe, root, data, streams=None):
         state_bytes=CASES * STATE, masks=0, seeded=True, natural_route=False,
         whole_game_complete=False, continuous_app_execution_proven=False,
         original_metadata_sha256=history.PROFILES['continuity']['metadata_sha256'], completed_batches=[])
+    if continuous:
+        report.update(initial_scenes=96, boundaries_per_scene=8, continuous_collapse_updates=True)
     try:
         if len(streams) != 8:
             raise ValueError('continuity batch count differs')
         for index, batch in enumerate(streams):
             report['current_batch'] = index
             target = out / ('batch-' + str(index))
-            history.run_probe(exe, target, data, streams=batch)
+            history.run_probe(exe, target, data, streams=batch, continuous=continuous)
             result, = target.glob('attempt-*/result.json')
             child = json.loads(result.read_bytes())
             if not child['passed'] or child['cases'] != BATCH or child['fixture_profile'] != 'continuity':

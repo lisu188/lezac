@@ -19175,7 +19175,7 @@ public:
                                   bool collapseUpdate = false, bool actorCreation = false,
                                   bool retirementStorage = false, bool fractureStorage = false,
                                   bool physicalDebrisUpdate = false, bool laneHistory = false,
-                                  bool collapseLaneHistory = false) {
+                                  bool collapseLaneHistory = false, bool continuousCollapse = false) {
         namespace storage = lezac::diagnostics::transient_storage;
         const bool physicalStorage = retirementStorage || fractureStorage;
         if (actorCreation && !collapseUpdate) throw std::runtime_error("actor probe requires collapse update");
@@ -19184,6 +19184,9 @@ public:
         }
         if (collapseLaneHistory && (!fractureStorage || !laneHistory || physicalDebrisUpdate)) {
             throw std::runtime_error("collapse lane history requires an input-only collapse update");
+        }
+        if (continuousCollapse && !collapseLaneHistory) {
+            throw std::runtime_error("continuous collapse requires an input-only collapse history");
         }
         load();
         if (fractureStorage) {
@@ -19225,7 +19228,7 @@ public:
         if (retirementStorage && (cases != 176 || le32(header, 12) != 12060)) {
             throw std::runtime_error("invalid retirement storage fixture dimensions");
         }
-        if (fractureStorage && (cases != (completeFracturePools ? (laneHistory && !collapseLaneHistory ? 112 : 96) : 288) ||
+        if (fractureStorage && (cases != (completeFracturePools ? (laneHistory && !collapseLaneHistory ? 112 : (continuousCollapse ? 12 : 96)) : 288) ||
                                le32(header, 12) != (completeFracturePools ? (collapseLaneHistory ? 26730 : laneHistory ? 53454 : 53448) : 15334))) {
             throw std::runtime_error("invalid fracture storage fixture dimensions");
         }
@@ -19236,7 +19239,7 @@ public:
         if (physicalStorage) {
             const std::string magic = fractureStorage ? (completeFracturePools ? (laneHistory ? (collapseLaneHistory ? "LZCO0001" : "LZDO0001") : "LZFP0001") : "LZFO0001") : "LZRO0001";
             std::vector<uint8_t> outputHeader(magic.begin(), magic.end());
-            appendWord(outputHeader, static_cast<uint16_t>(cases));
+            appendWord(outputHeader, static_cast<uint16_t>(continuousCollapse ? cases * 8 : cases));
             appendWord(outputHeader, 0);
             appendWord(outputHeader, static_cast<uint16_t>(fractureStorage ? fractureStateBytes : 6027));
             appendWord(outputHeader, 0);
@@ -19395,73 +19398,88 @@ public:
             // The input-only collapse history mode never receives expected state.
             if (retirementStorage) take(6027);
             if (fractureStorage && !collapseLaneHistory) take(fractureStateBytes);
-            if (physicalDebrisUpdate || !collapseUpdate) updateDebrisRecords();
-            else if (collapseUpdate) updateCollapseRecords();
-            if (retirementStorage && (!transientActors_.empty() || !debrisQueue_.empty())) {
-                throw std::runtime_error("retirement fixture unexpectedly created actors or debris");
-            }
-            std::vector<uint8_t> result;
-            appendWord(result, static_cast<uint16_t>(randomSeed_));
-            appendWord(result, static_cast<uint16_t>(randomSeed_ >> 16));
-            appendWord(result, static_cast<uint16_t>(debrisQueue_.size()));
-            appendWord(result, static_cast<uint16_t>(collapseQueue_.size()));
-            if (collapseUpdate) {
-                appendWord(result, static_cast<uint16_t>(destroyed_));
-                appendWord(result, nextCollapseFragmentWord_);
-            }
-            result.insert(result.end(), level_.tiles.begin(), level_.tiles.end());
-            for (uint16_t word : level_.wordLayer) appendWord(result, word);
-            for (size_t slot = 0; slot < (fractureStorage ? physicalDebrisRecords : debrisQueue_.size()); ++slot) {
-                const auto& record = debrisQueue_.retainedSlot(slot);
-                appendWord(result, static_cast<uint16_t>(record.tileIndex));
-                appendWord(result, record.flaggedWord);
-                result.insert(result.end(), {static_cast<uint8_t>(record.velocityX),
-                    static_cast<uint8_t>(record.velocityY), static_cast<uint8_t>(record.subX),
-                    static_cast<uint8_t>(record.subY), record.restTicks, record.lookup, record.aux});
-            }
-            for (size_t slot = 0; slot < (physicalStorage ? physicalCollapseRecords : collapseQueue_.size()); ++slot) {
-                const auto& record = collapseQueue_.retainedSlot(slot);
-                appendWord(result, record.startOffsetBytes);
-                appendWord(result, record.endOffsetBytes);
-                appendWord(result, record.flaggedWord);
-                result.insert(result.end(), {record.forwardPhase, record.reversePhase,
-                    static_cast<uint8_t>(record.subX), static_cast<uint8_t>(record.subY)});
-                appendWord(result, record.argMagnitude);
-                result.insert(result.end(), {record.flags, record.restTicks, record.affectedBytes});
-            }
-            if (actorCreation) {
-                appendWord(result, static_cast<uint16_t>(transientActors_.size()));
-                for (size_t actorIndex = 0; actorIndex < transientActors_.size(); ++actorIndex) {
-                    const auto actorBytes = collapseActorBytes(transientActors_[actorIndex], actorIndex);
-                    result.insert(result.end(), actorBytes.begin(), actorBytes.end());
+            const uint16_t initialTick = static_cast<uint16_t>(logicTick_);
+            const uint32_t steps = continuousCollapse ? 8 : 1;
+            for (uint32_t step = 0; step < steps; ++step) {
+                logicTick_ = static_cast<uint16_t>(initialTick + step);
+                if (!continuousCollapse || !collapseQueue_.empty()) {
+                    if (physicalDebrisUpdate || !collapseUpdate) updateDebrisRecords();
+                    else if (collapseUpdate) updateCollapseRecords();
                 }
-            }
-            output.write(reinterpret_cast<const char*>(result.data()), static_cast<std::streamsize>(result.size()));
-            if (fractureStorage) {
-                const auto entries = sharedActorEntries();
-                if (entries.size() != actorSlots_.count() || legacyActorAdoptions_ || legacyActorRetirements_)
-                    throw std::runtime_error("fracture diagnostic used legacy actor projection");
-                for (size_t slot = 1; slot <= entries.size(); ++slot)
-                    if (actorSlots_.order(slot) != entries[slot - 1].order)
-                        throw std::runtime_error("fracture actor physical order mismatch");
-                storage::writeState(output, actorSlots_.state());
-                storage::write(output, sound_.requestCursor(), 2);
-                storage::write(output, sound_.requestSelector(), 1);
-                const auto latch = sound_.latch();
-                storage::write(output, latch.currentSelector, 1);
-                storage::write(output, latch.latchedOffset, 2);
-                storage::write(output, latch.active, 1);
-                if (laneHistory) {
-                    storage::write(output, damageLaneData_[0x661e], 1);
-                    storage::write(output, damageLaneData_[0x0a06], 1);
-                    storage::write(output, damageLaneData_[0x0a07], 1);
+                if (retirementStorage && (!transientActors_.empty() || !debrisQueue_.empty())) {
+                    throw std::runtime_error("retirement fixture unexpectedly created actors or debris");
                 }
+                std::vector<uint8_t> result;
+                appendWord(result, static_cast<uint16_t>(randomSeed_));
+                appendWord(result, static_cast<uint16_t>(randomSeed_ >> 16));
+                appendWord(result, static_cast<uint16_t>(debrisQueue_.size()));
+                appendWord(result, static_cast<uint16_t>(collapseQueue_.size()));
+                if (collapseUpdate) {
+                    appendWord(result, static_cast<uint16_t>(destroyed_));
+                    appendWord(result, nextCollapseFragmentWord_);
+                }
+                result.insert(result.end(), level_.tiles.begin(), level_.tiles.end());
+                for (uint16_t word : level_.wordLayer) appendWord(result, word);
+                for (size_t slot = 0; slot < (fractureStorage ? physicalDebrisRecords : debrisQueue_.size()); ++slot) {
+                    const auto& record = debrisQueue_.retainedSlot(slot);
+                    appendWord(result, static_cast<uint16_t>(record.tileIndex));
+                    appendWord(result, record.flaggedWord);
+                    result.insert(result.end(), {static_cast<uint8_t>(record.velocityX),
+                        static_cast<uint8_t>(record.velocityY), static_cast<uint8_t>(record.subX),
+                        static_cast<uint8_t>(record.subY), record.restTicks, record.lookup, record.aux});
+                }
+                for (size_t slot = 0; slot < (physicalStorage ? physicalCollapseRecords : collapseQueue_.size()); ++slot) {
+                    const auto& record = collapseQueue_.retainedSlot(slot);
+                    appendWord(result, record.startOffsetBytes);
+                    appendWord(result, record.endOffsetBytes);
+                    appendWord(result, record.flaggedWord);
+                    result.insert(result.end(), {record.forwardPhase, record.reversePhase,
+                        static_cast<uint8_t>(record.subX), static_cast<uint8_t>(record.subY)});
+                    appendWord(result, record.argMagnitude);
+                    result.insert(result.end(), {record.flags, record.restTicks, record.affectedBytes});
+                }
+                if (actorCreation) {
+                    appendWord(result, static_cast<uint16_t>(transientActors_.size()));
+                    for (size_t actorIndex = 0; actorIndex < transientActors_.size(); ++actorIndex) {
+                        const auto actorBytes = collapseActorBytes(transientActors_[actorIndex], actorIndex);
+                        result.insert(result.end(), actorBytes.begin(), actorBytes.end());
+                    }
+                }
+                output.write(reinterpret_cast<const char*>(result.data()), static_cast<std::streamsize>(result.size()));
+                if (fractureStorage) {
+                    const auto entries = sharedActorEntries();
+                    if (entries.size() != actorSlots_.count() || legacyActorAdoptions_ || legacyActorRetirements_)
+                        throw std::runtime_error("fracture diagnostic used legacy actor projection");
+                    for (size_t slot = 1; slot <= entries.size(); ++slot)
+                        if (actorSlots_.order(slot) != entries[slot - 1].order)
+                            throw std::runtime_error("fracture actor physical order mismatch");
+                    storage::writeState(output, actorSlots_.state());
+                    storage::write(output, sound_.requestCursor(), 2);
+                    storage::write(output, sound_.requestSelector(), 1);
+                    const auto latch = sound_.latch();
+                    storage::write(output, latch.currentSelector, 1);
+                    storage::write(output, latch.latchedOffset, 2);
+                    storage::write(output, latch.active, 1);
+                    if (laneHistory) {
+                        storage::write(output, damageLaneData_[0x661e], 1);
+                        storage::write(output, damageLaneData_[0x0a06], 1);
+                        storage::write(output, damageLaneData_[0x0a07], 1);
+                    }
+                }
+                if (!output) throw std::runtime_error("cannot write debris update output");
             }
-            if (!output) throw std::runtime_error("cannot write debris update output");
         }
         if (input.peek() != std::char_traits<char>::eof()) throw std::runtime_error("trailing debris update input");
         output.flush();
         if (!output) throw std::runtime_error("cannot flush debris update output");
+        if (continuousCollapse) {
+            std::cout << "collapse_continuous_app=ok scenes=" << cases
+                      << " steps=8 cases=" << cases * 8
+                      << " compared_bytes=" << cases * 8 * fractureStateBytes
+                      << " retained_debris=1402 retained_collapse=251 actor_bank_bytes=1575 sound_bytes=7 history_bytes=3"
+                      << " production_app=1 seeded=1 natural_route=0 whole_game_claim=0\n";
+            return;
+        }
         if (fractureStorage) {
             std::cout << (collapseLaneHistory ? "collapse_lane_history_app=ok cases=" : laneHistory ? "damage_lane_history_app=ok cases=" : physicalDebrisUpdate ? "debris_contact_pools_app=ok cases=" :
                           (completeFracturePools ? "fracture_capacity_app=ok cases=" : "fracture_retirement_app=ok cases=")) << cases
@@ -32172,6 +32190,11 @@ int lezac::app::runApplication(int argc, char** argv) {
         if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-lane-history") {
             app.debugOriginalDebrisUpdate(argv[2], argv[3],
                 true, false, false, true, false, true, true);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-continuous") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3],
+                true, false, false, true, false, true, true, true);
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-actors") {

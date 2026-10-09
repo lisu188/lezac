@@ -30657,11 +30657,35 @@ private:
         return {};
     }
 
+    void writeContactWordGuardAlias(size_t index, uint16_t word) {
+        if (index > 5) return;
+        // DS:655E aliases the eleven bytes after the last admitted fragment.
+        auto& guard = debrisQueue_.retainedSlot(kDebrisCapacity - kDebrisRecordIndexBase);
+        switch (index) {
+        case 0: guard.tileIndex = word; break;
+        case 1: guard.flaggedWord = word; break;
+        case 2:
+            guard.velocityX = static_cast<int8_t>(word);
+            guard.velocityY = static_cast<int8_t>(word >> 8);
+            break;
+        case 3:
+            guard.subX = static_cast<int8_t>(word);
+            guard.subY = static_cast<int8_t>(word >> 8);
+            break;
+        case 4:
+            guard.restTicks = static_cast<uint8_t>(word);
+            guard.lookup = static_cast<uint8_t>(word >> 8);
+            break;
+        case 5: guard.aux = static_cast<uint8_t>(word); break;
+        }
+    }
+
     // Single-target form of 1000:3BB2 / 3D46 used by blocked debris moves.
     // The caller contributes weight 1; a collapse contributes its unsigned
     // +0x0e byte, while a fragment contributes 1. Neither helper draws RNG.
     void blendDebrisImpactLane(int target, uint16_t word, int& velocity,
                                bool reverse) {
+        writeContactWordGuardAlias(0, word);  // 1000:4C8C / 4C9F, before seeding
         if ((word & kDamagedWordBit) == 0) {
             const size_t debrisBefore = debrisQueue_.size();
             const size_t collapseBefore = collapseQueue_.size();
@@ -31278,7 +31302,7 @@ private:
                 }
                 return result;
             };
-            auto scan = [&](int delta) {
+            auto scan = [&](int delta, bool collectContacts = false) {
                 Scan result;
                 for (int cell : cells()) {
                     const int target = cell + delta;
@@ -31287,22 +31311,23 @@ private:
                     result.blocked = true;
                     result.firstColumn = std::min(result.firstColumn, target % width);
                     result.lastColumn = std::max(result.lastColumn, target % width);
-                    if (word != 0 && std::none_of(result.contacts.begin(), result.contacts.end(),
+                    if (collectContacts && word != 0 && std::none_of(result.contacts.begin(), result.contacts.end(),
                         [&](const DamageContact& contact) { return contact.word == word; })) {
+                        writeContactWordGuardAlias(result.contacts.size(), word);  // 1000:4ECD
                         result.contacts.push_back({target, word});
                     }
                 }
                 return result;
             };
             auto seedAbove = [&] {
-                for (const auto& contact : scan(-width).contacts) {
+                for (const auto& contact : scan(-width, true).contacts) {
                     if (contact.word < kDamagedWordBit) {
                         queueTileDamage(contact.cell % width, contact.cell / width, 0, 1, true);
                     }
                 }
             };
             auto move = [&](int delta) {
-                Scan result = scan(delta);
+                Scan result = scan(delta, true);
                 moved = false;
                 if (result.blocked) return result;
                 auto source = cells();

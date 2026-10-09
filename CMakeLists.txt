@@ -5330,6 +5330,40 @@ if(BUILD_TESTING)
         TIMEOUT 90
         PASS_REGULAR_EXPRESSION "^fracture_capacity_original=ok cases=96 compared_bytes=2565216 production_app=1 masks=0 capacity_guards=1 seeded=1 natural_route=0 whole_game_claim=0")
 
+    add_test(NAME contact_staging_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_contact_staging_checker.py -v)
+    set_tests_properties(contact_staging_checker PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    add_test(NAME collapse_contact_pools_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contact_pools.py)
+    set_tests_properties(collapse_contact_pools_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        PASS_REGULAR_EXPRESSION "^collapse_contact_pools_fixture=ok cases=96 state_bytes=26721 capacity_guards=1")
+    add_test(NAME collapse_contact_pools_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contact_pools.py
+            --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-contact-pools-app)
+    set_tests_properties(collapse_contact_pools_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^collapse_contact_pools_original=ok cases=96 compared_bytes=2565216 production_app=1 masks=0 capacity_guards=1 seeded=1 natural_route=0 whole_game_claim=0")
+    add_test(NAME contact_staging_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_staging.py)
+    set_tests_properties(contact_staging_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        PASS_REGULAR_EXPRESSION "^contact_staging_fixture=ok cases=96 state_bytes=26721 guard_bytes=11")
+    add_test(NAME contact_staging_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_staging.py
+            --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/contact-staging-app)
+    set_tests_properties(contact_staging_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^contact_staging_original=ok cases=96 compared_bytes=2565216 production_app=1 masks=0 guard_bytes=11 seeded=1 natural_route=0 whole_game_claim=0")
+
     add_test(NAME multicell_seeder_fixture
         COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_multicell_seeder.py)
     set_tests_properties(multicell_seeder_fixture PROPERTIES

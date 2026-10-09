@@ -9,26 +9,30 @@ import tempfile
 
 CASES = {
     'collapse_seed_history_original': (90, 'check_collapse_seed_history.py',
-        'collapse_seed_history_original=ok cases=576 production_app=1 masks=0 natural_gameplay=0 whole_game_claim=0'),
+        'collapse_seed_history_original=ok cases=576 production_app=1 masks=0 natural_gameplay=0 whole_game_claim=0', ()),
     'collapse_lane_history_original': (120, 'check_collapse_lane_history.py',
-        'collapse_lane_history_original=ok cases=96 production_app=1 input_only=1 masks=0 natural_route=0 whole_game_claim=0'),
+        'collapse_lane_history_original=ok cases=96 production_app=1 input_only=1 masks=0 natural_route=0 whole_game_claim=0', ()),
+    'collapse_support_history_original': (120, 'check_collapse_lane_history.py',
+        'collapse_support_history_original=ok cases=96 production_app=1 input_only=1 masks=0 natural_route=0 whole_game_claim=0',
+        ('--profile', 'support')),
 }
 ENV = dict(os.environ, SDL_AUDIODRIVER='dummy', SDL_VIDEODRIVER='dummy', PYTHONDONTWRITEBYTECODE='1')
 
 
 def validate(rows):
-    if {row['name'] for row in rows} != set(CASES) or len(rows) != 2:
+    if {row['name'] for row in rows} != set(CASES) or len(rows) != len(CASES):
         raise ValueError('history CTest registration set differs')
     for row in rows:
-        timeout, script, _ = CASES[row['name']]
+        timeout, script, _, options = CASES[row['name']]
         properties = {value['name']: value['value'] for value in row['properties']}
         if (any(name in properties for name in ('PASS_REGULAR_EXPRESSION', 'FAIL_REGULAR_EXPRESSION',
                 'SKIP_REGULAR_EXPRESSION', 'SKIP_RETURN_CODE', 'WILL_FAIL', 'DISABLED'))
                 or properties.get('TIMEOUT') != timeout):
             raise ValueError('history CTest must preserve strict checker exit status')
         command = row.get('command', [])
-        if (len(command) != 8 or command[1:3] != ['-S', '-B'] or Path(command[3]).name != script
-                or command[4] != '--exe' or command[6] != '--out'):
+        offset = 4 + len(options)
+        if (len(command) != offset + 4 or command[1:3] != ['-S', '-B'] or Path(command[3]).name != script
+                or command[4:offset] != list(options) or command[offset] != '--exe' or command[offset + 2] != '--out'):
             raise ValueError('history CTest command does not call the strict production checker')
         environment = properties.get('ENVIRONMENT', [])
         if any(value not in environment for value in
@@ -57,7 +61,7 @@ def main():
 
     try:
         raw = run('registration', ['ctest', '--test-dir', str(args.ctest_dir.resolve()), '--show-only=json-v1',
-                                  '-R', '^collapse_(seed|lane)_history_original$'])
+                                  '-R', '^collapse_(seed|lane|support)_history_original$'])
         rows = json.loads(raw)['tests']
         validate(rows)
         mutants = 0
@@ -83,7 +87,7 @@ def main():
 
         registrations = []
         wanted = []
-        for name, (timeout, _, marker) in CASES.items():
+        for name, (timeout, _, marker, _) in CASES.items():
             for policy in ('old_anchored_regex', 'strict_exit'):
                 for mode in ('plain_success', 'prefixed_success', 'plain_failure'):
                     identifier = name + '_' + policy + '_' + mode
@@ -97,7 +101,7 @@ def main():
         (out / 'CTestTestfile.cmake').write_text('\n'.join(registrations) + '\n')
         for identifier, expected in wanted:
             run(identifier, ['ctest', '--test-dir', str(out), '--output-on-failure', '-R', '^' + identifier + '$'], expected)
-        report.update(passed=True, registrations_verified=2, registration_mutants=mutants,
+        report.update(passed=True, registrations_verified=len(CASES), registration_mutants=mutants,
                       mocked_ctest_cases=len(wanted), production_checker_commands_preserved=True)
     except BaseException as error:
         report.update(error=str(error), error_type=type(error).__name__)
@@ -107,7 +111,8 @@ def main():
         print('collapse_history_ctest_retained=' + str(out.resolve()), flush=True)
         if sum(path.stat().st_size for path in args.out.rglob('*') if path.is_file()) >= 8 * 1024**2:
             raise ValueError('history CTest diagnostics exceed local reserve')
-    print('collapse_history_ctest_contract=ok registrations=2 registration_mutants=8 mocked_ctest_cases=12 production_app=0')
+    print('collapse_history_ctest_contract=ok registrations=' + str(len(CASES)) + ' registration_mutants=' +
+          str(mutants) + ' mocked_ctest_cases=' + str(len(wanted)) + ' production_app=0')
 
 
 if __name__ == '__main__':

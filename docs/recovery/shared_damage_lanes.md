@@ -155,9 +155,48 @@ and retain the existing timeouts, environment and commands. A PASS regex is not
 used because CTest explicitly ignores the process exit code when it is set.
 
 A separate regression reads the real configured registrations through CTest's
-JSON API. It rejects eight property mutants and executes twelve mocked CTest
+JSON API. It rejects twelve property mutants and executes eighteen mocked CTest
 cases, reproducing both the old prefixed-output false failure and its nonzero
 exit false pass. The repaired policy accepts valid prefixed output and rejects
 a failing checker even when its stdout contains a success marker. Mocked
 processes are not original-game or production-App evidence. Full required CI
 and completed current-head external review remain mandatory before merge.
+
+## Single-Record Support History
+
+The previous 96 complete-updater scenes process a supported older record last,
+so every final DS:661E value is one. A second independently reproduced original
+5102 fixture starts with exactly one live record: four widths (2, 3, 6, 7), two
+heights (1, 3), four initial support layouts (centered, left-edge, right-edge,
+none), and three horizontal velocities (-15, 0, 15). Some scenes contain interior
+holes, balance-scan walls, fresh objects above, and timer-94 or byte-255 history.
+Initial support labels do not claim that support survives horizontal movement.
+The existing input-only App command accepts this fixture without a game change.
+
+The original visits 96 support scans, 32 balance scans, 48 seed calls and eight
+timer removals. Final scratch is zero in 68 cases and one in 28. All three stack
+poisons produce the same serialized output in every scene. Hooked and unhooked
+execution agree over all 1 MiB RAM and fourteen registers; original code and
+calls remain unmodified. The pinned count-2 data restorer is reused by changing
+only its restoration input count, then restoring requested DS:2080=1 before
+any original code executes. This adapter is recorded in the pinned metadata.
+
+Both fixture profiles use the same strict checker and complete 26724-byte state
+format. Metadata, producer dependencies and raw/compressed streams are pinned;
+cross-profile fixture substitution is rejected. CI runs the 96 support cases
+through the real production App, retains input/expected/actual streams on
+success or failure, and compares every serialized byte without masks. Local
+fixture, checker and CTest controls are not proof that the compiled App passed
+this new matrix. Exact-source-tree Linux/Windows App evidence, full required CI
+and current-head external review remain pending. Natural reachability, visual
+and audio-runtime fidelity, and whole-game completion remain unproved.
+
+The focused CI step and later full suite execute these original comparisons
+twice. The earlier fixed-directory checkers refuse the second invocation before
+launching the App. All three profiles reproduce this failure with mocked
+children. Each checker now creates a unique attempt directory under the same
+retained root, leaving prior success/failure bundles and legacy files intact.
+A separate regression executes fifteen mocked attempts across the three
+profiles (success, mismatch, nonzero exit, timeout, success) and rechecks every
+earlier file hash after each attempt. These are failure-retention controls, not
+game comparisons. The eight-MiB retained-root reserve still applies.

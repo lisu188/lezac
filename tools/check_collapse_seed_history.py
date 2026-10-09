@@ -77,12 +77,12 @@ def decode(data, fixture=FIXTURE):
 
 
 def run_probe(exe, out, data, production_app):
-    if out.exists():
-        raise ValueError('refusing to overwrite seed-history diagnostics')
     incoming, expected, sizes = decode(data)
     if max(len(incoming), len(expected)) >= 8 * 1024**2:
         raise ValueError('seed-history stream exceeds local reserve')
-    out.mkdir(parents=True)
+    retained_root = out
+    retained_root.mkdir(parents=True, exist_ok=True)
+    out = Path(tempfile.mkdtemp(prefix='attempt-', dir=retained_root))
     report = dict(passed=False, production_app=production_app, extracted_methods=not production_app,
                   cases=576, masks=0, natural_gameplay=False, whole_game_claim=False,
                   input_sha256=sha(incoming), expected_sha256=sha(expected), expected_bytes=len(expected),
@@ -125,7 +125,7 @@ def run_probe(exe, out, data, production_app):
                 (out / 'actual.bin.gz').write_bytes(gzip.compress(raw, mtime=0))
             (out / 'result.json').write_text(json.dumps(report, indent=2) + '\n')
             print('collapse_seed_history_retained=' + str(out.resolve()), flush=True)
-            if sum(path.stat().st_size for path in out.rglob('*') if path.is_file()) >= 8 * 1024**2:
+            if sum(path.stat().st_size for path in retained_root.rglob('*') if path.is_file()) >= 8 * 1024**2:
                 raise ValueError('seed-history retained bundle exceeds local reserve')
     return report
 

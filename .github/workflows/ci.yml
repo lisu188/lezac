@@ -80,7 +80,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^damage_lane_(bytes_(unit|checker|fixture|original)|memory_(unit|initial_data|original)|history_(checker|fixture|original))$'
+        run: ctest --test-dir build --verbose --output-on-failure -R '^damage_lane_(bytes_(unit|checker|fixture|original)|memory_(unit|initial_data(_checker)?|original)|history_(checker|fixture|original))$'
       - name: Preserve byte-addressed damage lane diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -539,7 +539,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^damage_lane_(bytes_(unit|checker|fixture|original)|memory_(unit|initial_data|original)|history_(checker|fixture|original))$'
+        run: ctest --test-dir build --verbose --output-on-failure -R '^damage_lane_(bytes_(unit|checker|fixture|original)|memory_(unit|initial_data(_checker)?|original)|history_(checker|fixture|original))$'
       - name: Preserve byte-addressed damage lane diagnostics
         if: always()
         uses: actions/upload-artifact@v4

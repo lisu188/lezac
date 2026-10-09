@@ -62,3 +62,23 @@ startup state. Existing natural route, raw-prefix, visual and sound-runtime
 fidelity gates remain open. Source integration and passing helper comparisons
 do not establish whole-game completion or justify merging through failing CI
 or without completed current-head review.
+
+## Validation Contract Maintenance
+
+The generated low-data verifier permits Git's LF-to-CRLF checkout conversion
+only. Executable pins, MZ relocation checks, the complete generated payload and
+all other text bytes remain exact. Regressions cover both newline styles,
+changed data, bare CR, BOM, whitespace changes, truncation, appended data and
+refusal to overwrite generated output.
+
+Collapse source contracts follow the production shared memory view, contact
+staging, seeder result and SS-style value-returning helper, including recovered
+arithmetic and wrapped write addresses. Flame contracts follow both lookups,
+their shared cursor, unsigned weight and mass reads, both arithmetic calls,
+wrapped writes and live writeback. Scoped deletion mutants cannot be satisfied
+by the same statements in comments, strings or unrelated functions.
+
+These contracts complement the unchanged 9184-case collapse original fixture
+and 1376256-case flame arithmetic fixture. They are not original execution or
+full-update parity by themselves. The production C++ source, generated loader
+header, fixtures and original producers are unchanged by this validation repair.

@@ -33,6 +33,12 @@ def render(root):
         '    return bytes;\n}\n\n}  // namespace lezac::gameplay\n').encode()
 
 
+def verify_generated(actual, expected):
+    # Git may check text out with CRLF; all non-newline bytes remain exact.
+    if actual.replace(b'\r\n', b'\n') != expected:
+        raise ValueError('generated low data differs from original loader')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[1])
@@ -44,8 +50,8 @@ def main():
             raise ValueError('refusing to overwrite generated output')
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_bytes(expected)
-    elif (args.root / 'src/gameplay/initial_damage_data.hpp').read_bytes() != expected:
-        raise ValueError('generated low data differs from original loader')
+    else:
+        verify_generated((args.root / 'src/gameplay/initial_damage_data.hpp').read_bytes(), expected)
     print('damage_lane_initial_data=ok source_bytes=6928 executable_pinned=1 natural_startup=0')
 
 

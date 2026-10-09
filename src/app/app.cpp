@@ -25183,6 +25183,96 @@ public:
                      "first_seeder_gate=0 sound_requests_checked=1 seeded=1 natural_route=0 whole_game_claim=0\n";
     }
 
+    void debugMonsterObjectSeederOriginal(const std::string& fixturePath, const std::string& outputPath) {
+        const auto bytes = readFile(fixturePath);
+        if (bytes.size() != 5369744 || lezac::diagnostics::level1::fingerprint(bytes) != "e535d5e87cc6a137")
+            throw std::runtime_error("monster object-seeder fixture bytes changed");
+        load();
+        initSdl();
+        legacyActorSeedsEnabled_ = false;
+        clockedSoundEnabled_ = false;
+        sound_.setRequestAttemptCounting(true);
+        level_ = Level{};
+        level_.width = 60; level_.height = 33;
+        level_.tiles.resize(1980); level_.wordLayer.resize(1980);
+        actorSlots_.resetForLevel(actorSpriteDescriptor(1));
+        std::ofstream output(outputPath, std::ios::binary);
+        if (!output) throw std::runtime_error("cannot open monster object-seeder output");
+        output.write("LZOT0001", 8);
+        const auto outputWord = [&](uint32_t value) {
+            for (int shift = 0; shift < 32; shift += 8) output.put(static_cast<char>(value >> shift));
+        };
+        outputWord(896); outputWord(5983);
+        size_t debris = 0, collapse = 0, requests = 0;
+        for (size_t index = 0; index < 896; ++index) {
+            const size_t at = 16 + index * 5993;
+            std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+            std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+            debrisQueue_.clear(); collapseQueue_.clear();
+            level_.tiles[762] = 77; level_.tiles[823] = 78;
+            level_.tiles[822] = bytes[at]; level_.tiles[883] = bytes[at + 1];
+            level_.wordLayer[822] = le16(bytes, at + 2); level_.wordLayer[883] = le16(bytes, at + 4);
+            level_.wordLayer[762] = le16(bytes, at + 6); level_.wordLayer[823] = le16(bytes, at + 8);
+            corpseRewardRoll_ = 0xa5; monsterTileDamageDelta_ = 0x5a; tileSeederResult_ = 0xa5;
+            actorSlots_.setSharedResult(0x55aa);
+            sound_.restoreRequestForFixture(0xab12, 0x5a);
+            auto latch = sound_.latch();
+            latch.currentSelector = 5; latch.latchedOffset = 0xab12; latch.active = true;
+            sound_.restoreLatchForFixture(latch);
+            sound_.clearRequestAttemptCount();
+            randomSeed_ = 0x12345678;
+            consumeMonsterObjectTiles(762);
+            if (debrisQueue_.size() > 1 || collapseQueue_.size() > 1 ||
+                sound_.requestAttemptCount() > 1 || actorSlots_.count() != 0 || randomSeed_ != 0x12345678)
+                throw std::runtime_error("monster object-seeder changed unrelated production state");
+            std::vector<uint8_t> actual(level_.tiles.begin(), level_.tiles.end());
+            const auto word = [&](uint16_t value) {
+                actual.push_back(static_cast<uint8_t>(value)); actual.push_back(static_cast<uint8_t>(value >> 8));
+            };
+            for (const auto value : level_.wordLayer) word(value);
+            word(static_cast<uint16_t>(kDebrisRecordIndexBase + debrisQueue_.size()));
+            word(static_cast<uint16_t>(collapseQueue_.size()));
+            if (debrisQueue_.empty()) actual.insert(actual.end(), 11, 0);
+            else {
+                const auto& record = debrisQueue_.front();
+                word(static_cast<uint16_t>(record.tileIndex)); word(record.flaggedWord);
+                actual.insert(actual.end(), {static_cast<uint8_t>(record.velocityX),
+                    static_cast<uint8_t>(record.velocityY), static_cast<uint8_t>(record.subX),
+                    static_cast<uint8_t>(record.subY), record.restTicks, record.lookup, record.aux});
+            }
+            if (collapseQueue_.empty()) actual.insert(actual.end(), 15, 0);
+            else {
+                const auto& record = collapseQueue_.front();
+                word(record.startOffsetBytes); word(record.endOffsetBytes); word(record.flaggedWord);
+                actual.insert(actual.end(), {record.forwardPhase, record.reversePhase,
+                    static_cast<uint8_t>(record.subX), static_cast<uint8_t>(record.subY)});
+                word(record.argMagnitude);
+                actual.insert(actual.end(), {record.flags, record.restTicks, record.affectedBytes});
+            }
+            actual.push_back(corpseRewardRoll_); word(actorSlots_.state().success);
+            actual.push_back(static_cast<uint8_t>(monsterTileDamageDelta_)); word(sound_.requestCursor());
+            actual.push_back(sound_.requestSelector());
+            latch = sound_.latch();
+            actual.push_back(latch.currentSelector); word(latch.latchedOffset);
+            actual.push_back(static_cast<uint8_t>(latch.active));
+            actual.push_back(tileSeederResult_);
+            actual.push_back(static_cast<uint8_t>(sound_.requestAttemptCount()));
+            if (actual.size() != 5983) throw std::runtime_error("monster object-seeder serialization extent changed");
+            output.write(reinterpret_cast<const char*>(actual.data()), static_cast<std::streamsize>(actual.size()));
+            if (!std::equal(actual.begin(), actual.end(), bytes.begin() + at + 10)) {
+                output.flush();
+                throw std::runtime_error("monster object-seeder differs at case " + std::to_string(index));
+            }
+            debris += debrisQueue_.size(); collapse += collapseQueue_.size();
+            requests += sound_.requestAttemptCount();
+        }
+        output.flush();
+        if (!output) throw std::runtime_error("cannot finish monster object-seeder output");
+        std::cout << "monster_object_seeder_app=ok cases=896 compared_bytes=5360768 debris=" << debris
+                  << " collapse=" << collapse << " sound_requests=" << requests
+                  << " first_only=1 production_app=1 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
     void debugFatalEntryOriginal(const std::string& requestPath, const std::string& outputPath) {
         namespace fixture = lezac::diagnostics::fatal_entry;
         load();
@@ -26900,6 +26990,7 @@ private:
     uint64_t nextActorOrder_ = 1;
     lezac::gameplay::ActorSlots actorSlots_;
     int8_t monsterTileDamageDelta_ = 0;
+    uint8_t tileSeederResult_ = 0;  // DS:79C8; flagged-word rejection leaves this byte unchanged.
     bool legacyActorSeedsEnabled_ = false;
     size_t legacyActorAdoptions_ = 0;
     size_t legacyActorRetirements_ = 0;
@@ -30297,10 +30388,12 @@ private:
                 record.velocityY = static_cast<int8_t>(reversePhase);
                 record.lookup = lookup;
                 debrisQueue_.push_back(record);
-            }
+                tileSeederResult_ = 1;
+            } else tileSeederResult_ = 0;
             return;
         }
 
+        tileSeederResult_ = 0;
         if (collapseQueue_.size() >= kCollapseCapacity) return;
         auto geometry = lezac::gameplay::seedCollapseWordGroup(level_.wordLayer, level_.width, start);
         for (size_t index : geometry.cells) {
@@ -30325,6 +30418,7 @@ private:
             record.affectedBytes = static_cast<uint8_t>((geometry.cells.size() * 2) & 0xff);
             record.count = static_cast<int>(geometry.cells.size());
             collapseQueue_.push_back(record);
+            tileSeederResult_ = 1;
         }
     }
 
@@ -31342,6 +31436,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bonus-reward-static-model") {
             app.debugBonusRewardStaticModel();
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-monster-object-seeder-original") {
+            app.debugMonsterObjectSeederOriginal(argv[2], argv[3]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-monster-object-branch-original") {

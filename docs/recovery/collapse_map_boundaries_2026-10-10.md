@@ -58,6 +58,22 @@ Above the project disk guard, local validation is limited to standalone cursor
 compilation, focused source/oracle checks, configure and App syntax-only checks.
 No local full App build/run or new game screenshot is performed.
 
+### First CI Run
+
+At head `c7b3f04100dd7b74a287f74fa52ffcf642539202`, run 38003280724
+failed overall. Its Linux collapse-boundary comparison passed all 34 complete
+states. The native Windows fixture checker failed its byte pin before invoking
+the App: the new JSON metadata lacked the existing fixtures' `-text` attribute.
+The follow-up preserves all three new fixture files verbatim on checkout.
+
+Linux's 112-state damage-history App comparison also passed without masks, but
+the dependent contact-staging source contract still required an unnormalized
+object target. It now requires word-byte-offset wrapping before division by two,
+with negative controls for the old target and for wrapping after division.
+Original fixture, producer and gameplay source bytes remain unchanged in this
+follow-up. Full CI and native Windows App output remain unproven until a fresh
+exact-head run supplies those results; release packaging is not parity proof.
+
 ## Still Open
 
 Arbitrary DOS heap initialization and unrelated allocations, cascaded out-of-map

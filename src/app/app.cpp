@@ -24526,7 +24526,7 @@ public:
             bank.records.assign(1, GranRecord{bytes});
             monsters_.clear();
             nextActorOrder_ = 1;
-            spawnLevel7Boss(bank);
+            spawnLevel7BossFromBank(bank);
             if (monsters_.size() != 7) throw std::runtime_error("boss animation copy lost an actor");
             for (size_t actor = 0; actor < 7; ++actor) {
                 const auto actual = monsters_[actor].animationBackup.packed();
@@ -26280,7 +26280,7 @@ private:
         bossDefeated_ = false;
         // The original loads gran.mst at the end of level setup only when the
         // current-level byte DS:0x79B7 equals 7 (callsite 1000:2E78).
-        if (levelIndex_ == 6) spawnLevel7Boss(gran_);
+        if (levelIndex_ == 6) spawnLevel7Boss();
     }
 
     LevelIntroPattern makeLevelIntroPattern() {
@@ -27810,7 +27810,11 @@ private:
     // are rebased by 2.
     static constexpr int kBossVisualBase = 2;
 
-    void spawnLevel7Boss(const GranBank& bank) {
+    void spawnLevel7Boss() {
+        spawnLevel7BossFromBank(gran_);
+    }
+
+    void spawnLevel7BossFromBank(const GranBank& bank) {
         std::vector<uint8_t> granBytes;
         for (const GranRecord& record : bank.records) {
             granBytes.insert(granBytes.end(), record.bytes.begin(), record.bytes.end());

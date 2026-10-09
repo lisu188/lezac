@@ -572,7 +572,7 @@ if(BUILD_TESTING)
         add_test(NAME flame_contact_word_contract
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_flame_contact_word.py --self-check)
         set_tests_properties(flame_contact_word_contract PROPERTIES
-            PASS_REGULAR_EXPRESSION "flame_contact_word_contract=ok source_mutants=7 compiled_cpp=0 natural_gameplay=0")
+            PASS_REGULAR_EXPRESSION "flame_contact_word_contract=ok source_mutants=23 compiled_cpp=0 natural_gameplay=0")
         add_test(NAME level_exporter_counts
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_level_exporter_counts.py)
         set_tests_properties(level_exporter_counts PROPERTIES
@@ -4845,7 +4845,7 @@ if(BUILD_TESTING)
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contacts_original.py --self-check)
     set_tests_properties(collapse_contacts_contract PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        PASS_REGULAR_EXPRESSION "^collapse_contacts_contract=ok source_mutants=10 compiled_cpp=0 natural_gameplay=0")
+        PASS_REGULAR_EXPRESSION "^collapse_contacts_contract=ok source_mutants=22 compiled_cpp=0 natural_gameplay=0")
     add_test(NAME collapse_contacts_failure_retention
         COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contact_failure_retention.py)
     set_tests_properties(collapse_contacts_failure_retention PROPERTIES
@@ -5292,10 +5292,12 @@ if(BUILD_TESTING)
     add_test(NAME damage_lane_memory_unit COMMAND lezac_damage_lane_memory_test)
     add_test(NAME damage_lane_memory_initial_data COMMAND ${Python3_EXECUTABLE} -S -B
         ${CMAKE_CURRENT_SOURCE_DIR}/tools/generate_initial_damage_data.py)
+    add_test(NAME damage_lane_memory_initial_data_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_initial_damage_data.py -v)
     add_test(NAME damage_lane_memory_original COMMAND ${Python3_EXECUTABLE} -S -B
         ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_damage_lane_bytes.py --exe $<TARGET_FILE:lezac_damage_lane_memory_test>
         --out ${CMAKE_CURRENT_BINARY_DIR}/damage-lane-memory-app)
-    set_tests_properties(damage_lane_memory_unit damage_lane_memory_initial_data damage_lane_memory_original PROPERTIES
+    set_tests_properties(damage_lane_memory_unit damage_lane_memory_initial_data damage_lane_memory_initial_data_checker damage_lane_memory_original PROPERTIES
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
     set_tests_properties(damage_lane_memory_unit PROPERTIES
         PASS_REGULAR_EXPRESSION "^damage_lane_memory_unit=ok typed_banks=3 shared_cursor=1 low_data_history=1 caller_alias=1 stack_value=1")

@@ -15,13 +15,31 @@ FIXTURE_SHA = 'b8680640cd50c88b71d7ed3e3bdfbeb5b030a971e2eb0ab367ac191441290fe5'
 EXE_SHA = '7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec'
 CASES_PER_GROUP = 65536
 GROUP_BYTES = CASES_PER_GROUP * 8
-CALL = 'return lezac::gameplay::blendFlameVelocity(own, incoming, ray.mass, weight);'
-WEIGHT = 'const int weight = match.debris ? 1 : collapseQueue_[other].affectedBytes;'
-WRITES = (
-    'debris.velocityX = blend(ray.vx, debris.velocityX);',
-    'debris.velocityY = blend(ray.vy, debris.velocityY);',
-    'collapse.forwardPhase = static_cast<uint8_t>(blend(ray.vx, static_cast<int8_t>(collapse.forwardPhase)));',
-    'collapse.reversePhase = static_cast<uint8_t>(blend(ray.vy, static_cast<int8_t>(collapse.reversePhase)));',
+CONTRACT = (
+    'auto memory = damageLaneMemory({&vx, &subX, &vy, &subY});',
+    'const bool debris = flagged ? (word & 0x7fff) >= kDeferredThreshold : seededClass != 0;',
+    'if (flagged || tileSeederResult_ != 0) {',
+    'lezac::gameplay::lookupDamageLaneBytes(memory, false);',
+    'incomingX = memory.read(0x661e);',
+    'lezac::gameplay::lookupDamageLaneBytes(memory, true);',
+    'incomingY = memory.read(0x661e);',
+    'const uint16_t cursor = sound_.requestCursor();',
+    'const uint8_t weight = debris ? 1 : memory.read(static_cast<uint16_t>(0x661f + 15u * cursor));',
+    'const uint8_t mass = memory.read(static_cast<uint16_t>(0x78d5 + slot));',
+    'const auto x = lezac::gameplay::blendFlameVelocity(vx,\n'
+    '                            lezac::gameplay::damageLaneSignedByte(incomingX), mass, weight);',
+    'const auto y = lezac::gameplay::blendFlameVelocity(vy,\n'
+    '                            lezac::gameplay::damageLaneSignedByte(incomingY), mass, weight);',
+    'const uint16_t address = static_cast<uint16_t>(debris ?\n'
+    '                            0x2097 + 11u * cursor : 0x6617 + 15u * cursor);',
+    'memory.write(address, static_cast<uint8_t>(x));',
+    'memory.write(static_cast<uint16_t>(address + 1), static_cast<uint8_t>(y));',
+    'current.vx = static_cast<int8_t>(vx);',
+    'current.vy = static_cast<int8_t>(vy);',
+    'current.subX = static_cast<int8_t>(subX);',
+    'current.subY = static_cast<int8_t>(subY);',
+    'if (current.variant > 0) --current.variant;',
+    '--current.timer;',
 )
 
 
@@ -70,11 +88,17 @@ def check_source(text):
         raise ValueError('runtime flame update is missing')
     first, last = ranges['updateFlameRecords']
     body = compact('\n'.join(text.splitlines()[first - 1:last]))
-    for statement in (WEIGHT, CALL, *WRITES):
-        if body.count(compact(statement)) != 1:
+    previous = -1
+    for statement in CONTRACT:
+        token = compact(statement)
+        position = body.find(token)
+        if body.count(token) != 1 or position <= previous:
             raise ValueError('runtime flame blend consumer differs: ' + statement)
-    if body.count('blendFlameVelocity(') != 1 or body.count('blend(') != 4:
+        previous = position
+    if body.count('blendFlameVelocity(') != 2 or body.count('lookupDamageLaneBytes(') != 2:
         raise ValueError('runtime flame blend routing differs')
+    if body.count('sound_.writeSharedCursor(word);') != 2 or '0x4e20' in body:
+        raise ValueError('runtime flame cursor ownership differs')
 
 
 def check_records(records, data):
@@ -98,16 +122,19 @@ def rejects(check, value):
 
 def source_self_check(text):
     check_source(text)
-    changes = [(CALL, 'return static_cast<int8_t>(own);'),
-               (WEIGHT, 'const int weight = 0;'),
-               (CALL, CALL.replace('(own, incoming,', '(incoming, own,'))]
-    changes.extend((statement, '// ' + statement) for statement in WRITES)
-    for before, after in changes:
-        if text.count(before) != 1:
+    first, last = function_ranges(text, ['updateFlameRecords'])['updateFlameRecords']
+    lines = text.splitlines(keepends=True)
+    prefix, body, suffix = ''.join(lines[:first - 1]), ''.join(lines[first - 1:last]), ''.join(lines[last:])
+    for statement in CONTRACT:
+        if body.count(statement) != 1:
             raise ValueError('source mutation is not unique')
-        rejects(check_source, text.replace(before, after))
-    check_source(text + '\n// ' + CALL + '\nconst char* unused = "' + CALL + '";\n')
-    return len(changes)
+        changed = prefix + body.replace(statement, '/* ' + statement + ' */') + suffix
+        rejects(check_source, changed + '\nvoid unrelatedFlame() {\n' + statement + '\n}\n')
+    rejects(check_source, prefix + body.replace('sound_.writeSharedCursor(word);', '/* cursor omitted */', 1) + suffix)
+    rejects(check_source, prefix + body.replace('const uint16_t cursor = sound_.requestCursor();',
+        'const uint16_t cursor = sound_.requestCursor() + 0x4e20;') + suffix)
+    check_source(text + '\n/* ' + CONTRACT[0] + ' */\nconst char* unused = ' + json.dumps(CONTRACT[0]) + ';\n')
+    return len(CONTRACT) + 2
 
 
 def main():

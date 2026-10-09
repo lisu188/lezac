@@ -5257,6 +5257,24 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^monster_object_branch_original=ok cases=1024 compared_bytes=18432 production_app=1 first_seeder_gate=0 sound_requests_checked=1 seeded=1 natural_route=0 whole_game_claim=0")
 
+    add_executable(lezac_damage_lane_bytes_test tests/gameplay/damage_lane_bytes_test.cpp)
+    target_include_directories(lezac_damage_lane_bytes_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME damage_lane_bytes_unit COMMAND lezac_damage_lane_bytes_test)
+    add_test(NAME damage_lane_bytes_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_damage_lane_bytes_checker.py -v)
+    add_test(NAME damage_lane_bytes_fixture COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_damage_lane_bytes.py)
+    add_test(NAME damage_lane_bytes_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_damage_lane_bytes.py --exe $<TARGET_FILE:lezac_damage_lane_bytes_test>
+        --out ${CMAKE_CURRENT_BINARY_DIR}/damage-lane-bytes-app)
+    set_tests_properties(damage_lane_bytes_unit damage_lane_bytes_checker damage_lane_bytes_fixture
+        damage_lane_bytes_original PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(damage_lane_bytes_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "^damage_lane_bytes_unit=ok wrap=1 seeder_branches=6 stale_seed_phase=1 division_by_zero=1")
+    set_tests_properties(damage_lane_bytes_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^damage_lane_bytes_original=ok cases=176 compared_bytes=11534336 masks=0 production_app=0 seeded=0 whole_game_claim=0")
+
     add_executable(lezac_retained_record_queue_test tests/gameplay/retained_record_queue_test.cpp)
     target_include_directories(lezac_retained_record_queue_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME retained_record_queue COMMAND lezac_retained_record_queue_test)

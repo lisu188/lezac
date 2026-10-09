@@ -19233,8 +19233,13 @@ public:
             return bytes;
         };
         const auto header = take(physicalStorage ? 16 : 12);
+        const bool completeFracturePools = fractureStorage &&
+            std::string(header.begin(), header.begin() + 8) == "LZFC0001";
+        const size_t physicalDebrisRecords = completeFracturePools ? 1402 : 5;
+        const size_t physicalCollapseRecords = completeFracturePools ? 251 : 5;
+        const size_t fractureStateBytes = completeFracturePools ? 26721 : 7664;
         if (std::string(header.begin(), header.begin() + 8) !=
-            (fractureStorage ? "LZFR0001" : (retirementStorage ? "LZRT0001" : (actorCreation ? "LZCA0001" :
+            (fractureStorage ? (completeFracturePools ? "LZFC0001" : "LZFR0001") : (retirementStorage ? "LZRT0001" : (actorCreation ? "LZCA0001" :
                 (collapseUpdate ? "LZCU0001" : "LZDU0001"))))) {
             throw std::runtime_error("invalid debris update input header");
         }
@@ -19243,7 +19248,8 @@ public:
         if (retirementStorage && (cases != 176 || le32(header, 12) != 12060)) {
             throw std::runtime_error("invalid retirement storage fixture dimensions");
         }
-        if (fractureStorage && (cases != 288 || le32(header, 12) != 15334)) {
+        if (fractureStorage && (cases != (completeFracturePools ? 96 : 288) ||
+                               le32(header, 12) != (completeFracturePools ? 53448 : 15334))) {
             throw std::runtime_error("invalid fracture storage fixture dimensions");
         }
         auto appendWord = [](std::vector<uint8_t>& bytes, uint16_t value) {
@@ -19251,11 +19257,11 @@ public:
             bytes.push_back(static_cast<uint8_t>(value >> 8));
         };
         if (physicalStorage) {
-            const std::string magic = fractureStorage ? "LZFO0001" : "LZRO0001";
+            const std::string magic = fractureStorage ? (completeFracturePools ? "LZFP0001" : "LZFO0001") : "LZRO0001";
             std::vector<uint8_t> outputHeader(magic.begin(), magic.end());
             appendWord(outputHeader, static_cast<uint16_t>(cases));
             appendWord(outputHeader, 0);
-            appendWord(outputHeader, fractureStorage ? 7664 : 6027);
+            appendWord(outputHeader, static_cast<uint16_t>(fractureStorage ? fractureStateBytes : 6027));
             appendWord(outputHeader, 0);
             output.write(reinterpret_cast<const char*>(outputHeader.data()),
                          static_cast<std::streamsize>(outputHeader.size()));
@@ -19300,8 +19306,8 @@ public:
                 debrisCount > 1401 || collapseCount > 250) {
                 throw std::runtime_error("invalid debris update dimensions or live counts");
             }
-            if (physicalStorage && (width != 60 || height != 33 || debrisCount != 0 ||
-                                      collapseCount == 0 || collapseCount > (fractureStorage ? 2 : 3))) {
+            if (physicalStorage && (width != 60 || height != 33 || (!completeFracturePools && debrisCount != 0) ||
+                                    collapseCount == 0 || collapseCount > (completeFracturePools ? 250 : (fractureStorage ? 2 : 3)))) {
                 throw std::runtime_error("unsupported retirement storage input");
             }
             resetLevel(0);
@@ -19320,7 +19326,7 @@ public:
                 destroyed_ = le16(parameters, 14);
                 nextCollapseFragmentWord_ = le16(parameters, 16);
             }
-            for (size_t record = 0; record < (fractureStorage ? 5 : debrisCount); ++record) {
+            for (size_t record = 0; record < (fractureStorage ? physicalDebrisRecords : debrisCount); ++record) {
                 const auto raw = take(11);
                 DebrisRecord value;
                 value.tileIndex = le16(raw, 0);
@@ -19335,7 +19341,7 @@ public:
                 if (record < debrisCount) debrisQueue_.push_back(value);
                 else debrisQueue_.retainedSlot(record) = value;
             }
-            for (size_t record = 0; record < (physicalStorage ? 5 : collapseCount); ++record) {
+            for (size_t record = 0; record < (physicalStorage ? physicalCollapseRecords : collapseCount); ++record) {
                 const auto raw = take(15);
                 CollapseRecord value;
                 value.startOffsetBytes = le16(raw, 0);
@@ -19402,7 +19408,7 @@ public:
             }
             // Expected fixture bytes are skipped, never installed as application state.
             if (retirementStorage) take(6027);
-            if (fractureStorage) take(7664);
+            if (fractureStorage) take(fractureStateBytes);
             if (collapseUpdate) updateCollapseRecords();
             else updateDebrisRecords();
             if (retirementStorage && (!transientActors_.empty() || !debrisQueue_.empty())) {
@@ -19419,7 +19425,7 @@ public:
             }
             result.insert(result.end(), level_.tiles.begin(), level_.tiles.end());
             for (uint16_t word : level_.wordLayer) appendWord(result, word);
-            for (size_t slot = 0; slot < (fractureStorage ? 5 : debrisQueue_.size()); ++slot) {
+            for (size_t slot = 0; slot < (fractureStorage ? physicalDebrisRecords : debrisQueue_.size()); ++slot) {
                 const auto& record = debrisQueue_.retainedSlot(slot);
                 appendWord(result, static_cast<uint16_t>(record.tileIndex));
                 appendWord(result, record.flaggedWord);
@@ -19427,7 +19433,7 @@ public:
                     static_cast<uint8_t>(record.velocityY), static_cast<uint8_t>(record.subX),
                     static_cast<uint8_t>(record.subY), record.restTicks, record.lookup, record.aux});
             }
-            for (size_t slot = 0; slot < (physicalStorage ? 5 : collapseQueue_.size()); ++slot) {
+            for (size_t slot = 0; slot < (physicalStorage ? physicalCollapseRecords : collapseQueue_.size()); ++slot) {
                 const auto& record = collapseQueue_.retainedSlot(slot);
                 appendWord(result, record.startOffsetBytes);
                 appendWord(result, record.endOffsetBytes);
@@ -19466,9 +19472,10 @@ public:
         output.flush();
         if (!output) throw std::runtime_error("cannot flush debris update output");
         if (fractureStorage) {
-            std::cout << "fracture_retirement_app=ok cases=" << cases
-                      << " compared_bytes=" << cases * 7664
-                      << " retained_debris=5 retained_collapse=5 actor_bank_bytes=1575 sound_bytes=7"
+            std::cout << (completeFracturePools ? "fracture_capacity_app=ok cases=" : "fracture_retirement_app=ok cases=") << cases
+                      << " compared_bytes=" << cases * fractureStateBytes
+                      << " retained_debris=" << physicalDebrisRecords << " retained_collapse=" << physicalCollapseRecords
+                      << " actor_bank_bytes=1575 sound_bytes=7"
                       << " production_app=1 seeded=1 natural_route=0 whole_game_claim=0\n";
             return;
         }

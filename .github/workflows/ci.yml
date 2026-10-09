@@ -76,6 +76,20 @@ jobs:
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
+      - name: Independent timed-writeback fixture regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(timed_seed_isolation|timed_writeback_original|timed_writeback_replay_guard)$'
+      - name: Preserve timed-writeback fixture diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: timed-writeback-linux-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
       - name: Complete corpse physical storage regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -467,6 +481,20 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: spawner-construction-windows-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: Independent timed-writeback fixture regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(timed_seed_isolation|timed_writeback_original|timed_writeback_replay_guard)$'
+      - name: Preserve timed-writeback fixture diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: timed-writeback-windows-focused
           path: |
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log

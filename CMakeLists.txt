@@ -184,6 +184,13 @@ if(BUILD_TESTING)
     set_tests_properties(sound_shared_cursor PROPERTIES
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^sound_shared_cursor=ok priority_cases=131072 scratch_writes=131072 rejected_requests_counted=1 default_counting=0 opt_in_bounded=1 original_runtime_claim=0")
+    add_executable(lezac_timed_seed_isolation_test tests/gameplay/timed_seed_isolation_test.cpp)
+    target_include_directories(lezac_timed_seed_isolation_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME timed_seed_isolation
+        COMMAND lezac_timed_seed_isolation_test ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/timed_actor_writeback_original.bin)
+    set_tests_properties(timed_seed_isolation PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^timed_seed_isolation=ok cases=1184 corpse_cases=592 raw_timer_boundaries=1 production_storage=1 full_app=0")
     add_executable(lezac_clocked_sound_test tests/sound/clocked_sound_test.cpp
         src/sound/sound_engine.cpp)
     target_link_libraries(lezac_clocked_sound_test PRIVATE lezac_resources)

@@ -91,6 +91,20 @@ jobs:
           name: transient-animation-backup-linux
           path: build/Testing/Temporary/LastTest.log
           if-no-files-found: ignore
+      - name: Corpse reward animation mode regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^corpse_reward_animation_mode_original$'
+      - name: Preserve focused corpse reward animation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpse-reward-animation-linux-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
       - name: Complete debris updater regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -370,6 +384,20 @@ jobs:
           name: transient-animation-backup-windows
           path: build/Testing/Temporary/LastTest.log
           if-no-files-found: ignore
+      - name: Corpse reward animation mode regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^corpse_reward_animation_mode_original$'
+      - name: Preserve focused corpse reward animation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpse-reward-animation-windows-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
       - name: Complete debris updater regressions
         env:
           SDL_VIDEODRIVER: dummy

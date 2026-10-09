@@ -137,3 +137,27 @@ input, expected, actual and result diagnostics are retained on success/failure.
 Fixture/source controls and App syntax checks are separate from the still-needed
 exact-head actual-App comparison. Natural-route, visual, sound-runtime and
 whole-game fidelity remain unproved.
+
+## History Comparison CI Evidence
+
+PR 367 Linux and Windows CI execute the complete production App, not the lightweight
+component extraction. Its retained raw outputs match all 576 seed-history cases
+(6157656 bytes) and all 96 full collapse-history cases (2565504 state bytes),
+without masks. The tested PR merge commit has the same complete source tree as
+the published head 952a720. This establishes these seeded comparison scopes,
+not natural gameplay, rendering, audio timing or whole-game completion.
+
+Both jobs nevertheless report both CTests as failed because their success regex
+is anchored before an earlier retained-artifact path line. These two Python
+checkers already validate the App marker, process status and every expected
+byte before returning success. Their CTests now rely on that strict exit status
+and retain the existing timeouts, environment and commands. A PASS regex is not
+used because CTest explicitly ignores the process exit code when it is set.
+
+A separate regression reads the real configured registrations through CTest's
+JSON API. It rejects eight property mutants and executes twelve mocked CTest
+cases, reproducing both the old prefixed-output false failure and its nonzero
+exit false pass. The repaired policy accepts valid prefixed output and rejects
+a failing checker even when its stdout contains a success marker. Mocked
+processes are not original-game or production-App evidence. Full required CI
+and completed current-head external review remain mandatory before merge.

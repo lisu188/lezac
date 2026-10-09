@@ -9739,11 +9739,25 @@ public:
         monster.hp = 1;
         refreshMonsterAnimationProfile(monster);
         clearSoundLatch();
+        sound_.restoreRequestForFixture(0x0024, 2);
+        const SoundLatch genericLatch = sound_.latch();
         enterMonsterDeath(monster);
         if (monster.behavior != 2 ||
             monster.stateTimer != kMonsterDeathVisibleTicks + 1 ||
             !monster.deathRewardPending || !bonusDrops_.empty() ||
-            !sound_.latch().active ||
+            !sameSoundLatch(sound_.latch(), genericLatch) ||
+            sound_.requestCursor() != 0x0024 || sound_.requestSelector() != 2) {
+            throw std::runtime_error("generic corpse entry unexpectedly requested sound");
+        }
+        ActiveMonster head;
+        head.kind = 0x1e;
+        head.behavior = 6;
+        head.bossGroup = 1;
+        bossDeathChain(head);
+        if (head.kind != 0x0e || head.behavior != 2 || head.stateTimer != 0x3c ||
+            !bossDefeated_ || !sound_.latch().active ||
+            sound_.requestCursor() != kMonsterDeathSoundCursor ||
+            sound_.requestSelector() != kMonsterDeathSoundPriority ||
             sound_.latch().latchedOffset != kMonsterDeathSoundCursor ||
             sound_.latch().currentSelector != kMonsterDeathSoundPriority ||
             sound_.latch().directSweep) {
@@ -9761,7 +9775,8 @@ public:
                   << " direct_sweep=0 state=2"
                   << " death_timer_initialized=" << monster.stateTimer
                   << " reward_pending=1 reward_spawned=0"
-                  << " pumped=1 ghidra=1000:5c9e latch=1000:165a\n";
+                  << " pumped=1 ghidra=1000:5c9e latch=1000:165a"
+                  << " generic_corpse_request=0 boss_chain_request=1\n";
     }
 
     void debugBombObjectSoundRouting() {
@@ -18258,7 +18273,22 @@ public:
             monsters_ = {seed};
             logicTick_ = le16(bytes, at + 16);
             randomSeed_ = UINT32_C(0x12345678);
+            SoundLatch seededLatch;
+            if (index % 3 != 0) {
+                seededLatch.active = true;
+                seededLatch.currentSelector = index % 3 == 1 ? 5 : 0x80;
+                seededLatch.latchedOffset = 0x0069;
+                seededLatch.recordIndex = 3;
+            }
+            sound_.restoreLatchForFixture(seededLatch);
+            sound_.restoreRequestForFixture(0x0024, 2);
             updateMonsters(0.0f);
+            // Request fields change even when an active priority rejects a request.
+            if (!sameSoundLatch(sound_.latch(), seededLatch) ||
+                sound_.requestCursor() != 0x0024 || sound_.requestSelector() != 2) {
+                throw std::runtime_error("monster tile-damage unexpectedly requested sound at case " +
+                                         std::to_string(index));
+            }
             if (monsters_.size() != 1) throw std::runtime_error("monster tile-damage replay lost its actor");
             const auto& actual = monsters_.front();
             const bool dying = bytes[actor + 21] == 2;
@@ -18289,7 +18319,8 @@ public:
         std::cout << "monster_tile_damage=ok cases=1312 production_updates=1312 kinds=1..8"
                   << " impact=552 fatal=96 post_motion_only=96 health_byte=36"
                   << " position_velocity_fraction_rng_health_animation_descriptor=1"
-                  << " seeded_original=1 natural_route_claim=0 visual_claim=0\n";
+                  << " seeded_original=1 natural_route_claim=0 visual_claim=0"
+                  << " tile_sound_request=0 latch_profiles=3\n";
     }
 
     void debugWalkerGravityWordEvidence(const std::string& fixturePath) {
@@ -30150,7 +30181,7 @@ private:
         monster.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(monster.corpseSprite).height);
         monster.deathRewardPending = true;
         releaseMonsterSlot(monster);
-        requestMonsterDeathSound();
+        // 1000:74BB..7517 makes no sound request; 5C9E belongs to the boss chain.
     }
 
     void spawnBonusDrop(float x, float y, BonusType type) {

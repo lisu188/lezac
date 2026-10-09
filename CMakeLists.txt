@@ -251,6 +251,8 @@ if(BUILD_TESTING)
     target_include_directories(lezac_transient_storage_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_executable(lezac_marker_storage_probe tests/gameplay/marker_storage_probe.cpp)
     target_include_directories(lezac_marker_storage_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_executable(lezac_reward_storage_probe tests/gameplay/reward_storage_probe.cpp)
+    target_include_directories(lezac_reward_storage_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME actor_slots_binding_contract COMMAND lezac_actor_slots_test)
     set_tests_properties(actor_slots_binding_contract PROPERTIES
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"
@@ -454,6 +456,35 @@ if(BUILD_TESTING)
         add_test(NAME marker_storage_tools_contract
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_marker_storage_checker.py -v)
         set_tests_properties(marker_storage_tools_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
+        foreach(reward_target IN ITEMS helper app)
+            if(reward_target STREQUAL "app")
+                set(reward_exe $<TARGET_FILE:lezac_cpp>)
+                set(reward_app_flag --production-app)
+            else()
+                set(reward_exe $<TARGET_FILE:lezac_reward_storage_probe>)
+                set(reward_app_flag)
+            endif()
+            add_test(NAME reward_storage_${reward_target}_original
+                COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_reward_storage_original.py
+                    --exe ${reward_exe} ${reward_app_flag}
+                    --out ${CMAKE_CURRENT_BINARY_DIR}/reward-storage-checks)
+            set_tests_properties(reward_storage_${reward_target}_original PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 60
+                PASS_REGULAR_EXPRESSION "^reward_storage_original=ok operations=4982 compared_bytes=7896470")
+            add_test(NAME reward_storage_${reward_target}_protocol
+                COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_reward_storage_protocol.py
+                    --exe ${reward_exe} ${reward_app_flag}
+                    --out ${CMAKE_CURRENT_BINARY_DIR}/reward-storage-checks)
+            set_tests_properties(reward_storage_${reward_target}_protocol PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 60
+                PASS_REGULAR_EXPRESSION "^reward_storage_protocol=ok rejected=34")
+        endforeach()
+        add_test(NAME reward_storage_tools_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_reward_storage_checker.py -v)
+        set_tests_properties(reward_storage_tools_contract PROPERTIES
             ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
         add_test(NAME actor_storage_core_original
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_storage_core.py

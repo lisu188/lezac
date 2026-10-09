@@ -2,6 +2,7 @@
 #include "diagnostics/monster_animation_fixture.hpp"
 #include "diagnostics/transient_storage_fixture.hpp"
 #include "diagnostics/marker_storage_fixture.hpp"
+#include "diagnostics/reward_storage_fixture.hpp"
 #include "rendering/game_renderer.hpp"
 #include "gameplay/actor_models.hpp"
 #include "gameplay/actor_slots.hpp"
@@ -24960,6 +24961,67 @@ public:
                      "full_raw_record_owner=0 whole_game_claim=0\n";
     }
 
+    void debugRewardStorageOriginal(const std::string& requestPath, const std::string& outputPath) {
+        namespace fixture = lezac::diagnostics::reward_storage;
+        load();
+        initSdl();
+        legacyActorSeedsEnabled_ = false;
+        std::ifstream input(requestPath, std::ios::binary);
+        std::ofstream output(outputPath, std::ios::binary);
+        if (!input || !output) throw std::runtime_error("cannot open reward protocol files");
+        const fixture::Header header(input);
+        for (uint16_t sprite = 1; sprite < header.descriptors.size(); ++sprite)
+            if (actorSpriteDescriptor(sprite) != header.descriptor(sprite))
+                throw std::runtime_error("reward descriptor differs from original assets");
+        level_ = Level{};
+        level_.width = 60; level_.height = 33;
+        level_.tiles.assign(header.tiles.begin(), header.tiles.end());
+        level_.wordLayer.assign(header.words.begin(), header.words.end());
+        playerCount_ = 2;
+        fixture::writeHeader(output, header.operations);
+        size_t seeds = 0, updates = 0;
+        for (uint32_t operation = 0; operation < header.operations; ++operation) {
+            const auto command = fixture::byte(input);
+            if (command == 'S') {
+                const fixture::Seed seed(input);
+                bombs_.clear(); monsters_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear();
+                transientActors_.clear(); pendingActorConversions_.clear();
+                std::array<uint64_t, lezac::gameplay::ActorStorage::capacity + 1> orders{};
+                for (size_t slot = 1; slot <= seed.storage.count; ++slot) orders[slot] = nextActorOrder_++;
+                actorSlots_.restoreForFixture(seed.storage, orders);
+                for (size_t slot = 1; slot <= seed.storage.count; ++slot)
+                    bonusDrops_.push_back(fixture::decode(actorSlots_, orders[slot]));
+                randomSeed_ = seed.rng; pendingBonuses_ = seed.pending;
+                pendingDamage_ = seed.hits[0]; pendingDamage2_ = seed.hits[1];
+                playerDead_ = seed.alive[0] != 1; player2Dead_ = seed.alive[1] != 1;
+                player_.x = fixture::signedWord(seed.storage.visuals[0], 0);
+                player_.y = fixture::signedWord(seed.storage.visuals[0], 2);
+                player2_.x = fixture::signedWord(seed.storage.visuals[1], 0);
+                player2_.y = fixture::signedWord(seed.storage.visuals[1], 2);
+                ++seeds;
+            } else if (command == 'U') {
+                if (!seeds) throw std::runtime_error("reward update before seed");
+                logicTick_ = fixture::word(input);
+                updateOrderedActors(0);
+                ++updates;
+            } else throw std::runtime_error("unknown reward command");
+            if (!std::equal(level_.tiles.begin(), level_.tiles.end(), header.tiles.begin(), header.tiles.end()) ||
+                !std::equal(level_.wordLayer.begin(), level_.wordLayer.end(), header.words.begin(), header.words.end()))
+                throw std::runtime_error("reward pass changed fixture terrain");
+            const auto entries = sharedActorEntries();
+            if (entries.size() != actorSlots_.count() || legacyActorAdoptions_ || legacyActorRetirements_)
+                throw std::runtime_error("reward diagnostic used legacy actor projection");
+            for (size_t slot = 1; slot <= entries.size(); ++slot)
+                if (actorSlots_.order(slot) != entries[slot - 1].order)
+                    throw std::runtime_error("reward production order differs from physical storage");
+            fixture::writeState(output, actorSlots_.state(), randomSeed_, pendingBonuses_,
+                {{pendingDamage_, pendingDamage2_}}, {{static_cast<uint8_t>(!playerDead_), static_cast<uint8_t>(!player2Dead_)}});
+        }
+        fixture::finish(input, output);
+        std::cout << "reward_storage_original_app=ok operations=" << header.operations << " seeds=" << seeds << " updates=" << updates
+                  << " legacy_adoptions=0 legacy_retirements=0 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
     void debugCorpseRewardAnimationMode() {
         load();
         initSdl();
@@ -30091,72 +30153,26 @@ private:
             BonusDrop& drop = bonusDrops_[i];
             if (onlyOrder && drop.actorOrder != onlyOrder) continue;
             if (drop.collected) continue;
-            const int collisionX = static_cast<int>(drop.x);
-            const int collisionY = static_cast<int>(drop.y) - drop.hotspotY;
-            bool collected = false;
-            int16_t markerVelocity = 0;
-            // 1000:63BE..6500 latches at most one bonus for EACH player.
-            // Both tests use the original kind, even after player 1 converts it.
-            if (!playerDead_ && !pendingBonuses_[0] &&
-                actorTouchesPlayer(player_, collisionX, collisionY)) {
-                pendingBonuses_[0] = static_cast<uint8_t>(drop.type) + 1;
-                markerVelocity = static_cast<int16_t>(-100 * randomInclusive(1, 3));
-                collected = true;
-            }
-            if (playerCount_ > 1 && !player2Dead_ && !pendingBonuses_[1] &&
-                actorTouchesPlayer(player2_, collisionX, collisionY)) {
-                pendingBonuses_[1] = static_cast<uint8_t>(drop.type) + 1;
-                markerVelocity = static_cast<int16_t>(-100 * randomInclusive(1, 3));
-                collected = true;
-            }
-            if (collected) {
-                // Conversion reuses the slot and fractions. This dispatch still
-                // runs the reward's cached gravity path; later ticks use gate 5.
-                constexpr std::array<uint8_t, 7> scoreSprites{{88, 86, 87, 88, 89, 86, 90}};
-                TransientActor marker;
-                marker.x = collisionX;
-                int y = collisionY;
-                marker.vy8 = markerVelocity;
-                marker.fracX = drop.fracX;
-                marker.fracY = drop.fracY;
-                updateTimedActorMotion(marker.x, y, marker.vx8, marker.vy8,
-                    marker.fracX, marker.fracY, scanActorEdges(collisionX, collisionY));
-                marker.kind = 0x0b;
-                marker.timer = static_cast<uint8_t>(26 - (logicTick_ & 1u));
-                marker.spriteIndex = scoreSprites.at(static_cast<size_t>(drop.type)) - 1;
-                marker.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(marker.spriteIndex).height);
-                marker.y = y + marker.hotspotY;
-                marker.actorOrder = drop.actorOrder;
-                marker.animation = drop.animation;
-                marker.animation.mode = 0;
-                marker.animationBackup = conversionBackup(drop.actorOrder);
-                transientActors_.push_back(marker);
-                drop.collected = true;
-                continue;
-            }
-            BonusDrop& moving = bonusDrops_[i];
-            int x = static_cast<int>(moving.x);
-            int y = static_cast<int>(moving.y) - moving.hotspotY;
-            updateTimedActorMotion(x, y, moving.vx8, moving.vy8, moving.fracX, moving.fracY,
-                                   scanActorEdges(x, y));
-            moving.x = static_cast<float>(x);
-            moving.y = static_cast<float>(y + moving.hotspotY);
-            moving.timer = static_cast<uint8_t>(moving.timer - (logicTick_ & 1u));
-            if (moving.timer == 0 || moving.timer == 0xff) {
-                moving.collected = true;
-                TransientActor fade;
-                fade.kind = 0;
-                fade.x = x;
-                fade.y = static_cast<int>(moving.y);
-                fade.fracX = moving.fracX;
-                fade.fracY = moving.fracY;
-                fade.timer = 18;
-                // DS:006C selects one-based sprite 74 for expired rewards.
-                fade.spriteIndex = 73;
-                fade.animation = ActorAnimation::initialize(74, 79, 2, 1);
-                fade.actorOrder = moving.actorOrder;
-                fade.animationBackup = conversionBackup(moving.actorOrder);
-                transientActors_.push_back(fade);
+            const int collisionX = static_cast<int16_t>(drop.x);
+            const int collisionY = static_cast<int16_t>(static_cast<int>(drop.y) - static_cast<int8_t>(drop.hotspotY));
+            const std::array<bool, 2> touching{{
+                !playerDead_ && actorTouchesPlayer(player_, collisionX, collisionY),
+                playerCount_ > 1 && !player2Dead_ && actorTouchesPlayer(player2_, collisionX, collisionY)}};
+            const auto step = lezac::gameplay::advanceBonusDrop(drop, conversionBackup(drop.actorOrder),
+                logicTick_, touching, pendingBonuses_,
+                [&](int& x, int& y, int16_t& vx, int16_t& vy, uint8_t& fracX, uint8_t& fracY) {
+                    updateTimedActorMotion(x, y, vx, vy, fracX, fracY, scanActorEdges(x, y));
+                }, [&] { return randomInclusive(1, 3); },
+                [&](uint8_t sprite) { return static_cast<uint8_t>(16 - sprites_.sprites.at(sprite).height); });
+            if (step.converted) {
+                const auto descriptor = actorSpriteDescriptor(static_cast<uint16_t>(step.conversion.spriteIndex) + 1);
+                actorSlots_.setSpriteDescriptor(drop.actorOrder, descriptor);
+                actorSlots_.writeTransient(drop.actorOrder, step.conversion, false, {});
+                transientActors_.push_back(step.conversion);
+            } else {
+                const auto descriptor = step.animationAdvanced ? actorSpriteDescriptor(drop.animation.current)
+                                                               : lezac::gameplay::ActorSlots::Descriptor{};
+                actorSlots_.writeReward(drop.actorOrder, drop, step.animationAdvanced, descriptor);
             }
         }
         bonusDrops_.erase(std::remove_if(bonusDrops_.begin(), bonusDrops_.end(),
@@ -31080,6 +31096,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc == 4 && std::string(argv[1]) == "--debug-marker-storage-original") {
             app.debugMarkerStorageOriginal(argv[2], argv[3]);
+            return 0;
+        }
+        if (argc == 4 && std::string(argv[1]) == "--debug-reward-storage-original") {
+            app.debugRewardStorageOriginal(argv[2], argv[3]);
             return 0;
         }
         if (argc == 2 && std::string(argv[1]) == "--debug-production-actor-lifecycle") {

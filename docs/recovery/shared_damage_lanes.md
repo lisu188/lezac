@@ -200,3 +200,20 @@ A separate regression executes fifteen mocked attempts across the three
 profiles (success, mismatch, nonzero exit, timeout, success) and rechecks every
 earlier file hash after each attempt. These are failure-retention controls, not
 game comparisons. The eight-MiB retained-root reserve still applies.
+
+### Fixture Checkout Transport
+
+PR369 Linux passes its focused comparisons. Its Windows job rejects the new
+support metadata pin before running those comparisons: the new JSON fixture
+was missing the neighboring fixtures' byte-preserving Git attributes. The
+follow-up marks only the new JSON and gzip fixture as `-text`; original bytes,
+pins, producer, checker and game code remain unchanged.
+
+A real Git checkout regression covers LF and CRLF configurations, verifies both
+fixture hashes and effective attributes, and retains three negative controls:
+missing metadata rule, forced metadata text conversion, and forced gzip text
+conversion. The missing-rule checkout reproduces exact LF-to-CRLF metadata
+conversion while parsed JSON remains identical. Byte pinning is preserved,
+not weakened to semantic comparison. These are Git transport controls, not
+original-game or compiled-App evidence. Complete required CI and review remain
+pending.

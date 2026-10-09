@@ -31389,6 +31389,7 @@ private:
                     level_.wordLayer[static_cast<size_t>(cell)] = nextCollapseFragmentWord_++;
                     level_.tiles[static_cast<size_t>(cell)] = static_cast<uint8_t>(0x47 + (logicTick_ & 2));
                     ++destroyed_;
+                    sound_.writeSharedCursor(static_cast<uint16_t>(cell));  // 1000:501F
                     const auto x = static_cast<uint8_t>(incomingX + randomRangeValue(0, 20) - 10);
                     const auto y = static_cast<uint8_t>(incomingY - randomRangeValue(0, 40));
                     queueTileDamage(cell % width, cell / width, x, y, true);

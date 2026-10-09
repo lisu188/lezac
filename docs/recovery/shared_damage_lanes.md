@@ -217,3 +217,39 @@ conversion while parsed JSON remains identical. Byte pinning is preserved,
 not weakened to semantic comparison. These are Git transport controls, not
 original-game or compiled-App evidence. Complete required CI and review remain
 pending.
+
+## Repeated Collapse Boundaries
+
+A portable original-only producer extends all 96 single-record support scenes
+through eight consecutive boundaries. The original memory image is not reset
+between these calls. All 768 input/output pairs retain the full physical pools,
+actor bank, sound bytes and three lane-history bytes. There are 712 active
+updater calls and 56 empty-queue skips. The latter follow the pinned caller
+instructions at 1000:8060-806A, which call 5102 only when DS:2080 is nonzero.
+Hooked and unhooked continuous execution agree over all 1 MiB RAM and fourteen
+registers. Independently restored original images reproduce every serialized
+output; the first boundary of each scene matches the earlier support fixture.
+
+The exported compressed/raw fixture and full-RAM hash chain reproduce the
+initial continuity probe exactly. Its metadata pins the producer and all reused
+executor, reader, restorer, imported-helper and support-fixture dependencies.
+The checker verifies the ordered inherited state and original input/expected
+stream hashes before splitting the observations into eight 96-case batches.
+Only input state reaches the App. Each batch retains exact input, expected and
+actual gzip streams; earlier attempts and partial failures remain intact.
+
+The input-only diagnostic now accepts an empty collapse queue. Its other
+physical-storage modes still reject zero live records. No gameplay updater
+rule changes. CTest requires strict checker exit status; both host workflows
+run and retain this new comparison before the full suite. Checker mutations
+cover the diagnostic gate, provenance claims, fixture bytes, ordering, inherited
+state, output corruption and a failure after three successful batches.
+
+These are seeded repeated-state transitions. The App restores each boundary
+independently, so this is not proof of an unbroken C++ campaign, complete hidden
+state, sound runtime, visual fidelity or general first-seed stack history.
+The earlier PR370 matrices have independently verified Linux and Windows App
+outputs: 768 cases and 11288664 state bytes per host, without masks or
+mismatches. App evidence for these additional 768 continuity cases remains
+pending until the new exact-source-tree CI artifacts are independently checked.
+Full required CI and current-head external review remain mandatory before merge.

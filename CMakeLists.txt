@@ -4876,6 +4876,16 @@ if(BUILD_TESTING)
     set_tests_properties(collapse_support_history_fixture collapse_support_history_checker collapse_support_history_original
         PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
     set_tests_properties(collapse_support_history_original PROPERTIES TIMEOUT 120)
+    add_test(NAME collapse_continuity_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_continuity.py)
+    add_test(NAME collapse_continuity_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_continuity.py --self-check)
+    add_test(NAME collapse_continuity_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_continuity.py
+                --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-continuity-app)
+    set_tests_properties(collapse_continuity_fixture collapse_continuity_checker collapse_continuity_original
+        PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(collapse_continuity_original PROPERTIES TIMEOUT 240)
     add_test(NAME collapse_support_transport_contract
         COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_support_transport.py
                 --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-support-transport)

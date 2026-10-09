@@ -331,7 +331,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --output-on-failure -R '^collapse_(contacts_(original|contract|failure_retention)|(seed|lane|support)_history_(fixture|checker|original)|history_(ctest|repetition)_contract|support_transport_contract)$'
+        run: ctest --test-dir build --output-on-failure -R '^collapse_(contacts_(original|contract|failure_retention)|(seed|lane|support)_history_(fixture|checker|original)|continuity_(fixture|checker|original)|history_(ctest|repetition)_contract|support_transport_contract)$'
       - name: Preserve collapse contact diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -342,6 +342,7 @@ jobs:
             build/collapse-seed-history-app/
             build/collapse-lane-history-app/
             build/collapse-support-history-app/
+            build/collapse-continuity-app/
             build/collapse-history-ctest/
             build/collapse-history-repetition/
             build/collapse-support-transport/
@@ -423,6 +424,7 @@ jobs:
             build/collapse-seed-history-app/
             build/collapse-lane-history-app/
             build/collapse-support-history-app/
+            build/collapse-continuity-app/
             build/collapse-history-ctest/
             build/collapse-history-repetition/
             build/collapse-support-transport/
@@ -803,7 +805,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --output-on-failure -R '^collapse_(contacts_(original|contract|failure_retention)|(seed|lane|support)_history_(fixture|checker|original)|history_(ctest|repetition)_contract|support_transport_contract)$'
+        run: ctest --test-dir build --output-on-failure -R '^collapse_(contacts_(original|contract|failure_retention)|(seed|lane|support)_history_(fixture|checker|original)|continuity_(fixture|checker|original)|history_(ctest|repetition)_contract|support_transport_contract)$'
       - name: Preserve collapse contact diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -814,6 +816,7 @@ jobs:
             build/collapse-seed-history-app/
             build/collapse-lane-history-app/
             build/collapse-support-history-app/
+            build/collapse-continuity-app/
             build/collapse-history-ctest/
             build/collapse-history-repetition/
             build/collapse-support-transport/
@@ -895,6 +898,7 @@ jobs:
             build/collapse-seed-history-app/
             build/collapse-lane-history-app/
             build/collapse-support-history-app/
+            build/collapse-continuity-app/
             build/collapse-history-ctest/
             build/collapse-history-repetition/
             build/collapse-support-transport/

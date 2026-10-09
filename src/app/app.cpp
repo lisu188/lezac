@@ -25118,6 +25118,63 @@ public:
                      "full_raw_record_owner=0 whole_game_claim=0\n";
     }
 
+    void debugMonsterObjectBranchOriginal(const std::string& fixturePath) {
+        const auto bytes = readFile(fixturePath);
+        if (bytes.size() != 24588 || lezac::diagnostics::level1::fingerprint(bytes) != "aeda390585b9ae61")
+            throw std::runtime_error("monster object-branch fixture bytes changed");
+        load();
+        initSdl();
+        legacyActorSeedsEnabled_ = false;
+        clockedSoundEnabled_ = false;
+        sound_.setRequestAttemptCounting(true);
+        level_ = Level{};
+        level_.width = 60; level_.height = 33;
+        level_.tiles.resize(1980); level_.wordLayer.resize(1980);
+        actorSlots_.resetForLevel(actorSpriteDescriptor(1));
+        constexpr uint16_t first = 822, second = 883;
+        for (size_t index = 0; index < 1024; ++index) {
+            const size_t at = 12 + index * 24;
+            std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+            std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+            level_.tiles[first] = bytes[at]; level_.tiles[second] = bytes[at + 1];
+            level_.wordLayer[first] = le16(bytes, at + 2); level_.wordLayer[second] = le16(bytes, at + 4);
+            corpseRewardRoll_ = 0xa5; monsterTileDamageDelta_ = 0x5a;
+            actorSlots_.setSharedResult(0x55aa);
+            sound_.restoreRequestForFixture(0xab12, 0x5a);
+            auto latch = sound_.latch();
+            latch.currentSelector = 5; latch.latchedOffset = 0xab12; latch.active = true;
+            sound_.restoreLatchForFixture(latch);
+            sound_.clearRequestAttemptCount();
+            randomSeed_ = 0x12345678;
+            consumeMonsterObjectTiles(762);
+            std::vector<uint8_t> actual{level_.tiles[first], level_.tiles[second]};
+            const auto word = [&](uint16_t value) {
+                actual.push_back(static_cast<uint8_t>(value)); actual.push_back(static_cast<uint8_t>(value >> 8));
+            };
+            word(level_.wordLayer[first]); word(level_.wordLayer[second]);
+            actual.push_back(corpseRewardRoll_); word(actorSlots_.state().success);
+            actual.push_back(static_cast<uint8_t>(monsterTileDamageDelta_)); word(sound_.requestCursor());
+            actual.push_back(sound_.requestSelector());
+            latch = sound_.latch();
+            actual.push_back(latch.currentSelector); word(latch.latchedOffset);
+            actual.push_back(static_cast<uint8_t>(latch.active));
+            actual.push_back(static_cast<uint8_t>(sound_.requestAttemptCount()));
+            if (actual.size() != 18 || sound_.requestAttemptCount() > 1 || !debrisQueue_.empty() ||
+                !collapseQueue_.empty() || randomSeed_ != 0x12345678)
+                throw std::runtime_error("monster object branch changed unrelated production state");
+            for (size_t offset = 0; offset < actual.size(); ++offset)
+                if (actual[offset] != bytes[at + 6 + offset])
+                    throw std::runtime_error("monster object branch differs at case " + std::to_string(index) +
+                        " byte " + std::to_string(offset) + " actual " + std::to_string(actual[offset]) +
+                        " expected " + std::to_string(bytes[at + 6 + offset]));
+            for (size_t cell = 0; cell < level_.tiles.size(); ++cell)
+                if (cell != first && cell != second && (level_.tiles[cell] || level_.wordLayer[cell]))
+                    throw std::runtime_error("monster object branch changed another terrain cell");
+        }
+        std::cout << "monster_object_branch_original=ok cases=1024 compared_bytes=18432 production_app=1 "
+                     "first_seeder_gate=0 sound_requests_checked=1 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
     void debugFatalEntryOriginal(const std::string& requestPath, const std::string& outputPath) {
         namespace fixture = lezac::diagnostics::fatal_entry;
         load();
@@ -29130,6 +29187,36 @@ private:
         }
     }
 
+    void consumeMonsterObjectTiles(uint16_t footprint) {
+        const auto width = static_cast<uint16_t>(level_.width);
+        const auto first = static_cast<uint16_t>(footprint + width);
+        const auto second = static_cast<uint16_t>(first + width + 1);
+        sound_.writeSharedCursor(0);
+        const auto consume = [&](uint16_t cell) {
+            const int x = cell % width, y = cell / width;
+            const auto above = static_cast<uint16_t>(cell - width);
+            const auto result = lezac::gameplay::queryMonsterObjectConsumption(
+                static_cast<uint8_t>(tileAt(x, y)), wordAt(x, y), wordAt(above % width, above / width));
+            corpseRewardRoll_ = result.scratch;
+            actorSlots_.setSharedResult(result.sprite);
+            monsterTileDamageDelta_ = result.seedAbove ? 1 : 0;
+            sound_.writeSharedCursor(static_cast<uint16_t>(sound_.requestCursor() + result.score));
+            if (result.consumed) {
+                tileRef(x, y) = result.glyph;
+                level_.wordLayer[cell] = result.word;
+            }
+            sound_.writeSharedCursor(static_cast<uint16_t>(sound_.requestCursor() + result.sprite));
+            return result.seedAbove;
+        };
+        // Only the first call seeds above it; the second cursor advances by width+1.
+        if (consume(first)) {
+            const auto above = static_cast<uint16_t>(first - width);
+            queueTileDamage(above % width, above / width, 0, 0, true);
+        }
+        consume(second);
+        if (sound_.requestCursor() != 0) requestSoundCursor(0x21, 1);
+    }
+
     void updateMonsters(float dt, uint64_t onlyOrder = 0) {
         adoptUnorderedActors();
         for (ActiveMonster& monster : monsters_) {
@@ -29275,6 +29362,8 @@ private:
                     actorSlots_.setActiveAnimation(monster.actorOrder, lezac::gameplay::monsterAnimation(monster));
                     monster.facingDirty = false;
                 }
+                if (monster.kind == 4)
+                    consumeMonsterObjectTiles(static_cast<uint16_t>(damageRow * level_.width + damageColumn));
                 const ActiveMonster::EdgeFlags e = monster.edges;
                 if (e.top && monster.vy8 < 0) monster.vy8 = 1;
                 if (e.left && e.right) {
@@ -31245,6 +31334,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bonus-reward-static-model") {
             app.debugBonusRewardStaticModel();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-monster-object-branch-original") {
+            app.debugMonsterObjectBranchOriginal(argv[2]);
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-fatal-entry-original") {

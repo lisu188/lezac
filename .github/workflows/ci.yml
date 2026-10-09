@@ -80,7 +80,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^fatal_entry_(checker|fixture|original)$'
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original)$'
       - name: Preserve complete fatal-entry diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -504,7 +504,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^fatal_entry_(checker|fixture|original)$'
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original)$'
       - name: Preserve complete fatal-entry diagnostics
         if: always()
         uses: actions/upload-artifact@v4

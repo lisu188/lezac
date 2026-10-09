@@ -5242,6 +5242,21 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^spawner_storage=ok roundtrips=7680 releases=2304 ticks=24576 invalid_sources=10")
 
+    add_executable(monster_object_consume_test tests/monster_object_consume_test.cpp)
+    target_include_directories(monster_object_consume_test PRIVATE src)
+    add_test(NAME monster_object_consume_original COMMAND monster_object_consume_test
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_object_consume_original.bin)
+    set_tests_properties(monster_object_consume_original PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^monster_object_consume_original=ok cases=6400 glyphs=256 word_boundaries=5 above_boundaries=5 cursor_wrap=1")
+
+    add_test(NAME monster_object_branch_original COMMAND lezac_cpp --debug-monster-object-branch-original
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_object_branch_original.bin)
+    set_tests_properties(monster_object_branch_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^monster_object_branch_original=ok cases=1024 compared_bytes=18432 production_app=1 first_seeder_gate=0 sound_requests_checked=1 seeded=1 natural_route=0 whole_game_claim=0")
+
     add_test(NAME fatal_entry_checker
         COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_fatal_entry_checker.py)
     set_tests_properties(fatal_entry_checker PROPERTIES

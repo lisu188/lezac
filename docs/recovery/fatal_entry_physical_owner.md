@@ -56,6 +56,41 @@ matched all 1,312 health/fatal gates. The diagnostic now resets its physical
 actor storage for each row. This repair changes no production updater method;
 actual-App rerun acceptance remains open until the new exact-head CI proves it.
 
+At `125adab`, both hosts passed the 1,312-case tile replay and the actual-App
+constructor replay, including all 437,400 spawner-bank bytes. Both then executed
+the complete fatal-entry protocol and produced identical 6,441,996-byte output
+streams. Exactly 288 state bytes differed, all at state offset 1,585: DS:79A3 in
+144 kind-4 cases. No actor, visual, link, spawner, RNG, or other recorded global
+byte differed. The comparison remained a failure; no masks were introduced.
+
+Two neutral original-code replays reproduced all 3,456 boundaries and traced
+384 DS:79A3 writes to `1000:5B07`. The kind-4 branch calls consume helper `5AFD`
+at `7342` and `7370`, between facing selection and common collision response.
+Its first cell is the cached footprint plus width; the second is that first
+cell plus width+1. Only the first call may seed the cell above, and a nonzero
+accumulated score/sprite sum requests cursor `0x21`, priority 1. These are not
+two adjacent cells, and the second call does not seed above it.
+
+The follow-up implements the whole observed consume branch, not only its scratch
+reset. Its pure consume helper is checked against 6,400 unmodified `5AFD` calls:
+all 256 glyphs, five current-word boundaries, five above-word boundaries, and
+cursor wraparound. Independent runs matched full 1 MiB memory and 14 registers
+per case. Raw fixture SHA-256:
+`f99a8cc9e3c2a46a879ab0d2a602c325038a7d3bffb109807cbca734e68a007e`.
+This contract does not itself prove the application-level seeder, sound latch,
+natural-route behavior, or rendered pixels. The existing seeder and sound APIs
+remain the production owners; exact-head actual-App CI is still required.
+
+A separate 1,024-case original branch fixture covers mixed glyph pairs and
+flagged current words at `732C..738F`, with full observer neutrality. Its
+actual-App CTest invokes the production `consumeMonsterObjectTiles` helper and
+checks 18,432 result/sound bytes plus the complete terrain planes. The native
+fixture SHA-256 is
+`602a9306625eaf5d21115330897e3a04099fd629bcd728a11938771204e1d11f`.
+The first above-word is zero in this branch fixture, so application-level
+falling-debris dispatch is not proved by it. The 6,400-case helper contract
+does check the above-word eligibility boundaries independently.
+
 CTest `fatal_entry_original` invokes `--debug-fatal-entry-original` on the real
 application. It restores each case once, uses `updateOrderedActors(0)` for both
 passes, and compares all 6,441,984 state bytes without masks. CI retains raw

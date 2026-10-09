@@ -177,6 +177,13 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_sound_shared_cursor_test tests/sound/sound_shared_cursor_test.cpp
+        src/sound/sound_engine.cpp src/resources/binary.cpp)
+    target_include_directories(lezac_sound_shared_cursor_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME sound_shared_cursor COMMAND lezac_sound_shared_cursor_test)
+    set_tests_properties(sound_shared_cursor PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^sound_shared_cursor=ok priority_cases=131072 scratch_writes=131072 rejected_requests_counted=1 default_counting=0 opt_in_bounded=1 original_runtime_claim=0")
     add_executable(lezac_clocked_sound_test tests/sound/clocked_sound_test.cpp
         src/sound/sound_engine.cpp)
     target_link_libraries(lezac_clocked_sound_test PRIVATE lezac_resources)
@@ -5186,7 +5193,7 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION
-            "^monster_tile_damage=ok cases=1312 production_updates=1312 kinds=1..8 impact=552 fatal=96 post_motion_only=96 health_byte=36 position_velocity_fraction_rng_health_animation_descriptor=1 seeded_original=1 natural_route_claim=0 visual_claim=0 tile_sound_request=0 latch_profiles=3")
+            "^monster_tile_damage=ok cases=1312 production_updates=1312 kinds=1..8 impact=552 fatal=96 post_motion_only=96 health_byte=36 position_velocity_fraction_rng_health_animation_descriptor=1 seeded_original=1 natural_route_claim=0 visual_claim=0 tile_sound_request=0 latch_profiles=3 scratch_aliases=3 request_attempts=0")
 
     add_test(NAME monster_tile_damage_fixture
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_tile_damage_fixture.py)

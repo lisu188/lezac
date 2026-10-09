@@ -8,6 +8,7 @@
 #include "gameplay/actor_models.hpp"
 #include "gameplay/actor_slots.hpp"
 #include "gameplay/collapse_seed.hpp"
+#include "gameplay/monster_damage.hpp"
 #include "ui/models.hpp"
 #include "rendering/presentation_state.hpp"
 #include <SDL.h>
@@ -18244,6 +18245,7 @@ public:
         }
         int impacts = 0, fatal = 0, postOnly = 0;
         std::string mismatches;
+        sound_.setRequestAttemptCounting(true);
         for (size_t index = 0; index < 1312; ++index) {
             const size_t at = 64 + index * 80, actor = at + 34, visual = at + 72;
             if (le16(bytes, at) != index || bytes[at + 18] != 0) {
@@ -18282,11 +18284,29 @@ public:
             }
             sound_.restoreLatchForFixture(seededLatch);
             sound_.restoreRequestForFixture(0x0024, 2);
+            sound_.clearRequestAttemptCount();
             updateMonsters(0.0f);
-            // Request fields change even when an active priority rejects a request.
+            // A later shared-cursor write can hide even a rejected sound request.
             if (!sameSoundLatch(sound_.latch(), seededLatch) ||
-                sound_.requestCursor() != 0x0024 || sound_.requestSelector() != 2) {
+                sound_.requestSelector() != 2 || sound_.requestAttemptCount() != 0) {
                 throw std::runtime_error("monster tile-damage unexpectedly requested sound at case " +
+                                         std::to_string(index));
+            }
+            const int column = (seed.x + 4) >> 3, row = seed.y >> 3;
+            uint16_t lastFlame = 0;
+            int signedDamage = 0;
+            for (const auto& cell : cells) {
+                const int x = column + cell[0] - cells[0][0];
+                const int y = row + cell[1] - cells[0][1];
+                const uint8_t glyph = tileAt(x, y);
+                if (glyph == 0x75) {
+                    lastFlame = static_cast<uint16_t>(y * level_.width + x);
+                    signedDamage -= 2;
+                } else if (glyph >= 1 && glyph <= 0x4c) --signedDamage;
+            }
+            if (sound_.requestCursor() != static_cast<uint16_t>(row * level_.width + column) ||
+                actorSlots_.state().success != lastFlame || monsterTileDamageDelta_ != signedDamage) {
+                throw std::runtime_error("monster tile-damage shared scratch differs at case " +
                                          std::to_string(index));
             }
             if (monsters_.size() != 1) throw std::runtime_error("monster tile-damage replay lost its actor");
@@ -18316,11 +18336,12 @@ public:
         if (impacts != 552 || fatal != 96 || postOnly != 96) {
             throw std::runtime_error("monster tile-damage boundary coverage changed");
         }
+        sound_.setRequestAttemptCounting(false);
         std::cout << "monster_tile_damage=ok cases=1312 production_updates=1312 kinds=1..8"
                   << " impact=552 fatal=96 post_motion_only=96 health_byte=36"
                   << " position_velocity_fraction_rng_health_animation_descriptor=1"
                   << " seeded_original=1 natural_route_claim=0 visual_claim=0"
-                  << " tile_sound_request=0 latch_profiles=3\n";
+                  << " tile_sound_request=0 latch_profiles=3 scratch_aliases=3 request_attempts=0\n";
     }
 
     void debugWalkerGravityWordEvidence(const std::string& fixturePath) {
@@ -26632,6 +26653,7 @@ private:
     uint32_t logicTick_ = 0;
     uint64_t nextActorOrder_ = 1;
     lezac::gameplay::ActorSlots actorSlots_;
+    int8_t monsterTileDamageDelta_ = 0;
     bool legacyActorSeedsEnabled_ = false;
     size_t legacyActorAdoptions_ = 0;
     size_t legacyActorRetirements_ = 0;
@@ -29074,14 +29096,14 @@ private:
 
             // 1000:7530 stores coordinates directly, without level-bound clamps.
             if (monster.kind >= 1 && monster.kind <= 8) {
-                int damage = 0;
                 // 1000:7427 calls 56B6 using the pre-motion 2x2 footprint.
-                for (int dy = 0; dy < 2; ++dy) for (int dx = 0; dx < 2; ++dx) {
-                    const int glyph = tileAt(damageColumn + dx, damageRow + dy);
-                    if (glyph == 0x75) damage += 2;
-                    else if (glyph >= 1 && glyph <= 0x4c) ++damage;
-                }
-                if (damage) damageMonster(monster, damage, true);
+                const auto query = lezac::gameplay::queryMonsterTileDamage(
+                    damageColumn, damageRow, level_.width,
+                    [this](int x, int y) { return tileAt(x, y); });
+                actorSlots_.setSharedResult(query.lastFlameCell);
+                sound_.writeSharedCursor(query.footprintCell);
+                monsterTileDamageDelta_ = query.delta;
+                if (query.delta != 0) damageMonster(monster, -query.delta, true);
             }
         }
         monsters_.erase(std::remove_if(monsters_.begin(), monsters_.end(),

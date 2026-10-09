@@ -5257,6 +5257,27 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^monster_object_branch_original=ok cases=1024 compared_bytes=18432 production_app=1 first_seeder_gate=0 sound_requests_checked=1 seeded=1 natural_route=0 whole_game_claim=0")
 
+    add_test(NAME monster_object_seeder_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_monster_object_seeder_checker.py -v)
+    set_tests_properties(monster_object_seeder_checker PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+
+    add_test(NAME monster_object_seeder_fixture
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_object_seeder.py)
+    set_tests_properties(monster_object_seeder_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^monster_object_seeder_fixture=ok cases=896 state_bytes=5983 first_seeder_calls=256")
+
+    add_test(NAME monster_object_seeder_original
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_object_seeder.py
+            --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/monster-object-seeder-app)
+    set_tests_properties(monster_object_seeder_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^monster_object_seeder_original=ok cases=896 compared_bytes=5360768 production_app=1 masks=0 first_only=1 seeded=1 natural_route=0 whole_game_claim=0")
+
     add_test(NAME fatal_entry_checker
         COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_fatal_entry_checker.py)
     set_tests_properties(fatal_entry_checker PROPERTIES

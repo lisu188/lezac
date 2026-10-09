@@ -177,6 +177,20 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_sound_shared_cursor_test tests/sound/sound_shared_cursor_test.cpp
+        src/sound/sound_engine.cpp src/resources/binary.cpp)
+    target_include_directories(lezac_sound_shared_cursor_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME sound_shared_cursor COMMAND lezac_sound_shared_cursor_test)
+    set_tests_properties(sound_shared_cursor PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^sound_shared_cursor=ok priority_cases=131072 scratch_writes=131072 rejected_requests_counted=1 default_counting=0 opt_in_bounded=1 original_runtime_claim=0")
+    add_executable(lezac_timed_seed_isolation_test tests/gameplay/timed_seed_isolation_test.cpp)
+    target_include_directories(lezac_timed_seed_isolation_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME timed_seed_isolation
+        COMMAND lezac_timed_seed_isolation_test ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/timed_actor_writeback_original.bin)
+    set_tests_properties(timed_seed_isolation PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^timed_seed_isolation=ok cases=1184 corpse_cases=592 raw_timer_boundaries=1 production_storage=1 full_app=0")
     add_executable(lezac_clocked_sound_test tests/sound/clocked_sound_test.cpp
         src/sound/sound_engine.cpp)
     target_link_libraries(lezac_clocked_sound_test PRIVATE lezac_resources)
@@ -5186,7 +5200,7 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION
-            "^monster_tile_damage=ok cases=1312 production_updates=1312 kinds=1..8 impact=552 fatal=96 post_motion_only=96 health_byte=36 position_velocity_fraction_rng_health_animation_descriptor=1 seeded_original=1 natural_route_claim=0 visual_claim=0 tile_sound_request=0 latch_profiles=3")
+            "^monster_tile_damage=ok cases=1312 production_updates=1312 kinds=1..8 impact=552 fatal=96 post_motion_only=96 health_byte=36 position_velocity_fraction_rng_health_animation_descriptor=1 seeded_original=1 natural_route_claim=0 visual_claim=0 tile_sound_request=0 latch_profiles=3 scratch_aliases=3 request_attempts=0")
 
     add_test(NAME monster_tile_damage_fixture
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_tile_damage_fixture.py)
@@ -5220,6 +5234,21 @@ if(BUILD_TESTING)
     set_tests_properties(monster_tile_damage_capture_self_check PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "monster_tile_damage_self_check=ok cases=1312 kinds=1..8 glyphs=8 footprint_masks=16 profiles=4 live=0")
+
+    add_test(NAME spawner_construction_fixture
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_spawner_construction_storage.py)
+    set_tests_properties(spawner_construction_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^spawner_construction_fixture=ok cases=1620 bytes=6055944")
+
+    add_test(NAME spawner_construction_storage_original
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_spawner_construction_storage.py
+                --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(spawner_construction_storage_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 180
+        PASS_REGULAR_EXPRESSION "^spawner_construction_storage=ok cases=1620 successful=720 physical_storage_bytes=2551500 rng_and_roll_bytes=8100 sound_requests=0 legacy_adoptions=0 legacy_retirements=0 production_app=1 raw_spawner_bank=0 seeded=1 natural_route=0 whole_game_claim=0")
 
     add_test(NAME shipped_monster_profiles_original
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-shipped-monster-profiles

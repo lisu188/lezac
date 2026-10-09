@@ -5264,6 +5264,26 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^retained_record_queue=ok live_order=1 stale_tail=1 clear_retains=1 dormant_excluded=1")
 
+    add_test(NAME multicell_seeder_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_multicell_seeder_checker.py -v)
+    set_tests_properties(multicell_seeder_checker PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    add_test(NAME multicell_seeder_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_multicell_seeder.py)
+    set_tests_properties(multicell_seeder_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        PASS_REGULAR_EXPRESSION "^multicell_seeder_fixture=ok cases=384 state_bytes=5972 complete_input_planes=1")
+    add_test(NAME multicell_seeder_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_multicell_seeder.py
+            --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/multicell-seeder-app)
+    set_tests_properties(multicell_seeder_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^multicell_seeder_original=ok cases=384 compared_bytes=2293248 production_app=1 masks=0 complete_input_planes=1 seeded=1 natural_route=0 whole_game_claim=0")
+
     add_test(NAME seeder_capacity_checker
         COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_seeder_capacity_checker.py -v)
     set_tests_properties(seeder_capacity_checker PROPERTIES

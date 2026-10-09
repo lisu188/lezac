@@ -25281,10 +25281,14 @@ public:
                   << " first_only=1 production_app=1 seeded=1 natural_route=0 whole_game_claim=0\n";
     }
 
-    void debugSeederCapacityOriginal(const std::string& fixturePath, const std::string& outputPath) {
+    void debugSeederCapacityOriginal(const std::string& fixturePath, const std::string& outputPath,
+                                     bool multiCell = false) {
         const auto bytes = readFile(fixturePath);
-        if (bytes.size() != 2678608 || lezac::diagnostics::level1::fingerprint(bytes) != "ea319976fe272a5b")
-            throw std::runtime_error("seeder capacity fixture bytes changed");
+        const size_t cases = multiCell ? 384 : 448, inputBytes = multiCell ? 5949 : 7;
+        const size_t recordBytes = inputBytes + 5972;
+        if (bytes.size() != 16 + cases * recordBytes || lezac::diagnostics::level1::fingerprint(bytes) !=
+            (multiCell ? "b3ab8e9851f61e6c" : "ea319976fe272a5b"))
+            throw std::runtime_error("tile seeder fixture bytes changed");
         load();
         initSdl();
         legacyActorSeedsEnabled_ = false;
@@ -25296,8 +25300,8 @@ public:
         actorSlots_.resetForLevel(actorSpriteDescriptor(1));
         std::ofstream output(outputPath, std::ios::binary);
         if (!output) throw std::runtime_error("cannot open seeder capacity output");
-        output.write("LZSO0001", 8);
-        for (uint32_t value : {448u, 5972u})
+        output.write(multiCell ? "LZMO0001" : "LZSO0001", 8);
+        for (uint32_t value : {static_cast<uint32_t>(cases), 5972u})
             for (int shift = 0; shift < 32; shift += 8) output.put(static_cast<char>(value >> shift));
         std::vector<uint8_t> debrisSalt(11), collapseSalt(15);
         for (size_t i = 0; i < debrisSalt.size(); ++i) debrisSalt[i] = static_cast<uint8_t>(17 + i * 13);
@@ -25320,24 +25324,34 @@ public:
         dormantCollapse.flags = collapseSalt[12]; dormantCollapse.restTicks = collapseSalt[13];
         dormantCollapse.affectedBytes = collapseSalt[14];
         size_t accepted = 0, capacityRejected = 0, flagged = 0;
-        for (size_t index = 0; index < 448; ++index) {
-            const size_t at = 16 + index * 5979;
-            const uint16_t inputWord = le16(bytes, at), debrisCount = le16(bytes, at + 2), collapseCount = le16(bytes, at + 4);
-            if (debrisCount < kDebrisRecordIndexBase || debrisCount > 1601 || collapseCount > 251)
+        for (size_t index = 0; index < cases; ++index) {
+            const size_t at = 16 + index * recordBytes;
+            const uint16_t seed = multiCell ? le16(bytes, at) : 762;
+            const uint16_t debrisCount = le16(bytes, at + (multiCell ? 4 : 2));
+            const uint16_t collapseCount = le16(bytes, at + (multiCell ? 6 : 4));
+            if (seed >= 1980 || debrisCount < kDebrisRecordIndexBase || debrisCount > 1601 || collapseCount > 251)
                 throw std::runtime_error("seeder capacity input exceeds physical bounds");
-            std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
-            std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
-            level_.tiles[762] = 77; level_.wordLayer[762] = inputWord;
+            if (multiCell) {
+                std::copy_n(bytes.begin() + at + 9, 1980, level_.tiles.begin());
+                for (size_t cell = 0; cell < level_.wordLayer.size(); ++cell)
+                    level_.wordLayer[cell] = le16(bytes, at + 9 + 1980 + cell * 2);
+            } else {
+                std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+                std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+                level_.tiles[seed] = 77; level_.wordLayer[seed] = le16(bytes, at);
+            }
+            const uint16_t inputWord = level_.wordLayer[seed];
             debrisQueue_.clear(); collapseQueue_.clear();
             for (size_t slot = kDebrisRecordIndexBase; slot < debrisCount; ++slot) debrisQueue_.push_back({});
             for (size_t slot = 0; slot < collapseCount; ++slot) collapseQueue_.push_back({});
             const size_t debrisCandidate = debrisQueue_.size(), collapseCandidate = collapseQueue_.size();
             debrisQueue_.retainedSlot(debrisCandidate) = dormantDebris;
             collapseQueue_.retainedSlot(collapseCandidate) = dormantCollapse;
-            tileSeederResult_ = bytes[at + 6];
+            tileSeederResult_ = bytes[at + (multiCell ? 8 : 6)];
             uint8_t seededClass = 0xa5;
             sound_.clearRequestAttemptCount(); randomSeed_ = 0x12345678;
-            queueTileDamage(42, 12, 0, 0, true, &seededClass);
+            queueTileDamage(seed % 60, seed / 60, multiCell ? bytes[at + 2] : 0,
+                multiCell ? bytes[at + 3] : 0, true, &seededClass);
             if (actorSlots_.count() != 0 || randomSeed_ != 0x12345678 || sound_.requestAttemptCount() != 0)
                 throw std::runtime_error("seeder capacity changed unrelated production state");
             std::vector<uint8_t> actual(level_.tiles.begin(), level_.tiles.end());
@@ -25352,7 +25366,7 @@ public:
             actual.push_back(tileSeederResult_); actual.push_back(seededClass);
             if (actual.size() != 5972) throw std::runtime_error("seeder capacity serialization extent changed");
             output.write(reinterpret_cast<const char*>(actual.data()), static_cast<std::streamsize>(actual.size()));
-            if (!std::equal(actual.begin(), actual.end(), bytes.begin() + at + 7)) {
+            if (!std::equal(actual.begin(), actual.end(), bytes.begin() + at + inputBytes)) {
                 output.flush();
                 throw std::runtime_error("seeder capacity differs at case " + std::to_string(index));
             }
@@ -25363,7 +25377,8 @@ public:
         }
         output.flush();
         if (!output) throw std::runtime_error("cannot finish seeder capacity output");
-        std::cout << "seeder_capacity_app=ok cases=448 compared_bytes=2675456 accepted=" << accepted
+        std::cout << (multiCell ? "multicell_seeder_app" : "seeder_capacity_app") << "=ok cases=" << cases
+                  << " compared_bytes=" << cases * 5972 << " accepted=" << accepted
                   << " capacity_rejected=" << capacityRejected << " flagged=" << flagged
                   << " inactive_salted=1 production_app=1 seeded=1 natural_route=0 whole_game_claim=0\n";
     }
@@ -31532,6 +31547,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bonus-reward-static-model") {
             app.debugBonusRewardStaticModel();
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-multicell-seeder-original") {
+            app.debugSeederCapacityOriginal(argv[2], argv[3], true);
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-seeder-capacity-original") {

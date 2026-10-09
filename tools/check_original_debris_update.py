@@ -29,6 +29,11 @@ def compact(text):
 def contract(source):
     first, last = function_ranges(source, ['debugOriginalDebrisUpdate'])['debugOriginalDebrisUpdate']
     body = compact('\n'.join(source.splitlines()[first - 1:last]))
+    physics = compact('if (physicsDispatch) { if (!debrisQueue_.empty()) updateDebrisRecords(); '
+        'if (!collapseQueue_.empty()) updateCollapseRecords(); }')
+    if body.count(physics) != 1:
+        raise ValueError('coupled physics diagnostic consumer differs')
+    body = body.replace(physics, '')
     for statement in CONTRACT:
         expected = 2 if statement == CONTRACT[-1] else 1
         if body.count(compact(statement)) != expected:

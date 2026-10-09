@@ -323,3 +323,39 @@ boundary. These are seeded original-only observations until exact-source-tree
 App outputs are independently checked; they do not establish complete game
 ticks, natural campaign reachability, general first-seed stack ownership,
 visual/audio runtime fidelity or whole-game completion.
+
+## Coupled Debris And Collapse Dispatch
+
+The original caller at 1000:804E-806A gates debris/sparks 45FA before collapse
+5102. A portable producer advances 32 initial lane scenes through sixteen
+unbroken executions of those unmodified caller instructions. Spark count stays
+zero throughout this matrix. All 512 full serialized boundaries reproduce from
+fresh original images, and every first boundary matches the pinned lane fixture.
+Hooked and unhooked runs agree over all 1 MiB RAM and fourteen registers; no
+original call is stubbed and hardware I/O remains forbidden.
+
+The original visits 45FA at 474 boundaries and 5102 at all 512. A counterfactual
+which enters the unchanged caller at 8060 skips the preceding debris pass. Its
+output differs at 474 boundaries, including tiles at 336, physical collapse
+storage at 65, RNG at 85 and sound-request state at fifteen. This distinguishes
+the coupled phase sequence from collapse-only evidence without changing either
+original updater. The raw coupled fixture hash is
+faecb105bbdc961a411ce700845e4c3c15ce2534fd73c983082d6405031bfcee.
+
+The new `--debug-original-physics-dispatch` diagnostic restores four initial
+scenes per batch, then performs sixteen gated debris-then-collapse passes without
+restoring intermediate state. Eight batches return every original boundary.
+Only initial input bytes reach the App; no expected or intermediate states are
+passed to it. Every byte of the 26724-byte output state is compared without masks.
+Production updater code and all previous diagnostic modes remain unchanged.
+
+The checker pins provenance, dimensions, input inheritance and complete streams,
+and retains lossless input/expected/actual bytes on success or partial failure.
+Controls reject phase reversal, missing gates, resets, input ingestion inside
+the repeated loop, forged scope, corrupted outputs and later-batch failures.
+Both host workflows run strict CTest comparisons and preserve focused artifacts.
+Local source and mocked-child checks are not compiled-App parity. Exact-source
+Linux/Windows App comparison, full required CI and current-head external review
+remain pending. These seeded phase sequences do not include earlier actor/player
+passes or later clock/presentation work and do not establish full game ticks,
+natural campaign reachability, visual/audio fidelity or whole-game completion.

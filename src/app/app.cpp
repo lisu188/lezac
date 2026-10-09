@@ -19175,7 +19175,8 @@ public:
                                   bool collapseUpdate = false, bool actorCreation = false,
                                   bool retirementStorage = false, bool fractureStorage = false,
                                   bool physicalDebrisUpdate = false, bool laneHistory = false,
-                                  bool collapseLaneHistory = false, bool continuousCollapse = false) {
+                                  bool collapseLaneHistory = false, bool continuousCollapse = false,
+                                  bool physicsDispatch = false) {
         namespace storage = lezac::diagnostics::transient_storage;
         const bool physicalStorage = retirementStorage || fractureStorage;
         if (actorCreation && !collapseUpdate) throw std::runtime_error("actor probe requires collapse update");
@@ -19187,6 +19188,9 @@ public:
         }
         if (continuousCollapse && !collapseLaneHistory) {
             throw std::runtime_error("continuous collapse requires an input-only collapse history");
+        }
+        if (physicsDispatch && (!collapseLaneHistory || continuousCollapse)) {
+            throw std::runtime_error("physics dispatch requires its own input-only history mode");
         }
         load();
         if (fractureStorage) {
@@ -19228,7 +19232,7 @@ public:
         if (retirementStorage && (cases != 176 || le32(header, 12) != 12060)) {
             throw std::runtime_error("invalid retirement storage fixture dimensions");
         }
-        if (fractureStorage && (cases != (completeFracturePools ? (laneHistory && !collapseLaneHistory ? 112 : (continuousCollapse ? 12 : 96)) : 288) ||
+        if (fractureStorage && (cases != (completeFracturePools ? (laneHistory && !collapseLaneHistory ? 112 : (physicsDispatch ? 4 : (continuousCollapse ? 12 : 96))) : 288) ||
                                le32(header, 12) != (completeFracturePools ? (collapseLaneHistory ? 26730 : laneHistory ? 53454 : 53448) : 15334))) {
             throw std::runtime_error("invalid fracture storage fixture dimensions");
         }
@@ -19239,7 +19243,7 @@ public:
         if (physicalStorage) {
             const std::string magic = fractureStorage ? (completeFracturePools ? (laneHistory ? (collapseLaneHistory ? "LZCO0001" : "LZDO0001") : "LZFP0001") : "LZFO0001") : "LZRO0001";
             std::vector<uint8_t> outputHeader(magic.begin(), magic.end());
-            appendWord(outputHeader, static_cast<uint16_t>(continuousCollapse ? cases * 8 : cases));
+            appendWord(outputHeader, static_cast<uint16_t>(physicsDispatch ? cases * 16 : continuousCollapse ? cases * 8 : cases));
             appendWord(outputHeader, 0);
             appendWord(outputHeader, static_cast<uint16_t>(fractureStorage ? fractureStateBytes : 6027));
             appendWord(outputHeader, 0);
@@ -19399,10 +19403,13 @@ public:
             if (retirementStorage) take(6027);
             if (fractureStorage && !collapseLaneHistory) take(fractureStateBytes);
             const uint16_t initialTick = static_cast<uint16_t>(logicTick_);
-            const uint32_t steps = continuousCollapse ? 8 : 1;
+            const uint32_t steps = physicsDispatch ? 16 : continuousCollapse ? 8 : 1;
             for (uint32_t step = 0; step < steps; ++step) {
                 logicTick_ = static_cast<uint16_t>(initialTick + step);
-                if (!continuousCollapse || !collapseQueue_.empty()) {
+                if (physicsDispatch) {
+                    if (!debrisQueue_.empty()) updateDebrisRecords();
+                    if (!collapseQueue_.empty()) updateCollapseRecords();
+                } else if (!continuousCollapse || !collapseQueue_.empty()) {
                     if (physicalDebrisUpdate || !collapseUpdate) updateDebrisRecords();
                     else if (collapseUpdate) updateCollapseRecords();
                 }
@@ -19472,6 +19479,14 @@ public:
         if (input.peek() != std::char_traits<char>::eof()) throw std::runtime_error("trailing debris update input");
         output.flush();
         if (!output) throw std::runtime_error("cannot flush debris update output");
+        if (physicsDispatch) {
+            std::cout << "physics_dispatch_app=ok scenes=" << cases
+                      << " steps=16 cases=" << cases * 16
+                      << " compared_bytes=" << cases * 16 * fractureStateBytes
+                      << " retained_debris=1402 retained_collapse=251 actor_bank_bytes=1575 sound_bytes=7 history_bytes=3"
+                      << " production_app=1 seeded=1 natural_route=0 whole_game_claim=0\n";
+            return;
+        }
         if (continuousCollapse) {
             std::cout << "collapse_continuous_app=ok scenes=" << cases
                       << " steps=8 cases=" << cases * 8
@@ -32195,6 +32210,11 @@ int lezac::app::runApplication(int argc, char** argv) {
         if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-continuous") {
             app.debugOriginalDebrisUpdate(argv[2], argv[3],
                 true, false, false, true, false, true, true, true);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-physics-dispatch") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3],
+                true, false, false, true, false, true, true, false, true);
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-actors") {

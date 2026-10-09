@@ -4804,7 +4804,7 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION "^original_collapse_contract=ok source_mutants=8 initializer_mutants=8 compiled_cpp=0")
 
     add_test(NAME original_debris_update
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_update.py
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_dispatch.py
                 --exe $<TARGET_FILE:lezac_cpp>)
     set_tests_properties(original_debris_update PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -4812,7 +4812,7 @@ if(BUILD_TESTING)
         TIMEOUT 120
         PASS_REGULAR_EXPRESSION "^original_debris_update=ok cases=1061 native_crosschecks=18 output_mutants=1 natural_gameplay=0 sound_claim=0")
     add_test(NAME original_debris_update_contract
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_update.py --self-check)
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_dispatch.py --self-check)
     set_tests_properties(original_debris_update_contract PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^original_debris_contract=ok source_mutants=6 compiled_cpp=0")

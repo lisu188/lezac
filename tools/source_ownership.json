@@ -94,7 +94,8 @@
         "src/gameplay/collapse_seed.hpp",
         "src/gameplay/frame_controls.hpp",
         "src/gameplay/monster_damage.hpp",
-        "src/gameplay/monster_spawners.hpp"
+        "src/gameplay/monster_spawners.hpp",
+        "src/gameplay/retained_record_queue.hpp"
       ]
     },
     "app": {

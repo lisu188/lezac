@@ -9,6 +9,7 @@
 #include "gameplay/actor_models.hpp"
 #include "gameplay/actor_slots.hpp"
 #include "gameplay/collapse_seed.hpp"
+#include "gameplay/retained_record_queue.hpp"
 #include "gameplay/monster_damage.hpp"
 #include "gameplay/monster_spawners.hpp"
 #include "ui/models.hpp"
@@ -446,6 +447,26 @@ struct CollapseRecord {
     uint8_t affectedBytes = 0;
     int count = 0;
 };
+
+void appendDebrisRecordBytes(std::vector<uint8_t>& bytes, const DebrisRecord& record) {
+    const auto word = [&](uint16_t value) {
+        bytes.push_back(static_cast<uint8_t>(value)); bytes.push_back(static_cast<uint8_t>(value >> 8));
+    };
+    word(static_cast<uint16_t>(record.tileIndex)); word(record.flaggedWord);
+    bytes.insert(bytes.end(), {static_cast<uint8_t>(record.velocityX), static_cast<uint8_t>(record.velocityY),
+        static_cast<uint8_t>(record.subX), static_cast<uint8_t>(record.subY), record.restTicks, record.lookup, record.aux});
+}
+
+void appendCollapseRecordBytes(std::vector<uint8_t>& bytes, const CollapseRecord& record) {
+    const auto word = [&](uint16_t value) {
+        bytes.push_back(static_cast<uint8_t>(value)); bytes.push_back(static_cast<uint8_t>(value >> 8));
+    };
+    word(record.startOffsetBytes); word(record.endOffsetBytes); word(record.flaggedWord);
+    bytes.insert(bytes.end(), {record.forwardPhase, record.reversePhase,
+        static_cast<uint8_t>(record.subX), static_cast<uint8_t>(record.subY)});
+    word(record.argMagnitude);
+    bytes.insert(bytes.end(), {record.flags, record.restTicks, record.affectedBytes});
+}
 
 struct DamagePhaseLookup {
     int slotIndex = 0;
@@ -25209,6 +25230,8 @@ public:
             std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
             std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
             debrisQueue_.clear(); collapseQueue_.clear();
+            debrisQueue_.retainedSlot(0) = {};
+            collapseQueue_.retainedSlot(0) = {};
             level_.tiles[762] = 77; level_.tiles[823] = 78;
             level_.tiles[822] = bytes[at]; level_.tiles[883] = bytes[at + 1];
             level_.wordLayer[822] = le16(bytes, at + 2); level_.wordLayer[883] = le16(bytes, at + 4);
@@ -25232,23 +25255,8 @@ public:
             for (const auto value : level_.wordLayer) word(value);
             word(static_cast<uint16_t>(kDebrisRecordIndexBase + debrisQueue_.size()));
             word(static_cast<uint16_t>(collapseQueue_.size()));
-            if (debrisQueue_.empty()) actual.insert(actual.end(), 11, 0);
-            else {
-                const auto& record = debrisQueue_.front();
-                word(static_cast<uint16_t>(record.tileIndex)); word(record.flaggedWord);
-                actual.insert(actual.end(), {static_cast<uint8_t>(record.velocityX),
-                    static_cast<uint8_t>(record.velocityY), static_cast<uint8_t>(record.subX),
-                    static_cast<uint8_t>(record.subY), record.restTicks, record.lookup, record.aux});
-            }
-            if (collapseQueue_.empty()) actual.insert(actual.end(), 15, 0);
-            else {
-                const auto& record = collapseQueue_.front();
-                word(record.startOffsetBytes); word(record.endOffsetBytes); word(record.flaggedWord);
-                actual.insert(actual.end(), {record.forwardPhase, record.reversePhase,
-                    static_cast<uint8_t>(record.subX), static_cast<uint8_t>(record.subY)});
-                word(record.argMagnitude);
-                actual.insert(actual.end(), {record.flags, record.restTicks, record.affectedBytes});
-            }
+            appendDebrisRecordBytes(actual, debrisQueue_.retainedSlot(0));
+            appendCollapseRecordBytes(actual, collapseQueue_.retainedSlot(0));
             actual.push_back(corpseRewardRoll_); word(actorSlots_.state().success);
             actual.push_back(static_cast<uint8_t>(monsterTileDamageDelta_)); word(sound_.requestCursor());
             actual.push_back(sound_.requestSelector());
@@ -25271,6 +25279,93 @@ public:
         std::cout << "monster_object_seeder_app=ok cases=896 compared_bytes=5360768 debris=" << debris
                   << " collapse=" << collapse << " sound_requests=" << requests
                   << " first_only=1 production_app=1 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
+    void debugSeederCapacityOriginal(const std::string& fixturePath, const std::string& outputPath) {
+        const auto bytes = readFile(fixturePath);
+        if (bytes.size() != 2678608 || lezac::diagnostics::level1::fingerprint(bytes) != "ea319976fe272a5b")
+            throw std::runtime_error("seeder capacity fixture bytes changed");
+        load();
+        initSdl();
+        legacyActorSeedsEnabled_ = false;
+        clockedSoundEnabled_ = false;
+        sound_.setRequestAttemptCounting(true);
+        level_ = Level{};
+        level_.width = 60; level_.height = 33;
+        level_.tiles.resize(1980); level_.wordLayer.resize(1980);
+        actorSlots_.resetForLevel(actorSpriteDescriptor(1));
+        std::ofstream output(outputPath, std::ios::binary);
+        if (!output) throw std::runtime_error("cannot open seeder capacity output");
+        output.write("LZSO0001", 8);
+        for (uint32_t value : {448u, 5972u})
+            for (int shift = 0; shift < 32; shift += 8) output.put(static_cast<char>(value >> shift));
+        std::vector<uint8_t> debrisSalt(11), collapseSalt(15);
+        for (size_t i = 0; i < debrisSalt.size(); ++i) debrisSalt[i] = static_cast<uint8_t>(17 + i * 13);
+        for (size_t i = 0; i < collapseSalt.size(); ++i) collapseSalt[i] = static_cast<uint8_t>(31 + i * 19);
+        DebrisRecord dormantDebris;
+        dormantDebris.tileIndex = le16(debrisSalt, 0); dormantDebris.flaggedWord = le16(debrisSalt, 2);
+        dormantDebris.velocityX = static_cast<int8_t>(debrisSalt[4]);
+        dormantDebris.velocityY = static_cast<int8_t>(debrisSalt[5]);
+        dormantDebris.subX = static_cast<int8_t>(debrisSalt[6]);
+        dormantDebris.subY = static_cast<int8_t>(debrisSalt[7]);
+        dormantDebris.restTicks = debrisSalt[8]; dormantDebris.lookup = debrisSalt[9]; dormantDebris.aux = debrisSalt[10];
+        CollapseRecord dormantCollapse;
+        dormantCollapse.startOffsetBytes = le16(collapseSalt, 0);
+        dormantCollapse.endOffsetBytes = le16(collapseSalt, 2);
+        dormantCollapse.flaggedWord = le16(collapseSalt, 4);
+        dormantCollapse.forwardPhase = collapseSalt[6]; dormantCollapse.reversePhase = collapseSalt[7];
+        dormantCollapse.subX = static_cast<int8_t>(collapseSalt[8]);
+        dormantCollapse.subY = static_cast<int8_t>(collapseSalt[9]);
+        dormantCollapse.argMagnitude = le16(collapseSalt, 10);
+        dormantCollapse.flags = collapseSalt[12]; dormantCollapse.restTicks = collapseSalt[13];
+        dormantCollapse.affectedBytes = collapseSalt[14];
+        size_t accepted = 0, capacityRejected = 0, flagged = 0;
+        for (size_t index = 0; index < 448; ++index) {
+            const size_t at = 16 + index * 5979;
+            const uint16_t inputWord = le16(bytes, at), debrisCount = le16(bytes, at + 2), collapseCount = le16(bytes, at + 4);
+            if (debrisCount < kDebrisRecordIndexBase || debrisCount > 1601 || collapseCount > 251)
+                throw std::runtime_error("seeder capacity input exceeds physical bounds");
+            std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+            std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+            level_.tiles[762] = 77; level_.wordLayer[762] = inputWord;
+            debrisQueue_.clear(); collapseQueue_.clear();
+            for (size_t slot = kDebrisRecordIndexBase; slot < debrisCount; ++slot) debrisQueue_.push_back({});
+            for (size_t slot = 0; slot < collapseCount; ++slot) collapseQueue_.push_back({});
+            const size_t debrisCandidate = debrisQueue_.size(), collapseCandidate = collapseQueue_.size();
+            debrisQueue_.retainedSlot(debrisCandidate) = dormantDebris;
+            collapseQueue_.retainedSlot(collapseCandidate) = dormantCollapse;
+            tileSeederResult_ = bytes[at + 6];
+            uint8_t seededClass = 0xa5;
+            sound_.clearRequestAttemptCount(); randomSeed_ = 0x12345678;
+            queueTileDamage(42, 12, 0, 0, true, &seededClass);
+            if (actorSlots_.count() != 0 || randomSeed_ != 0x12345678 || sound_.requestAttemptCount() != 0)
+                throw std::runtime_error("seeder capacity changed unrelated production state");
+            std::vector<uint8_t> actual(level_.tiles.begin(), level_.tiles.end());
+            const auto word = [&](uint16_t value) {
+                actual.push_back(static_cast<uint8_t>(value)); actual.push_back(static_cast<uint8_t>(value >> 8));
+            };
+            for (const auto value : level_.wordLayer) word(value);
+            word(static_cast<uint16_t>(kDebrisRecordIndexBase + debrisQueue_.size()));
+            word(static_cast<uint16_t>(collapseQueue_.size()));
+            appendDebrisRecordBytes(actual, debrisQueue_.retainedSlot(debrisCandidate));
+            appendCollapseRecordBytes(actual, collapseQueue_.retainedSlot(collapseCandidate));
+            actual.push_back(tileSeederResult_); actual.push_back(seededClass);
+            if (actual.size() != 5972) throw std::runtime_error("seeder capacity serialization extent changed");
+            output.write(reinterpret_cast<const char*>(actual.data()), static_cast<std::streamsize>(actual.size()));
+            if (!std::equal(actual.begin(), actual.end(), bytes.begin() + at + 7)) {
+                output.flush();
+                throw std::runtime_error("seeder capacity differs at case " + std::to_string(index));
+            }
+            const bool inserted = debrisQueue_.size() != debrisCandidate || collapseQueue_.size() != collapseCandidate;
+            accepted += inserted;
+            flagged += (inputWord & kDamagedWordBit) != 0;
+            capacityRejected += !inserted && (inputWord & kDamagedWordBit) == 0;
+        }
+        output.flush();
+        if (!output) throw std::runtime_error("cannot finish seeder capacity output");
+        std::cout << "seeder_capacity_app=ok cases=448 compared_bytes=2675456 accepted=" << accepted
+                  << " capacity_rejected=" << capacityRejected << " flagged=" << flagged
+                  << " inactive_salted=1 production_app=1 seeded=1 natural_route=0 whole_game_claim=0\n";
     }
 
     void debugFatalEntryOriginal(const std::string& requestPath, const std::string& outputPath) {
@@ -26940,8 +27035,8 @@ private:
     std::function<void(const SDL_Event&)> debugPhysicalInputObserver_;
     std::function<void(uint8_t)> debugDeathGateObserver_;
     std::function<void(const char*)> debugReentryBoundaryObserver_;
-    std::vector<DebrisRecord> debrisQueue_;
-    std::vector<CollapseRecord> collapseQueue_;
+    lezac::gameplay::RetainedRecordQueue<DebrisRecord> debrisQueue_;
+    lezac::gameplay::RetainedRecordQueue<CollapseRecord> collapseQueue_;
     uint16_t nextCollapseFragmentWord_ = 0;
     std::vector<uint32_t>& fb_ = canvas_.pixels();
     int gameplayViewWidth_ = kScreenW;
@@ -30361,12 +30456,13 @@ private:
     // Port of seeder 1000:370E for both word classes. The u8 velocity args map
     // to the seeder's vx/vy args ([bp+0xA]/[bp+0x8], stored at record +4/+5).
     void queueTileDamage(int tx, int ty, uint8_t forwardPhase = 0, uint8_t reversePhase = 0,
-                         bool preserveCollapseGlyphs = true) {
+                         bool preserveCollapseGlyphs = true, uint8_t* seededClass = nullptr) {
         if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return;
         size_t start = static_cast<size_t>(ty) * level_.width + tx;
         if (start >= level_.wordLayer.size()) return;
         uint16_t word = level_.wordLayer[start];
         if (word == 0 || (word & kDamagedWordBit) != 0) return;
+        if (seededClass) *seededClass = static_cast<uint8_t>(word >= kDeferredThreshold);
 
         if (word >= kDeferredThreshold) {
             // Debris branch 374C..37F4: flags the word (3770/3780), copies the
@@ -31436,6 +31532,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bonus-reward-static-model") {
             app.debugBonusRewardStaticModel();
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-seeder-capacity-original") {
+            app.debugSeederCapacityOriginal(argv[2], argv[3]);
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-monster-object-seeder-original") {

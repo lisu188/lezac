@@ -5257,6 +5257,33 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^monster_object_branch_original=ok cases=1024 compared_bytes=18432 production_app=1 first_seeder_gate=0 sound_requests_checked=1 seeded=1 natural_route=0 whole_game_claim=0")
 
+    add_executable(lezac_retained_record_queue_test tests/gameplay/retained_record_queue_test.cpp)
+    target_include_directories(lezac_retained_record_queue_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME retained_record_queue COMMAND lezac_retained_record_queue_test)
+    set_tests_properties(retained_record_queue PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^retained_record_queue=ok live_order=1 stale_tail=1 clear_retains=1 dormant_excluded=1")
+
+    add_test(NAME seeder_capacity_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_seeder_capacity_checker.py -v)
+    set_tests_properties(seeder_capacity_checker PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    add_test(NAME seeder_capacity_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_seeder_capacity.py)
+    set_tests_properties(seeder_capacity_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        PASS_REGULAR_EXPRESSION "^seeder_capacity_fixture=ok cases=448 state_bytes=5972 inactive_salted=1")
+    add_test(NAME seeder_capacity_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_seeder_capacity.py
+            --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/seeder-capacity-app)
+    set_tests_properties(seeder_capacity_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^seeder_capacity_original=ok cases=448 compared_bytes=2675456 production_app=1 masks=0 inactive_salted=1 seeded=1 natural_route=0 whole_game_claim=0")
+
     add_test(NAME monster_object_seeder_checker
         COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_monster_object_seeder_checker.py -v)
     set_tests_properties(monster_object_seeder_checker PROPERTIES

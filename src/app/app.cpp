@@ -19207,8 +19207,12 @@ public:
     }
 
     void debugOriginalDebrisUpdate(const std::string& inputPath, const std::string& outputPath,
-                                  bool collapseUpdate = false, bool actorCreation = false) {
+                                  bool collapseUpdate = false, bool actorCreation = false,
+                                  bool retirementStorage = false) {
         if (actorCreation && !collapseUpdate) throw std::runtime_error("actor probe requires collapse update");
+        if (retirementStorage && (!collapseUpdate || actorCreation)) {
+            throw std::runtime_error("retirement storage requires a collapse-only update");
+        }
         load();
         std::ifstream input(inputPath, std::ios::binary);
         std::ofstream output(outputPath, std::ios::binary);
@@ -19221,17 +19225,30 @@ public:
             }
             return bytes;
         };
-        const auto header = take(12);
+        const auto header = take(retirementStorage ? 16 : 12);
         if (std::string(header.begin(), header.begin() + 8) !=
-            (actorCreation ? "LZCA0001" : (collapseUpdate ? "LZCU0001" : "LZDU0001"))) {
+            (retirementStorage ? "LZRT0001" : (actorCreation ? "LZCA0001" :
+                (collapseUpdate ? "LZCU0001" : "LZDU0001")))) {
             throw std::runtime_error("invalid debris update input header");
         }
         const uint32_t cases = le32(header, 8);
         if (cases == 0 || cases > 4096) throw std::runtime_error("invalid debris update case count");
+        if (retirementStorage && (cases != 176 || le32(header, 12) != 12060)) {
+            throw std::runtime_error("invalid retirement storage fixture dimensions");
+        }
         auto appendWord = [](std::vector<uint8_t>& bytes, uint16_t value) {
             bytes.push_back(static_cast<uint8_t>(value));
             bytes.push_back(static_cast<uint8_t>(value >> 8));
         };
+        if (retirementStorage) {
+            std::vector<uint8_t> outputHeader{'L', 'Z', 'R', 'O', '0', '0', '0', '1'};
+            appendWord(outputHeader, static_cast<uint16_t>(cases));
+            appendWord(outputHeader, 0);
+            appendWord(outputHeader, 6027);
+            appendWord(outputHeader, 0);
+            output.write(reinterpret_cast<const char*>(outputHeader.data()),
+                         static_cast<std::streamsize>(outputHeader.size()));
+        }
         // This diagnostic models clean unused slots with visual slots 1/2 reserved.
         // It is not a serializer for opaque bytes inherited from retired actors.
         auto collapseActorBytes = [&](const TransientActor& actor, size_t index) {
@@ -19272,6 +19289,10 @@ public:
                 debrisCount > 1401 || collapseCount > 250) {
                 throw std::runtime_error("invalid debris update dimensions or live counts");
             }
+            if (retirementStorage && (width != 60 || height != 33 || debrisCount != 0 ||
+                                      collapseCount == 0 || collapseCount > 3)) {
+                throw std::runtime_error("unsupported retirement storage input");
+            }
             resetLevel(0);
             level_.width = width;
             level_.height = height;
@@ -19302,7 +19323,7 @@ public:
                 value.aux = raw[10];
                 debrisQueue_.push_back(value);
             }
-            for (size_t record = 0; record < collapseCount; ++record) {
+            for (size_t record = 0; record < (retirementStorage ? 5 : collapseCount); ++record) {
                 const auto raw = take(15);
                 CollapseRecord value;
                 value.startOffsetBytes = le16(raw, 0);
@@ -19317,7 +19338,8 @@ public:
                 value.flags = raw[12];
                 value.restTicks = raw[13];
                 value.affectedBytes = raw[14];
-                collapseQueue_.push_back(value);
+                if (record < collapseCount) collapseQueue_.push_back(value);
+                else collapseQueue_.retainedSlot(record) = value;
             }
             if (actorCreation) {
                 const size_t actorCount = le16(take(2), 0);
@@ -19344,8 +19366,13 @@ public:
                     transientActors_.push_back(actor);
                 }
             }
+            // Expected fixture bytes are skipped, never installed as application state.
+            if (retirementStorage) take(6027);
             if (collapseUpdate) updateCollapseRecords();
             else updateDebrisRecords();
+            if (retirementStorage && (!transientActors_.empty() || !debrisQueue_.empty())) {
+                throw std::runtime_error("retirement fixture unexpectedly created actors or debris");
+            }
             std::vector<uint8_t> result;
             appendWord(result, static_cast<uint16_t>(randomSeed_));
             appendWord(result, static_cast<uint16_t>(randomSeed_ >> 16));
@@ -19364,7 +19391,8 @@ public:
                     static_cast<uint8_t>(record.velocityY), static_cast<uint8_t>(record.subX),
                     static_cast<uint8_t>(record.subY), record.restTicks, record.lookup, record.aux});
             }
-            for (const auto& record : collapseQueue_) {
+            for (size_t slot = 0; slot < (retirementStorage ? 5 : collapseQueue_.size()); ++slot) {
+                const auto& record = collapseQueue_.retainedSlot(slot);
                 appendWord(result, record.startOffsetBytes);
                 appendWord(result, record.endOffsetBytes);
                 appendWord(result, record.flaggedWord);
@@ -19386,6 +19414,12 @@ public:
         if (input.peek() != std::char_traits<char>::eof()) throw std::runtime_error("trailing debris update input");
         output.flush();
         if (!output) throw std::runtime_error("cannot flush debris update output");
+        if (retirementStorage) {
+            std::cout << "collapse_retirement_app=ok cases=" << cases
+                      << " compared_bytes=" << cases * 6027
+                      << " retained_records=5 production_app=1 seeded=1 natural_route=0 whole_game_claim=0\n";
+            return;
+        }
         std::cout << (actorCreation ? "original_collapse_actors=ok cases=" :
             (collapseUpdate ? "original_collapse_update=ok cases=" : "original_debris_update=ok cases="))
                   << cases << '\n';
@@ -31294,19 +31328,22 @@ private:
                 spawnTransientActor((actorCell % width) * 8, (actorCell / width) * 8,
                                     0, 74, 0x0b, 8, ActorAnimation::initialize(74, 79, 2, 1));
             }
+            if (!fracture) {
+                // 1000:5602..5651 commits normal motion before the timer-95 removal.
+                record.startOffsetBytes = static_cast<uint16_t>(first * 2);
+                record.endOffsetBytes = static_cast<uint16_t>(last * 2);
+                record.x = first % width;
+                record.y = first / width;
+                record.forwardPhase = static_cast<uint8_t>(vx);
+                record.reversePhase = static_cast<uint8_t>(vy);
+                record.argMagnitude = static_cast<uint16_t>(magnitude);
+                collapseQueue_[slot] = record;
+            }
             if (fracture || record.restTicks == 95) {
                 for (int cell : cells()) level_.wordLayer[static_cast<size_t>(cell)] &= ~kDamagedWordBit;
                 collapseQueue_.erase(collapseQueue_.begin() + static_cast<std::ptrdiff_t>(slot));
                 continue;
             }
-            record.startOffsetBytes = static_cast<uint16_t>(first * 2);
-            record.endOffsetBytes = static_cast<uint16_t>(last * 2);
-            record.x = first % width;
-            record.y = first / width;
-            record.forwardPhase = static_cast<uint8_t>(vx);
-            record.reversePhase = static_cast<uint8_t>(vy);
-            record.argMagnitude = static_cast<uint16_t>(magnitude);
-            collapseQueue_[slot] = record;
         }
     }
 
@@ -32022,6 +32059,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-update") {
             app.debugOriginalDebrisUpdate(argv[2], argv[3], true);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-retirement") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3], true, false, true);
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-actors") {

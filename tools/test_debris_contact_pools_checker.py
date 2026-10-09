@@ -17,7 +17,7 @@ def direct_source_contract(source):
     required = (
         'bool physicalDebrisUpdate = false',
         'if (physicalDebrisUpdate && !completeFracturePools)',
-        'if (fractureStorage) take(fractureStateBytes);',
+        'if (fractureStorage && !collapseLaneHistory) take(fractureStateBytes);',
         'if (physicalDebrisUpdate || !collapseUpdate) updateDebrisRecords(); else if (collapseUpdate) updateCollapseRecords();',
         'physicalDebrisUpdate ? "debris_contact_pools_app=ok cases="')
     if any(diagnostic.count(compact(statement)) != 1 for statement in required):
@@ -26,7 +26,7 @@ def direct_source_contract(source):
                   'app.debugOriginalDebrisUpdate(argv[2], argv[3], true, false, false, true, true); return 0; }')
     if compact(source).count(cli) != 1 or source.count('"--debug-original-debris-contact-pools"') != 1:
         raise ValueError('direct fragment CLI routing differs')
-    if diagnostic.index(compact('if (fractureStorage) take(fractureStateBytes);')) > diagnostic.index(
+    if diagnostic.index(compact('if (fractureStorage && !collapseLaneHistory) take(fractureStateBytes);')) > diagnostic.index(
             compact('if (physicalDebrisUpdate || !collapseUpdate) updateDebrisRecords();')):
         raise ValueError('expected bytes are not skipped before production update')
 
@@ -84,7 +84,7 @@ class DebrisContactTests(unittest.TestCase):
                 ('bool physicalDebrisUpdate = false', 'bool physicalDebrisUpdate = true'),
                 ('physicalDebrisUpdate && !completeFracturePools', 'physicalDebrisUpdate && completeFracturePools'),
                 ('if (physicalDebrisUpdate || !collapseUpdate) updateDebrisRecords();', 'if (physicalDebrisUpdate || !collapseUpdate) updateCollapseRecords();'),
-                ('if (fractureStorage) take(fractureStateBytes);', ''),
+                ('if (fractureStorage && !collapseLaneHistory) take(fractureStateBytes);', ''),
                 ('physicalDebrisUpdate ? "debris_contact_pools_app=ok cases="', 'false ? "debris_contact_pools_app=ok cases="'),
                 ('argv[2], argv[3], true, false, false, true, true', 'argv[2], argv[3], true, false, false, true, false'),
                 ('--debug-original-debris-contact-pools', '--debug-other-mode'),

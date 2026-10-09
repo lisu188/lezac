@@ -106,3 +106,34 @@ expected bytes to the App. An extracted-method harness is a separate lightweight
 local regression, not proof that the complete App or natural game ran. Incoming
 stack history before the first real seed, complete collapse-updater sequences,
 and natural-route reachability remain separate open requirements.
+
+## Collapse Scanner Scratch Ownership
+
+The original support scanner 4D3C and contact collector 4E48 clear DS:661E
+before traversal and set it to one for any blocking tile, including a zero-word
+blocker that cannot become a staged contact. Balance scanner 4DD3 uses the same
+scratch owner. The production collapse scanner now performs these writes at
+their owning operations; it does not substitute a final diagnostic value.
+
+A scanner-only extraction uses the exact production map readers, cell iterator,
+scanner lambda and physical fragment guard alias method. Across 384 isolated
+4E48 calls, the old extraction differs in 324 queries, exclusively at DS:661E.
+The repaired extraction matches all 5376 compared scratch/count/guard bytes.
+Additional original observers are neutral across all 1 MiB RAM and fourteen
+registers. This bounded component comparison is not execution of the full App.
+
+The independently reproduced 96-case full original 5102 fixture covers both
+axes, diagonal collisions, fresh fragment/collapse targets, deduplicated collapse
+groups, normal/last-available/full fragment pools, retained tails, and empty/full
+actor banks. Each scene is rerun with three incoming SS poison values; their
+serialized results agree. This does not prove general first-seed stack history
+or natural gameplay reachability. No original code or calls are patched/stubbed.
+
+The new App command consumes an input-only LZCI0001 stream. Expected state stays
+in the external checker. CI compares 2565504 output bytes without masks: both map
+planes, all 1402/251 physical fragment/collapse records, RNG and counters, the
+complete actor bank, sound request/latch, DS:661E and DS:0A06/0A07. Compressed
+input, expected, actual and result diagnostics are retained on success/failure.
+Fixture/source controls and App syntax checks are separate from the still-needed
+exact-head actual-App comparison. Natural-route, visual, sound-runtime and
+whole-game fidelity remain unproved.

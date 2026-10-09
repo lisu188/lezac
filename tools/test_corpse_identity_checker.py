@@ -132,9 +132,32 @@ class IdentityCheckerTests(unittest.TestCase):
         manifest = generator.generate(source, output)
         self.assertEqual(source.read_bytes(), original)
         self.assertEqual(output.read_bytes(), original.replace(generator.ANCHOR,
-                         generator.ANCHOR + b'            (void)claimActorOrder();\n'))
+                         generator.ANCHOR + generator.MUTATION))
         self.assertEqual(manifest['source_sha256'], hashlib.sha256(original).hexdigest())
         self.assertEqual(manifest['replacements'], 1)
+
+    def test_generator_matches_current_production_source(self):
+        source = Path(__file__).resolve().parents[1] / 'src/app/app.cpp'
+        original = source.read_bytes()
+        output = self.root / 'production-mutant/app.cpp'
+        manifest = generator.generate(source, output)
+        normalized = original.replace(b'\r\n', b'\n')
+        self.assertEqual(normalized.count(generator.ANCHOR), 1)
+        self.assertEqual(output.read_bytes(), normalized.replace(generator.ANCHOR,
+                         generator.ANCHOR + generator.MUTATION, 1))
+        self.assertEqual(generator.MUTATION, b'        if (conversion.hasReward) (void)claimActorOrder();\n')
+        self.assertEqual(source.read_bytes(), original)
+        self.assertEqual(manifest['replacements'], 1)
+
+    def test_generator_crlf_source_is_preserved(self):
+        source = self.root / 'windows-app.cpp'
+        original = (b'prefix\n' + generator.ANCHOR + b'suffix\n').replace(b'\n', b'\r\n')
+        source.write_bytes(original)
+        output = self.root / 'generated/windows-app.cpp'
+        generator.generate(source, output)
+        self.assertEqual(source.read_bytes(), original)
+        self.assertEqual(output.read_bytes(), original.replace(b'\r\n', b'\n').replace(generator.ANCHOR,
+                         generator.ANCHOR + generator.MUTATION, 1))
 
     def test_generator_missing_or_duplicate_anchor(self):
         source = self.root / 'app.cpp'

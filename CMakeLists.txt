@@ -3562,6 +3562,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "original_state2_animation_init=ok actor_offset=0x16 bytes=12,12,8,6,6,4,1 duplicate_0a=1 duplicate_06=1 terminator=1 ghidra=1000:06ab")
 
+    add_test(NAME transient_animation_backup_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-transient-animation-backup)
+    set_tests_properties(transient_animation_backup_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "transient_animation_backup_original=ok cases=2 updates=12 production_updater=1 backup_preserved=1 seeded=1 natural_route=0 whole_game_parity=0")
+
     add_test(NAME state2_animation_advance_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-animation-advance)
     set_tests_properties(state2_animation_advance_model PROPERTIES

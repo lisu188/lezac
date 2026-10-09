@@ -5347,6 +5347,24 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^monster_object_branch_original=ok cases=1024 compared_bytes=18432 production_app=1 first_seeder_gate=0 sound_requests_checked=1 seeded=1 natural_route=0 whole_game_claim=0")
 
+    add_executable(lezac_map_plane_memory_test tests/gameplay/map_plane_memory_test.cpp)
+    target_include_directories(lezac_map_plane_memory_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME map_plane_memory_unit COMMAND lezac_map_plane_memory_test)
+    add_test(NAME map_plane_memory_fixture COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_map_plane_memory.py)
+    add_test(NAME map_plane_memory_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_map_plane_memory.py --self-check)
+    add_test(NAME map_plane_memory_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_map_plane_memory.py --exe $<TARGET_FILE:lezac_map_plane_memory_test>)
+    set_tests_properties(map_plane_memory_unit map_plane_memory_fixture map_plane_memory_checker
+        map_plane_memory_original PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        TIMEOUT 60)
+    set_tests_properties(map_plane_memory_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "^map_plane_memory_unit=ok object_wrap=1 word_wrap=1 live_alias=1 retained_heap=1 fixture_isolation=1")
+    set_tests_properties(map_plane_memory_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^map_plane_memory_original=ok scenes=12 events=168 compared_bytes=1573100 masks=0 production_accessor=1 production_app=0 natural_route=0 whole_game_claim=0")
+
     add_executable(lezac_damage_lane_bytes_test tests/gameplay/damage_lane_bytes_test.cpp)
     target_include_directories(lezac_damage_lane_bytes_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME damage_lane_bytes_unit COMMAND lezac_damage_lane_bytes_test)

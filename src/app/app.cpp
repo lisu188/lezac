@@ -18557,6 +18557,8 @@ public:
             logicTick_ = le16(bytes, at + 16);
             randomSeed_ = UINT32_C(0x12345678);
             monsters_.clear(); bombs_.clear();
+            // Each fixture row is independent, including its physical timer.
+            actorSlots_.resetForLevel(actorSpriteDescriptor(1));
             int actualX = 0, actualY = 0, actualTimer = 0, spriteIndex = 0;
             int16_t actualVx = 0, actualVy = 0;
             uint8_t actualFracX = 0, actualFracY = 0;

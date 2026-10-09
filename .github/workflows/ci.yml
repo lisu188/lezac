@@ -76,6 +76,18 @@ jobs:
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
+      - name: Byte-addressed damage lane regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^damage_lane_bytes_(unit|checker|fixture|original)$'
+      - name: Preserve byte-addressed damage lane diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: damage-lane-bytes-linux
+          path: build/damage-lane-bytes-app/
+          if-no-files-found: ignore
       - name: Complete fatal-entry physical storage regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -520,6 +532,18 @@ jobs:
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
+      - name: Byte-addressed damage lane regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^damage_lane_bytes_(unit|checker|fixture|original)$'
+      - name: Preserve byte-addressed damage lane diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: damage-lane-bytes-windows
+          path: build/damage-lane-bytes-app/
+          if-no-files-found: ignore
       - name: Complete fatal-entry physical storage regressions
         env:
           SDL_VIDEODRIVER: dummy

@@ -96,6 +96,9 @@
         "src/gameplay/monster_damage.hpp",
         "src/gameplay/monster_spawners.hpp",
         "src/gameplay/retained_record_queue.hpp"
+      ],
+      "diagnostics": [
+        "src/gameplay/damage_lane_bytes.hpp"
       ]
     },
     "app": {

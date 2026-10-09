@@ -113,8 +113,16 @@ remaining/available/cooldown values into the physical spawner row. It also
 seeds the physical corpse timer for its immediate-expiry scenario, after
 checking that production fatal conversion initialized kind 12 and timer 25.
 Production updaters, lifecycle assertions, native fixtures, and original-byte
-comparisons are unchanged. Actual-App rerun and full-suite acceptance for this
-diagnostic repair remain unproven until new exact-head CI completes.
+comparisons are unchanged. At `d25f5aba`, both hosts passed the repaired actual-App
+lifecycle scenario, including both full-capacity conversions. CI then failed a
+source-contract assertion that searched for the first `writeCorpse` call in the
+entire file; it found the diagnostic seed before the production updater. The
+assertion now uses the same `updateMonsters` function boundary as the mutant
+generator. Controls cover unrelated writes outside that boundary, incorrect
+writeback ordering, and missing production writeback. The native animation
+helper, monster/corpse actual-App replays, and compiled skip mutant passed on
+both hosts at `d25f5aba`. The full-suite Test step was skipped; new exact-head
+full-suite validation and external review remain required.
 
 All runs use dummy audio. The host's disk reserve blocks local game builds,
 DOSBox, and new screenshots. No natural route, rendered-pixel, sound-interrupt,

@@ -1,0 +1,180 @@
+{
+  "actual_app_runtime_verified": false,
+  "actual_sha256": "b503b8304a767b08a0d5af3471c537f66c4393283d909afd7b7632cdfa58ba44",
+  "commands": [
+    {
+      "args": [
+        "git",
+        "sparse-checkout",
+        "add",
+        "/.gitattributes",
+        "/.github/workflows/ci.yml",
+        "/CMakeLists.txt",
+        "/docs/recovery/evidence/reward_storage_20261009/animation-extra-validation.json",
+        "/docs/recovery/evidence/reward_storage_20261009/bounded-validation-source.py",
+        "/docs/recovery/evidence/reward_storage_20261009/bounded-validation.json",
+        "/docs/recovery/evidence/reward_storage_20261009/capture-reward-storage-t91-v3.py",
+        "/docs/recovery/evidence/reward_storage_20261009/compiled-mutants-source.py",
+        "/docs/recovery/evidence/reward_storage_20261009/compiled-mutants.json",
+        "/docs/recovery/evidence/reward_storage_20261009/delivery-validation-source.py",
+        "/docs/recovery/evidence/reward_storage_20261009/delivery-validation.json",
+        "/docs/recovery/evidence/reward_storage_20261009/native-validation.json",
+        "/docs/recovery/evidence/reward_storage_20261009/original.json",
+        "/docs/recovery/evidence/reward_storage_20261009/repeat.json",
+        "/docs/recovery/evidence/reward_storage_20261009/reward-animation-probe-t91.cpp",
+        "/docs/recovery/evidence/reward_storage_20261009/validate-reward-animation-extra-t91.py",
+        "/docs/recovery/evidence/reward_storage_20261009/validate-reward-native-t91.py",
+        "/docs/recovery/reward_storage_writeback_2026-10-09.md",
+        "/src/app/app.cpp",
+        "/src/diagnostics/reward_storage_fixture.hpp",
+        "/src/gameplay/actor_models.hpp",
+        "/src/gameplay/actor_slots.hpp",
+        "/tests/fixtures/reward_storage/expected.bin.gz",
+        "/tests/fixtures/reward_storage/requests.bin.gz",
+        "/tests/gameplay/reward_storage_probe.cpp",
+        "/tools/check_marker_storage_original.py",
+        "/tools/check_reward_storage_original.py",
+        "/tools/source_ownership.json",
+        "/tools/test_marker_storage_checker.py",
+        "/tools/test_reward_storage_checker.py",
+        "/tools/test_reward_storage_protocol.py"
+      ],
+      "label": "sparse-paths",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "label": "diff-check",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O1",
+        "-I",
+        "/tmp/lezac-reward-writeback-20261009-t92/src",
+        "/tmp/lezac-reward-writeback-20261009-t92/tests/gameplay/reward_storage_probe.cpp",
+        "-o",
+        "/tmp/lezac-reward-prepublish-build-20261009-t92/probe"
+      ],
+      "label": "compile",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "/tmp/lezac-reward-prepublish-build-20261009-t92/probe",
+        "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/requests.bin",
+        "/tmp/lezac-reward-prepublish-output-20261009-t92/actual.bin"
+      ],
+      "label": "execute",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-reward-writeback-20261009-t92/tools/test_reward_storage_checker.py",
+        "-v"
+      ],
+      "label": "checker-contract",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-reward-writeback-20261009-t92/tools/check_source_guardrails.py"
+      ],
+      "label": "source-guardrails",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-reward-writeback-20261009-t92/tools/check_gran_usage_guardrail.py"
+      ],
+      "label": "gran-guardrail",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-fsyntax-only",
+        "-DSDL_MAIN_HANDLED",
+        "-I/usr/include/SDL2",
+        "-I",
+        "/tmp/lezac-reward-writeback-20261009-t92/src",
+        "/tmp/lezac-reward-writeback-20261009-t92/src/app/app.cpp"
+      ],
+      "label": "app-syntax",
+      "returncode": 0
+    }
+  ],
+  "compared_bytes": 7896470,
+  "executable_sha256": "b017151e1cb80db8e3f88915dfc95d485cc7afc767454adbded2be31b586f999",
+  "frozen_reports": {
+    "bounded-validation-source.py": "7536be884b329b604a12d507a6adc1c4dc92c5057eb11c44902679fe9e60e1f1",
+    "bounded-validation.json": "814824a813f18475770f6ac002496cdc2ec8aeb6f6aac242042cd83547711102",
+    "compiled-mutants-source.py": "208c82880a7a8ce0bdd5a61537415ca44daf34ece38c8bd74c143cbd76229aab",
+    "compiled-mutants.json": "86221ef9c4bfbc7b1fc81dce0cdf566a84ce309cd34bc874825ba928e20af22e",
+    "delivery-validation-source.py": "ed79e775e7d3b83154a6fa40d34a4874a366ee5a7f13cc40934916c7d88e683f",
+    "delivery-validation.json": "6b43cedc4b1df1491555a14a2b06f9817c5f9980ef89a1bb9f5b141d25943713"
+  },
+  "operations": 4982,
+  "passed": true,
+  "recorded_utc": "2026-10-09T04:12:47.128049+00:00",
+  "requests_sha256": "8a68fc46f6457f784423eca69a70978081102bffd836b09cc58b1b18cc452338",
+  "root_bytes": {
+    "/tmp/lezac-reward-prepublish-build-20261009-t92": 41220,
+    "/tmp/lezac-reward-prepublish-output-20261009-t92": 7896482,
+    "/tmp/lezac-reward-writeback-20261009-t92": 4761168
+  },
+  "source_sha256": {
+    ".gitattributes": "03de848d6e0d2aefcaf0b68b87fefae85ff84418de01fcb461e6f0096030c3b2",
+    ".github/workflows/ci.yml": "424b4aa1d19daebdde527d4438cb584a5b25a7a7b1d2a6d46f9c250a4edb1102",
+    "CMakeLists.txt": "f3c27cd8d2f27dc05c36cbf4622b3e940a0683c0348faec1167c4b335b21c864",
+    "docs/recovery/evidence/reward_storage_20261009/animation-extra-validation.json": "3e4601a02ad4815144b367248efeae70d57c00acf9b8662b70c96080ad4d26cd",
+    "docs/recovery/evidence/reward_storage_20261009/bounded-validation-source.py": "7536be884b329b604a12d507a6adc1c4dc92c5057eb11c44902679fe9e60e1f1",
+    "docs/recovery/evidence/reward_storage_20261009/bounded-validation.json": "814824a813f18475770f6ac002496cdc2ec8aeb6f6aac242042cd83547711102",
+    "docs/recovery/evidence/reward_storage_20261009/capture-reward-storage-t91-v3.py": "bed38982161cc4aff570c63b4ef2c04da5d42ec8ad9aa86d377b5fd425eb8f44",
+    "docs/recovery/evidence/reward_storage_20261009/compiled-mutants-source.py": "208c82880a7a8ce0bdd5a61537415ca44daf34ece38c8bd74c143cbd76229aab",
+    "docs/recovery/evidence/reward_storage_20261009/compiled-mutants.json": "86221ef9c4bfbc7b1fc81dce0cdf566a84ce309cd34bc874825ba928e20af22e",
+    "docs/recovery/evidence/reward_storage_20261009/delivery-validation-source.py": "ed79e775e7d3b83154a6fa40d34a4874a366ee5a7f13cc40934916c7d88e683f",
+    "docs/recovery/evidence/reward_storage_20261009/delivery-validation.json": "6b43cedc4b1df1491555a14a2b06f9817c5f9980ef89a1bb9f5b141d25943713",
+    "docs/recovery/evidence/reward_storage_20261009/native-validation.json": "9461ac6d4c9454ab8064ca56626390c4449bb4f876ed61ab37cc5bed0a7db406",
+    "docs/recovery/evidence/reward_storage_20261009/original.json": "820c266f4eecf31a9bca30f3651a2c64753f63b5cf99a9d14b7529610a0da579",
+    "docs/recovery/evidence/reward_storage_20261009/repeat.json": "cea12f7a521986451664ca18d25038d858c1720a88bf893613d0a1fd387342df",
+    "docs/recovery/evidence/reward_storage_20261009/reward-animation-probe-t91.cpp": "1dbede1fb966c807d52427497038054e8c21163ba56b3953751dabee316d12ee",
+    "docs/recovery/evidence/reward_storage_20261009/validate-reward-animation-extra-t91.py": "45ab33ec1b0dc56d348a4b91ad942cd11285e25bcf38df4542549e4e2a6a3cfa",
+    "docs/recovery/evidence/reward_storage_20261009/validate-reward-native-t91.py": "425567423b788ae3f9befe6a9f3a7e4b0421bcdc5b584eea55b32448dad279e5",
+    "docs/recovery/reward_storage_writeback_2026-10-09.md": "2338216091b9325d75763d0a677f9eb26a76338ff86fa2e3a98296c2295500c3",
+    "src/app/app.cpp": "e587e10859fd019e61714dd578f751c8a62fdc6c9063a5ce50307cc1b273131a",
+    "src/diagnostics/reward_storage_fixture.hpp": "001849437e5035b929707cfaa87c0f7f110a335ad38edcbe8831e64498dd869e",
+    "src/gameplay/actor_models.hpp": "177f806adf463a142afb443d93aa2b9b262969bf8fc3138cb84fde5fff6061d4",
+    "src/gameplay/actor_slots.hpp": "b62a149db8dc4ae6c516af8f4d8fc7d6c2d1c67aa97ce85a3533b674a3ba0766",
+    "tests/fixtures/reward_storage/expected.bin.gz": "6797216835dad9113684141b1395fc55010d036b4333d0d7575b0e23f2a69ef4",
+    "tests/fixtures/reward_storage/requests.bin.gz": "098ef3d5b15a7819f9ea98f4e3ccbb75530ee671d55cc4e5eb268f1a81abe456",
+    "tests/gameplay/reward_storage_probe.cpp": "d700d442ddb7af9946f93ced20798eee6c1b6ec84416ce466fd14eeebcff7ec4",
+    "tools/check_marker_storage_original.py": "30ac71925df2ee9b76097fc8b7b792a65f9830a1378fb311594b25c6fb595124",
+    "tools/check_reward_storage_original.py": "14445d6f23896c33e54eaca0710d5b459feb7d3f1ca68134f28ae33a65549975",
+    "tools/source_ownership.json": "bbf688ebc9887d608c69affd8140be1f0e90892c083554d0a3ccde8890eadbc0",
+    "tools/test_marker_storage_checker.py": "2f2ae206aa2750c6577cef59ad95fa00d5d6690a314756dcdb770836a3cc953c",
+    "tools/test_reward_storage_checker.py": "439287270806d05bf71bcefa470e22c27af6a3b9851b3be77257104fd71820b7",
+    "tools/test_reward_storage_protocol.py": "4303a053a7d557a29e1e6aa26648a90a65dd06a4c29b99fa78f21ad75121e8a2"
+  },
+  "source_unchanged": true,
+  "whole_game_claim": false
+}

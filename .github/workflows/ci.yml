@@ -48,6 +48,21 @@ jobs:
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
         run: cmake --build build --parallel
+      - name: Complete reward physical storage regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^reward_storage_(helper_original|app_original|helper_protocol|app_protocol|tools_contract)$'
+      - name: Preserve complete reward storage diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reward-storage-linux-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+            build/reward-storage-checks/
+          if-no-files-found: error
       - name: Complete marker physical storage regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -385,6 +400,21 @@ jobs:
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
         run: cmake --build build --parallel
+      - name: Complete reward physical storage regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^reward_storage_(helper_original|app_original|helper_protocol|app_protocol|tools_contract)$'
+      - name: Preserve complete reward storage diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reward-storage-windows-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+            build/reward-storage-checks/
+          if-no-files-found: error
       - name: Complete marker physical storage regressions
         env:
           SDL_VIDEODRIVER: dummy

@@ -351,6 +351,73 @@ struct BonusDrop {
     ActorAnimation animation{0, 0, 0, 0, 0, 0, 1};
 };
 
+struct BonusDropStep {
+    bool animationAdvanced = false;
+    bool converted = false;
+    TransientActor conversion;
+};
+
+template <typename Motion, typename Random, typename Hotspot>
+inline BonusDropStep advanceBonusDrop(BonusDrop& drop, const ActorAnimation& backup,
+        uint32_t tick, const std::array<bool, 2>& touching, std::array<uint8_t, 2>& pending,
+        Motion motion, Random random, Hotspot hotspot) {
+    BonusDropStep result;
+    result.animationAdvanced = drop.animation.advance(backup);
+    int x = static_cast<int16_t>(drop.x);
+    int y = static_cast<int16_t>(static_cast<int>(drop.y) - static_cast<int8_t>(drop.hotspotY));
+    bool collected = false;
+    int16_t markerVelocity = 0;
+    // Both contacts use the original reward kind, including a second pickup.
+    for (size_t player = 0; player < touching.size(); ++player) {
+        if (touching[player] && !pending[player]) {
+            pending[player] = static_cast<uint8_t>(drop.type) + 1;
+            markerVelocity = static_cast<int16_t>(-100 * random());
+            collected = true;
+        }
+    }
+    if (collected) {
+        constexpr std::array<uint8_t, 7> scoreSprites{{88, 86, 87, 88, 89, 86, 90}};
+        auto& marker = result.conversion;
+        marker.x = x;
+        marker.vy8 = markerVelocity;
+        marker.fracX = drop.fracX;
+        marker.fracY = drop.fracY;
+        // This dispatch retains cached behavior 2; later passes use behavior 5.
+        motion(marker.x, y, marker.vx8, marker.vy8, marker.fracX, marker.fracY);
+        marker.kind = 0x0b;
+        marker.timer = static_cast<uint8_t>(26 - (tick & 1u));
+        marker.spriteIndex = scoreSprites.at(static_cast<size_t>(drop.type)) - 1;
+        marker.hotspotY = hotspot(marker.spriteIndex);
+        marker.y = static_cast<int16_t>(y + static_cast<int8_t>(marker.hotspotY));
+        marker.actorOrder = drop.actorOrder;
+        marker.animation = drop.animation;
+        marker.animation.mode = 0;
+        marker.animationBackup = backup;
+        result.converted = drop.collected = true;
+        return result;
+    }
+    motion(x, y, drop.vx8, drop.vy8, drop.fracX, drop.fracY);
+    drop.x = static_cast<float>(x);
+    drop.y = static_cast<float>(static_cast<int16_t>(y + static_cast<int8_t>(drop.hotspotY)));
+    drop.timer = static_cast<uint8_t>(drop.timer - (tick & 1u));
+    if (drop.timer == 0 || drop.timer == 0xff) {
+        auto& fade = result.conversion;
+        fade.kind = 0;
+        fade.x = x;
+        fade.y = static_cast<int>(drop.y);
+        fade.fracX = drop.fracX;
+        fade.fracY = drop.fracY;
+        fade.timer = 18;
+        fade.spriteIndex = 73;
+        fade.hotspotY = hotspot(fade.spriteIndex);
+        fade.animation = ActorAnimation::initialize(74, 79, 2, 1);
+        fade.actorOrder = drop.actorOrder;
+        fade.animationBackup = backup;
+        result.converted = drop.collected = true;
+    }
+    return result;
+}
+
 struct State2VisualCursor {
     uint8_t current = kState2VisualStartFrame;
     uint8_t first = kState2VisualStartFrame;

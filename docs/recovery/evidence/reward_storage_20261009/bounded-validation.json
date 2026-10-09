@@ -1,0 +1,196 @@
+{
+  "actual_app_runtime_verified": false,
+  "actual_output_sha256": "b503b8304a767b08a0d5af3471c537f66c4393283d909afd7b7632cdfa58ba44",
+  "app_syntax_verified": true,
+  "commands": [
+    {
+      "args": [
+        "git",
+        "sparse-checkout",
+        "add",
+        "/.gitattributes",
+        "/.github/workflows/ci.yml",
+        "/CMakeLists.txt",
+        "/docs/recovery/evidence/reward_storage_20261009/animation-extra-validation.json",
+        "/docs/recovery/evidence/reward_storage_20261009/capture-reward-storage-t91-v3.py",
+        "/docs/recovery/evidence/reward_storage_20261009/native-validation.json",
+        "/docs/recovery/evidence/reward_storage_20261009/original.json",
+        "/docs/recovery/evidence/reward_storage_20261009/repeat.json",
+        "/docs/recovery/evidence/reward_storage_20261009/reward-animation-probe-t91.cpp",
+        "/docs/recovery/evidence/reward_storage_20261009/validate-reward-animation-extra-t91.py",
+        "/docs/recovery/evidence/reward_storage_20261009/validate-reward-native-t91.py",
+        "/src/app/app.cpp",
+        "/src/diagnostics/reward_storage_fixture.hpp",
+        "/src/gameplay/actor_models.hpp",
+        "/src/gameplay/actor_slots.hpp",
+        "/tests/fixtures/reward_storage/expected.bin.gz",
+        "/tests/fixtures/reward_storage/requests.bin.gz",
+        "/tests/gameplay/reward_storage_probe.cpp",
+        "/tools/check_marker_storage_original.py",
+        "/tools/check_reward_storage_original.py",
+        "/tools/source_ownership.json",
+        "/tools/test_marker_storage_checker.py"
+      ],
+      "label": "sparse-paths",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "label": "diff-check",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O1",
+        "-I",
+        "/tmp/lezac-reward-writeback-20261009-t92/src",
+        "/tmp/lezac-reward-writeback-20261009-t92/tests/gameplay/reward_storage_probe.cpp",
+        "-o",
+        "/tmp/lezac-reward-writeback-build-20261009-t92/probe"
+      ],
+      "label": "compile",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-reward-writeback-20261009-t92/tools/check_reward_storage_original.py",
+        "--root",
+        "/tmp/lezac-reward-writeback-20261009-t92",
+        "--exe",
+        "/tmp/lezac-reward-writeback-build-20261009-t92/probe",
+        "--out",
+        "/tmp/lezac-reward-writeback-helper-20261009-t92"
+      ],
+      "label": "checker",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-O1",
+        "-g0",
+        "-fsanitize=address,undefined",
+        "-fno-omit-frame-pointer",
+        "-I",
+        "/tmp/lezac-reward-writeback-20261009-t92/src",
+        "/tmp/lezac-reward-writeback-20261009-t92/tests/gameplay/reward_storage_probe.cpp",
+        "-o",
+        "/tmp/lezac-reward-writeback-build-20261009-t92/probe-sanitized"
+      ],
+      "label": "compile-sanitized",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "/tmp/lezac-reward-writeback-build-20261009-t92/probe-sanitized",
+        "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/requests.bin",
+        "/tmp/lezac-reward-writeback-sanitized-20261009-t92/actual.bin"
+      ],
+      "label": "sanitized",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-reward-writeback-20261009-t92/tools/check_source_guardrails.py"
+      ],
+      "label": "source-guardrails",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-reward-writeback-20261009-t92/tools/check_gran_usage_guardrail.py"
+      ],
+      "label": "gran-guardrail",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-fsyntax-only",
+        "-DSDL_MAIN_HANDLED",
+        "-I/usr/include/SDL2",
+        "-I",
+        "/tmp/lezac-reward-writeback-20261009-t92/src",
+        "/tmp/lezac-reward-writeback-20261009-t92/src/app/app.cpp"
+      ],
+      "label": "app-syntax",
+      "returncode": 0
+    }
+  ],
+  "compared_bytes": 7896470,
+  "compiled_comparison": {
+    "actual_sha256": "b503b8304a767b08a0d5af3471c537f66c4393283d909afd7b7632cdfa58ba44",
+    "args": [
+      "/tmp/lezac-reward-writeback-build-20261009-t92/probe",
+      "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/requests.bin",
+      "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/actual.bin"
+    ],
+    "audio": "dummy",
+    "compared_bytes": 7896470,
+    "compiled_helper": true,
+    "constructors_executed": false,
+    "directory": "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq",
+    "executable_sha256_after": "b017151e1cb80db8e3f88915dfc95d485cc7afc767454adbded2be31b586f999",
+    "executable_sha256_before": "b017151e1cb80db8e3f88915dfc95d485cc7afc767454adbded2be31b586f999",
+    "first_difference": null,
+    "fixtures": {
+      "expected": {
+        "bytes": 7896482,
+        "compressed_sha256": "6797216835dad9113684141b1395fc55010d036b4333d0d7575b0e23f2a69ef4",
+        "raw_sha256": "b503b8304a767b08a0d5af3471c537f66c4393283d909afd7b7632cdfa58ba44"
+      },
+      "requests": {
+        "bytes": 158987,
+        "compressed_sha256": "098ef3d5b15a7819f9ea98f4e3ccbb75530ee671d55cc4e5eb268f1a81abe456",
+        "raw_sha256": "8a68fc46f6457f784423eca69a70978081102bffd836b09cc58b1b18cc452338"
+      }
+    },
+    "full_raw_record_owner": false,
+    "masks_applied": false,
+    "natural_route": false,
+    "operations": 4982,
+    "passed": true,
+    "pending_bonus_application_executed": false,
+    "player_updates_executed": false,
+    "production_app": false,
+    "recorded_utc": "2026-10-09T03:56:41.805331+00:00",
+    "rendered_pixels_claim": false,
+    "returncode": 0,
+    "seeded": true,
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout_sha256": "91ef17eaa0c8fcb1d6ad799615ec1cf6988bd0468b3141a321526a1a635edaa3",
+    "whole_game_claim": false
+  },
+  "full_game_build": false,
+  "operations": 4982,
+  "passed": true,
+  "recorded_utc": "2026-10-09T03:56:40.612147+00:00",
+  "root_bytes": {
+    "/tmp/lezac-reward-writeback-20261009-t92": 4677010,
+    "/tmp/lezac-reward-writeback-build-20261009-t92": 659947,
+    "/tmp/lezac-reward-writeback-helper-20261009-t92": 8211574,
+    "/tmp/lezac-reward-writeback-sanitized-20261009-t92": 7896482
+  },
+  "sanitized_operations": 4982,
+  "whole_game_claim": false
+}

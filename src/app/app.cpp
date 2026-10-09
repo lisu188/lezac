@@ -4,11 +4,13 @@
 #include "diagnostics/marker_storage_fixture.hpp"
 #include "diagnostics/reward_storage_fixture.hpp"
 #include "diagnostics/corpse_storage_fixture.hpp"
+#include "diagnostics/fatal_entry_fixture.hpp"
 #include "rendering/game_renderer.hpp"
 #include "gameplay/actor_models.hpp"
 #include "gameplay/actor_slots.hpp"
 #include "gameplay/collapse_seed.hpp"
 #include "gameplay/monster_damage.hpp"
+#include "gameplay/monster_spawners.hpp"
 #include "ui/models.hpp"
 #include "rendering/presentation_state.hpp"
 #include <SDL.h>
@@ -23307,6 +23309,10 @@ public:
             randomSeed_ = dword(before + 1575);
             corpseRewardRoll_ = bytes[before + 1585];
             level_.monsterSpawners.clear(); spawnerStates_.clear();
+            lezac::gameplay::MonsterSpawnerStorage::State spawnerBank{};
+            for (size_t source = 0; source < spawnerBank.size(); ++source)
+                std::copy_n(bytes.begin() + before + 1593 + source * 30, 30, spawnerBank[source].begin());
+            spawnerStorage_.restoreForFixture(spawnerBank);
             const uint8_t sources = bytes[before + 1866];
             for (uint8_t source = 1; source <= sources; ++source) {
                 std::array<uint8_t, 30> record{};
@@ -23325,6 +23331,11 @@ public:
                     fail("physical byte=" + std::to_string(byte));
             if (randomSeed_ != dword(after + 1575) || corpseRewardRoll_ != bytes[after + 1585])
                 fail("RNG/roll scratch");
+            for (size_t source = 0; source < spawnerBank.size(); ++source)
+                for (size_t byte = 0; byte < 30; ++byte)
+                    if (spawnerStorage_.record(static_cast<uint8_t>(source))[byte] !=
+                        bytes[after + 1593 + source * 30 + byte])
+                        fail("physical spawner byte=" + std::to_string(source * 30 + byte));
             for (size_t source = 1; source <= sources; ++source) {
                 const auto& state = spawnerStates_[source - 1];
                 const size_t offset = after + 1593 + source * 30;
@@ -23342,8 +23353,9 @@ public:
         }
         if (successful != 720) throw std::runtime_error("spawner construction coverage mismatch");
         std::cout << "spawner_construction_storage=ok cases=1620 successful=720 physical_storage_bytes=2551500 "
+                     "physical_spawner_bytes=437400 "
                      "rng_and_roll_bytes=8100 sound_requests=0 legacy_adoptions=0 legacy_retirements=0 "
-                     "production_app=1 raw_spawner_bank=0 seeded=1 natural_route=0 whole_game_claim=0\n";
+                     "production_app=1 raw_spawner_bank=1 seeded=1 natural_route=0 whole_game_claim=0\n";
     }
 
     void debugShippedMonsterProfiles(const std::string& fixturePath, const std::string& outDir = "") {
@@ -25104,6 +25116,88 @@ public:
                      "full_raw_record_owner=0 whole_game_claim=0\n";
     }
 
+    void debugFatalEntryOriginal(const std::string& requestPath, const std::string& outputPath) {
+        namespace fixture = lezac::diagnostics::fatal_entry;
+        load();
+        initSdl();
+        legacyActorSeedsEnabled_ = false;
+        clockedSoundEnabled_ = false;
+        sound_.setRequestAttemptCounting(true);
+        sound_.clearRequestAttemptCount();
+        std::ifstream input(requestPath, std::ios::binary);
+        std::ofstream output(outputPath, std::ios::binary);
+        if (!input || !output) throw std::runtime_error("cannot open fatal-entry protocol files");
+        const fixture::Header header(input);
+        for (uint16_t sprite = 1; sprite < header.descriptors.size(); ++sprite)
+            if (actorSpriteDescriptor(sprite) != header.descriptor(sprite))
+                throw std::runtime_error("fatal-entry descriptor differs from original assets");
+        level_ = Level{};
+        level_.width = 60; level_.height = 33;
+        level_.wordLayer.assign(header.words.begin(), header.words.end());
+        level_.monsterSpawners.clear(); spawnerStates_.clear();
+        playerCount_ = 2;
+        fixture::writeHeader(output, header.operations);
+        size_t seeds = 0, updates = 0;
+        for (uint32_t operation = 0; operation < header.operations; ++operation) {
+            const auto command = fixture::byte(input);
+            if (command == 'S') {
+                const uint8_t target = fixture::byte(input);
+                level_.tiles.assign(header.tiles.begin(), header.tiles.end());
+                for (size_t patch = 0; patch < 4; ++patch) {
+                    const uint16_t cell = fixture::word(input);
+                    const uint8_t glyph = fixture::byte(input);
+                    if (cell >= level_.tiles.size()) throw std::runtime_error("fatal-entry tile patch outside map");
+                    level_.tiles[cell] = glyph;
+                }
+                const fixture::Seed seed(input, target);
+                bombs_.clear(); monsters_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear();
+                transientActors_.clear(); pendingActorConversions_.clear();
+                std::array<uint64_t, lezac::gameplay::ActorStorage::capacity + 1> orders{};
+                for (size_t slot = 1; slot <= seed.storage.count; ++slot) orders[slot] = nextActorOrder_++;
+                actorSlots_.restoreForFixture(seed.storage, orders);
+                spawnerStorage_.restoreForFixture(seed.spawners);
+                for (size_t slot = 1; slot <= seed.storage.count; ++slot) {
+                    if (slot == target) monsters_.push_back(fixture::decode(actorSlots_, orders[slot]));
+                    else transientActors_.push_back(lezac::diagnostics::transient_storage::decode(actorSlots_, orders[slot]));
+                }
+                randomSeed_ = seed.rng; pendingBonuses_ = seed.pending;
+                pendingDamage_ = seed.hits[0]; pendingDamage2_ = seed.hits[1];
+                playerDead_ = seed.alive[0] != 1; player2Dead_ = seed.alive[1] != 1;
+                player_.x = fixture::signedWord(seed.storage.visuals[0], 0);
+                player_.y = fixture::signedWord(seed.storage.visuals[0], 2);
+                player2_.x = fixture::signedWord(seed.storage.visuals[1], 0);
+                player2_.y = fixture::signedWord(seed.storage.visuals[1], 2);
+                corpseRewardRoll_ = seed.roll;
+                monsterTileDamageDelta_ = seed.damage;
+                sound_.restoreRequestForFixture(seed.requestCursor, seed.requestPriority);
+                sound_.restoreLatchForFixture(seed.latch);
+                ++seeds;
+            } else if (command == 'U') {
+                if (!seeds) throw std::runtime_error("fatal-entry update before seed");
+                logicTick_ = fixture::word(input);
+                const auto tiles = level_.tiles;
+                updateOrderedActors(0);
+                if (tiles != level_.tiles ||
+                    !std::equal(level_.wordLayer.begin(), level_.wordLayer.end(), header.words.begin(), header.words.end()))
+                    throw std::runtime_error("fatal-entry pass changed fixture terrain");
+                ++updates;
+            } else throw std::runtime_error("unknown fatal-entry command");
+            const auto entries = sharedActorEntries();
+            if (entries.size() != actorSlots_.count() || legacyActorAdoptions_ || legacyActorRetirements_ ||
+                sound_.requestAttemptCount()) throw std::runtime_error("fatal-entry projection or audio request");
+            for (size_t slot = 1; slot <= entries.size(); ++slot)
+                if (actorSlots_.order(slot) != entries[slot - 1].order)
+                    throw std::runtime_error("fatal-entry production order differs from physical storage");
+            fixture::writeState(output, actorSlots_.state(), randomSeed_, pendingBonuses_,
+                {{pendingDamage_, pendingDamage2_}}, {{static_cast<uint8_t>(!playerDead_), static_cast<uint8_t>(!player2Dead_)}},
+                corpseRewardRoll_, sound_, spawnerStorage_, monsterTileDamageDelta_);
+        }
+        fixture::finish(input, output);
+        std::cout << "fatal_entry_original_app=ok operations=" << header.operations << " seeds=" << seeds << " updates=" << updates
+                  << " state_bytes=1864 legacy_adoptions=0 legacy_retirements=0 sound_requests=0 "
+                     "seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
     void debugCorpseStorageOriginal(const std::string& requestPath, const std::string& outputPath) {
         namespace fixture = lezac::diagnostics::corpse_storage;
         load();
@@ -26667,6 +26761,7 @@ private:
     Player player_;
     Player player2_;
     std::vector<SpawnerState> spawnerStates_;
+    lezac::gameplay::MonsterSpawnerStorage spawnerStorage_;
     std::vector<ActiveMonster> monsters_;
     std::vector<BossMotionLink> bossLinks_;
     std::array<float, 128> bossSinTable_{};
@@ -26900,9 +26995,12 @@ private:
         weaponSwitchHoldTicks_ = 0;
         weaponSwitchHoldTicks2_ = 0;
         logicTick_ = 0;
-        for (const MonsterSpawner& spawner : level_.monsterSpawners) {
+        for (size_t index = 0; index < level_.monsterSpawners.size(); ++index) {
+            const MonsterSpawner& spawner = level_.monsterSpawners[index];
+            spawnerStorage_.loadRecord(static_cast<uint8_t>(index + 1),
+                lezac::resources::packMonsterSpawner(spawner));
             SpawnerState state;
-            state.remaining = spawner.enabled ? spawner.spawnBudget : 0;
+            state.remaining = spawner.spawnBudget;
             state.availableSlots = spawner.liveAllowance;
             state.cooldown = spawner.cooldown;
             spawnerStates_.push_back(state);
@@ -27982,6 +28080,12 @@ private:
             if (!actorSlots_.find(entry.order)) {
                 if (!actorSlots_.append(entry.order, input, actorSpriteDescriptor(input.sprite)))
                     throw std::runtime_error("diagnostic actor seed exceeds physical capacity");
+                if (entry.kind == SharedActorKind::Monster) {
+                    const auto& monster = monsters_[entry.index];
+                    if (monster.kind >= 1 && monster.kind <= 8)
+                        actorSlots_.initializeSpawnedMonster(entry.order, monster,
+                            monster.hasSpawner ? static_cast<uint8_t>(monster.spawnerIndex + 1) : 0);
+                }
                 ++legacyActorAdoptions_;
             }
             if (typedBackup && actorSlots_.animationBackup(entry.order).packed() != backup.packed()) {
@@ -28956,12 +29060,18 @@ private:
         for (size_t i = 0; i < spawnerStates_.size() && i < level_.monsterSpawners.size(); ++i) {
             SpawnerState& state = spawnerStates_[i];
             const MonsterSpawner& spawner = level_.monsterSpawners[i];
-            state.cooldown = static_cast<uint8_t>(state.cooldown - 1);
-            if (state.cooldown != 0) continue;
-            if (state.availableSlots <= 0) continue;
-            if (state.remaining <= 0) continue;
-            if (spawner.enabled != 1) continue;
-            state.cooldown = spawner.cooldownReset;
+            const auto source = static_cast<uint8_t>(i + 1);
+            if (legacyActorSeedsEnabled_) {
+                auto row = lezac::resources::packMonsterSpawner(spawner);
+                row[9] = static_cast<uint8_t>(state.remaining);
+                row[10] = static_cast<uint8_t>(state.availableSlots);
+                row[27] = state.cooldown;
+                spawnerStorage_.loadRecord(source, row);
+            }
+            const auto& row = spawnerStorage_.record(source);
+            const bool ready = spawnerStorage_.tick(source);
+            state = {row[9], row[10], row[27]};
+            if (!ready) continue;
             ActiveMonster monster;
             monster.x = spawner.x;
             monster.kind = spawner.monsterKind;
@@ -28993,8 +29103,8 @@ private:
                 static_cast<uint16_t>(monster.animFrame + 1), monster.vx8, monster.vy8,
                 static_cast<int16_t>(monster.x), static_cast<int16_t>(monster.y + monster.hotspotY)});
             if (!monster.actorOrder) continue;
-            --state.remaining;
-            --state.availableSlots;
+            spawnerStorage_.consume(source);
+            state = {row[9], row[10], row[27]};
             monster.ai0 = randomRangeValue(spawner.param0Base, spawner.param0Range);
             monster.ai1 = randomRangeValue(spawner.param1Base, spawner.param1Range);
             monster.ai2 = randomRangeValue(spawner.param2Base, spawner.param2Range);
@@ -29026,6 +29136,10 @@ private:
             // 1000:6078..615A precedes behavior dispatch, including corpses.
             const bool animationAdvanced = lezac::gameplay::advanceMonsterAnimation(monster);
             if (debugMonsterAnimationObserver_) debugMonsterAnimationObserver_(monster, animationAdvanced);
+            if (monster.kind >= 1 && monster.kind <= 8)
+                actorSlots_.writeMonsterAnimation(monster.actorOrder, monster, animationAdvanced,
+                    animationAdvanced ? actorSpriteDescriptor(monster.animCursor + 1)
+                                      : lezac::gameplay::ActorSlots::Descriptor{});
             if (monster.behavior == 2) {
                 if (monster.bossDebris) {
                     updateTimedActorMotion(monster.x, monster.y, monster.vx8, monster.vy8,
@@ -29156,6 +29270,7 @@ private:
                 // the reflection flips one boundary early in B's phase.
                 if (monster.behavior == 3 && monster.facingDirty) {
                     reselectWalkerFacing(monster);
+                    actorSlots_.setActiveAnimation(monster.actorOrder, lezac::gameplay::monsterAnimation(monster));
                     monster.facingDirty = false;
                 }
                 const ActiveMonster::EdgeFlags e = monster.edges;
@@ -29188,6 +29303,7 @@ private:
                 sound_.writeSharedCursor(query.footprintCell);
                 monsterTileDamageDelta_ = query.delta;
                 if (query.delta != 0) damageMonster(monster, -query.delta, true);
+                actorSlots_.writeMonsterMotion(monster.actorOrder, monster);
             }
         }
         monsters_.erase(std::remove_if(monsters_.begin(), monsters_.end(),
@@ -29197,11 +29313,18 @@ private:
 
     void releaseMonsterSlot(ActiveMonster& monster) {
         if (!monster.hasSpawner || monster.deathCredited) return;
-        if (monster.spawnerIndex < spawnerStates_.size()) {
-            ++spawnerStates_[monster.spawnerIndex].availableSlots;
-            monster.deathCredited = true;
-            monster.hasSpawner = false;
+        const auto source = legacyActorSeedsEnabled_ ? static_cast<uint8_t>(monster.spawnerIndex + 1)
+            : actorSlots_.actor(monster.actorOrder)[37];
+        if (legacyActorSeedsEnabled_ && monster.spawnerIndex < spawnerStates_.size()) {
+            auto row = spawnerStorage_.record(source);
+            row[10] = static_cast<uint8_t>(spawnerStates_[monster.spawnerIndex].availableSlots);
+            spawnerStorage_.loadRecord(source, row);
         }
+        if (!spawnerStorage_.release(source)) return;
+        if (source - 1u < spawnerStates_.size())
+            spawnerStates_[source - 1u].availableSlots = spawnerStorage_.record(source)[10];
+        monster.deathCredited = true;
+        monster.hasSpawner = false;
     }
 
     void updateDamageCooldowns() {
@@ -30232,7 +30355,15 @@ private:
         monster.animFrame = static_cast<uint8_t>(monsterCorpseSprite(monster));
         monster.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(monster.animFrame).height);
         monster.animTick = static_cast<uint8_t>(monster.animDelay - 4);
-        monster.hp = std::max(0, monster.hp - std::max(1, damage));
+        if (actorSlots_.find(monster.actorOrder)) {
+            actorSlots_.applyMonsterImpact(monster.actorOrder, actorSpriteDescriptor(monster.animFrame + 1));
+            const bool fatal = actorSlots_.applyMonsterDamage(monster.actorOrder,
+                static_cast<int8_t>(-std::max(1, damage)));
+            monster.hp = fatal ? 0 : actorSlots_.actor(monster.actorOrder)[36] + 1;
+        } else {
+            if (!legacyActorSeedsEnabled_) throw std::runtime_error("damaging unbound production monster");
+            monster.hp = std::max(0, monster.hp - std::max(1, damage));
+        }
         if (monster.hp == 0) {
             enterMonsterDeath(monster, updatedThisTick);
         }
@@ -30286,6 +30417,8 @@ private:
         monster.animMode = 0;
         monster.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(monster.corpseSprite).height);
         monster.deathRewardPending = true;
+        if (actorSlots_.find(monster.actorOrder)) actorSlots_.enterMonsterCorpse(monster.actorOrder);
+        else if (!legacyActorSeedsEnabled_) throw std::runtime_error("converting unbound production monster");
         releaseMonsterSlot(monster);
         // 1000:74BB..7517 makes no sound request; 5C9E belongs to the boss chain.
     }
@@ -31110,6 +31243,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bonus-reward-static-model") {
             app.debugBonusRewardStaticModel();
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-fatal-entry-original") {
+            app.debugFatalEntryOriginal(argv[2], argv[3]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-spawner-construction-storage") {

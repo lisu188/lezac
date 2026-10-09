@@ -13,8 +13,9 @@ FIXTURE = ROOT / 'tests/fixtures/spawner_construction_storage_original.bin.gz'
 RAW_SHA = '0b1a2ed9cb58c87e981f587f82ff88e6eab1730103084308877dceddaa3e07df'
 PACKED_SHA = '2c6ab90501a9dbb28d4b377789a9cca4d6b016c2669c1a8bef8e02fa8240d0da'
 SUCCESS = ('spawner_construction_storage=ok cases=1620 successful=720 physical_storage_bytes=2551500 '
+           'physical_spawner_bytes=437400 '
            'rng_and_roll_bytes=8100 sound_requests=0 legacy_adoptions=0 legacy_retirements=0 '
-           'production_app=1 raw_spawner_bank=0 seeded=1 natural_route=0 whole_game_claim=0')
+           'production_app=1 raw_spawner_bank=1 seeded=1 natural_route=0 whole_game_claim=0')
 
 
 def require(condition, message):

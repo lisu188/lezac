@@ -33,6 +33,21 @@ public:
         return true;
     }
 
+    bool tick(uint8_t source) {
+        if (source == 0 || source >= state_.size()) throw std::out_of_range("monster spawner source");
+        auto& row = state_[source];
+        row[27] = static_cast<uint8_t>(row[27] - 1u);
+        if (row[27] || !row[10] || !row[9] || row[8] != 1) return false;
+        row[27] = row[28];
+        return true;
+    }
+
+    void consume(uint8_t source) {
+        if (source == 0 || source >= state_.size()) throw std::out_of_range("monster spawner source");
+        --state_[source][9];
+        --state_[source][10];
+    }
+
     void restoreForFixture(const State& state) { state_ = state; }
 
 private:

@@ -357,6 +357,18 @@ jobs:
             build/collapse-contact-continuity-app/
             build/collapse-contact-continuous-app/
           if-no-files-found: ignore
+      - name: Coupled physics dispatch regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^physics_dispatch_(fixture|checker|original)$'
+      - name: Preserve coupled physics dispatch diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: physics-dispatch-linux
+          path: build/physics-dispatch-app/
+          if-no-files-found: ignore
       - name: Flame contact word regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -438,6 +450,7 @@ jobs:
             build/collapse-continuous-app/
             build/collapse-contact-continuity-app/
             build/collapse-contact-continuous-app/
+            build/physics-dispatch-app/
             build/collapse-history-ctest/
             build/collapse-history-repetition/
             build/collapse-support-transport/
@@ -844,6 +857,18 @@ jobs:
             build/collapse-contact-continuity-app/
             build/collapse-contact-continuous-app/
           if-no-files-found: ignore
+      - name: Coupled physics dispatch regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^physics_dispatch_(fixture|checker|original)$'
+      - name: Preserve coupled physics dispatch diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: physics-dispatch-windows
+          path: build/physics-dispatch-app/
+          if-no-files-found: ignore
       - name: Flame contact word regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -925,6 +950,7 @@ jobs:
             build/collapse-continuous-app/
             build/collapse-contact-continuity-app/
             build/collapse-contact-continuous-app/
+            build/physics-dispatch-app/
             build/collapse-history-ctest/
             build/collapse-history-repetition/
             build/collapse-support-transport/

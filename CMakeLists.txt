@@ -4911,6 +4911,16 @@ if(BUILD_TESTING)
             PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
         set_tests_properties(collapse_contact_${mode}_original PROPERTIES TIMEOUT 240)
     endforeach()
+    add_test(NAME physics_dispatch_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_physics_dispatch.py)
+    add_test(NAME physics_dispatch_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_physics_dispatch.py --self-check)
+    add_test(NAME physics_dispatch_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_physics_dispatch.py
+                --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/physics-dispatch-app)
+    set_tests_properties(physics_dispatch_fixture physics_dispatch_checker physics_dispatch_original
+        PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(physics_dispatch_original PROPERTIES TIMEOUT 240)
     add_test(NAME collapse_support_transport_contract
         COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_support_transport.py
                 --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-support-transport)

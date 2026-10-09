@@ -108,3 +108,5 @@ tests/gameplay/collapse_continuity_original.json -text
 tests/gameplay/collapse_continuity_original.bin.gz -text
 tests/gameplay/collapse_contact_continuity_original.json -text
 tests/gameplay/collapse_contact_continuity_original.bin.gz -text
+tests/gameplay/physics_dispatch_original.json -text
+tests/gameplay/physics_dispatch_original.bin.gz -text

@@ -55,7 +55,7 @@ asset and other global addresses do not yet forward to all corresponding
 production readers. Corrupted queue counts are not clamped by this view, but
 production traversal beyond the physical bank is not proved equivalent to
 DOS address wrapping. Stale SS seed-class bytes on inconsistent staged/map
-inputs are also outside the current production proof.
+inputs at the start of a helper call are also outside the current production proof.
 
 The loader's logical segment does not establish natural runtime relocation or
 startup state. Existing natural route, raw-prefix, visual and sound-runtime
@@ -82,3 +82,27 @@ These contracts complement the unchanged 9184-case collapse original fixture
 and 1376256-case flame arithmetic fixture. They are not original execution or
 full-update parity by themselves. The production C++ source, generated loader
 header, fixtures and original producers are unchanged by this validation repair.
+
+## Repeated Staged Targets
+
+The contact helper's seed-class byte at SS:BP-0C is not reset between contacts.
+Seeder 370E returns immediately for an already-flagged map word, preserving both
+this byte and DS:79C8. Consequently, a repeated staged target uses the most
+recent real seed's class, which can differ from that target's map word class.
+Production now keeps one seed-class local for the entire contact blend call.
+The single-contact fragment wrapper supplies the same explicit local interface.
+
+The new 576-case original fixture calls both 3BB2 and 3D46 with a real SS caller,
+not a substituted DS byte. It covers repeated fragment and collapse targets,
+mixed seed classes, an intervening flagged lookup, and fragment admission at
+normal, last-available and full capacities. The first real seed always defines
+the local, so these outputs do not depend on the deliberately poisoned incoming
+SS byte. Original execution is unpatched and unstubbed; additional observers are
+neutral over all 1 MiB RAM and fourteen registers.
+
+The fixture stores all live pool records, both map planes and the caller result.
+CI compares this stream through the production App diagnostic without giving
+expected bytes to the App. An extracted-method harness is a separate lightweight
+local regression, not proof that the complete App or natural game ran. Incoming
+stack history before the first real seed, complete collapse-updater sequences,
+and natural-route reachability remain separate open requirements.

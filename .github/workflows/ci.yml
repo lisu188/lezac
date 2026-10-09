@@ -66,7 +66,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^spawner_construction_(fixture|storage_original)$'
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(spawner_construction_(fixture|storage_original)|spawner_storage)$'
       - name: Preserve focused spawner construction diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -75,6 +75,21 @@ jobs:
           path: |
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: Complete fatal-entry physical storage regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original)$'
+      - name: Preserve complete fatal-entry diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fatal-entry-linux-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+            build/fatal-entry-app/
           if-no-files-found: error
       - name: Independent timed-writeback fixture regressions
         env:
@@ -475,7 +490,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^spawner_construction_(fixture|storage_original)$'
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(spawner_construction_(fixture|storage_original)|spawner_storage)$'
       - name: Preserve focused spawner construction diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -484,6 +499,21 @@ jobs:
           path: |
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: Complete fatal-entry physical storage regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original)$'
+      - name: Preserve complete fatal-entry diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fatal-entry-windows-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+            build/fatal-entry-app/
           if-no-files-found: error
       - name: Independent timed-writeback fixture regressions
         env:

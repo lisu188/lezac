@@ -103,6 +103,29 @@ public:
         raw[37] = source;
     }
 
+    void writeMonsterAnimation(uint64_t order, const ActiveMonster& monster, bool advanced,
+                               const Descriptor& descriptor) {
+        setActiveAnimation(order, monsterAnimation(monster));
+        if (advanced) {
+            auto& row = storage_.visual(actor(order)[1]);
+            row[6] = descriptor[2]; row[7] = descriptor[3];
+        }
+    }
+
+    void writeMonsterMotion(uint64_t order, const ActiveMonster& monster) {
+        auto& raw = storage_.actor(require(order));
+        auto& row = storage_.visual(raw[1]);
+        const auto word = [](auto& bytes, size_t offset, uint16_t value) {
+            bytes[offset] = static_cast<uint8_t>(value);
+            bytes[offset + 1] = static_cast<uint8_t>(value >> 8);
+        };
+        word(raw, 6, static_cast<uint16_t>(monster.vx8));
+        word(raw, 8, static_cast<uint16_t>(monster.vy8));
+        word(raw, 10, monster.fracX); word(raw, 12, monster.fracY);
+        word(row, 0, static_cast<uint16_t>(monster.x));
+        word(row, 2, static_cast<uint16_t>(monster.y + monster.hotspotY));
+    }
+
     void applyMonsterImpact(uint64_t order, const Descriptor& descriptor) {
         setSpriteDescriptor(order, descriptor);
         auto& raw = storage_.actor(require(order));

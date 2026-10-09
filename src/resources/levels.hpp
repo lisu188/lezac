@@ -70,6 +70,7 @@ struct Level {
 
 std::vector<uint8_t> decodeLevelRle3(const std::vector<uint8_t>& encoded, size_t targetSize);
 MonsterSpawner parseMonsterSpawner(const std::array<uint8_t, 30>& rec);
+std::array<uint8_t, 30> packMonsterSpawner(const MonsterSpawner& spawner);
 LevelPortal parseLevelPortal(const std::array<uint8_t, 7>& rec);
 TileTriggerRule parseTileTriggerRule(const std::array<uint8_t, 14>& rec);
 std::vector<Level> loadRawLevels(const std::string& path);

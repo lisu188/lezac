@@ -66,6 +66,25 @@ MonsterSpawner parseMonsterSpawner(const std::array<uint8_t, 30>& rec) {
     return spawner;
 }
 
+std::array<uint8_t, 30> packMonsterSpawner(const MonsterSpawner& spawner) {
+    std::array<uint8_t, 30> result{};
+    const auto word = [&](size_t at, uint16_t value) {
+        result[at] = static_cast<uint8_t>(value);
+        result[at + 1] = static_cast<uint8_t>(value >> 8);
+    };
+    word(0, spawner.x); word(2, spawner.y);
+    word(4, spawner.tileIndex); word(6, spawner.savedWordOrLink);
+    result[8] = spawner.enabled; result[9] = spawner.spawnBudget;
+    result[10] = spawner.liveAllowance; result[11] = spawner.monsterKind;
+    word(12, spawner.param0Base); word(14, spawner.param0Range);
+    word(16, spawner.param1Base); word(18, spawner.param1Range);
+    word(20, spawner.param2Base); word(22, spawner.param2Range);
+    result[24] = spawner.randomBase; result[25] = spawner.randomRange;
+    result[26] = spawner.spawnArg; result[27] = spawner.cooldown;
+    result[28] = spawner.cooldownReset; result[29] = spawner.animationDelay;
+    return result;
+}
+
 LevelPortal parseLevelPortal(const std::array<uint8_t, 7>& rec) {
     return {recLe16(rec, 0), recLe16(rec, 2), recLe16(rec, 4), rec[6]};
 }

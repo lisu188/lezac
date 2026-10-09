@@ -55,8 +55,9 @@ def source_contract(source):
         raise ValueError('contact index is not the zero-based staging slot')
     impact = compact(body(source, 'blendDebrisImpactLane'))
     stage = compact('writeContactWordGuardAlias(0, word);')
-    gate = compact('if ((word & kDamagedWordBit) == 0)')
-    if impact.count(stage) != 1 or impact.index(stage) > impact.index(gate):
+    gate = compact('lezac::gameplay::blendDamageLaneBytes(memory, reverse ? 0x78d4 : 0x78d2, 1, reverse,')
+    callback = compact('[&](uint16_t cell) { return seedDamageLaneContact(cell); }')
+    if impact.count(stage) != 1 or impact.count(gate) != 1 or impact.count(callback) != 1 or impact.index(stage) > impact.index(gate):
         raise ValueError('single-target staging is not before seeder admission')
 
 
@@ -152,10 +153,10 @@ class ContactTests(unittest.TestCase):
                 source_contract(source.replace(old, new, 1))
 
     def invoke(self, root, spec, offset=None, bad_marker=False):
-        expected = spec.output_magic + struct.pack('<II', 96, 26721) + bytes(26721 * 2)
+        expected = spec.output_magic + struct.pack('<II', spec.cases, spec.state_bytes) + bytes(spec.state_bytes * 2)
         actual = bytearray(expected)
         if offset is not None:
-            actual[16 + 26721 + offset] = 1
+            actual[16 + spec.state_bytes + offset] = 1
         exe = root / 'mocked-not-a-game'
         exe.write_bytes(b'executable pin')
 

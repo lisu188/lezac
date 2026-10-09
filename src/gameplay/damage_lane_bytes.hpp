@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <stdexcept>
 
 namespace lezac::gameplay {
@@ -58,10 +59,10 @@ inline int damageLaneSignedByte(uint8_t byte) {
 
 // 1000:3BB2 / 3D46. Seeding must update the same memory view before returning.
 template <typename Memory, typename Seed>
-void blendDamageLaneBytes(Memory& memory, uint16_t caller, uint8_t ownWeight,
-                          bool reverse, Seed&& seed) {
+std::optional<uint8_t> blendDamageLaneValue(Memory& memory, uint8_t incoming, uint8_t ownWeight,
+                                           bool reverse, Seed&& seed) {
     uint16_t weight = ownWeight;
-    uint32_t sum = static_cast<uint32_t>(damageLaneSignedByte(memory.read(caller)) * ownWeight);
+    uint32_t sum = static_cast<uint32_t>(damageLaneSignedByte(incoming) * ownWeight);
     const uint16_t contacts = damageLaneWord(memory, 0x2078);
     for (uint32_t index = 1; index <= contacts; ++index) {
         const uint16_t word = damageLaneWord(memory, static_cast<uint16_t>(0x655c + 2 * index));
@@ -70,7 +71,7 @@ void blendDamageLaneBytes(Memory& memory, uint16_t caller, uint8_t ownWeight,
         if ((word & 0x8000) == 0) {
             const auto result = seed(static_cast<uint16_t>(damageLaneWord(memory,
                 static_cast<uint16_t>(0x6598 + 2 * index)) / 2));
-            if (result == DamageLaneSeed::Failed) return;
+            if (result == DamageLaneSeed::Failed) return std::nullopt;
             if (result == DamageLaneSeed::Debris) {
                 tag = static_cast<uint16_t>(damageLaneWord(memory, 0x207e) + 0x4e20);
                 writeDamageLaneWord(memory, static_cast<uint16_t>(0x65d4 + 2 * index), tag);
@@ -105,7 +106,14 @@ void blendDamageLaneBytes(Memory& memory, uint16_t caller, uint8_t ownWeight,
         const uint16_t tag = damageLaneWord(memory, static_cast<uint16_t>(0x65d4 + 2 * index));
         memory.write(damageLaneWriteAddress(tag, reverse), phase);
     }
-    memory.write(caller, phase);
+    return phase;
+}
+
+template <typename Memory, typename Seed>
+void blendDamageLaneBytes(Memory& memory, uint16_t caller, uint8_t ownWeight,
+                          bool reverse, Seed&& seed) {
+    const auto phase = blendDamageLaneValue(memory, memory.read(caller), ownWeight, reverse, seed);
+    if (phase) memory.write(caller, *phase);
 }
 
 }  // namespace lezac::gameplay

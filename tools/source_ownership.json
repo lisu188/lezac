@@ -92,13 +92,14 @@
         "src/gameplay/actor_storage.hpp",
         "src/gameplay/actor_slots.hpp",
         "src/gameplay/collapse_seed.hpp",
+        "src/gameplay/damage_lane_bytes.hpp",
+        "src/gameplay/damage_lane_memory.hpp",
+        "src/gameplay/fracture_records.hpp",
         "src/gameplay/frame_controls.hpp",
+        "src/gameplay/initial_damage_data.hpp",
         "src/gameplay/monster_damage.hpp",
         "src/gameplay/monster_spawners.hpp",
         "src/gameplay/retained_record_queue.hpp"
-      ],
-      "diagnostics": [
-        "src/gameplay/damage_lane_bytes.hpp"
       ]
     },
     "app": {

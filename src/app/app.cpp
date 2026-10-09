@@ -10,6 +10,8 @@
 #include "gameplay/actor_slots.hpp"
 #include "gameplay/collapse_seed.hpp"
 #include "gameplay/retained_record_queue.hpp"
+#include "gameplay/damage_lane_memory.hpp"
+#include "gameplay/initial_damage_data.hpp"
 #include "gameplay/monster_damage.hpp"
 #include "gameplay/monster_spawners.hpp"
 #include "ui/models.hpp"
@@ -414,39 +416,9 @@ struct ExplosionEffect {
     int finalSignedOffset = 0;
 };
 
-// One live falling fragment: the original 11-byte record at
-// DS:0x2093 + 0x0B*slot (first live slot of a level is 200; seeder 1000:370E
-// fills it at 3798/37A1/37AB/37C5/37CD/37D5/37BE/37E3/37EA, mover 1000:45FA
-// loop 2 updates it â€” see docs/recovery/falling_debris_update_spec.md).
-struct DebrisRecord {
-    int tileIndex = 0;         // +0 u16: cell index (y*width + x)
-    uint16_t flaggedWord = 0;  // +2 u16: word | 0x8000 while airborne
-    int8_t velocityX = 0;      // +4 s8: vx, 128 sub-units per tile (lane DS:78D2)
-    int8_t velocityY = 0;      // +5 s8: vy (lane DS:78D4)
-    int8_t subX = 0;           // +6 s8: x sub-accumulator (lane DS:78D3)
-    int8_t subY = 0;           // +7 s8: y sub-accumulator (lane DS:78D5)
-    uint8_t restTicks = 0;     // +8 u8: no-move ticks; retire when increment reaches 100
-    uint8_t lookup = 0;        // +9 u8: carried tile code (objectByte at seed)
-    uint8_t aux = 0;           // +A u8: bit 7 = "my move spawned a cascade" (4C19)
-};
-
-struct CollapseRecord {
-    int x = 0;
-    int y = 0;
-    uint16_t startOffsetBytes = 0;
-    uint16_t endOffsetBytes = 0;
-    uint16_t word = 0;
-    uint16_t flaggedWord = 0;
-    uint8_t forwardPhase = 0;
-    uint8_t reversePhase = 0;
-    int8_t subX = 0;
-    int8_t subY = 0;
-    uint8_t flags = 0;
-    uint8_t restTicks = 0;
-    uint16_t argMagnitude = 0;
-    uint8_t affectedBytes = 0;
-    int count = 0;
-};
+using lezac::gameplay::DebrisRecord;
+using lezac::gameplay::CollapseRecord;
+using lezac::gameplay::FlameRecord;
 
 void appendDebrisRecordBytes(std::vector<uint8_t>& bytes, const DebrisRecord& record) {
     const auto word = [&](uint16_t value) {
@@ -502,13 +474,6 @@ LaneWriteTagModel laneWriteTagModelForTag(uint16_t tag) {
             static_cast<uint16_t>(forwardBase + di),
             static_cast<uint16_t>(reverseBase + di)};
 }
-
-// 1000:3FA6 seeds these low 11-byte queue records; 45FA updates them.
-struct FlameRecord {
-    uint16_t cell = 0;
-    int8_t vx = 0, vy = 0, subX = 0, subY = 0;
-    uint8_t timer = 0, glyph = 0x75, variant = 0, mass = 1;
-};
 
 struct SpawnerState {
     int remaining = 0;
@@ -19209,7 +19174,7 @@ public:
     void debugOriginalDebrisUpdate(const std::string& inputPath, const std::string& outputPath,
                                   bool collapseUpdate = false, bool actorCreation = false,
                                   bool retirementStorage = false, bool fractureStorage = false,
-                                  bool physicalDebrisUpdate = false) {
+                                  bool physicalDebrisUpdate = false, bool laneHistory = false) {
         namespace storage = lezac::diagnostics::transient_storage;
         const bool physicalStorage = retirementStorage || fractureStorage;
         if (actorCreation && !collapseUpdate) throw std::runtime_error("actor probe requires collapse update");
@@ -19235,15 +19200,17 @@ public:
         };
         const auto header = take(physicalStorage ? 16 : 12);
         const bool completeFracturePools = fractureStorage &&
-            std::string(header.begin(), header.begin() + 8) == "LZFC0001";
+            (std::string(header.begin(), header.begin() + 8) == "LZFC0001" ||
+             (laneHistory && std::string(header.begin(), header.begin() + 8) == "LZDH0001"));
+        if (laneHistory && !physicalDebrisUpdate) throw std::runtime_error("lane history requires physical debris update");
         if (physicalDebrisUpdate && !completeFracturePools) {
             throw std::runtime_error("physical debris update requires complete fracture pools");
         }
         const size_t physicalDebrisRecords = completeFracturePools ? 1402 : 5;
         const size_t physicalCollapseRecords = completeFracturePools ? 251 : 5;
-        const size_t fractureStateBytes = completeFracturePools ? 26721 : 7664;
+        const size_t fractureStateBytes = completeFracturePools ? (laneHistory ? 26724 : 26721) : 7664;
         if (std::string(header.begin(), header.begin() + 8) !=
-            (fractureStorage ? (completeFracturePools ? "LZFC0001" : "LZFR0001") : (retirementStorage ? "LZRT0001" : (actorCreation ? "LZCA0001" :
+            (fractureStorage ? (completeFracturePools ? (laneHistory ? "LZDH0001" : "LZFC0001") : "LZFR0001") : (retirementStorage ? "LZRT0001" : (actorCreation ? "LZCA0001" :
                 (collapseUpdate ? "LZCU0001" : "LZDU0001"))))) {
             throw std::runtime_error("invalid debris update input header");
         }
@@ -19252,8 +19219,8 @@ public:
         if (retirementStorage && (cases != 176 || le32(header, 12) != 12060)) {
             throw std::runtime_error("invalid retirement storage fixture dimensions");
         }
-        if (fractureStorage && (cases != (completeFracturePools ? 96 : 288) ||
-                               le32(header, 12) != (completeFracturePools ? 53448 : 15334))) {
+        if (fractureStorage && (cases != (completeFracturePools ? (laneHistory ? 112 : 96) : 288) ||
+                               le32(header, 12) != (completeFracturePools ? (laneHistory ? 53454 : 53448) : 15334))) {
             throw std::runtime_error("invalid fracture storage fixture dimensions");
         }
         auto appendWord = [](std::vector<uint8_t>& bytes, uint16_t value) {
@@ -19261,7 +19228,7 @@ public:
             bytes.push_back(static_cast<uint8_t>(value >> 8));
         };
         if (physicalStorage) {
-            const std::string magic = fractureStorage ? (completeFracturePools ? "LZFP0001" : "LZFO0001") : "LZRO0001";
+            const std::string magic = fractureStorage ? (completeFracturePools ? (laneHistory ? "LZDO0001" : "LZFP0001") : "LZFO0001") : "LZRO0001";
             std::vector<uint8_t> outputHeader(magic.begin(), magic.end());
             appendWord(outputHeader, static_cast<uint16_t>(cases));
             appendWord(outputHeader, 0);
@@ -19318,6 +19285,8 @@ public:
             level_.width = width;
             level_.height = height;
             level_.tiles = take(cells);
+            // Each original fixture case restores a fresh machine image.
+            damageLaneData_ = lezac::gameplay::initialDamageLaneData();
             const auto words = take(2 * cells);
             level_.wordLayer.resize(cells);
             for (size_t cell = 0; cell < cells; ++cell) level_.wordLayer[cell] = le16(words, 2 * cell);
@@ -19411,6 +19380,12 @@ public:
                 }
             }
             // Expected fixture bytes are skipped, never installed as application state.
+            if (laneHistory) {
+                const auto history = take(3);
+                damageLaneData_[0x661e] = history[0];
+                damageLaneData_[0x0a06] = history[1];
+                damageLaneData_[0x0a07] = history[2];
+            }
             if (retirementStorage) take(6027);
             if (fractureStorage) take(fractureStateBytes);
             if (physicalDebrisUpdate || !collapseUpdate) updateDebrisRecords();
@@ -19469,6 +19444,11 @@ public:
                 storage::write(output, latch.currentSelector, 1);
                 storage::write(output, latch.latchedOffset, 2);
                 storage::write(output, latch.active, 1);
+                if (laneHistory) {
+                    storage::write(output, damageLaneData_[0x661e], 1);
+                    storage::write(output, damageLaneData_[0x0a06], 1);
+                    storage::write(output, damageLaneData_[0x0a07], 1);
+                }
             }
             if (!output) throw std::runtime_error("cannot write debris update output");
         }
@@ -19476,11 +19456,12 @@ public:
         output.flush();
         if (!output) throw std::runtime_error("cannot flush debris update output");
         if (fractureStorage) {
-            std::cout << (physicalDebrisUpdate ? "debris_contact_pools_app=ok cases=" :
+            std::cout << (laneHistory ? "damage_lane_history_app=ok cases=" : physicalDebrisUpdate ? "debris_contact_pools_app=ok cases=" :
                           (completeFracturePools ? "fracture_capacity_app=ok cases=" : "fracture_retirement_app=ok cases=")) << cases
                       << " compared_bytes=" << cases * fractureStateBytes
                       << " retained_debris=" << physicalDebrisRecords << " retained_collapse=" << physicalCollapseRecords
                       << " actor_bank_bytes=1575 sound_bytes=7"
+                      << (laneHistory ? " history_bytes=3" : "")
                       << " production_app=1 seeded=1 natural_route=0 whole_game_claim=0\n";
             return;
         }
@@ -27147,7 +27128,7 @@ private:
     uint16_t cameraShakeTicks_ = 0;
     uint16_t cameraShakeOffset_ = 0;
     std::vector<ExplosionEffect> explosionEffects_;
-    std::vector<FlameRecord> flameRecords_;
+    lezac::gameplay::RetainedRecordQueue<FlameRecord> flameRecords_;
     std::function<void()> debugActorPassObserver_;
     std::function<void(const ActiveMonster&, bool)> debugMonsterAnimationObserver_;
     std::function<void()> debugInteractiveTickObserver_;
@@ -27156,6 +27137,7 @@ private:
     std::function<void(const char*)> debugReentryBoundaryObserver_;
     lezac::gameplay::RetainedRecordQueue<DebrisRecord> debrisQueue_;
     lezac::gameplay::RetainedRecordQueue<CollapseRecord> collapseQueue_;
+    std::array<uint8_t, 65536> damageLaneData_ = lezac::gameplay::initialDamageLaneData();
     uint16_t nextCollapseFragmentWord_ = 0;
     std::vector<uint32_t>& fb_ = canvas_.pixels();
     int gameplayViewWidth_ = kScreenW;
@@ -30398,10 +30380,13 @@ private:
                 else if (i >= 13) origin += level_.width;
                 else if (i >= 7) ++origin;
             }
-            FlameRecord record;
+            FlameRecord record = flameRecords_.retainedSlot(flameRecords_.size());
             record.cell = static_cast<uint16_t>(origin);
             record.vx = static_cast<int8_t>(rays[i][0]);
             record.vy = static_cast<int8_t>(rays[i][1]);
+            record.subX = 0;
+            record.subY = 0;
+            record.glyph = 0x75;
             record.timer = static_cast<uint8_t>(explosionEffectTicks(type));
             record.variant = explosionVariantByte(type);
             record.mass = static_cast<uint8_t>(type == 4 ? 221 : type == 3 ? 9 : 1);
@@ -30420,17 +30405,19 @@ private:
         for (size_t slot = flameRecords_.size(); slot > 0; --slot) {
             const size_t index = slot - 1;
             FlameRecord ray = flameRecords_[index];
+            int vx = ray.vx, subX = ray.subX, vy = ray.vy, subY = ray.subY;
+            auto memory = damageLaneMemory({&vx, &subX, &vy, &subY});
             int delta = 0;
-            auto integrate = [&](int8_t velocity, int8_t& fraction, int step) {
+            auto integrate = [&](int velocity, int& fraction, int step) {
                 int sum = fraction + velocity;
                 if (sum > 127 || sum < -128) {
                     sum += sum > 127 ? -128 : 128;
                     delta += velocity < 0 ? -step : step;
                 }
-                fraction = static_cast<int8_t>(sum);
+                fraction = sum;
             };
-            integrate(ray.vx, ray.subX, 1);
-            integrate(ray.vy, ray.subY, level_.width);
+            integrate(vx, subX, 1);
+            integrate(vy, subY, level_.width);
             if (delta != 0) {
                 const int target = static_cast<uint16_t>(ray.cell + delta);
                 const uint8_t code = object(target);
@@ -30449,36 +30436,52 @@ private:
                     if (object(ray.cell) == 0x75) stamp(ray.cell, 0);
                     stamp(target, ray.glyph);
                     ray.cell = static_cast<uint16_t>(target);
+                    flameRecords_[index].cell = ray.cell;
                 } else if (word != 0) {
+                    uint8_t seededClass = 0;
                     if ((word & kDamagedWordBit) == 0) {
-                        queueTileDamage(target % level_.width, target / level_.width, 0, 0, true);
+                        queueTileDamage(target % level_.width, target / level_.width, 0, 0, true, &seededClass);
                     }
-                    const auto match = resolveDamagePhase(static_cast<uint16_t>(word | kDamagedWordBit), false);
-                    if (match.slotIndex != 0) {
-                        const size_t other = static_cast<size_t>(match.slotIndex - 1);
-                        const int weight = match.debris ? 1 : collapseQueue_[other].affectedBytes;
-                        auto blend = [&](int own, int incoming) {
-                            return lezac::gameplay::blendFlameVelocity(own, incoming, ray.mass, weight);
-                        };
-                        if (match.debris) {
-                            auto& debris = debrisQueue_[other];
-                            debris.velocityX = blend(ray.vx, debris.velocityX);
-                            debris.velocityY = blend(ray.vy, debris.velocityY);
-                            if ((word & kDamagedWordBit) != 0 && ray.variant > 0) stamp(target, 0xff);
-                        } else {
-                            auto& collapse = collapseQueue_[other];
-                            collapse.forwardPhase = static_cast<uint8_t>(blend(ray.vx, static_cast<int8_t>(collapse.forwardPhase)));
-                            collapse.reversePhase = static_cast<uint8_t>(blend(ray.vy, static_cast<int8_t>(collapse.reversePhase)));
-                        }
+                    const bool flagged = (word & kDamagedWordBit) != 0;
+                    const bool debris = flagged ? (word & 0x7fff) >= kDeferredThreshold : seededClass != 0;
+                    if (flagged || tileSeederResult_ != 0) {
+                        uint8_t incomingX = 0, incomingY = 0;
+                        if (flagged) {
+                            sound_.writeSharedCursor(word);
+                            lezac::gameplay::lookupDamageLaneBytes(memory, false);
+                            incomingX = memory.read(0x661e);
+                            sound_.writeSharedCursor(word);
+                            lezac::gameplay::lookupDamageLaneBytes(memory, true);
+                            incomingY = memory.read(0x661e);
+                        } else sound_.writeSharedCursor(static_cast<uint16_t>(debris ?
+                            kDebrisRecordIndexBase + debrisQueue_.size() : collapseQueue_.size()));
+                        const uint16_t cursor = sound_.requestCursor();
+                        const uint8_t weight = debris ? 1 : memory.read(static_cast<uint16_t>(0x661f + 15u * cursor));
+                        if (flagged && debris && flameRecords_[index].variant > 0) stamp(target, 0xff);
+                        const uint8_t mass = memory.read(static_cast<uint16_t>(0x78d5 + slot));
+                        const auto x = lezac::gameplay::blendFlameVelocity(vx,
+                            lezac::gameplay::damageLaneSignedByte(incomingX), mass, weight);
+                        const auto y = lezac::gameplay::blendFlameVelocity(vy,
+                            lezac::gameplay::damageLaneSignedByte(incomingY), mass, weight);
+                        // Unlike 3BB2/3D46, the flame caller does not add 4E20.
+                        const uint16_t address = static_cast<uint16_t>(debris ?
+                            0x2097 + 11u * cursor : 0x6617 + 15u * cursor);
+                        memory.write(address, static_cast<uint8_t>(x));
+                        memory.write(static_cast<uint16_t>(address + 1), static_cast<uint8_t>(y));
                     }
                 }
             }
-            if (ray.variant > 0) --ray.variant;
-            --ray.timer;
-            if (ray.timer == 0) {
-                if (object(ray.cell) == 0x75) stamp(ray.cell, 0);
+            auto& current = flameRecords_[index];
+            current.vx = static_cast<int8_t>(vx);
+            current.vy = static_cast<int8_t>(vy);
+            current.subX = static_cast<int8_t>(subX);
+            current.subY = static_cast<int8_t>(subY);
+            if (current.variant > 0) --current.variant;
+            --current.timer;
+            if (current.timer == 0) {
+                if (object(current.cell) == 0x75) stamp(current.cell, 0);
                 flameRecords_.erase(flameRecords_.begin() + static_cast<std::ptrdiff_t>(index));
-            } else flameRecords_[index] = ray;
+            }
         }
     }
 
@@ -30685,38 +30688,29 @@ private:
         }
     }
 
-    // Single-target form of 1000:3BB2 / 3D46 used by blocked debris moves.
-    // The caller contributes weight 1; a collapse contributes its unsigned
-    // +0x0e byte, while a fragment contributes 1. Neither helper draws RNG.
-    void blendDebrisImpactLane(int target, uint16_t word, int& velocity,
-                               bool reverse) {
+    lezac::gameplay::DamageLaneMemory<lezac::sound::SoundEngine>
+    damageLaneMemory(std::array<int*, 4> lanes = {}) {
+        return lezac::gameplay::DamageLaneMemory(damageLaneData_, debrisQueue_, collapseQueue_,
+            flameRecords_, sound_, tileSeederResult_, lanes);
+    }
+
+    lezac::gameplay::DamageLaneSeed seedDamageLaneContact(uint16_t cell) {
+        uint8_t seededClass = 0;
+        queueTileDamage(cell % level_.width, cell / level_.width, 0, 0, true, &seededClass);
+        if (tileSeederResult_ == 0) return lezac::gameplay::DamageLaneSeed::Failed;
+        return seededClass ? lezac::gameplay::DamageLaneSeed::Debris : lezac::gameplay::DamageLaneSeed::Collapse;
+    }
+
+    // Both axes are DS globals in the fragment caller, so alias writes can
+    // affect the other axis before its helper call.
+    void blendDebrisImpactLane(int target, uint16_t word, int& vx, int& subX,
+                               int& vy, int& subY, bool reverse) {
         writeContactWordGuardAlias(0, word);  // 1000:4C8C / 4C9F, before seeding
-        if ((word & kDamagedWordBit) == 0) {
-            const size_t debrisBefore = debrisQueue_.size();
-            const size_t collapseBefore = collapseQueue_.size();
-            // Collision seeding leaves the object plane intact (original
-            // new_collapse probe); older explosion playback marks it early.
-            queueTileDamage(target % level_.width, target / level_.width, 0, 0, true);
-            // 3C2D / 3DC1 return without writing the caller on seeder failure.
-            if (debrisBefore == debrisQueue_.size() &&
-                collapseBefore == collapseQueue_.size()) return;
-        }
-        const DamagePhaseLookup match = resolveDamagePhase(
-            static_cast<uint16_t>(word | kDamagedWordBit), reverse);
-        // The original expects a matching live record. Stale flagged map
-        // cells in the reconstruction must not become an invalid table write.
-        if (match.slotIndex == 0) return;
-        const size_t index = static_cast<size_t>(match.slotIndex - 1);
-        const int weight = match.debris ? 1 : collapseQueue_[index].affectedBytes;
-        const int other = static_cast<int8_t>(match.phase);
-        velocity = (velocity + other * weight) / (1 + weight);
-        if (match.debris) {
-            if (reverse) debrisQueue_[index].velocityY = static_cast<int8_t>(velocity);
-            else debrisQueue_[index].velocityX = static_cast<int8_t>(velocity);
-        } else {
-            if (reverse) collapseQueue_[index].reversePhase = static_cast<uint8_t>(velocity);
-            else collapseQueue_[index].forwardPhase = static_cast<uint8_t>(velocity);
-        }
+        auto memory = damageLaneMemory({&vx, &subX, &vy, &subY});
+        lezac::gameplay::writeDamageLaneWord(memory, 0x2078, 1);
+        lezac::gameplay::writeDamageLaneWord(memory, 0x659a, static_cast<uint16_t>(target * 2));
+        lezac::gameplay::blendDamageLaneBytes(memory, reverse ? 0x78d4 : 0x78d2, 1, reverse,
+            [&](uint16_t cell) { return seedDamageLaneContact(cell); });
     }
 
     void explode(const Bomb& bomb) {
@@ -31059,6 +31053,7 @@ private:
             int vy = debrisQueue_[i].velocityY;
             int subX = debrisQueue_[i].subX;
             int subY = debrisQueue_[i].subY;
+            auto laneGlobals = damageLaneMemory({&vx, &subX, &vy, &subY});
             uint8_t code = debrisQueue_[i].lookup;
             const uint16_t fw = debrisQueue_[i].flaggedWord;
 
@@ -31206,12 +31201,12 @@ private:
                     if (destWord == 0) {
                         vx = 0;  // 4CAE
                     } else {
-                        blendDebrisImpactLane(dest, destWord, vx, false);  // 4C96
+                        blendDebrisImpactLane(dest, destWord, vx, subX, vy, subY, false);  // 4C96
                         // X may have seeded the target. The original forces
                         // its flag for the Y matcher at 4C99 before 4CA9.
                         blendDebrisImpactLane(
                             dest, static_cast<uint16_t>(destWord | kDamagedWordBit),
-                            vy, true);
+                            vx, subX, vy, subY, true);
                     }
                 }
             }
@@ -31238,35 +31233,17 @@ private:
 
     void blendCollapseContacts(const std::vector<DamageContact>& contacts, int& velocity,
                                uint8_t ownWeight, bool reverse) {
-        int weight = ownWeight;
-        int sum = velocity * weight;
-        std::vector<DamagePhaseLookup> targets;
-        for (const auto& contact : contacts) {
-            if ((contact.word & kDamagedWordBit) == 0) {
-                const size_t beforeDebris = debrisQueue_.size();
-                const size_t beforeCollapse = collapseQueue_.size();
-                queueTileDamage(contact.cell % level_.width, contact.cell / level_.width, 0, 0, true);
-                if (beforeDebris == debrisQueue_.size() && beforeCollapse == collapseQueue_.size()) return;
-            }
-            auto match = resolveDamagePhase(static_cast<uint16_t>(contact.word | kDamagedWordBit), reverse);
-            if (match.slotIndex == 0) return;
-            const int contribution = match.debris ? 1 : collapseQueue_[match.slotIndex - 1].affectedBytes;
-            weight += contribution;
-            sum += contribution * static_cast<int8_t>(match.phase);
-            targets.push_back(match);
+        auto memory = damageLaneMemory();
+        lezac::gameplay::writeDamageLaneWord(memory, 0x2078, static_cast<uint16_t>(contacts.size()));
+        for (size_t index = 0; index < contacts.size(); ++index) {
+            lezac::gameplay::writeDamageLaneWord(memory, static_cast<uint16_t>(0x655e + 2 * index), contacts[index].word);
+            lezac::gameplay::writeDamageLaneWord(memory, static_cast<uint16_t>(0x659a + 2 * index),
+                static_cast<uint16_t>(contacts[index].cell * 2));
         }
-        if (weight == 0) return;
-        velocity = static_cast<int8_t>(sum / weight);
-        for (const auto& match : targets) {
-            const size_t index = static_cast<size_t>(match.slotIndex - 1);
-            if (match.debris) {
-                if (reverse) debrisQueue_[index].velocityY = static_cast<int8_t>(velocity);
-                else debrisQueue_[index].velocityX = static_cast<int8_t>(velocity);
-            } else {
-                if (reverse) collapseQueue_[index].reversePhase = static_cast<uint8_t>(velocity);
-                else collapseQueue_[index].forwardPhase = static_cast<uint8_t>(velocity);
-            }
-        }
+        // The collapse caller passes SS:BP-0B / SS:BP-0C, not a DS address.
+        const auto phase = lezac::gameplay::blendDamageLaneValue(memory, static_cast<uint8_t>(velocity),
+            ownWeight, reverse, [&](uint16_t cell) { return seedDamageLaneContact(cell); });
+        if (phase) velocity = lezac::gameplay::damageLaneSignedByte(*phase);
     }
 
     void updateCollapseRecords() {
@@ -32173,6 +32150,11 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-original-debris-contact-pools") {
             app.debugOriginalDebrisUpdate(argv[2], argv[3], true, false, false, true, true);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-damage-lane-history") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3],
+                true, false, false, true, true, true);
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-actors") {

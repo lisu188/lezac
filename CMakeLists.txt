@@ -5276,6 +5276,31 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION "^damage_lane_bytes_original=ok cases=176 compared_bytes=11534336 masks=0 production_app=0 seeded=0 whole_game_claim=0")
 
     add_executable(lezac_retained_record_queue_test tests/gameplay/retained_record_queue_test.cpp)
+    add_executable(lezac_damage_lane_memory_test tests/gameplay/damage_lane_memory_test.cpp)
+    add_test(NAME damage_lane_history_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_damage_lane_history_checker.py -v)
+    add_test(NAME damage_lane_history_fixture COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_damage_lane_history.py)
+    add_test(NAME damage_lane_history_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_damage_lane_history.py --exe $<TARGET_FILE:lezac_cpp>
+        --out ${CMAKE_CURRENT_BINARY_DIR}/damage-lane-history-app)
+    set_tests_properties(damage_lane_history_checker damage_lane_history_fixture damage_lane_history_original PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(damage_lane_history_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^damage_lane_history_original=ok cases=112 compared_bytes=2993088 production_app=1 masks=0 prior_phase=1 low_data=2 seeded=1 natural_route=0 whole_game_claim=0")
+    target_include_directories(lezac_damage_lane_memory_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME damage_lane_memory_unit COMMAND lezac_damage_lane_memory_test)
+    add_test(NAME damage_lane_memory_initial_data COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/generate_initial_damage_data.py)
+    add_test(NAME damage_lane_memory_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_damage_lane_bytes.py --exe $<TARGET_FILE:lezac_damage_lane_memory_test>
+        --out ${CMAKE_CURRENT_BINARY_DIR}/damage-lane-memory-app)
+    set_tests_properties(damage_lane_memory_unit damage_lane_memory_initial_data damage_lane_memory_original PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(damage_lane_memory_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "^damage_lane_memory_unit=ok typed_banks=3 shared_cursor=1 low_data_history=1 caller_alias=1 stack_value=1")
+    set_tests_properties(damage_lane_memory_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^damage_lane_bytes_original=ok cases=176 compared_bytes=11534336 masks=0 production_app=0 seeded=0 whole_game_claim=0")
     target_include_directories(lezac_retained_record_queue_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME retained_record_queue COMMAND lezac_retained_record_queue_test)
     set_tests_properties(retained_record_queue PROPERTIES

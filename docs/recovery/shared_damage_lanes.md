@@ -1,0 +1,64 @@
+# Shared Damage Lane State
+
+## Production Mapping
+
+`DamageLaneMemory` forwards byte reads and writes to the same retained records
+used by the production game: 199 physical flame rows, 1402 fragment rows and
+251 collapse rows, including dormant tails and guards. The cursor at DS:2074
+is the sound engine's shared cursor. Flame masses and the seeder result byte
+are also forwarded. Fragment and flame lane locals are bound to DS:78D2..78D5
+for their complete updater iterations. A write to the other axis therefore
+changes the caller's subsequent input.
+
+The helper's scratch phase at DS:661E and contact/tag staging persist between
+runtime calls. Unmapped bytes have persistent byte-addressed storage and are
+read by subsequent lookup/weight operations, not an unread write log. The
+initial 6928 low DS bytes come from the pinned executable's MZ loader image
+at logical load segment 1000. `generate_initial_damage_data.py` reproduces the
+generated header. This is not a natural DOS startup-state capture.
+
+The direct fragment caller uses the recovered DS-address helper, including
+the fragment tag bias. Collapse callers use a value-returning form because
+their caller bytes are on SS:BP-0B/0C. Flame callers execute both original
+lookups and retain their distinct 16-bit blend/write logic without adding
+the impact helper's fragment tag bias. Flame timer and variant writeback uses
+live retained fields after alias writes.
+
+## Evidence
+
+- The existing 176-case unmodified-original fixture is compared through both
+  the flat helper and the production typed memory view. Every incoming DS byte
+  round-trips before execution; all 11,534,336 outgoing DS bytes are compared.
+  Expected bytes are not supplied to either compiled helper process.
+- Independent typed-field assertions cover every record field at first,
+  second, last live and guard slots. This prevents a symmetric but incorrectly
+  shifted read/write adapter from passing by round-trip alone.
+- Synthetic unit coverage verifies shared cursor coherence, retained queue
+  tails, reverse iteration, DS caller aliases and SS-style value return.
+  A missing F001 write at 0A07 is consumed as the next missing B598 contact's
+  unsigned weight. This sequential unit is not claimed as original execution.
+- The new 112-case original fixture advances the complete fragment updater.
+  It extends the 96 physical-pool cases with sixteen nonzero incoming-phase
+  cases at full admission failure. Each input independently seeds DS:661E and
+  DS:0A06/0A07; each output includes these three bytes, all physical records,
+  map planes, RNG/counters, the complete actor bank and sound request/latch.
+  Observed and observer-free original runs agree on all 1 MiB RAM and fourteen
+  registers. No original instructions or calls are patched or stubbed.
+- Fixture/checker tests are separate from execution of the compiled App.
+  Above the disk guard, local validation compiles only small helpers and checks
+  App syntax. Exact-head Windows/Linux CI must establish actual-App comparison.
+
+## Open Fidelity Boundaries
+
+This is not a complete DOS address-space owner model. Unmapped actor, visual,
+asset and other global addresses do not yet forward to all corresponding
+production readers. Corrupted queue counts are not clamped by this view, but
+production traversal beyond the physical bank is not proved equivalent to
+DOS address wrapping. Stale SS seed-class bytes on inconsistent staged/map
+inputs are also outside the current production proof.
+
+The loader's logical segment does not establish natural runtime relocation or
+startup state. Existing natural route, raw-prefix, visual and sound-runtime
+fidelity gates remain open. Source integration and passing helper comparisons
+do not establish whole-game completion or justify merging through failing CI
+or without completed current-head review.

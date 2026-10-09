@@ -82,6 +82,36 @@ class FractureTests(unittest.TestCase):
             self.assertEqual(after[-1], 1)
         self.assertEqual(priorities, {0, 5})
 
+    def test_original_fracture_cell_cursor_write_instruction(self):
+        raw = (self.root / 'LEZAC.EXE').read_bytes()
+        self.assertEqual(checker.sha(raw), checker.ORIGINAL_SHA)
+        self.assertEqual(raw[0x770 + 0x501f:0x770 + 0x5023], bytes.fromhex('89 3e 74 20'))
+
+    def test_native_cursor_is_last_fractured_cell_or_later_normal_magnitude(self):
+        cell_cursors = 0
+        for before, after in self.cases():
+            first_fractures = before[6013 + 7] == 64
+            expected = struct.unpack_from('<H', before, 6013 + 2)[0] // 2 if first_fractures else 0
+            self.assertEqual(struct.unpack_from('<H', after, 7657)[0], expected)
+            cell_cursors += first_fractures
+        self.assertEqual(cell_cursors, 216)
+
+    def test_source_writes_cell_cursor_before_fracture_rng_and_seeder(self):
+        source = (self.root / 'src/app/app.cpp').read_text(encoding='utf-8')
+        body = source[source.index('    void updateCollapseRecords() {'):source.index('    void updateFlashes() {')]
+        fracture = body[body.index('if (fracture)'):body.index('if (!fracture)')]
+        statement = 'sound_.writeSharedCursor(static_cast<uint16_t>(cell));'
+
+        def check(text):
+            self.assertEqual(text.count(statement), 1)
+            write = text.index(statement)
+            self.assertLess(write, text.index('randomRangeValue(0, 20)'))
+            self.assertLess(write, text.index('queueTileDamage(cell % width'))
+
+        check(fracture)
+        with self.assertRaises(AssertionError):
+            check(fracture.replace(statement, '', 1))
+
     def test_source_commits_only_early_fields_before_fracture(self):
         source = (self.root / 'src/app/app.cpp').read_text(encoding='utf-8')
         body = source[source.index('    void updateCollapseRecords() {'):source.index('    void updateFlashes() {')]

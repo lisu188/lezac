@@ -357,6 +357,65 @@ struct BonusDropStep {
     TransientActor conversion;
 };
 
+inline uint8_t corpseTimerFromRemainingUpdates(int remaining, uint32_t tick) {
+    return remaining <= 0 ? 0 : static_cast<uint8_t>((remaining + (tick & 1u)) / 2);
+}
+
+template <typename Motion>
+inline bool advanceCorpseMotion(ActiveMonster& corpse, uint8_t& timer, uint32_t tick, Motion motion) {
+    motion(corpse.x, corpse.y, corpse.vx8, corpse.vy8, corpse.fracX, corpse.fracY);
+    corpse.x = static_cast<int16_t>(corpse.x);
+    corpse.y = static_cast<int16_t>(corpse.y);
+    timer = static_cast<uint8_t>(timer - (tick & 1u));
+    const bool expired = timer == 0 || timer == 0xff;
+    corpse.stateTimer = expired ? 0 : 2 * timer - static_cast<int>((tick + 1) & 1u);
+    return expired;
+}
+
+struct CorpseRewardConversion {
+    bool hasReward = false;
+    BonusDrop reward;
+    TransientActor fade;
+};
+
+template <typename Hotspot>
+inline CorpseRewardConversion convertCorpseReward(const ActiveMonster& corpse, uint8_t roll, Hotspot hotspot) {
+    CorpseRewardConversion result;
+    const int visualY = static_cast<int16_t>(corpse.y + corpse.hotspotY);
+    if (roll >= 40) {
+        constexpr std::array<uint8_t, 7> upperBounds{{65, 71, 78, 83, 89, 93, 100}};
+        size_t index = 0;
+        while (index + 1 < upperBounds.size() && roll > upperBounds[index]) ++index;
+        result.hasReward = true;
+        auto& reward = result.reward;
+        reward.x = corpse.x;
+        reward.y = visualY;
+        reward.type = static_cast<BonusType>(index);
+        reward.hotspotY = hotspot(static_cast<uint8_t>(62 + index));
+        reward.actorOrder = corpse.actorOrder;
+        reward.vx8 = corpse.vx8;
+        reward.vy8 = static_cast<int16_t>(corpse.vy8 - 200);
+        reward.fracX = corpse.fracX;
+        reward.fracY = corpse.fracY;
+        reward.animation = monsterAnimation(corpse);
+        reward.animation.mode = 0;
+    } else {
+        auto& fade = result.fade;
+        fade.x = corpse.x;
+        fade.y = visualY;
+        fade.kind = 0;
+        fade.timer = 18;
+        fade.fracX = corpse.fracX;
+        fade.fracY = corpse.fracY;
+        fade.spriteIndex = 68;
+        fade.hotspotY = hotspot(69);
+        fade.animation = ActorAnimation::initialize(69, 79, 2, 1);
+        fade.actorOrder = corpse.actorOrder;
+        fade.animationBackup = corpse.animationBackup;
+    }
+    return result;
+}
+
 template <typename Motion, typename Random, typename Hotspot>
 inline BonusDropStep advanceBonusDrop(BonusDrop& drop, const ActorAnimation& backup,
         uint32_t tick, const std::array<bool, 2>& touching, std::array<uint8_t, 2>& pending,

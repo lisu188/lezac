@@ -14,10 +14,10 @@ struct Header {
     std::array<uint16_t, 60 * 33> words{};
     std::array<gameplay::ActorSlots::Descriptor, 92> descriptors{};
 
-    explicit Header(std::istream& input) {
+    explicit Header(std::istream& input, const char* expectedMagic = "LZRW0001") {
         std::string magic(8, '\0');
         input.read(magic.data(), 8);
-        if (magic != "LZRW0001") throw std::runtime_error("invalid reward request magic");
+        if (magic != expectedMagic) throw std::runtime_error("invalid reward request magic");
         const uint32_t low = word(input);
         operations = low | (static_cast<uint32_t>(word(input)) << 16);
         if (!operations || operations > 100000) throw std::runtime_error("invalid reward operation count");

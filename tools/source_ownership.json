@@ -43,6 +43,7 @@
     "sound": {
       "runtime": [
         "src/app/app.cpp",
+        "src/diagnostics/corpse_storage_fixture.hpp",
         "src/sound/sdl_audio_output.cpp",
         "src/sound/sdl_audio_output.hpp",
         "src/sound/sound_engine.cpp",

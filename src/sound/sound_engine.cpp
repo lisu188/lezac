@@ -135,6 +135,8 @@ size_t SoundEngine::soundIndexForOffsetFallback(uint16_t offset, uint8_t selecto
 }
 
 bool SoundEngine::latchSoundRequest(uint16_t cursor, uint8_t selector) {
+    requestCursor_ = cursor;
+    requestSelector_ = selector;
     // Original byte DEC followed by CMP/JGE compares signed byte values.
     const uint8_t previous = static_cast<uint8_t>(soundLatch_.currentSelector - 1u);
     bool accept = !soundLatch_.active ||

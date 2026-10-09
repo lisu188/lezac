@@ -87,6 +87,48 @@ public:
         raw[20] = static_cast<uint8_t>(16 - descriptor[1]);
     }
 
+    void writeCorpse(uint64_t order, const ActiveMonster& corpse, uint8_t timer,
+                     bool animationAdvanced, const Descriptor& descriptor) {
+        auto& raw = storage_.actor(require(order));
+        auto& row = storage_.visual(raw[1]);
+        auto word = [](auto& bytes, size_t offset, uint16_t value) {
+            bytes[offset] = static_cast<uint8_t>(value);
+            bytes[offset + 1] = static_cast<uint8_t>(value >> 8);
+        };
+        raw[0] = corpse.kind;
+        raw[2] = timer;
+        word(raw, 6, static_cast<uint16_t>(corpse.vx8));
+        word(raw, 8, static_cast<uint16_t>(corpse.vy8));
+        word(raw, 10, corpse.fracX);
+        word(raw, 12, corpse.fracY);
+        raw[20] = static_cast<uint8_t>(corpse.hotspotY);
+        raw[21] = corpse.behavior;
+        setActiveAnimation(order, monsterAnimation(corpse));
+        word(row, 0, static_cast<uint16_t>(corpse.x));
+        word(row, 2, static_cast<uint16_t>(corpse.y + corpse.hotspotY));
+        if (animationAdvanced) { row[6] = descriptor[2]; row[7] = descriptor[3]; }
+    }
+
+    void convertCorpse(uint64_t order, const CorpseRewardConversion& conversion, const Descriptor& descriptor) {
+        auto& raw = storage_.actor(require(order));
+        setSpriteDescriptor(order, descriptor);
+        // 1000:766d..76f4 preserves coordinates, fractions, backup and opaque bytes.
+        if (conversion.hasReward) {
+            raw[0] = static_cast<uint8_t>(conversion.reward.type) + 0x13;
+            raw[2] = conversion.reward.timer;
+            const uint16_t vy = static_cast<uint16_t>(conversion.reward.vy8);
+            raw[8] = static_cast<uint8_t>(vy);
+            raw[9] = static_cast<uint8_t>(vy >> 8);
+            raw[27] = 0;
+        } else {
+            raw[0] = conversion.fade.kind;
+            raw[2] = conversion.fade.timer;
+            std::fill(raw.begin() + 6, raw.begin() + 10, 0);
+            raw[21] = 5;
+            setActiveAnimation(order, conversion.fade.animation);
+        }
+    }
+
     void writeReward(uint64_t order, const BonusDrop& drop, bool animationAdvanced,
                      const Descriptor& descriptor) {
         auto& raw = storage_.actor(require(order));

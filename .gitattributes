@@ -86,3 +86,5 @@ docs/recovery/evidence/natural_level4_third_objective_20261007/** -text
 tests/fixtures/natural_level4_health_reward/** -text
 tests/fixtures/natural_level4_support_column/** -text
 docs/recovery/evidence/natural_level4_support_column_20261008/** -text
+# Preserve byte-attributed original observations and frozen producer inputs.
+docs/recovery/evidence/corpse_animation_prologue_20261009/** -text

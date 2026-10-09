@@ -24486,18 +24486,37 @@ public:
                   << std::hex << inspected.hash << std::dec << '\n';
     }
 
-    void debugMonsterAnimationOriginal(const std::string& fixturePath) {
+    void replayMonsterAnimationInApp(const std::string& fixturePath, bool corpse, bool bossDebris) {
         struct AnimationBoundary {};
         struct ResetObserver {
             std::function<void(const ActiveMonster&, bool)>& observer;
             ~ResetObserver() { observer = {}; }
         } reset{debugMonsterAnimationObserver_};
         lezac::diagnostics::replayMonsterAnimationFixture(fixturePath,
-            [&](const ActiveMonster& monster) { monsters_.assign(1, monster); },
+            [&](const ActiveMonster& monster) {
+                auto seeded = monster;
+                if (corpse) {
+                    seeded.kind = bossDebris ? 0x1e : 0x0c;
+                    seeded.behavior = 2;
+                    seeded.bossDebris = bossDebris;
+                    seeded.stateTimer = 400;
+                    seeded.x = 32;
+                    seeded.y = 24;
+                }
+                monsters_.assign(1, seeded);
+            },
             [&](ActiveMonster& state) {
                 bool advanced = false;
                 bool stopped = false;
+                const auto before = monsters_.front();
                 debugMonsterAnimationObserver_ = [&](const ActiveMonster& monster, bool value) {
+                    if (corpse && (monster.kind != before.kind || monster.behavior != 2 ||
+                        monster.bossDebris != bossDebris || monster.stateTimer != before.stateTimer ||
+                        monster.x != before.x || monster.y != before.y ||
+                        monster.vx8 != before.vx8 || monster.vy8 != before.vy8 ||
+                        monster.fracX != before.fracX || monster.fracY != before.fracY)) {
+                        throw std::runtime_error("corpse dispatch preceded animation boundary");
+                    }
                     state = monster;
                     advanced = value;
                     throw AnimationBoundary{};
@@ -24511,6 +24530,16 @@ public:
                 return advanced;
             });
         debugMonsterAnimationObserver_ = {};
+    }
+
+    void debugCorpseAnimationOriginal(const std::string& fixturePath) {
+        prepareMonsterMotionDebugLevel(false);
+        for (bool bossDebris : {false, true}) replayMonsterAnimationInApp(fixturePath, true, bossDebris);
+        std::cout << "corpse_animation_original=ok cases=106 updates=1272 production_app=1 diagnostic_stop_after_prologue=1 normal_corpse=1 boss_debris=1 dispatch_untouched=1 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
+    void debugMonsterAnimationOriginal(const std::string& fixturePath) {
+        replayMonsterAnimationInApp(fixturePath, false, false);
         const auto shipped = loadRawGran("GRAN.MST");
         std::vector<uint8_t> granBytes;
         for (const auto& record : shipped.records) granBytes.insert(granBytes.end(), record.bytes.begin(), record.bytes.end());
@@ -28255,6 +28284,9 @@ private:
         for (ActiveMonster& monster : monsters_) {
             if (onlyOrder && monster.actorOrder != onlyOrder) continue;
             if (!monster.alive) continue;
+            // 1000:6078..615A precedes behavior dispatch, including corpses.
+            const bool animationAdvanced = lezac::gameplay::advanceMonsterAnimation(monster);
+            if (debugMonsterAnimationObserver_) debugMonsterAnimationObserver_(monster, animationAdvanced);
             if (monster.behavior == 2) {
                 if (monster.bossDebris) {
                     updateTimedActorMotion(monster.x, monster.y, monster.vx8, monster.vy8,
@@ -28293,9 +28325,6 @@ private:
             }
             const int damageColumn = (monster.x + 4) >> 3;
             const int damageRow = monster.y >> 3;
-            const bool animationAdvanced = lezac::gameplay::advanceMonsterAnimation(monster);
-            if (debugMonsterAnimationObserver_) debugMonsterAnimationObserver_(monster, animationAdvanced);
-
             // Rank 5: the player-contact test runs BEFORE the tile scan and
             // the motion update (contact at 1000:63C6..63F0, scan from
             // 1000:655B), i.e. from the PRE-motion position. monster.y is the
@@ -30777,6 +30806,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-monster-animation-original") {
             app.debugMonsterAnimationOriginal(argv[2]);
+            return 0;
+        }
+        if (argc == 3 && std::string(argv[1]) == "--debug-corpse-animation-original") {
+            app.debugCorpseAnimationOriginal(argv[2]);
             return 0;
         }
         if (argc == 3 && std::string(argv[1]) == "--debug-natural-bomb-visual-original") {

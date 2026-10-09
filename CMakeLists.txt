@@ -263,6 +263,12 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 30
         PASS_REGULAR_EXPRESSION "^monster_animation_original=ok cases=53 updates=636 production_app=1 diagnostic_stop_after_prologue=1 boss_backup_copies=14 seeded=1 natural_route=0 whole_game_claim=0")
+    add_test(NAME corpse_animation_original_app
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-corpse-animation-original ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_animation_original.txt)
+    set_tests_properties(corpse_animation_original_app PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 30
+        PASS_REGULAR_EXPRESSION "^corpse_animation_original=ok cases=106 updates=1272 production_app=1 diagnostic_stop_after_prologue=1 normal_corpse=1 boss_debris=1 dispatch_untouched=1 seeded=1 natural_route=0 whole_game_claim=0")
     target_include_directories(lezac_monster_animation_selectors_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME monster_animation_selectors
         COMMAND lezac_monster_animation_selectors_test ${CMAKE_CURRENT_SOURCE_DIR})
@@ -355,6 +361,36 @@ if(BUILD_TESTING)
     target_include_directories(lezac_flame_contact_word_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
     if(Python3_Interpreter_FOUND)
+        add_test(NAME corpse_animation_tools_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_corpse_animation_tools.py -v)
+        set_tests_properties(corpse_animation_tools_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
+        set(LEZAC_CORPSE_SKIP_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/corpse-animation-skip/app.cpp)
+        add_custom_command(OUTPUT ${LEZAC_CORPSE_SKIP_SOURCE}
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/make_corpse_animation_skip_mutant.py
+                --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp --out ${LEZAC_CORPSE_SKIP_SOURCE}
+            DEPENDS src/app/app.cpp tools/make_corpse_animation_skip_mutant.py
+            VERBATIM)
+        get_target_property(LEZAC_CORPSE_SKIP_SOURCES lezac_cpp SOURCES)
+        list(REMOVE_ITEM LEZAC_CORPSE_SKIP_SOURCES src/app/app.cpp)
+        add_executable(lezac_corpse_animation_skip_mutant ${LEZAC_CORPSE_SKIP_SOURCES} ${LEZAC_CORPSE_SKIP_SOURCE})
+        foreach(property COMPILE_DEFINITIONS INCLUDE_DIRECTORIES LINK_DIRECTORIES LINK_LIBRARIES COMPILE_OPTIONS)
+            get_target_property(value lezac_cpp ${property})
+            if(value)
+                set_target_properties(lezac_corpse_animation_skip_mutant PROPERTIES ${property} "${value}")
+            endif()
+        endforeach()
+        # Serialize the two large App compilations and reuse the primary SDL DLL.
+        add_dependencies(lezac_corpse_animation_skip_mutant lezac_cpp)
+        add_test(NAME corpse_animation_skip_mutant
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_corpse_animation_skip_mutant.py
+                --exe $<TARGET_FILE:lezac_corpse_animation_skip_mutant>
+                --fixture ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_animation_original.txt
+                --out ${CMAKE_CURRENT_BINARY_DIR}/corpse-animation-mutant-checks)
+        set_tests_properties(corpse_animation_skip_mutant PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 60
+            PASS_REGULAR_EXPRESSION "^corpse_animation_skip_mutant=rejected actual_app=1 expected_boundary_failure=1 seeded=1 natural_route=0 whole_game_claim=0")
         add_test(NAME monster_animation_fixture_contract
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_animation_fixture_contract.py
                 --exe $<TARGET_FILE:lezac_monster_animation_original_test>

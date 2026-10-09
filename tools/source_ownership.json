@@ -113,6 +113,7 @@
         "src/app/app.cpp",
         "src/diagnostics/level1_trace.hpp",
         "src/diagnostics/monster_animation_fixture.hpp",
+        "src/diagnostics/transient_storage_fixture.hpp",
         "src/diagnostics/frame_inspector.cpp",
         "src/diagnostics/frame_inspector.hpp",
         "src/diagnostics/sound/sound_diagnostics.hpp",

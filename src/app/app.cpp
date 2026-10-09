@@ -1,5 +1,6 @@
 #include "diagnostics/frame_inspector.hpp"
 #include "diagnostics/monster_animation_fixture.hpp"
+#include "diagnostics/transient_storage_fixture.hpp"
 #include "rendering/game_renderer.hpp"
 #include "gameplay/actor_models.hpp"
 #include "gameplay/actor_slots.hpp"
@@ -24706,6 +24707,59 @@ public:
         std::cout << "pickup_post_init_probe=ok cases=" << cases << " audio=dummy\n";
     }
 
+    void debugTransientStorageOriginal(const std::string& requestPath, const std::string& outputPath) {
+        namespace fixture = lezac::diagnostics::transient_storage;
+        load();
+        initSdl();
+        legacyActorSeedsEnabled_ = false;
+        std::ifstream input(requestPath, std::ios::binary);
+        std::ofstream output(outputPath, std::ios::binary);
+        if (!input || !output) throw std::runtime_error("cannot open transient protocol files");
+        const fixture::Header header(input);
+        for (uint16_t sprite = 1; sprite < header.descriptors.size(); ++sprite) {
+            if (actorSpriteDescriptor(sprite) != header.descriptor(sprite))
+                throw std::runtime_error("transient fixture descriptor differs from original assets");
+        }
+        fixture::writeHeader(output, header.operations);
+        size_t seeds = 0, updates = 0, constructors = 0;
+        for (uint32_t operation = 0; operation < header.operations; ++operation) {
+            const auto command = fixture::byte(input);
+            if (command == 'S') {
+                const auto state = fixture::readSeed(input);
+                bombs_.clear(); monsters_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear();
+                transientActors_.clear(); pendingActorConversions_.clear();
+                std::array<uint64_t, lezac::gameplay::ActorStorage::capacity + 1> orders{};
+                for (size_t slot = 1; slot <= state.count; ++slot) orders[slot] = nextActorOrder_++;
+                actorSlots_.restoreForFixture(state, orders);
+                for (size_t slot = 1; slot <= state.count; ++slot)
+                    transientActors_.push_back(fixture::decode(actorSlots_, orders[slot]));
+                ++seeds;
+            } else if (command == 'U') {
+                logicTick_ = fixture::word(input);
+                updateOrderedActors(0);
+                ++updates;
+            } else if (command == 'C') {
+                const fixture::Constructor constructor(input);
+                const auto& values = constructor.input;
+                spawnTransientActor(values.x, values.y, values.vy, static_cast<uint8_t>(values.sprite),
+                    values.kind, values.timer, constructor.animation);
+                ++constructors;
+            } else throw std::runtime_error("unknown transient command");
+            const auto entries = sharedActorEntries();
+            if (entries.size() != actorSlots_.count() || legacyActorAdoptions_ || legacyActorRetirements_)
+                throw std::runtime_error("transient diagnostic used legacy actor projection");
+            for (size_t slot = 1; slot <= entries.size(); ++slot) {
+                if (actorSlots_.order(slot) != entries[slot - 1].order)
+                    throw std::runtime_error("transient production order differs from physical storage");
+            }
+            fixture::writeState(output, actorSlots_.state());
+        }
+        fixture::finish(input, output);
+        std::cout << "transient_storage_original_app=ok operations=" << header.operations
+                  << " seeds=" << seeds << " updates=" << updates << " constructors=" << constructors
+                  << " legacy_adoptions=0 legacy_retirements=0 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
     void debugProductionActorLifecycle() {
         load();
         initSdl();
@@ -24786,6 +24840,8 @@ public:
         room();
         spawnBonusDrop(184, 100, BonusType::Present);
         require(bonusDrops_.size() == 1 && actorSlots_.count() == 1, "reward constructor was not reached");
+        require(actorSlots_.actor(bonusDrops_.front().actorOrder)[0] == 0x13,
+            "reward constructor did not retain original kind19");
         bonusDrops_.front().timer = 1;
         updateBonusDrops();
         require(bonusDrops_.empty() && transientActors_.size() == 1 && actorSlots_.count() == 1,
@@ -27565,7 +27621,7 @@ private:
                 }
                 case SharedActorKind::Reward: {
                     const auto& drop = bonusDrops_[entry.index];
-                    input = {static_cast<uint8_t>(static_cast<uint8_t>(drop.type) + 0x10), drop.timer, 2,
+                    input = {static_cast<uint8_t>(static_cast<uint8_t>(drop.type) + 0x13), drop.timer, 2,
                         static_cast<uint16_t>(bonusSpriteIndex(drop.type) + 1), drop.vx8, drop.vy8,
                         static_cast<int16_t>(drop.x), static_cast<int16_t>(drop.y)}; break;
                 }
@@ -27591,7 +27647,8 @@ private:
     uint64_t allocateActor(const lezac::gameplay::ActorSlots::Construction& input) {
         adoptUnorderedActors();
         const uint64_t order = nextActorOrder_;
-        if (!actorSlots_.append(order, input, actorSpriteDescriptor(input.sprite))) return 0;
+        const auto descriptor = actorSlots_.count() == 30 ? lezac::gameplay::ActorSlots::Descriptor{} : actorSpriteDescriptor(input.sprite);
+        if (!actorSlots_.append(order, input, descriptor)) return 0;
         ++nextActorOrder_;
         return order;
     }
@@ -27659,7 +27716,6 @@ private:
                              uint8_t kind, uint8_t timer,
                              ActorAnimation animation = {0, 0, 0, 0, 0, 0, 1}) {
         // 1000:2F9F has one 30-slot pool for non-player actors.
-        if (sharedActorCount() >= 30) return nullptr;
         TransientActor actor;
         actor.x = x;
         actor.y = y;
@@ -27667,26 +27723,25 @@ private:
         actor.kind = kind;
         actor.timer = timer;
         actor.spriteIndex = static_cast<uint8_t>(sprite - 1);
-        actor.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(actor.spriteIndex).height);
         actor.animation = animation;
         actor.actorOrder = allocateActor({kind, timer, 5, sprite, 0, vy8,
             static_cast<int16_t>(x), static_cast<int16_t>(y)});
         if (!actor.actorOrder) return nullptr;
+        actor.hotspotY = actorSlots_.actor(actor.actorOrder)[20];
         actor.animationBackup = actorSlots_.animationBackup(actor.actorOrder);
+        actorSlots_.writeTransient(actor.actorOrder, actor, false, {});
         transientActors_.push_back(actor);
         return &transientActors_.back();
     }
 
     void updateTransientActor(TransientActor& actor) {
-        if (actor.animation.advance(actor.animationBackup)) {
-            actor.spriteIndex = static_cast<uint8_t>(actor.animation.current - 1);
+        const bool advanced = lezac::gameplay::advanceTransientActor(actor, logicTick_);
+        if (!actorSlots_.find(actor.actorOrder)) {
+            if (legacyActorSeedsEnabled_) return;
+            throw std::runtime_error("updating unbound production transient");
         }
-        // 1000:65A2..65D7 bypasses collision/gravity and deletes before
-        // integration when the byte reaches zero, not on animation wrap.
-        actor.timer = static_cast<uint8_t>(actor.timer - (logicTick_ & 1u));
-        if (actor.timer == 0) return;
-        integrateAxis8_8(actor.y, actor.fracY, actor.vy8);
-        integrateAxis8_8(actor.x, actor.fracX, actor.vx8);
+        actorSlots_.writeTransient(actor.actorOrder, actor, advanced,
+            advanced ? actorSpriteDescriptor(static_cast<uint16_t>(actor.spriteIndex) + 1) : lezac::gameplay::ActorSlots::Descriptor{});
     }
 
     void updateTransientActors() {
@@ -29892,7 +29947,7 @@ private:
         drop.y = y;
         drop.type = type;
         drop.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(bonusSpriteIndex(type)).height);
-        drop.actorOrder = allocateActor({static_cast<uint8_t>(static_cast<uint8_t>(type) + 0x10), drop.timer, 2,
+        drop.actorOrder = allocateActor({static_cast<uint8_t>(static_cast<uint8_t>(type) + 0x13), drop.timer, 2,
             static_cast<uint16_t>(bonusSpriteIndex(type) + 1), 0, 0, static_cast<int16_t>(x), static_cast<int16_t>(y)});
         if (!drop.actorOrder) throw std::runtime_error("reward allocation disagrees with capacity");
         bonusDrops_.push_back(drop);
@@ -30957,6 +31012,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-animation-advance") {
             app.debugOriginalState2AnimationAdvance();
+            return 0;
+        }
+        if (argc == 4 && std::string(argv[1]) == "--debug-transient-storage-original") {
+            app.debugTransientStorageOriginal(argv[2], argv[3]);
             return 0;
         }
         if (argc == 2 && std::string(argv[1]) == "--debug-production-actor-lifecycle") {

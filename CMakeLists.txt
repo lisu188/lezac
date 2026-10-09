@@ -3628,8 +3628,9 @@ if(BUILD_TESTING)
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-death-sound)
     set_tests_properties(monster_death_sound PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION
-            "^monster_death_sound=ok cursor=0x003d priority=12 direct_sweep=0 state=2 death_timer_initialized=50 reward_pending=1 reward_spawned=0 pumped=1 ghidra=1000:5c9e latch=1000:165a")
+            "^monster_death_sound=ok cursor=0x003d priority=12 direct_sweep=0 state=2 death_timer_initialized=50 reward_pending=1 reward_spawned=0 pumped=1 ghidra=1000:5c9e latch=1000:165a generic_corpse_request=0 boss_chain_request=1")
 
     add_test(NAME bomb_object_sound
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-object-sound)
@@ -5185,7 +5186,7 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION
-            "^monster_tile_damage=ok cases=1312 production_updates=1312 kinds=1..8 impact=552 fatal=96 post_motion_only=96 health_byte=36 position_velocity_fraction_rng_health_animation_descriptor=1 seeded_original=1 natural_route_claim=0 visual_claim=0")
+            "^monster_tile_damage=ok cases=1312 production_updates=1312 kinds=1..8 impact=552 fatal=96 post_motion_only=96 health_byte=36 position_velocity_fraction_rng_health_animation_descriptor=1 seeded_original=1 natural_route_claim=0 visual_claim=0 tile_sound_request=0 latch_profiles=3")
 
     add_test(NAME monster_tile_damage_fixture
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_tile_damage_fixture.py)

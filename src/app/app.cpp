@@ -18249,6 +18249,8 @@ public:
         std::string mismatches;
         sound_.setRequestAttemptCounting(true);
         for (size_t index = 0; index < 1312; ++index) {
+            // Each fixture row owns an independent actor record, including HP.
+            actorSlots_.resetForLevel(actorSpriteDescriptor(1));
             const size_t at = 64 + index * 80, actor = at + 34, visual = at + 72;
             if (le16(bytes, at) != index || bytes[at + 18] != 0) {
                 throw std::runtime_error("monster tile-damage input order/edges changed");

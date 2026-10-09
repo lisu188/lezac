@@ -48,6 +48,14 @@ rejected 16 malformed streams. Spawner units cover 7,680 codec roundtrips,
 2,304 releases, 24,576 timer/gate combinations, and invalid sources. Fake-runner
 checker tests verify failure retention only, not gameplay parity.
 
+Initial CI at `9033ad0` stopped before the constructor/fatal steps: the older
+tile-damage diagnostic independently replaced its typed monster but retained
+physical actor order 1 and its HP across rows. A compiled physical-HP probe
+reproduced all 455 failing case IDs on both hosts; independent physical resets
+matched all 1,312 health/fatal gates. The diagnostic now resets its physical
+actor storage for each row. This repair changes no production updater method;
+actual-App rerun acceptance remains open until the new exact-head CI proves it.
+
 CTest `fatal_entry_original` invokes `--debug-fatal-entry-original` on the real
 application. It restores each case once, uses `updateOrderedActors(0)` for both
 passes, and compares all 6,441,984 state bytes without masks. CI retains raw

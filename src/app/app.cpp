@@ -19208,12 +19208,19 @@ public:
 
     void debugOriginalDebrisUpdate(const std::string& inputPath, const std::string& outputPath,
                                   bool collapseUpdate = false, bool actorCreation = false,
-                                  bool retirementStorage = false) {
+                                  bool retirementStorage = false, bool fractureStorage = false) {
+        namespace storage = lezac::diagnostics::transient_storage;
+        const bool physicalStorage = retirementStorage || fractureStorage;
         if (actorCreation && !collapseUpdate) throw std::runtime_error("actor probe requires collapse update");
-        if (retirementStorage && (!collapseUpdate || actorCreation)) {
+        if (physicalStorage && (!collapseUpdate || actorCreation || (retirementStorage && fractureStorage))) {
             throw std::runtime_error("retirement storage requires a collapse-only update");
         }
         load();
+        if (fractureStorage) {
+            initSdl();
+            legacyActorSeedsEnabled_ = false;
+            clockedSoundEnabled_ = false;
+        }
         std::ifstream input(inputPath, std::ios::binary);
         std::ofstream output(outputPath, std::ios::binary);
         if (!input || !output) throw std::runtime_error("cannot open debris update probe files");
@@ -19225,10 +19232,10 @@ public:
             }
             return bytes;
         };
-        const auto header = take(retirementStorage ? 16 : 12);
+        const auto header = take(physicalStorage ? 16 : 12);
         if (std::string(header.begin(), header.begin() + 8) !=
-            (retirementStorage ? "LZRT0001" : (actorCreation ? "LZCA0001" :
-                (collapseUpdate ? "LZCU0001" : "LZDU0001")))) {
+            (fractureStorage ? "LZFR0001" : (retirementStorage ? "LZRT0001" : (actorCreation ? "LZCA0001" :
+                (collapseUpdate ? "LZCU0001" : "LZDU0001"))))) {
             throw std::runtime_error("invalid debris update input header");
         }
         const uint32_t cases = le32(header, 8);
@@ -19236,15 +19243,19 @@ public:
         if (retirementStorage && (cases != 176 || le32(header, 12) != 12060)) {
             throw std::runtime_error("invalid retirement storage fixture dimensions");
         }
+        if (fractureStorage && (cases != 288 || le32(header, 12) != 15334)) {
+            throw std::runtime_error("invalid fracture storage fixture dimensions");
+        }
         auto appendWord = [](std::vector<uint8_t>& bytes, uint16_t value) {
             bytes.push_back(static_cast<uint8_t>(value));
             bytes.push_back(static_cast<uint8_t>(value >> 8));
         };
-        if (retirementStorage) {
-            std::vector<uint8_t> outputHeader{'L', 'Z', 'R', 'O', '0', '0', '0', '1'};
+        if (physicalStorage) {
+            const std::string magic = fractureStorage ? "LZFO0001" : "LZRO0001";
+            std::vector<uint8_t> outputHeader(magic.begin(), magic.end());
             appendWord(outputHeader, static_cast<uint16_t>(cases));
             appendWord(outputHeader, 0);
-            appendWord(outputHeader, 6027);
+            appendWord(outputHeader, fractureStorage ? 7664 : 6027);
             appendWord(outputHeader, 0);
             output.write(reinterpret_cast<const char*>(outputHeader.data()),
                          static_cast<std::streamsize>(outputHeader.size()));
@@ -19289,8 +19300,8 @@ public:
                 debrisCount > 1401 || collapseCount > 250) {
                 throw std::runtime_error("invalid debris update dimensions or live counts");
             }
-            if (retirementStorage && (width != 60 || height != 33 || debrisCount != 0 ||
-                                      collapseCount == 0 || collapseCount > 3)) {
+            if (physicalStorage && (width != 60 || height != 33 || debrisCount != 0 ||
+                                      collapseCount == 0 || collapseCount > (fractureStorage ? 2 : 3))) {
                 throw std::runtime_error("unsupported retirement storage input");
             }
             resetLevel(0);
@@ -19309,7 +19320,7 @@ public:
                 destroyed_ = le16(parameters, 14);
                 nextCollapseFragmentWord_ = le16(parameters, 16);
             }
-            for (size_t record = 0; record < debrisCount; ++record) {
+            for (size_t record = 0; record < (fractureStorage ? 5 : debrisCount); ++record) {
                 const auto raw = take(11);
                 DebrisRecord value;
                 value.tileIndex = le16(raw, 0);
@@ -19321,9 +19332,10 @@ public:
                 value.restTicks = raw[8];
                 value.lookup = raw[9];
                 value.aux = raw[10];
-                debrisQueue_.push_back(value);
+                if (record < debrisCount) debrisQueue_.push_back(value);
+                else debrisQueue_.retainedSlot(record) = value;
             }
-            for (size_t record = 0; record < (retirementStorage ? 5 : collapseCount); ++record) {
+            for (size_t record = 0; record < (physicalStorage ? 5 : collapseCount); ++record) {
                 const auto raw = take(15);
                 CollapseRecord value;
                 value.startOffsetBytes = le16(raw, 0);
@@ -19340,6 +19352,28 @@ public:
                 value.affectedBytes = raw[14];
                 if (record < collapseCount) collapseQueue_.push_back(value);
                 else collapseQueue_.retainedSlot(record) = value;
+            }
+            if (fractureStorage) {
+                const auto seed = storage::readSeed(input);
+                if (seed.visualCount != seed.count + 2 || seed.links[0][15] || seed.actors[0][1] != 1)
+                    throw std::runtime_error("unsupported fracture actor bank");
+                bombs_.clear(); monsters_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear();
+                transientActors_.clear(); pendingActorConversions_.clear();
+                std::array<uint64_t, lezac::gameplay::ActorStorage::capacity + 1> orders{};
+                for (size_t slot = 1; slot <= seed.count; ++slot) orders[slot] = nextActorOrder_++;
+                actorSlots_.restoreForFixture(seed, orders);
+                for (size_t slot = 1; slot <= seed.count; ++slot)
+                    transientActors_.push_back(storage::decode(actorSlots_, orders[slot]));
+                const uint16_t cursor = storage::word(input);
+                const uint8_t priority = storage::byte(input);
+                lezac::sound::SoundLatch latch;
+                latch.currentSelector = storage::byte(input);
+                latch.latchedOffset = storage::word(input);
+                const uint8_t active = storage::byte(input);
+                if (active > 1) throw std::runtime_error("invalid fracture sound active flag");
+                latch.active = active != 0;
+                sound_.restoreRequestForFixture(cursor, priority);
+                sound_.restoreLatchForFixture(latch);
             }
             if (actorCreation) {
                 const size_t actorCount = le16(take(2), 0);
@@ -19368,6 +19402,7 @@ public:
             }
             // Expected fixture bytes are skipped, never installed as application state.
             if (retirementStorage) take(6027);
+            if (fractureStorage) take(7664);
             if (collapseUpdate) updateCollapseRecords();
             else updateDebrisRecords();
             if (retirementStorage && (!transientActors_.empty() || !debrisQueue_.empty())) {
@@ -19384,14 +19419,15 @@ public:
             }
             result.insert(result.end(), level_.tiles.begin(), level_.tiles.end());
             for (uint16_t word : level_.wordLayer) appendWord(result, word);
-            for (const auto& record : debrisQueue_) {
+            for (size_t slot = 0; slot < (fractureStorage ? 5 : debrisQueue_.size()); ++slot) {
+                const auto& record = debrisQueue_.retainedSlot(slot);
                 appendWord(result, static_cast<uint16_t>(record.tileIndex));
                 appendWord(result, record.flaggedWord);
                 result.insert(result.end(), {static_cast<uint8_t>(record.velocityX),
                     static_cast<uint8_t>(record.velocityY), static_cast<uint8_t>(record.subX),
                     static_cast<uint8_t>(record.subY), record.restTicks, record.lookup, record.aux});
             }
-            for (size_t slot = 0; slot < (retirementStorage ? 5 : collapseQueue_.size()); ++slot) {
+            for (size_t slot = 0; slot < (physicalStorage ? 5 : collapseQueue_.size()); ++slot) {
                 const auto& record = collapseQueue_.retainedSlot(slot);
                 appendWord(result, record.startOffsetBytes);
                 appendWord(result, record.endOffsetBytes);
@@ -19409,11 +19445,33 @@ public:
                 }
             }
             output.write(reinterpret_cast<const char*>(result.data()), static_cast<std::streamsize>(result.size()));
+            if (fractureStorage) {
+                const auto entries = sharedActorEntries();
+                if (entries.size() != actorSlots_.count() || legacyActorAdoptions_ || legacyActorRetirements_)
+                    throw std::runtime_error("fracture diagnostic used legacy actor projection");
+                for (size_t slot = 1; slot <= entries.size(); ++slot)
+                    if (actorSlots_.order(slot) != entries[slot - 1].order)
+                        throw std::runtime_error("fracture actor physical order mismatch");
+                storage::writeState(output, actorSlots_.state());
+                storage::write(output, sound_.requestCursor(), 2);
+                storage::write(output, sound_.requestSelector(), 1);
+                const auto latch = sound_.latch();
+                storage::write(output, latch.currentSelector, 1);
+                storage::write(output, latch.latchedOffset, 2);
+                storage::write(output, latch.active, 1);
+            }
             if (!output) throw std::runtime_error("cannot write debris update output");
         }
         if (input.peek() != std::char_traits<char>::eof()) throw std::runtime_error("trailing debris update input");
         output.flush();
         if (!output) throw std::runtime_error("cannot flush debris update output");
+        if (fractureStorage) {
+            std::cout << "fracture_retirement_app=ok cases=" << cases
+                      << " compared_bytes=" << cases * 7664
+                      << " retained_debris=5 retained_collapse=5 actor_bank_bytes=1575 sound_bytes=7"
+                      << " production_app=1 seeded=1 natural_route=0 whole_game_claim=0\n";
+            return;
+        }
         if (retirementStorage) {
             std::cout << "collapse_retirement_app=ok cases=" << cases
                       << " compared_bytes=" << cases * 6027
@@ -31310,7 +31368,13 @@ private:
             }
             if (moved) record.restTicks = 0;
             ++record.restTicks;
+            // The original commits these bytes before fracture, but not the motion fields.
+            collapseQueue_[slot].flags = record.flags;
+            collapseQueue_[slot].restTicks = record.restTicks;
             const int magnitude = std::abs(vx) + std::abs(vy);
+            sound_.writeSharedCursor(static_cast<uint16_t>(magnitude));  // 1000:555A
+            actorSlots_.setSharedResult(static_cast<uint16_t>(
+                std::abs(static_cast<int>(record.argMagnitude) - magnitude)));  // 1000:556E
             const bool fracture = std::abs(static_cast<int>(record.argMagnitude) - magnitude) > 63;
             if (fracture) {
                 requestSoundOffset(0xea74, 3);
@@ -32063,6 +32127,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-retirement") {
             app.debugOriginalDebrisUpdate(argv[2], argv[3], true, false, true);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-fracture-retirement") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3], true, false, false, true);
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-actors") {

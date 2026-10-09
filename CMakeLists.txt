@@ -5290,6 +5290,26 @@ if(BUILD_TESTING)
         TIMEOUT 90
         PASS_REGULAR_EXPRESSION "^collapse_retirement_original=ok cases=176 compared_bytes=1060752 production_app=1 masks=0 retained_records=5 seeded=1 natural_route=0 whole_game_claim=0")
 
+    add_test(NAME fracture_retirement_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_fracture_retirement_checker.py -v)
+    set_tests_properties(fracture_retirement_checker PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    add_test(NAME fracture_retirement_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_fracture_retirement.py)
+    set_tests_properties(fracture_retirement_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        PASS_REGULAR_EXPRESSION "^fracture_retirement_fixture=ok cases=288 state_bytes=7664 complete_physical_banks=1")
+    add_test(NAME fracture_retirement_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_fracture_retirement.py
+            --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/fracture-retirement-app)
+    set_tests_properties(fracture_retirement_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^fracture_retirement_original=ok cases=288 compared_bytes=2207232 production_app=1 masks=0 complete_physical_banks=1 seeded=1 natural_route=0 whole_game_claim=0")
+
     add_test(NAME multicell_seeder_fixture
         COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_multicell_seeder.py)
     set_tests_properties(multicell_seeder_fixture PROPERTIES

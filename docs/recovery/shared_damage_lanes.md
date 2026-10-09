@@ -283,3 +283,43 @@ Actual continuous-App parity remains pending until the new exact-source-tree CI
 artifacts are independently checked. Even a match proves only these seeded
 collapse-update sequences, not full game ticks, natural campaign reachability,
 visual fidelity, sound-runtime equivalence or whole-game completion.
+
+PR372 now has independently verified Linux and Windows artifacts for the
+unbroken mode. All 96 scenes and 768 intermediate states match the original,
+including 20524032 new state bytes per host. Together with the earlier matrices,
+2304 comparisons and 52336728 state bytes match per host without masks or
+differences. Tested merge 93d8d0d389b3455b23d05f001f8d2bf2806843de has the same
+complete tree b2518ea10a9cafd1b666708bc5d0bf54bdd6c1cc as published head
+d34bc30c1e0598d912cc741348f7109209ba4c7c. Focused artifacts 11641806746 (Linux)
+and 11642655318 (Windows) retain every raw stream in lossless gzip form.
+Native Windows independently reconstructed and compared all original streams.
+Full required CI and current-head external review are separate pending gates.
+
+## Multi-Record Contact Histories
+
+The pinned two-record lane matrix supplies all 96 initial scenes: 36 debris,
+12 collapse, 36 alternating and 12 collapse-group layouts. A new original-only
+producer advances each image through eight unbroken collapse updates. Every
+first boundary matches the earlier lane fixture. All 768 calls remain active;
+the observer records 1269 visits to seeder 370E, 102 visits to 557B and 18 visits
+to 566C. No original instruction or call is patched, and hardware I/O is
+forbidden. Hooked/unhooked images agree over all 1 MiB RAM and fourteen registers;
+freshly restored original images reproduce every full serialized output.
+
+The complete fixture, producer dependencies, original visit counts and all
+input/expected bytes are pinned. The raw fixture hash is
+68a6338076fd0ca5be29670f7ba1118b3f0f837f94750379c7d3507b6285221b;
+the full-RAM observation chain is
+31148833160e4ff28a31a6ab0dd387307de4bc0208ad3df21b5d1206a40a6a31.
+Both restored-boundary and unbroken-App modes compare all 768 observations in
+eight bounded batches. The latter receives only the twelve initial scenes per
+batch. Existing profiles and all production game source remain unchanged.
+
+Both host workflows retain these two new matrices in separate focused artifacts
+to keep independent downloads bounded. New CTest registrations retain strict
+exit status, and byte-preserving Git attributes cover the JSON and gzip files.
+The new producer retains RAM, serialized state and registers for a first failed
+boundary. These are seeded original-only observations until exact-source-tree
+App outputs are independently checked; they do not establish complete game
+ticks, natural campaign reachability, general first-seed stack ownership,
+visual/audio runtime fidelity or whole-game completion.

@@ -148,10 +148,11 @@ def main():
     mode.add_argument('--exe', type=Path)
     mode.add_argument('--self-check', action='store_true')
     parser.add_argument('--out', type=Path)
+    parser.add_argument('--profile', choices=('continuity', 'contact-continuity'), default='continuity')
     args = parser.parse_args()
     if bool(args.exe) != bool(args.out):
         parser.error('--out is required only with --exe')
-    data = history.metadata('continuity')
+    data = history.metadata(args.profile)
     source = '\n'.join(item.text for item in source_files(history.ROOT, ('app', 'gameplay'), 'runtime'))
     check_source(source)
     if args.self_check:

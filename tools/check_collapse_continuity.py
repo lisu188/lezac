@@ -27,7 +27,8 @@ def batches(raw, data):
     if (len(raw) != 16 + CASES * (INPUT + STATE)
             or struct.unpack_from('<8sII', raw) != (b'LZCH0001', CASES, INPUT + STATE)):
         raise ValueError('continuity fixture dimensions differ')
-    support = gzip.decompress(history.PROFILES['support']['fixture'].read_bytes())
+    initial_profile = 'lane' if history.profile(data)[0] == 'contact-continuity' else 'support'
+    support = gzip.decompress(history.PROFILES[initial_profile]['fixture'].read_bytes())
     if struct.unpack_from('<8sII', support) != (b'LZCH0001', 96, INPUT + STATE):
         raise ValueError('continuity initial-scene fixture dimensions differ')
     requests, states, active = [], [], 0
@@ -50,7 +51,7 @@ def batches(raw, data):
             raise ValueError('original empty-queue skip changed serialized state')
         requests.append(incoming)
         states.append(state)
-    if active != 712:
+    if active != data['groups']['active_update']:
         raise ValueError('continuity active/empty queue coverage differs')
     incoming = struct.pack('<8sII', b'LZCI0001', CASES, INPUT) + b''.join(requests)
     expected = struct.pack('<8sII', b'LZCO0001', CASES, STATE) + b''.join(states)
@@ -62,7 +63,7 @@ def batches(raw, data):
 
 
 def fixture(data, path=None):
-    packed = (path or history.PROFILES['continuity']['fixture']).read_bytes()
+    packed = (path or history.profile(data)[1]['fixture']).read_bytes()
     if len(packed) > 512 * 1024 or history.sha(packed) != data['fixture_sha256']:
         raise ValueError('continuity packed fixture fingerprint differs')
     with gzip.GzipFile(fileobj=io.BytesIO(packed)) as stream:
@@ -79,7 +80,8 @@ def run_probe(exe, root, data, streams=None, continuous=False):
     report = dict(passed=False, production_app=True, input_only=True, batches=8, cases=CASES,
         state_bytes=CASES * STATE, masks=0, seeded=True, natural_route=False,
         whole_game_complete=False, continuous_app_execution_proven=False,
-        original_metadata_sha256=history.PROFILES['continuity']['metadata_sha256'], completed_batches=[])
+        original_metadata_sha256=history.profile(data)[1]['metadata_sha256'],
+        fixture_profile=history.profile(data)[0], completed_batches=[])
     if continuous:
         report.update(initial_scenes=96, boundaries_per_scene=8, continuous_collapse_updates=True)
     try:
@@ -91,7 +93,7 @@ def run_probe(exe, root, data, streams=None, continuous=False):
             history.run_probe(exe, target, data, streams=batch, continuous=continuous)
             result, = target.glob('attempt-*/result.json')
             child = json.loads(result.read_bytes())
-            if not child['passed'] or child['cases'] != BATCH or child['fixture_profile'] != 'continuity':
+            if not child['passed'] or child['cases'] != BATCH or child['fixture_profile'] != history.profile(data)[0]:
                 raise ValueError('continuity production batch result differs')
             report['completed_batches'].append(dict(index=index, path=str(result.resolve()),
                 input_sha256=child['input_sha256'], expected_sha256=child['expected_sha256'],
@@ -125,10 +127,14 @@ def self_check(data, source):
         ('boundaries_per_scene', 7), ('groups', {'active_update': 768, 'empty_queue_skip': 0}),
         ('original_caller_gate_hex', '90'), ('continuous_app_execution_proven', True),
         ('original_calls_stubbed', True)]
+    if history.profile(data)[0] == 'contact-continuity':
+        metadata_mutants.extend((('initial_live_collapse_records', 1),
+            ('initial_scene_groups', {'debris': 96}), ('original_visits', {'0x15102': 768}),
+            ('initial_calls_match_lane_fixture', False)))
     for key, value in metadata_mutants:
         rejects(history.validate_metadata, dict(data, **{key: value}))
     streams = fixture(data)
-    raw = gzip.decompress(history.PROFILES['continuity']['fixture'].read_bytes())
+    raw = gzip.decompress(history.profile(data)[1]['fixture'].read_bytes())
     with tempfile.TemporaryDirectory(prefix='lezac-continuity-fixture-') as directory:
         for index, variant in enumerate((raw[:15], raw[:-1], raw + b'\0',
                 raw[:20] + bytes((raw[20] ^ 1,)) + raw[21:], raw[:-1] + bytes((raw[-1] ^ 1,)))):
@@ -207,7 +213,7 @@ def self_check(data, source):
                 if any(history.sha((root / name).read_bytes()) != pin for name, pin in retained.items()):
                     raise ValueError('continuity repeated success changed earlier evidence')
                 attempts += len(calls)
-    print('collapse_continuity_checker=ok source_mutants=2 metadata_mutants=9 fixture_mutants=5 '
+    print('collapse_continuity_checker=ok source_mutants=2 metadata_mutants=' + str(len(metadata_mutants)) + ' fixture_mutants=5 '
           'sequence_mutants=3 output_mutants=5 mocked_modes=4 mocked_batches=' + str(attempts) +
           ' repeated_success=1 production_app=0')
 
@@ -218,10 +224,11 @@ def main():
     mode.add_argument('--exe', type=Path)
     mode.add_argument('--self-check', action='store_true')
     parser.add_argument('--out', type=Path)
+    parser.add_argument('--profile', choices=('continuity', 'contact-continuity'), default='continuity')
     args = parser.parse_args()
     if bool(args.exe) != bool(args.out):
         parser.error('--out is required only with --exe')
-    data = history.metadata('continuity')
+    data = history.metadata(args.profile)
     source = '\n'.join(item.text for item in source_files(history.ROOT, ('app', 'gameplay'), 'runtime'))
     check_source(source)
     if args.self_check:

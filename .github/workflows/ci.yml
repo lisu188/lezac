@@ -62,6 +62,20 @@ jobs:
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
+      - name: Physical spawner construction regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^spawner_construction_(fixture|storage_original)$'
+      - name: Preserve focused spawner construction diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spawner-construction-linux-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
       - name: Complete corpse physical storage regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -439,6 +453,20 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: corpse-sound-windows-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: Physical spawner construction regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^spawner_construction_(fixture|storage_original)$'
+      - name: Preserve focused spawner construction diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spawner-construction-windows-focused
           path: |
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log

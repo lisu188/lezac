@@ -88,6 +88,21 @@ public:
         raw[20] = static_cast<uint8_t>(16 - descriptor[1]);
     }
 
+    void initializeSpawnedMonster(uint64_t order, const ActiveMonster& monster, uint8_t source) {
+        auto& raw = storage_.actor(require(order));
+        raw[3] = monster.animationSetLeft;
+        raw[4] = monster.animationSetRight;
+        const std::array<uint16_t, 3> parameters{monster.ai0, monster.ai1, monster.ai2};
+        for (size_t index = 0; index < parameters.size(); ++index) {
+            raw[14 + index * 2] = static_cast<uint8_t>(parameters[index]);
+            raw[15 + index * 2] = static_cast<uint8_t>(parameters[index] >> 8);
+        }
+        setActiveAnimation(order, monsterAnimation(monster));
+        // 1000:7B43..7C36 leaves opaque byte5 and animation backup29..35 intact.
+        raw[36] = static_cast<uint8_t>(monster.hp - 1);
+        raw[37] = source;
+    }
+
     void applyMonsterImpact(uint64_t order, const Descriptor& descriptor) {
         setSpriteDescriptor(order, descriptor);
         auto& raw = storage_.actor(require(order));

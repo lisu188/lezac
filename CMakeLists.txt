@@ -5228,6 +5228,21 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "monster_tile_damage_self_check=ok cases=1312 kinds=1..8 glyphs=8 footprint_masks=16 profiles=4 live=0")
 
+    add_test(NAME spawner_construction_fixture
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_spawner_construction_storage.py)
+    set_tests_properties(spawner_construction_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^spawner_construction_fixture=ok cases=1620 bytes=6055944")
+
+    add_test(NAME spawner_construction_storage_original
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_spawner_construction_storage.py
+                --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(spawner_construction_storage_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 180
+        PASS_REGULAR_EXPRESSION "^spawner_construction_storage=ok cases=1620 successful=720 physical_storage_bytes=2551500 rng_and_roll_bytes=8100 sound_requests=0 legacy_adoptions=0 legacy_retirements=0 production_app=1 raw_spawner_bank=0 seeded=1 natural_route=0 whole_game_claim=0")
+
     add_test(NAME shipped_monster_profiles_original
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-shipped-monster-profiles
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/shipped_monster_profiles_original.bin)

@@ -60,6 +60,35 @@ jobs:
           name: transient-animation-backup-linux
           path: build/Testing/Temporary/LastTest.log
           if-no-files-found: ignore
+      - name: Monster animation and GRAN ownership regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^(monster_animation_(original_helper|original_app|fixture_contract)|gran_usage_guardrail(_selftest)?)$'
+      - name: Preserve focused monster animation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monster-animation-linux-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: In-place corpse conversion regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^(shared_actor_order_original|shared_actor_order_fixture_guard|corpse_conversion_identity_mutant|corpse_conversion_identity_checker_contract|corpse_conversion_identity_live_binding)$'
+      - name: Preserve corpse conversion diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpse-identity-linux
+          path: |
+            build/actor-identity-mutant/app.cpp.manifest.json
+            build/actor-identity-mutant-checks/
+            build/actor-identity-live-binding/
+          if-no-files-found: ignore
       - name: Complete debris updater regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -196,6 +225,7 @@ jobs:
         with:
           name: recovery-diagnostics-linux-final
           path: |
+            build/actor-identity-live-binding/
             build/actor-storage-checks/
             build/debris-update-failures/
             build/collapse-update-failures/
@@ -306,6 +336,35 @@ jobs:
         with:
           name: transient-animation-backup-windows
           path: build/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+      - name: Monster animation and GRAN ownership regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^(monster_animation_(original_helper|original_app|fixture_contract)|gran_usage_guardrail(_selftest)?)$'
+      - name: Preserve focused monster animation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monster-animation-windows-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: In-place corpse conversion regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^(shared_actor_order_original|shared_actor_order_fixture_guard|corpse_conversion_identity_mutant|corpse_conversion_identity_checker_contract|corpse_conversion_identity_live_binding)$'
+      - name: Preserve corpse conversion diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpse-identity-windows
+          path: |
+            build/actor-identity-mutant/app.cpp.manifest.json
+            build/actor-identity-mutant-checks/
+            build/actor-identity-live-binding/
           if-no-files-found: ignore
       - name: Complete debris updater regressions
         env:
@@ -443,6 +502,7 @@ jobs:
         with:
           name: recovery-diagnostics-windows-final
           path: |
+            build/actor-identity-live-binding/
             build/actor-storage-checks/
             build/debris-update-failures/
             build/collapse-update-failures/

@@ -1,4 +1,5 @@
 #include "diagnostics/frame_inspector.hpp"
+#include "diagnostics/monster_animation_fixture.hpp"
 #include "rendering/game_renderer.hpp"
 #include "gameplay/actor_models.hpp"
 #include "gameplay/collapse_seed.hpp"
@@ -3082,11 +3083,18 @@ public:
                 requireFields({"sample", "frame", "count", "visuals", "rng", "actors", "map", "regs"});
                 if (stage != 4 || sample >= 41 || std::stoi(fields.at("sample")) != sample || std::stoi(fields.at("frame")) != 101 + sample) fail("nonconsecutive tick");
                 checkRegisters();
+                const uint64_t nextBirthBeforePass = nextActorOrder_;
                 debugActorPassObserver_ = [&] {
                     const auto expected = entries(fields.at("actors"));
                     const auto actual = sharedActorEntries();
                     if (actual.size() != expected.size() || actual.size() != std::stoul(fields.at("count")) || actual.size() + 2 != std::stoul(fields.at("visuals"))) fail("count mismatch");
                     if (randomSeed_ != le32(bytes(fields.at("rng"), 4), 0)) fail("RNG mismatch");
+                    // These cases retain every new particle through its birth pass.
+                    const auto births = std::count_if(actual.begin(), actual.end(), [&](const SharedActorEntry& item) {
+                        return item.order >= nextBirthBeforePass;
+                    });
+                    if (nextActorOrder_ - nextBirthBeforePass != static_cast<uint64_t>(births))
+                        fail("unused birth identity");
                     for (size_t i = 0; i < actual.size(); ++i) {
                         const auto& item = actual[i]; const auto& raw = expected[i].first; const auto& visual = expected[i].second;
                         const auto suffix = " at slot=" + std::to_string(i + 1);
@@ -3144,7 +3152,7 @@ public:
         }
         if (!complete) fail("missing completion");
         std::cout << "shared_actor_order_original=ok cases=" << cases << " samples=" << total << " actor_states=" << compared
-                  << " stable_compaction=1 same_pass_appends=1 in_place_conversion=1 rng=1 map=1 seeded=1 natural_route=0 whole_game_parity=0\n";
+                  << " stable_compaction=1 same_pass_appends=1 in_place_conversion=1 rng=1 map=1 seeded=1 natural_route=0 whole_game_parity=0 birth_id_conservation=1\n";
     }
 
     void debugOriginalActorConstructorVelocity(const std::string& outputPath) {
@@ -20250,6 +20258,7 @@ public:
             monster.animStart = 43;
             monster.animEnd = 44;
             monster.animFrame = 43;
+            monster.animCursor = 43;
             return monster;
         };
 
@@ -24515,6 +24524,58 @@ public:
                   << std::hex << inspected.hash << std::dec << '\n';
     }
 
+    void debugMonsterAnimationOriginal(const std::string& fixturePath) {
+        struct AnimationBoundary {};
+        struct ResetObserver {
+            std::function<void(const ActiveMonster&, bool)>& observer;
+            ~ResetObserver() { observer = {}; }
+        } reset{debugMonsterAnimationObserver_};
+        lezac::diagnostics::replayMonsterAnimationFixture(fixturePath,
+            [&](const ActiveMonster& monster) { monsters_.assign(1, monster); },
+            [&](ActiveMonster& state) {
+                bool advanced = false;
+                bool stopped = false;
+                debugMonsterAnimationObserver_ = [&](const ActiveMonster& monster, bool value) {
+                    state = monster;
+                    advanced = value;
+                    throw AnimationBoundary{};
+                };
+                try {
+                    updateMonsters(0, 1);
+                } catch (const AnimationBoundary&) {
+                    stopped = true;
+                }
+                if (!stopped) throw std::runtime_error("monster animation production boundary not reached");
+                return advanced;
+            });
+        debugMonsterAnimationObserver_ = {};
+        const auto shipped = loadRawGran("GRAN.MST");
+        std::vector<uint8_t> granBytes;
+        for (const auto& record : shipped.records) granBytes.insert(granBytes.end(), record.bytes.begin(), record.bytes.end());
+        if (granBytes.size() != 399 || granBytes[0] != 7) throw std::runtime_error("unexpected boss copy fixture");
+        for (int seeded = 0; seeded < 2; ++seeded) {
+            auto bytes = granBytes;
+            if (seeded) {
+                for (size_t actor = 0; actor < 7; ++actor) for (size_t byte = 0; byte < 7; ++byte) {
+                    bytes[1 + actor * 38 + 29 + byte] = static_cast<uint8_t>(17 + actor * 31 + byte * 7);
+                }
+            }
+            GranBank bank;
+            bank.records.assign(1, GranRecord{bytes});
+            monsters_.clear();
+            nextActorOrder_ = 1;
+            spawnLevel7BossFromBank(bank);
+            if (monsters_.size() != 7) throw std::runtime_error("boss animation copy lost an actor");
+            for (size_t actor = 0; actor < 7; ++actor) {
+                const auto actual = monsters_[actor].animationBackup.packed();
+                if (!std::equal(actual.begin(), actual.end(), bytes.begin() + 1 + actor * 38 + 29)) {
+                    throw std::runtime_error("boss animation backup copy mismatch");
+                }
+            }
+        }
+        std::cout << "monster_animation_original=ok cases=53 updates=636 production_app=1 diagnostic_stop_after_prologue=1 boss_backup_copies=14 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
     void debugOriginalPickupPostInit(const std::string& outputPath) {
         SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
         load();
@@ -26022,6 +26083,7 @@ private:
     std::vector<ExplosionEffect> explosionEffects_;
     std::vector<FlameRecord> flameRecords_;
     std::function<void()> debugActorPassObserver_;
+    std::function<void(const ActiveMonster&, bool)> debugMonsterAnimationObserver_;
     std::function<void()> debugInteractiveTickObserver_;
     std::function<void(const SDL_Event&)> debugPhysicalInputObserver_;
     std::function<void(uint8_t)> debugDeathGateObserver_;
@@ -27787,8 +27849,12 @@ private:
     static constexpr int kBossVisualBase = 2;
 
     void spawnLevel7Boss() {
+        spawnLevel7BossFromBank(gran_);
+    }
+
+    void spawnLevel7BossFromBank(const GranBank& bank) {
         std::vector<uint8_t> granBytes;
-        for (const GranRecord& record : gran_.records) {
+        for (const GranRecord& record : bank.records) {
             granBytes.insert(granBytes.end(), record.bytes.begin(), record.bytes.end());
         }
         if (granBytes.size() != 399 || granBytes[0] != 7) return;
@@ -27872,6 +27938,8 @@ private:
             // counter exceeds it, so 0 keeps the old every-tick cadence and
             // any nonzero byte means period byte+1.
             actor.animDelay = record[0x1a];
+            actor.animationBackup = {record[0x1d], record[0x1e], record[0x1f], record[0x20],
+                                     record[0x21], record[0x22], static_cast<int8_t>(record[0x23])};
             if (actor.kind == 0x1e) {
                 actor.bossHpByte = record[0x24];
                 actor.bossLives = record[0x02];
@@ -28263,44 +28331,8 @@ private:
             }
             const int damageColumn = (monster.x + 4) >> 3;
             const int damageRow = monster.y >> 3;
-            // Recovered original animation advance -- the per-entity PROLOGUE
-            // (1000:6088 `inc es:[di+3]`; 1000:608F `cmp al,es:[di+4]; ja`):
-            // the counter must EXCEED the delay byte, so delay 3 advances
-            // every 4 ticks (capture: 589/589 sprite changes at
-            // (frame - spawn) mod 4 == 0; mod 3 spread 198/196/195). The
-            // advance steps the CURSOR and only then rewrites the visible
-            // frame (the visual-table word write at 1000:613B..6156); between
-            // boundaries the visible frame is untouched, which is what makes
-            // the facing reselection latch.
-            if (monster.animMode != 0) monster.animTick = static_cast<uint8_t>(monster.animTick + 1);
-            if (monster.animMode != 0 && monster.animTick > monster.animDelay) {
-                monster.animTick = 0;
-                if (monster.animCursor < monster.animStart ||
-                    monster.animCursor > monster.animEnd) {
-                    // Repair for hand-seeded actors (diagnostics, GRAN.MST
-                    // bosses) that predate the cursor field; the live spawner
-                    // path always keeps the cursor in range.
-                    monster.animCursor = (monster.animFrame >= monster.animStart &&
-                                          monster.animFrame <= monster.animEnd)
-                                             ? monster.animFrame
-                                             : monster.animStart;
-                }
-                int next = static_cast<int>(monster.animCursor) + monster.animStep;
-                if (next > monster.animEnd || next < monster.animStart) {
-                    if (monster.animMode == 2) {
-                        monster.animStep = -monster.animStep;
-                        next = static_cast<int>(monster.animCursor) + monster.animStep;
-                    } else {
-                        // Wrap re-enters at the range base (1000:60DA..60E4
-                        // `mov al,es:[di+1]; mov es:[di],al`).
-                        next = monster.animStep >= 0 ? monster.animStart : monster.animEnd;
-                    }
-                }
-                monster.animCursor = static_cast<uint8_t>(
-                    std::clamp(next, static_cast<int>(monster.animStart),
-                               static_cast<int>(monster.animEnd)));
-                monster.animFrame = monster.animCursor;
-            }
+            const bool animationAdvanced = lezac::gameplay::advanceMonsterAnimation(monster);
+            if (debugMonsterAnimationObserver_) debugMonsterAnimationObserver_(monster, animationAdvanced);
 
             // Rank 5: the player-contact test runs BEFORE the tile scan and
             // the motion update (contact at 1000:63C6..63F0, scan from
@@ -29538,11 +29570,12 @@ private:
                    rewardRoll > kRewardUpperBounds[rewardIndex]) {
                 ++rewardIndex;
             }
-            spawnBonusDrop(
-                static_cast<float>(monster.x),
-                static_cast<float>(monster.y + monster.hotspotY),
-                static_cast<BonusType>(rewardIndex));
-            BonusDrop& reward = bonusDrops_.back();
+            // Reuse the corpse's identity; this conversion is not an allocation.
+            BonusDrop reward;
+            reward.x = static_cast<float>(monster.x);
+            reward.y = static_cast<float>(monster.y + monster.hotspotY);
+            reward.type = static_cast<BonusType>(rewardIndex);
+            reward.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(bonusSpriteIndex(reward.type)).height);
             reward.actorOrder = monster.actorOrder;
             reward.vx8 = monster.vx8;
             reward.vy8 = static_cast<int16_t>(monster.vy8 - 200);
@@ -29553,6 +29586,7 @@ private:
                 static_cast<uint8_t>(monster.animStart + 1), static_cast<uint8_t>(monster.animEnd + 1),
                 static_cast<uint8_t>(monster.animTick), static_cast<uint8_t>(monster.animDelay),
                 static_cast<uint8_t>(monster.animMode), static_cast<int8_t>(monster.animStep)};
+            bonusDrops_.push_back(reward);
         } else {
             // 1000:760D converts the existing corpse in place, even at full
             // capacity. Its fractions survive; this frame does not tick it twice.
@@ -30783,6 +30817,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-walker-ledge-original") {
             app.debugWalkerLedgeOriginal(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-monster-animation-original") {
+            app.debugMonsterAnimationOriginal(argv[2]);
             return 0;
         }
         if (argc == 3 && std::string(argv[1]) == "--debug-natural-bomb-visual-original") {

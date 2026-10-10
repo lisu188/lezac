@@ -220,6 +220,7 @@ struct ActiveMonster {
     // A facing reselection resets the cursor to the new range base without
     // touching animFrame, so the flip becomes visible at the next boundary.
     uint8_t animCursor = 0;
+    ActorAnimation animationBackup{0, 0, 0, 0, 0, 0, 0};
     // Original actor byte +0x14: the collision-space y is visual_y - hotspotY
     // (1000:629D `mov al,es:[di+0x14]; cbw; ... sub`). monster.y stores the
     // COLLISION-space y; rendering adds hotspotY back. Value 6 for kind 1 is
@@ -262,6 +263,32 @@ struct ActiveMonster {
     bool bossDebris = false;
     uint16_t bossGroup = 0;
 };
+
+inline ActorAnimation monsterAnimation(const ActiveMonster& monster) {
+    return {static_cast<uint8_t>(monster.animCursor + 1),
+            static_cast<uint8_t>(monster.animStart + 1),
+            static_cast<uint8_t>(monster.animEnd + 1),
+            static_cast<uint8_t>(monster.animTick), monster.animDelay,
+            monster.animMode, monster.animStep};
+}
+
+inline void setMonsterAnimation(ActiveMonster& monster, const ActorAnimation& animation) {
+    monster.animCursor = static_cast<uint8_t>(animation.current - 1);
+    monster.animStart = static_cast<uint8_t>(animation.first - 1);
+    monster.animEnd = static_cast<uint8_t>(animation.last - 1);
+    monster.animTick = animation.counter;
+    monster.animDelay = animation.delay;
+    monster.animMode = animation.mode;
+    monster.animStep = animation.step;
+}
+
+inline bool advanceMonsterAnimation(ActiveMonster& monster) {
+    auto animation = monsterAnimation(monster);
+    const bool advanced = animation.advance(monster.animationBackup);
+    setMonsterAnimation(monster, animation);
+    if (advanced) monster.animFrame = monster.animCursor;
+    return advanced;
+}
 
 inline constexpr std::array<int, 2> monsterFacingFrameRange(const ActiveMonster& monster) {
     const bool right = monster.vx8 > 0;

@@ -28,6 +28,10 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: python3 -S -B tools/test_review_history_repairs.py -v
+      - name: Buffered menu output retention regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python3 -S -B tools/test_buffered_menu_output.py -v
       - name: Raw lane-word classification regressions
         env:
           SDL_AUDIODRIVER: dummy
@@ -48,6 +52,42 @@ jobs:
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
         run: cmake --build build --parallel
+      - name: Natural Escape and new-game regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          ctest --test-dir build --verbose --output-on-failure -R '^(abort_run_unit|abort_map_(fixture|checker)|ui_components|main_menu_models|menu_frame_flow_dummy|autoplayer_pause_flow_dummy)$'
+          python3 -S -B tools/check_abort_map_memory.py --exe build/lezac_cpp --out build/abort-map-focused
+      - name: Preserve natural Escape diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: abort-map-linux-focused
+          path: |
+            build/abort-map-focused/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: Live keyboard end-run regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: |
+          ctest --test-dir build --verbose --output-on-failure -R '^(bios_menu_input|buffered_menu_repeat|main_menu|key_ownership)_live_xvfb$'
+          ctest --test-dir build --verbose --output-on-failure -R '^buffered_menu_repeat_live_xvfb$'
+      - name: Preserve live keyboard end-run diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-keyboard-linux-focused
+          path: |
+            build/bios-menu-input-checks/
+            build/buffered-menu-live-checks/
+            build/main-menu-live-checks/
+            build/key-ownership-live-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
       - name: Collapse map boundary regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -544,6 +584,10 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: python3 -S -B tools/test_review_history_repairs.py -v
+      - name: Buffered menu output retention regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python3 -S -B tools/test_buffered_menu_output.py -v
       - name: Raw lane-word classification regressions
         env:
           SDL_AUDIODRIVER: dummy
@@ -564,6 +608,23 @@ jobs:
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
         run: cmake --build build --parallel
+      - name: Natural Escape and new-game regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          ctest --test-dir build --verbose --output-on-failure -R '^(abort_run_unit|abort_map_(fixture|checker)|ui_components|main_menu_models|menu_frame_flow_dummy|autoplayer_pause_flow_dummy)$'
+          python3 -S -B tools/check_abort_map_memory.py --exe build/lezac_cpp.exe --out build/abort-map-focused
+      - name: Preserve natural Escape diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: abort-map-windows-focused
+          path: |
+            build/abort-map-focused/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
       - name: Collapse map boundary regressions
         env:
           SDL_VIDEODRIVER: dummy

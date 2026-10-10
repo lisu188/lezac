@@ -1131,9 +1131,12 @@ public:
 
         pushKeyDown(SDLK_ESCAPE);
         processEvents(running);
-        if (!ui_.snapshot().menu) {
-            throw std::runtime_error("Escape did not return two-player game to menu");
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::GameOver) {
+            throw std::runtime_error("Escape did not end the two-player game");
         }
+
+        pushKeyDown(SDLK_RETURN);
+        processEvents(running);
 
         pushKeyDown(SDLK_2);
         processEvents(running);
@@ -1415,7 +1418,12 @@ public:
             throw std::runtime_error("second PageUp did not advance level");
         }
 
+        clearRunScores();
         pushKeyDown(SDLK_ESCAPE);
+        processEvents(running);
+        if (ui_.snapshot().page != MenuPage::GameOver)
+            throw std::runtime_error("level-2 Escape skipped Game Over");
+        pushKeyDown(SDLK_RETURN);
         processEvents(running);
         pushKeyDown(SDLK_1);
         processEvents(running);
@@ -1593,6 +1601,8 @@ public:
         hashes.insert(backgroundOffFrame.hash);
 
         press(SDLK_ESCAPE);
+        inspectMenuPage(MenuPage::GameOver, "aborted-game-over");
+        press(SDLK_RETURN);
         FrameInspection returnedMenuFrame =
             inspectMenuPage(MenuPage::Main, "return-main");
         if (!ui_.snapshot().menu || returnedMenuFrame.hash == backgroundOffFrame.hash) {
@@ -4838,9 +4848,14 @@ public:
         }
         pushKeyDown(SDLK_ESCAPE);
         processEvents(running);
-        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::Main || ui_.snapshot().paused) {
-            throw std::runtime_error("escape did not clear pause and return to menu");
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::GameOver || ui_.snapshot().paused) {
+            throw std::runtime_error("escape did not clear pause and end the run");
         }
+        inspectRenderedFrame("autoplayer-pause-game-over");
+        pushKeyDown(SDLK_RETURN);
+        processEvents(running);
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::Main)
+            throw std::runtime_error("Game Over acknowledgement did not return to menu");
         FrameInspection menuFrame = inspectRenderedFrame("autoplayer-pause-menu");
         if (menuFrame.hash == resumedFrame.hash) {
             throw std::runtime_error("pause flow menu frame did not redraw");
@@ -26639,6 +26654,56 @@ public:
             std::cout << "startup_map_memory=ok menu_allocated=0 intro_bytes=131072 first_present_bytes=131072\n";
     }
 
+    void debugAbortMapMemory(const std::string& outDir) {
+        debugStartupRng(outDir, 0, 0, false, true);
+        auto capture = [&](const std::string& label) {
+            std::ofstream output(joinPath(outDir, "map-" + label + ".bin"), std::ios::binary);
+            output.exceptions(std::ios::failbit | std::ios::badbit);
+            for (int cell = 0; cell < 65536; ++cell)
+                output.put(static_cast<char>(mapPlaneMemory_.readObject(cell, level_.tiles, level_.wordLayer)));
+            for (int cell = 0; cell < 32768; ++cell) {
+                const uint16_t word = mapPlaneMemory_.readWord(cell, level_.tiles, level_.wordLayer);
+                output.put(static_cast<char>(word));
+                output.put(static_cast<char>(word >> 8));
+            }
+            output.close();
+            draw();
+            writeArgbPpm(joinPath(outDir, label + ".ppm"), fb_, kScreenW, kScreenH);
+        };
+        replayClockEnabled_ = true;
+        replayMilliseconds_ = 4000;
+        bool running = true;
+        for (int cycle = 1; cycle <= 2; ++cycle) {
+            if (score_ != 0 || score2_ != 0 || ui_.snapshot().menu || levelFlow_.intro().active)
+                throw std::runtime_error("abort map fixture did not reach zero-score gameplay");
+            onKey(SDLK_ESCAPE, running);
+            if (!running || !ui_.snapshot().menu || ui_.snapshot().paused ||
+                ui_.snapshot().page != MenuPage::GameOver)
+                throw std::runtime_error("gameplay Escape skipped Game Over");
+            capture("game-over-" + std::to_string(cycle));
+            onKey(SDLK_RETURN, running);
+            if (!running || !ui_.snapshot().menu || ui_.snapshot().page != MenuPage::Main)
+                throw std::runtime_error("abort acknowledgement skipped the main menu");
+            // Sample a settled menu, independently of its fade/typing duration.
+            UiState settled = ui_.snapshot();
+            settled.mainMenu.active = false;
+            ui_.restoreSnapshot(settled);
+            capture("menu-" + std::to_string(cycle));
+            onKey(SDLK_1, running);
+            if (ui_.snapshot().menu || !levelFlow_.intro().active || levelIndex_ != 0)
+                throw std::runtime_error("new game after abort did not enter level-1 intro");
+            replayMilliseconds_ += 4000;
+            capture("intro-" + std::to_string(cycle + 1));
+            onKey(SDLK_RETURN, running);
+            if (levelFlow_.intro().active) throw std::runtime_error("reload intro was not acknowledged");
+            tickAndPresent(static_cast<float>(kGovernedTickMs / 1000.0));
+            capture("running-" + std::to_string(cycle + 1));
+        }
+        replayClockEnabled_ = false;
+        std::cout << "abort_map_memory=ok cycles=3 aborts=2 views=10 bytes=1310720 audio=dummy"
+                     " menu_timing_claim=0 whole_game_parity=0\n";
+    }
+
     void debugLevelIntro(const std::string& framePath = {}) {
         load();
         initSdl();
@@ -27616,6 +27681,7 @@ private:
                 (player == 2 ? reentryFire2_ : reentryFire1_) = true;
             },
             [this](int delta) { adjustGameplayViewWidth(delta); },
+            [this] { abortRun(); },
         };
     }
 
@@ -30306,6 +30372,14 @@ private:
         beginEndRun(EndReason::GameOver);
     }
 
+    void abortRun() {
+        auto actions = uiActions();
+        // Natural Escape retains the live map through Game Over and the menu.
+        // The next beginLevelForPlay owns freeing and replacing that allocation.
+        actions.resetAfterEndRun = [] {};
+        ui_.beginEndRun(EndReason::GameOver, levelIndex_, playerCount_, score_, score2_, recordStore_, actions);
+    }
+
     void beginEndRun(EndReason reason) {
         ui_.beginEndRun(reason, levelIndex_, playerCount_, score_, score2_, recordStore_, uiActions());
     }
@@ -32471,6 +32545,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         if (argc > 2 && std::string(argv[1]) == "--capture-menu-frame") {
             bool italian = !(argc > 3 && std::string(argv[3]) == "english");
             app.captureMenuFrame(argv[2], italian);
+            return 0;
+        }
+        if (argc == 3 && std::string(argv[1]) == "--debug-abort-map-memory") {
+            app.debugAbortMapMemory(argv[2]);
             return 0;
         }
         if ((argc == 3 || argc == 5) && (std::string(argv[1]) == "--debug-startup-rng" ||

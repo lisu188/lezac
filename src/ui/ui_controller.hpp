@@ -18,6 +18,7 @@ struct UiActions {
     std::function<void()> recordsPageSound;
     std::function<void(int)> firePlayer;
     std::function<void(int)> adjustViewWidth;
+    std::function<void()> abortRun;
 };
 
 class UiController {

@@ -368,7 +368,6 @@ int GameRenderer::nameEntryCursorSlot(const std::string& name) const {
 }
 
 int GameRenderer::nameEntrySlotX(int slot) const {
-    return kNameEntryLabelX + text_.textWidth("NAME ") +
-           slot * kNameEntrySlotAdvance;
+    return kNameEntryLabelX + slot * kNameEntrySlotAdvance;
 }
 }

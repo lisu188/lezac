@@ -20,6 +20,7 @@ struct UiActions {
     std::function<void(int)> adjustViewWidth;
     std::function<void()> abortRun;
     std::function<void()> prepareRecordsPage;
+    std::function<void()> prepareNameEntryPage;
 };
 
 class UiController {

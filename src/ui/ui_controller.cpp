@@ -21,6 +21,7 @@ MenuPage UiController::endMenuPage(EndReason reason) {
 bool UiController::startNextPendingRecord(RecordStore& records, const UiActions& actions) {
     if (!records.startNextPendingRecord()) return false;
     state_.page = MenuPage::NameEntry;
+    if (actions.prepareNameEntryPage) actions.prepareNameEntryPage();
     actions.recordPromptSound();
     return true;
 }
@@ -50,7 +51,6 @@ void UiController::handleNameEntryKey(Key key, RecordStore& records, const UiAct
         return;
     }
     if (key == Key::Backspace) { records.eraseNameCharacter(); return; }
-    if (key == Key::Escape) { cancelPendingRecord(records, actions); return; }
     records.appendNameCharacter(recordCharForKey(key));
 }
 void UiController::beginEndRun(EndReason reason, int levelIndex, int playerCount,

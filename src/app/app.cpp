@@ -3083,11 +3083,18 @@ public:
                 requireFields({"sample", "frame", "count", "visuals", "rng", "actors", "map", "regs"});
                 if (stage != 4 || sample >= 41 || std::stoi(fields.at("sample")) != sample || std::stoi(fields.at("frame")) != 101 + sample) fail("nonconsecutive tick");
                 checkRegisters();
+                const uint64_t nextBirthBeforePass = nextActorOrder_;
                 debugActorPassObserver_ = [&] {
                     const auto expected = entries(fields.at("actors"));
                     const auto actual = sharedActorEntries();
                     if (actual.size() != expected.size() || actual.size() != std::stoul(fields.at("count")) || actual.size() + 2 != std::stoul(fields.at("visuals"))) fail("count mismatch");
                     if (randomSeed_ != le32(bytes(fields.at("rng"), 4), 0)) fail("RNG mismatch");
+                    // These cases retain every new particle through its birth pass.
+                    const auto births = std::count_if(actual.begin(), actual.end(), [&](const SharedActorEntry& item) {
+                        return item.order >= nextBirthBeforePass;
+                    });
+                    if (nextActorOrder_ - nextBirthBeforePass != static_cast<uint64_t>(births))
+                        fail("unused birth identity");
                     for (size_t i = 0; i < actual.size(); ++i) {
                         const auto& item = actual[i]; const auto& raw = expected[i].first; const auto& visual = expected[i].second;
                         const auto suffix = " at slot=" + std::to_string(i + 1);
@@ -3145,7 +3152,7 @@ public:
         }
         if (!complete) fail("missing completion");
         std::cout << "shared_actor_order_original=ok cases=" << cases << " samples=" << total << " actor_states=" << compared
-                  << " stable_compaction=1 same_pass_appends=1 in_place_conversion=1 rng=1 map=1 seeded=1 natural_route=0 whole_game_parity=0\n";
+                  << " stable_compaction=1 same_pass_appends=1 in_place_conversion=1 rng=1 map=1 seeded=1 natural_route=0 whole_game_parity=0 birth_id_conservation=1\n";
     }
 
     void debugOriginalActorConstructorVelocity(const std::string& outputPath) {
@@ -29532,11 +29539,12 @@ private:
                    rewardRoll > kRewardUpperBounds[rewardIndex]) {
                 ++rewardIndex;
             }
-            spawnBonusDrop(
-                static_cast<float>(monster.x),
-                static_cast<float>(monster.y + monster.hotspotY),
-                static_cast<BonusType>(rewardIndex));
-            BonusDrop& reward = bonusDrops_.back();
+            // Reuse the corpse's identity; this conversion is not an allocation.
+            BonusDrop reward;
+            reward.x = static_cast<float>(monster.x);
+            reward.y = static_cast<float>(monster.y + monster.hotspotY);
+            reward.type = static_cast<BonusType>(rewardIndex);
+            reward.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(bonusSpriteIndex(reward.type)).height);
             reward.actorOrder = monster.actorOrder;
             reward.vx8 = monster.vx8;
             reward.vy8 = static_cast<int16_t>(monster.vy8 - 200);
@@ -29547,6 +29555,7 @@ private:
                 static_cast<uint8_t>(monster.animStart + 1), static_cast<uint8_t>(monster.animEnd + 1),
                 static_cast<uint8_t>(monster.animTick), static_cast<uint8_t>(monster.animDelay),
                 static_cast<uint8_t>(monster.animMode), static_cast<int8_t>(monster.animStep)};
+            bonusDrops_.push_back(reward);
         } else {
             // 1000:760D converts the existing corpse in place, even at full
             // capacity. Its fractions survive; this frame does not tick it twice.

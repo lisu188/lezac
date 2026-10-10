@@ -11,6 +11,7 @@
 #include "gameplay/collapse_seed.hpp"
 #include "gameplay/retained_record_queue.hpp"
 #include "gameplay/damage_lane_memory.hpp"
+#include "gameplay/map_plane_memory.hpp"
 #include "gameplay/initial_damage_data.hpp"
 #include "gameplay/monster_damage.hpp"
 #include "gameplay/monster_spawners.hpp"
@@ -19304,6 +19305,7 @@ public:
             const auto words = take(2 * cells);
             level_.wordLayer.resize(cells);
             for (size_t cell = 0; cell < cells; ++cell) level_.wordLayer[cell] = le16(words, 2 * cell);
+            mapPlaneMemory_.restoreSeparatedPlanesForFixture();
             debrisQueue_.clear();
             collapseQueue_.clear();
             logicTick_ = le16(parameters, 4);
@@ -27178,6 +27180,7 @@ private:
     lezac::gameplay::RetainedRecordQueue<DebrisRecord> debrisQueue_;
     lezac::gameplay::RetainedRecordQueue<CollapseRecord> collapseQueue_;
     std::array<uint8_t, 65536> damageLaneData_ = lezac::gameplay::initialDamageLaneData();
+    lezac::gameplay::MapPlaneMemory mapPlaneMemory_;
     uint16_t nextCollapseFragmentWord_ = 0;
     std::vector<uint32_t>& fb_ = canvas_.pixels();
     int gameplayViewWidth_ = kScreenW;
@@ -27323,13 +27326,18 @@ private:
         }
     }
 
-    void resetLevel(int index) {
+    void resetLevel(int index, bool replaceMapAllocation = true) {
         levelFlow_.restoreIntro({});
         levelFlow_.restoreOutro({});
         ++levelResetGeneration_;
         // FreeMem leaves the previous map's rounded size in its alignment gap.
         // The word plane is freed first, so both frees retract the heap top.
         levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
+        if (replaceMapAllocation) {
+            const auto& next = levels_[levelIndex_];
+            mapPlaneMemory_.beginLevel(level_.tiles, level_.wordLayer,
+                                      static_cast<size_t>(next.width) * next.height);
+        }
         level_ = levels_[levelIndex_];
         presentation_.beginLevel(static_cast<size_t>(level_.width) * level_.height);
         player_ = {};
@@ -27444,6 +27452,9 @@ private:
         bombInventory_.selected = bombInventory2_.selected = BombType::Small;
         if (levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("level_init");
         levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
+        const auto& next = levels_[levelIndex_];
+        mapPlaneMemory_.beginLevel(level_.tiles, level_.wordLayer,
+                                  static_cast<size_t>(next.width) * next.height);
         level_ = levels_[levelIndex_];
         // 1000:0E34/0E90 read both compressed planes into DS:C498, the
         // background buffer. Decoder 082D:0000 continues through its retained
@@ -27477,7 +27488,7 @@ private:
         const auto counts1 = bombInventory_.counts, counts2 = bombInventory2_.counts;
         const int carriedEnergy1 = energy_, carriedEnergy2 = energy2_;
         Level decodedLevel = std::move(level_);
-        resetLevel(index);
+        resetLevel(index, false);
         level_ = std::move(decodedLevel);
         bombInventory_.counts = counts1;
         bombInventory2_.counts = counts2;
@@ -31051,31 +31062,18 @@ private:
         if (debrisQueue_.empty()) return;
         const int width = level_.width;
         if (width <= 0 || level_.tiles.empty()) return;
-        const int cellCount = static_cast<int>(level_.tiles.size());
-        // The original never indexes outside the map (levels ship with solid
-        // borders); the port clamps instead: out-of-range object bytes read as
-        // solid (blocking moves and supporting fragments), out-of-range words
-        // read 0, and out-of-range writes are dropped.
+        // Preserve segment wrapping and live word-plane aliases past the map.
         auto objectByteAt = [&](int index) -> uint8_t {
-            return index >= 0 && index < cellCount
-                       ? level_.tiles[static_cast<size_t>(index)]
-                       : uint8_t{0x01};
+            return mapPlaneMemory_.readObject(index, level_.tiles, level_.wordLayer);
         };
         auto setObjectByte = [&](int index, uint8_t value) {
-            if (index >= 0 && index < cellCount) {
-                level_.tiles[static_cast<size_t>(index)] = value;
-            }
+            mapPlaneMemory_.writeObject(index, value, level_.tiles, level_.wordLayer);
         };
         auto wordCellAt = [&](int index) -> uint16_t {
-            return index >= 0 &&
-                           static_cast<size_t>(index) < level_.wordLayer.size()
-                       ? level_.wordLayer[static_cast<size_t>(index)]
-                       : uint16_t{0};
+            return mapPlaneMemory_.readWord(index, level_.tiles, level_.wordLayer);
         };
         auto setWordCell = [&](int index, uint16_t value) {
-            if (index >= 0 && static_cast<size_t>(index) < level_.wordLayer.size()) {
-                level_.wordLayer[static_cast<size_t>(index)] = value;
-            }
+            mapPlaneMemory_.writeWord(index, value, level_.tiles, level_.wordLayer);
         };
 
         // Ascending slot order with the bound re-read live every iteration
@@ -31193,7 +31191,7 @@ private:
 
             // Move 4B35..4CB5.
             if (delta != 0) {
-                const int dest = pos + delta;
+                const int dest = static_cast<uint16_t>(pos + delta);
                 if (objectByteAt(dest) == 0) {
                     // Free move 4B61..4C1D: the fragment is materialized at
                     // the destination in BOTH planes and erased from the

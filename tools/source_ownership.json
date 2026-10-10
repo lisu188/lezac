@@ -89,7 +89,9 @@
         "src/gameplay/actor_models.hpp",
         "src/gameplay/actor_storage.hpp",
         "src/gameplay/collapse_seed.hpp",
-        "src/gameplay/frame_controls.hpp"
+        "src/gameplay/frame_controls.hpp",
+        "src/gameplay/falling_fragment.hpp",
+        "src/gameplay/jolly_cloud_rain.hpp"
       ]
     },
     "app": {
@@ -111,6 +113,7 @@
       "diagnostics": [
         "src/app/app.cpp",
         "src/diagnostics/level1_trace.hpp",
+        "src/diagnostics/jolly_cloud_probe.hpp",
         "src/diagnostics/frame_inspector.cpp",
         "src/diagnostics/frame_inspector.hpp",
         "src/diagnostics/sound/sound_diagnostics.hpp",

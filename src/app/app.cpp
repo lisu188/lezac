@@ -1,7 +1,10 @@
 #include "diagnostics/frame_inspector.hpp"
+#include "diagnostics/jolly_cloud_probe.hpp"
 #include "rendering/game_renderer.hpp"
 #include "gameplay/actor_models.hpp"
 #include "gameplay/collapse_seed.hpp"
+#include "gameplay/falling_fragment.hpp"
+#include "gameplay/jolly_cloud_rain.hpp"
 #include "ui/models.hpp"
 #include "rendering/presentation_state.hpp"
 #include <SDL.h>
@@ -408,17 +411,7 @@ struct ExplosionEffect {
 // DS:0x2093 + 0x0B*slot (first live slot of a level is 200; seeder 1000:370E
 // fills it at 3798/37A1/37AB/37C5/37CD/37D5/37BE/37E3/37EA, mover 1000:45FA
 // loop 2 updates it â€” see docs/recovery/falling_debris_update_spec.md).
-struct DebrisRecord {
-    int tileIndex = 0;         // +0 u16: cell index (y*width + x)
-    uint16_t flaggedWord = 0;  // +2 u16: word | 0x8000 while airborne
-    int8_t velocityX = 0;      // +4 s8: vx, 128 sub-units per tile (lane DS:78D2)
-    int8_t velocityY = 0;      // +5 s8: vy (lane DS:78D4)
-    int8_t subX = 0;           // +6 s8: x sub-accumulator (lane DS:78D3)
-    int8_t subY = 0;           // +7 s8: y sub-accumulator (lane DS:78D5)
-    uint8_t restTicks = 0;     // +8 u8: no-move ticks; retire when increment reaches 100
-    uint8_t lookup = 0;        // +9 u8: carried tile code (objectByte at seed)
-    uint8_t aux = 0;           // +A u8: bit 7 = "my move spawned a cascade" (4C19)
-};
+using DebrisRecord = lezac::gameplay::DebrisRecord;
 
 struct CollapseRecord {
     int x = 0;
@@ -7995,6 +7988,108 @@ public:
         std::cout << "super_bomb_footprint_tiles=" << tiles.size() << '\n';
     }
 
+    void debugJollyCloudProbe() {
+        lezac::diagnostics::runJollyCloudProbe(std::cin, std::cout, [&](auto& state, bool initial) {
+            if (initial) {
+                level_ = std::move(state.level);
+                debrisQueue_ = std::move(state.records);
+                bonusRainTicks_ = state.remaining;
+                nextCollapseFragmentWord_ = state.nextWord;
+                randomSeed_ = state.seed;
+                monsters_.clear();
+                bombs_.clear();
+                bonusDrops_.clear();
+                launchPadMarkers_.clear();
+                transientActors_.assign(30, {});
+                for (size_t i = 0; i < transientActors_.size(); ++i) transientActors_[i].actorOrder = i + 1;
+                nextActorOrder_ = 31;
+                return;
+            }
+            updateBonusRain();
+            if (sharedActorCount() != 30 || nextActorOrder_ != 31 || !bonusDrops_.empty())
+                throw std::runtime_error("map rain changed shared actor allocation");
+            state.level = level_;
+            state.records = debrisQueue_;
+            state.remaining = bonusRainTicks_;
+            state.nextWord = nextCollapseFragmentWord_;
+            state.seed = randomSeed_;
+        });
+    }
+
+    void debugJollyCloudLifecycle() {
+        load();
+        resetLevel(0);
+        playerCount_ = 2;
+        const uint32_t seed = randomSeed_;
+        const auto actors = sharedActorCount();
+        const auto beforeScores = std::array<uint32_t, 2>{{score_, score2_}};
+        bonusRainTicks_ = 9;
+        pendingBonuses_ = {{4, 4}};
+        applyPendingBonus(player_, energy_, bombInventory_, 1);
+        applyPendingBonus(player2_, energy2_, bombInventory2_, 2);
+        if (bonusRainTicks_ != 46 || randomSeed_ != seed || sharedActorCount() != actors ||
+            score_ != beforeScores[0] + 2000 || score2_ != beforeScores[1] + 2000)
+            throw std::runtime_error("two-player cloud grants did not rearm one shared timer");
+        resetLevel(0);
+        if (bonusRainTicks_ != 0) throw std::runtime_error("level reset retained map rain");
+        bonusRainTicks_ = 46;
+        auto expectHeld = [&] {
+            const auto beforeSeed = randomSeed_;
+            const auto beforeTiles = level_.tiles;
+            updateWithControls({}, 1.0f / 60.0f);
+            if (bonusRainTicks_ != 46 || randomSeed_ != beforeSeed || level_.tiles != beforeTiles)
+                throw std::runtime_error("non-gameplay frame advanced map rain");
+        };
+        ui_.setMenu(true);
+        expectHeld();
+        ui_.setMenu(false);
+        ui_.setPaused(true);
+        expectHeld();
+        ui_.setPaused(false);
+        levelFlow_.setIntroActiveForFixture(true);
+        expectHeld();
+        levelFlow_.setIntroActiveForFixture(false);
+        auto outro = levelFlow_.outro();
+        outro.active = true;
+        levelFlow_.restoreOutro(outro);
+        // Results may consume their own RNG; only the rain countdown/map must hold.
+        const auto beforeResultsTiles = level_.tiles;
+        updateWithControls({}, 1.0f / 60.0f);
+        if (bonusRainTicks_ != 46 || level_.tiles != beforeResultsTiles)
+            throw std::runtime_error("results frame advanced map rain");
+
+        resetLevel(0);
+        ui_.setMenu(false);
+        playerCount_ = 1;
+        spawnerStates_.clear();
+        monsters_.clear();
+        for (int cell = level_.width; cell < 2 * level_.width; ++cell) level_.tiles[cell] = 0;
+        bonusRainTicks_ = 1;
+        nextCollapseFragmentWord_ = 0x4000;
+        randomSeed_ = 0x12345678;
+        bool presentedBeforeRain = false, actorsBeforeRain = false;
+        gameplayPresentation_ = [&] { presentedBeforeRain = bonusRainTicks_ == 1 && debrisQueue_.empty(); };
+        debugActorPassObserver_ = [&] { actorsBeforeRain = bonusRainTicks_ == 1 && debrisQueue_.empty(); };
+        updateWithControls({}, 1.0f / 60.0f);
+        gameplayPresentation_ = {};
+        debugActorPassObserver_ = {};
+        if (!presentedBeforeRain || !actorsBeforeRain || bonusRainTicks_ != 0 || debrisQueue_.size() != 1)
+            throw std::runtime_error("final rain attempt missed the production frame phase");
+        const auto& record = debrisQueue_.front();
+        if (record.tileIndex < level_.width || record.tileIndex >= 2 * level_.width ||
+            record.velocityX != 0 || record.velocityY != 0 || record.subX != 0 || record.subY != 0)
+            throw std::runtime_error("new rain fragment moved in its creation frame");
+        const auto stoppedSeed = randomSeed_;
+        updateBonusRain();
+        if (randomSeed_ != stoppedSeed || debrisQueue_.size() != 1)
+            throw std::runtime_error("zero countdown consumed RNG or created another fragment");
+        updateWithControls({}, 1.0f / 60.0f);
+        if (debrisQueue_.size() != 1 || (debrisQueue_.front().velocityY == 0 && debrisQueue_.front().subY == 0))
+            throw std::runtime_error("rain fragment did not join the next frame's debris pass");
+        std::cout << "jolly_cloud_lifecycle=ok shared_rearm=1 reset=1 held_states=4 final_attempt=1"
+                     " production_frame=1 deferred_movement=1 zero_rng=1 natural_pickup=0 whole_game_claim=0\n";
+    }
+
     void debugBonuses() {
         load();
         resetLevel(0);
@@ -8041,13 +8136,12 @@ public:
 
         score_ = 0;
         bonusDrops_.clear();
+        const uint32_t rainSeed = randomSeed_;
+        const size_t rainActors = sharedActorCount();
         expectScore(BonusType::JollyCloud, 2000);
-        if (bonusDrops_.size() != 4 ||
-            bonusDrops_[0].type != BonusType::Present ||
-            bonusDrops_[1].type != BonusType::BigDiamond ||
-            bonusDrops_[2].type != BonusType::Present ||
-            bonusDrops_[3].type != BonusType::BigDiamond) {
-            throw std::runtime_error("jolly cloud did not spawn bonus rain");
+        if (!bonusDrops_.empty() || bonusRainTicks_ != 46 || randomSeed_ != rainSeed ||
+            sharedActorCount() != rainActors) {
+            throw std::runtime_error("jolly cloud grant did not arm the deferred map producer");
         }
 
         bonusDrops_.clear();
@@ -8060,10 +8154,8 @@ public:
         bonusDrops_.shrink_to_fit();
         updateBonusDrops();
         applyPendingBonus(player_, energy_, bombInventory_, 1);
-        if (bonusDrops_.size() != 4 ||
-            std::any_of(bonusDrops_.begin(), bonusDrops_.end(),
-                        [](const BonusDrop& drop) { return drop.collected; })) {
-            throw std::runtime_error("jolly cloud collection corrupted bonus drops");
+        if (!bonusDrops_.empty() || bonusRainTicks_ != 46) {
+            throw std::runtime_error("jolly cloud collection did not defer map rain");
         }
 
         playerCount_ = 2;
@@ -26005,6 +26097,7 @@ private:
     std::vector<DebrisRecord> debrisQueue_;
     std::vector<CollapseRecord> collapseQueue_;
     uint16_t nextCollapseFragmentWord_ = 0;
+    uint8_t bonusRainTicks_ = 0;
     std::vector<uint32_t>& fb_ = canvas_.pixels();
     int gameplayViewWidth_ = kScreenW;
     int collected_ = 0;
@@ -26169,6 +26262,7 @@ private:
         collapseQueue_.clear();
         ui_.setPaused(false);
         nextCollapseFragmentWord_ = level_.fieldA;
+        bonusRainTicks_ = 0;
         collected_ = 0;
         destroyed_ = 0;
         presentation_.resetHudForLevel();
@@ -26737,6 +26831,7 @@ private:
         updateHudScores();
         updateFlashes();
         updateCameraShake();
+        updateBonusRain();
         presentation_.advanceHudPalette();
         presentation_.updateRedPalette(static_cast<uint16_t>(logicTick_));
         updateLevelCompletion();
@@ -29258,20 +29353,7 @@ private:
             // move (CONFIRMED by the L2 capture; the earlier markDamagedTile
             // call here was unfaithful). Cap check 3753: refuse once slot
             // index base + record count reaches 0x640.
-            uint8_t lookup = tileAt(tx, ty) & 0xff;
-            uint16_t flaggedWord = static_cast<uint16_t>(word | kDamagedWordBit);
-            // The word is flagged (3770/3780) only after the cap check passes
-            // (3753 jumps straight to the failure return when full).
-            if (kDebrisRecordIndexBase + debrisQueue_.size() < kDebrisCapacity) {
-                level_.wordLayer[start] = flaggedWord;
-                DebrisRecord record;
-                record.tileIndex = static_cast<int>(start);
-                record.flaggedWord = flaggedWord;
-                record.velocityX = static_cast<int8_t>(forwardPhase);
-                record.velocityY = static_cast<int8_t>(reversePhase);
-                record.lookup = lookup;
-                debrisQueue_.push_back(record);
-            }
+            lezac::gameplay::seedFallingFragment(level_, debrisQueue_, start, forwardPhase, reversePhase);
             return;
         }
 
@@ -29652,7 +29734,7 @@ private:
         requestSoundCursor(kBonusPickupSoundCursor, kBonusPickupSoundPriority);
     }
 
-    void applyBonus(BonusType type, const Player& collector, int& energy,
+    void applyBonus(BonusType type, const Player&, int& energy,
                     BombInventory& inventory, uint8_t playerIndex = 1) {
         switch (type) {
             case BonusType::Present:
@@ -29668,7 +29750,7 @@ private:
                 break;
             case BonusType::JollyCloud:
                 addScore(playerIndex, 2000);
-                spawnBonusRain(collector);
+                bonusRainTicks_ = lezac::gameplay::kJollyCloudRainTicks;
                 break;
             case BonusType::YellowBombBox:
                 addScore(playerIndex, 3000);
@@ -29699,13 +29781,13 @@ private:
         inventory.hudDirty = 1;
     }
 
-    void spawnBonusRain(const Player& collector) {
-        for (int i = 0; i < 4; ++i) {
-            spawnBonusDrop(std::clamp(collector.x - 24.0f + i * 16.0f, 0.0f,
-                                     std::max(16.0f, level_.width * 8.0f - 16.0f)),
-                           std::max(16.0f, collector.y - 48.0f - i * 4.0f),
-                           i % 2 == 0 ? BonusType::Present : BonusType::BigDiamond);
-        }
+    void updateBonusRain() {
+        lezac::core::TurboRandom random(randomSeed_);
+        const auto cell = lezac::gameplay::advanceJollyCloudRain(
+            bonusRainTicks_, level_, nextCollapseFragmentWord_, random);
+        randomSeed_ = random.seed();
+        if (cell) queueTileDamage(static_cast<int>(*cell % level_.width),
+                                  static_cast<int>(*cell / level_.width));
     }
 
     // Falling-debris mover: port of 1000:45FA loop 2 (492F..4D37), transcribed
@@ -30358,6 +30440,14 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bombs") {
             app.debugBombs();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-jolly-cloud-probe") {
+            app.debugJollyCloudProbe();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-jolly-cloud-lifecycle") {
+            app.debugJollyCloudLifecycle();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bonuses") {

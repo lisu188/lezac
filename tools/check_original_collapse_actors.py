@@ -40,7 +40,15 @@ CONTRACT = {
     'updateCollapseRecords': (
         'const int actorCell = last - randomRangeValue(0, static_cast<uint16_t>(last % width - first % width + 1));',
         'spawnTransientActor((actorCell % width) * 8, (actorCell / width) * 8, 0, 74, 0x0b, 8, ActorAnimation::initialize(74, 79, 2, 1));'),
-    'spawnTransientActor': ('if (sharedActorCount() >= 30) return nullptr;',),
+    'spawnTransientActor': (
+        'actor.actorOrder = allocateActor({kind, timer, 5, sprite, 0, vy8, static_cast<int16_t>(x), static_cast<int16_t>(y)});',
+        'if (!actor.actorOrder) return nullptr;'),
+    'allocateActor': (
+        'const uint64_t order = nextActorOrder_;',
+        'const auto descriptor = actorSlots_.count() == 30 ? lezac::gameplay::ActorSlots::Descriptor{} : actorSpriteDescriptor(input.sprite);',
+        'if (!actorSlots_.append(order, input, descriptor)) return 0;',
+        '++nextActorOrder_;',
+        'return order;'),
 }
 
 

@@ -247,6 +247,8 @@ if(BUILD_TESTING)
     target_include_directories(lezac_actor_storage_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_executable(lezac_actor_slots_test tests/gameplay/actor_slots_test.cpp)
     target_include_directories(lezac_actor_slots_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_executable(lezac_transient_storage_probe tests/gameplay/transient_storage_probe.cpp)
+    target_include_directories(lezac_transient_storage_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME actor_slots_binding_contract COMMAND lezac_actor_slots_test)
     set_tests_properties(actor_slots_binding_contract PROPERTIES
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"
@@ -409,6 +411,27 @@ if(BUILD_TESTING)
         set_tests_properties(monster_animation_fixture_contract PROPERTIES
             ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 60
             PASS_REGULAR_EXPRESSION "^monster_animation_fixture_contract=ok accepted=2 rejected=7 compiled_helper=1 production_app=0")
+        foreach(transient_target IN ITEMS helper app)
+            if(transient_target STREQUAL "app")
+                set(transient_exe $<TARGET_FILE:lezac_cpp>)
+                set(transient_app_flag --production-app)
+            else()
+                set(transient_exe $<TARGET_FILE:lezac_transient_storage_probe>)
+                set(transient_app_flag)
+            endif()
+            add_test(NAME transient_storage_${transient_target}_original
+                COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_transient_storage_original.py
+                    --exe ${transient_exe} ${transient_app_flag}
+                    --out ${CMAKE_CURRENT_BINARY_DIR}/transient-storage-checks)
+            set_tests_properties(transient_storage_${transient_target}_original PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 60
+                PASS_REGULAR_EXPRESSION "^transient_storage_original=ok operations=256 compared_bytes=403200")
+        endforeach()
+        add_test(NAME transient_storage_tools_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_transient_storage_checker.py -v)
+        set_tests_properties(transient_storage_tools_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
         add_test(NAME actor_storage_core_original
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_storage_core.py
                 --exe $<TARGET_FILE:lezac_actor_storage_test>
@@ -4657,7 +4680,7 @@ if(BUILD_TESTING)
     set_tests_properties(original_collapse_actors_contract PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         TIMEOUT 30
-        PASS_REGULAR_EXPRESSION "^original_collapse_actors_contract=ok source_mutants=23 comparator_mutants=6 compiled_cpp=0")
+        PASS_REGULAR_EXPRESSION "^original_collapse_actors_contract=ok source_mutants=29 comparator_mutants=6 compiled_cpp=0")
     add_test(NAME original_collapse_actors_checker
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_collapse_actor_checker.py)
     set_tests_properties(original_collapse_actors_checker PROPERTIES

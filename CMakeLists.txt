@@ -398,6 +398,14 @@ if(BUILD_TESTING)
     set_tests_properties(resource_domain_codecs PROPERTIES
         PASS_REGULAR_EXPRESSION "^resource_domain_codecs=ok records=2 sound=2 gran=1 levels=2 malformed=14")
 
+    add_executable(lezac_record_save_original_test tests/resources/record_save_original_test.cpp)
+    target_link_libraries(lezac_record_save_original_test PRIVATE lezac_resources)
+    add_test(NAME record_save_original COMMAND lezac_record_save_original_test
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/record_save_original.dat
+        ${CMAKE_CURRENT_BINARY_DIR}/record-save-checks)
+    set_tests_properties(record_save_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^record_save_original=ok cases=5 compared_bytes=460 differences=0")
+
     add_executable(lezac_render_state_boundary_test tests/rendering/render_state_boundary_test.cpp)
     target_link_libraries(lezac_render_state_boundary_test PRIVATE lezac_rendering)
     add_test(NAME render_state_boundary COMMAND lezac_render_state_boundary_test)

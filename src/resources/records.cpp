@@ -124,8 +124,9 @@ void saveRecords(const std::string& path, const std::vector<Record>& records) {
             out.put(static_cast<char>((score >> 8) & 0xffu));
             out.put(static_cast<char>((score >> 16) & 0xffu));
             out.put(static_cast<char>((score >> 24) & 0xffu));
-            out.put(static_cast<char>(records[i].level));
             std::string name = encodedRecordName(records[i]);
+            // DOS stores a Pascal string[8], not the port's JSON level metadata.
+            out.put(static_cast<char>(name.size()));
             out.write(name.data(), static_cast<std::streamsize>(name.size()));
         }
         return;

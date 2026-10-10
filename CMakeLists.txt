@@ -3383,7 +3383,7 @@ if(BUILD_TESTING)
     set_tests_properties(records_update_temp PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^record_update=ok top=999999 level=9 name=TEST binary=1 raw_size=92 encoded=TEST::::")
+            "^record_update=ok top=999999 level=0 name=TEST binary=1 raw_size=92 encoded=TEST::::")
 
     add_test(NAME records_update_json_temp
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-update
@@ -3398,7 +3398,7 @@ if(BUILD_TESTING)
     set_tests_properties(records_raw_roundtrip PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^records_raw_roundtrip=ok raw_size=92 count=7 record_size=13 score_sum=3508890 top=541200 cutoff=474930 level8_count=7 decoded_aga=7 encoded_colon_padded=7 byte_sum=6047 weighted_sum=278918 xor=0xdd")
+            "^records_raw_roundtrip=ok raw_size=92 count=7 record_size=13 score_sum=3508890 top=541200 cutoff=474930 name_length8_count=7 decoded_aga=7 encoded_colon_padded=7 byte_sum=6047 weighted_sum=278918 xor=0xdd")
 
     add_test(NAME record_entry_static_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-entry-static-model)

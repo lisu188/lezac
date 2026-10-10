@@ -13,6 +13,8 @@ namespace lezac::gameplay {
 // This retains map heap bytes; it does not emulate other Pascal allocations.
 class MapPlaneMemory {
 public:
+    bool hasLevelAllocation() const { return allocated_; }
+
     void beginLevel(const std::vector<uint8_t>& oldTiles,
                     const std::vector<uint16_t>& oldWords, size_t newCellCount) {
         if (newCellCount == 0 || newCellCount > 16384) {

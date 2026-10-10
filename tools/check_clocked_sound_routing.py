@@ -24,6 +24,23 @@ def require(text, name, *snippets):
             raise RuntimeError(f"{name} missing {snippet}")
 
 
+def replace_in_function(text, name, before, after):
+    ranges = function_ranges(text, [name])
+    if name not in ranges:
+        raise RuntimeError(f"missing mutation function {name}")
+    lines = text.splitlines(keepends=True)
+    first, last = ranges[name]
+    function = "".join(lines[first - 1:last])
+    if not before or before == after or function.count(before) != 1:
+        raise RuntimeError(f"mutation target must occur once in {name}: {before}")
+    return "".join(lines[:first - 1]) + function.replace(before, after, 1) + "".join(lines[last:])
+
+
+def require_changed_mutation(original, changed, index):
+    if changed == original:
+        raise RuntimeError(f"routing mutation {index} is a no-op")
+
+
 def check(app, engine, audio):
     require(app, "debugLevel1Replay", "startClockedSound();", "clockedSoundEnabled_ = false;")
     require(app, "runInteractive", "startClockedSound();")
@@ -58,9 +75,8 @@ def main():
     audio = (ROOT / "src/sound/sdl_audio_output.cpp").read_text(encoding="utf-8")
     check(app, engine, audio)
     mutations = [
-        (app.replace("startClockedSound();", ";", 1), engine, audio),
-        (app.replace("        startClockedSound();\n        resetLevel(0);",
-                     "        resetLevel(0);", 1), engine, audio),
+        (replace_in_function(app, "debugLevel1Replay", "startClockedSound();", ";"), engine, audio),
+        (replace_in_function(app, "runInteractive", "startClockedSound();", ";"), engine, audio),
         (app.replace("void processEvents(bool& running) {\n        serviceSoundClock();",
                      "void processEvents(bool& running) {"), engine, audio),
         (app.replace("if (clockedSoundEnabled_)", "if (false)"), engine, audio),
@@ -76,7 +92,8 @@ def main():
         (app, engine.replace("advanceSpeakerPhase(sampleCount);", ";"), audio),
     ]
     rejected = 0
-    for changed in mutations:
+    for index, changed in enumerate(mutations):
+        require_changed_mutation((app, engine, audio), changed, index)
         try:
             check(*changed)
         except RuntimeError:

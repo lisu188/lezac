@@ -918,7 +918,8 @@ public:
         randomSeed_ = readStartupClock();
         initSdl();
         startClockedSound();
-        resetLevel(0);
+        // Original startup leaves map pointers empty until play is selected.
+        resetLevel(0, false);
         levelFlow_.setInteractiveEnabled(true);
         ui_.beginMainMenu(presentationMilliseconds());
         onReady();
@@ -26570,7 +26571,8 @@ public:
         std::cout << "capture_menu_frame=ok out=" << outPath << "\n";
     }
 
-    void debugStartupRng(const std::string& outDir, uint16_t cx, uint16_t dx, bool naturalClock) {
+    void debugStartupRng(const std::string& outDir, uint16_t cx, uint16_t dx, bool naturalClock,
+                         bool captureMapMemory = false) {
         if (std::filesystem::exists(outDir)) throw std::runtime_error("startup RNG output already exists");
         std::filesystem::create_directories(outDir);
         uint32_t sampledSeed = 0;
@@ -26578,11 +26580,28 @@ public:
         runInteractive([] { return true; }, [&] {
             if (!ui_.snapshot().menu || randomSeed_ != sampledSeed)
                 throw std::runtime_error("startup consumed RNG before the menu");
+            if (captureMapMemory && mapPlaneMemory_.hasLevelAllocation())
+                throw std::runtime_error("startup allocated a map before menu selection");
         }, [&] {
             ++clockCalls;
             sampledSeed = naturalClock ? lezac::app::sampleStartupRandomSeed() : uint32_t(cx) | (uint32_t(dx) << 16);
             return sampledSeed;
         });
+        auto dumpMapMemory = [&](const char* name) {
+            if (!captureMapMemory) return;
+            if (!mapPlaneMemory_.hasLevelAllocation())
+                throw std::runtime_error("startup play did not allocate a map");
+            std::ofstream output(joinPath(outDir, name), std::ios::binary);
+            output.exceptions(std::ios::failbit | std::ios::badbit);
+            for (int cell = 0; cell < 65536; ++cell)
+                output.put(static_cast<char>(mapPlaneMemory_.readObject(cell, level_.tiles, level_.wordLayer)));
+            for (int cell = 0; cell < 32768; ++cell) {
+                const uint16_t word = mapPlaneMemory_.readWord(cell, level_.tiles, level_.wordLayer);
+                output.put(static_cast<char>(word));
+                output.put(static_cast<char>(word >> 8));
+            }
+            output.close();
+        };
         // This diagnostic samples settled startup boundaries, not menu timing.
         UiState settledMenu = ui_.snapshot();
         settledMenu.mainMenu.active = false;
@@ -26594,6 +26613,7 @@ public:
         replayMilliseconds_ = 0;
         bool running = true;
         onKey(SDLK_1, running);
+        dumpMapMemory("map-intro.bin");
         const uint32_t introSeed = randomSeed_;
         replayMilliseconds_ = 4000;
         draw();
@@ -26601,6 +26621,7 @@ public:
         onKey(SDLK_RETURN, running);
         const uint32_t gameplaySeed = randomSeed_;
         tickAndPresent(static_cast<float>(kGovernedTickMs / 1000.0));
+        dumpMapMemory("map-first-present.bin");
         writeArgbPpm(joinPath(outDir, "first-present.ppm"), fb_, kScreenW, kScreenH);
         const auto& backdrop = presentation_.backdropBuffer();
         std::ofstream background(joinPath(outDir, "backdrop.bin"), std::ios::binary);
@@ -26614,6 +26635,8 @@ public:
                   << " initial_seed=" << sampledSeed << " menu_seed=" << menuSeed << " intro_seed=" << introSeed
                   << " gameplay_seed=" << gameplaySeed << " first_present_seed=" << randomSeed_
                   << " frame_inspection=1 whole_game_parity=0\n";
+        if (captureMapMemory)
+            std::cout << "startup_map_memory=ok menu_allocated=0 intro_bytes=131072 first_present_bytes=131072\n";
     }
 
     void debugLevelIntro(const std::string& framePath = {}) {
@@ -32450,12 +32473,14 @@ int lezac::app::runApplication(int argc, char** argv) {
             app.captureMenuFrame(argv[2], italian);
             return 0;
         }
-        if ((argc == 3 || argc == 5) && std::string(argv[1]) == "--debug-startup-rng") {
+        if ((argc == 3 || argc == 5) && (std::string(argv[1]) == "--debug-startup-rng" ||
+                                      std::string(argv[1]) == "--debug-startup-map-memory")) {
             const uint16_t cx = argc == 5 ? static_cast<uint16_t>(lezac::diagnostics::level1::decimal(argv[3], 65535)) : 0;
             const uint16_t dx = argc == 5 ? static_cast<uint16_t>(lezac::diagnostics::level1::decimal(argv[4], 65535)) : 0;
             if (argc == 5 && ((cx >> 8) >= 24 || (cx & 255) >= 60 || (dx >> 8) >= 60 || (dx & 255) >= 100))
                 throw std::runtime_error("startup RNG clock fields out of range");
-            app.debugStartupRng(argv[2], cx, dx, argc == 3);
+            app.debugStartupRng(argv[2], cx, dx, argc == 3,
+                                std::string(argv[1]) == "--debug-startup-map-memory");
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--export-level-world") {

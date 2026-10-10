@@ -547,6 +547,10 @@ if(BUILD_TESTING)
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_clocked_sound_routing.py)
         set_tests_properties(clocked_sound_routing PROPERTIES PASS_REGULAR_EXPRESSION
             "clocked_sound_routing=ok live_paths=2 request_paths=4 mutations=12 native_timing_claim=0")
+        add_test(NAME clocked_sound_routing_mutations
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_clocked_sound_routing.py)
+        set_tests_properties(clocked_sound_routing_mutations PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
         add_test(NAME clocked_sound_deadline_contract
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_clocked_sound_deadline.py)
         set_tests_properties(clocked_sound_deadline_contract PROPERTIES PASS_REGULAR_EXPRESSION

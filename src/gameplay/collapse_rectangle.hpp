@@ -47,6 +47,8 @@ public:
         last = static_cast<uint16_t>(last + delta);
     }
 
+    uint16_t columns() const { return columns_; }
+
     uint16_t first, topRight = 0, last;
 
 private:

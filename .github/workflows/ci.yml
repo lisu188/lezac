@@ -52,7 +52,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^(collapse_rectangle_unit|collapse_map_(fixture|checker|original))$'
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(collapse_rectangle_unit|collapse_(map|removal)_(unit|fixture|checker|original))$'
       - name: Preserve collapse map boundary diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -60,6 +60,7 @@ jobs:
           name: collapse-map-${{ runner.os }}
           path: |
             build/collapse-map-app/
+            build/collapse-removal-app/
             build/Testing/Temporary/LastTest.log
           if-no-files-found: error
       - name: Generic corpse and boss sound ownership regressions
@@ -566,7 +567,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^(collapse_rectangle_unit|collapse_map_(fixture|checker|original))$'
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(collapse_rectangle_unit|collapse_(map|removal)_(unit|fixture|checker|original))$'
       - name: Preserve collapse map boundary diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -574,6 +575,7 @@ jobs:
           name: collapse-map-${{ runner.os }}
           path: |
             build/collapse-map-app/
+            build/collapse-removal-app/
             build/Testing/Temporary/LastTest.log
           if-no-files-found: error
       - name: Generic corpse and boss sound ownership regressions

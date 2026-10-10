@@ -1,6 +1,7 @@
 #include "rendering/game_renderer.hpp"
 #include "rendering/color.hpp"
 #include "resources/palette.hpp"
+#include "ui/level_flow.hpp"
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -11,6 +12,33 @@ using namespace resources;
 using namespace ui;
 
 namespace {
+void drawPatternBackground(Canvas& canvas, const LevelIntroPattern& pattern) {
+    canvas.resetClip();
+    int fraction = 0;
+    int phase = 0;
+    for (int i = 0; i < kScreenW * kScreenH; ++i) {
+        fraction += pattern.horizontalStep;
+        if (fraction > 100) {
+            fraction -= 100;
+            ++phase;
+        }
+        if (i % kScreenW == 0) {
+            const int sineIndex = ((i * 3) / 100) % 128;
+            const int wave = static_cast<int>(
+                std::sin(static_cast<float>(sineIndex) * 6.28f / 128.0f) * 8.0f);
+            fraction += pattern.verticalStep + wave;
+            if (fraction > 100) {
+                fraction -= 100;
+                ++phase;
+            }
+        }
+        const Rgb color = pattern.colors[static_cast<size_t>(phase) % pattern.colors.size()];
+        canvas.pixel(i % kScreenW, i / kScreenW,
+                     0xff000000u | (static_cast<uint32_t>(color.r) << 16) |
+                         (static_cast<uint32_t>(color.g) << 8) | color.b);
+    }
+}
+
 class MenuPainter {
 public:
     MenuPainter(Canvas& canvas, TextRenderer& text, const AssetCatalog& assets,
@@ -96,7 +124,6 @@ public:
                 drawNameEntryMenu();
                 break;
             case MenuPage::GameOver:
-                drawGameOverMenu();
                 break;
             case MenuPage::CompletedGame:
                 drawCompletedGameMenu();
@@ -258,12 +285,6 @@ public:
         }
     }
 
-    void drawGameOverMenu() {
-        text_.text(111, 72, "GAME OVER", 0xffff5050u, true, 0xff301010u);
-        drawFinalScores(104);
-        text_.text(78, 166, "ENTER: MENU", 0xff90ffb0u, false, 0xff101010u);
-    }
-
     void drawCompletedGameMenu() {
         text_.text(90, 58, "ECCELLENTE>>>", 0xffffe060u, false, 0xff101010u);
         text_.text(54, 76, "HAI COMPLETATO IL GIOCO", 0xffffffffu, false, 0xff101010u);
@@ -300,37 +321,27 @@ private:
 }
 
 void GameRenderer::drawMenu(const MenuView& menu) {
+    if (menu.page == MenuPage::GameOver) {
+        drawPatternBackground(canvas_, menu.endScreenPattern);
+        const auto lines = LevelFlow::gameOverLines(menu.italian, menu.scores);
+        std::vector<OutroSegment> segments;
+        uint32_t settledElapsed = 0;
+        for (size_t i = 0; i < lines.size(); ++i) {
+            const uint32_t duration = static_cast<uint32_t>(lines[i].text.size() + kLevelOutroColorSpan) *
+                                      kLevelIntroCharacterDelayMs;
+            segments.push_back({0, duration, static_cast<int>(i), -1, true});
+            settledElapsed = std::max(settledElapsed, duration);
+        }
+        // Settled key-wait presentation only; end-run typing/record ordering remains separate work.
+        drawLevelOutro({true, settledElapsed, lines, segments});
+        return;
+    }
     MenuPainter(canvas_, text_, assets_, presentation_, *this, menu).drawMenu();
 }
 
 void GameRenderer::drawLevelIntro(int levelIndex, const LevelIntroPattern& pattern,
                     size_t visibleCharacters) {
-    canvas_.resetClip();
-    int fraction = 0;
-    int phase = 0;
-    for (int i = 0; i < kScreenW * kScreenH; ++i) {
-        fraction += pattern.horizontalStep;
-        if (fraction > 100) {
-            fraction -= 100;
-            ++phase;
-        }
-        if (i % kScreenW == 0) {
-            const int sineIndex = ((i * 3) / 100) % 128;
-            const int wave = static_cast<int>(
-                std::sin(static_cast<float>(sineIndex) * 6.28f / 128.0f) *
-                8.0f);
-            fraction += pattern.verticalStep + wave;
-            if (fraction > 100) {
-                fraction -= 100;
-                ++phase;
-            }
-        }
-        const Rgb color =
-            pattern.colors[static_cast<size_t>(phase) % pattern.colors.size()];
-        canvas_.pixel(i % kScreenW, i / kScreenW,
-              0xff000000u | (static_cast<uint32_t>(color.r) << 16) |
-                  (static_cast<uint32_t>(color.g) << 8) | color.b);
-    }
+    drawPatternBackground(canvas_, pattern);
 
     const std::string caption = levelIntroCaption(levelIndex);
     const size_t count = std::min(visibleCharacters, caption.size());

@@ -20,6 +20,7 @@ public:
     void reset() { levelIntro_ = {}; levelOutro_ = {}; }
     static LevelIntroPattern makeLevelIntroPattern(const std::function<int(int, int)>& randomInclusive);
     static LevelIntroPattern capturedLevelIntroPattern();
+    static std::vector<OutroLine> gameOverLines(bool italian, const std::array<uint32_t, 2>& scores);
     void beginIntro(int levelIndex, LevelIntroPattern pattern, uint32_t now);
     size_t visibleLevelIntroCharacters(uint32_t now) const;
     bool introWaitingForKey(uint32_t now) const;

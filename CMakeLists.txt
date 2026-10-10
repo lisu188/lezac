@@ -64,6 +64,7 @@ target_compile_options(lezac_rendering PRIVATE ${SDL2_CFLAGS_OTHER})
 add_library(lezac_ui STATIC src/ui/record_store.cpp src/ui/ui_controller.cpp src/ui/level_flow.cpp)
 target_include_directories(lezac_ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(lezac_ui PUBLIC lezac_resources)
+target_link_libraries(lezac_rendering PUBLIC lezac_ui)
 add_library(lezac_ui_diagnostics STATIC src/diagnostics/ui_diagnostics.cpp)
 target_link_libraries(lezac_ui_diagnostics PUBLIC lezac_ui)
 
@@ -177,6 +178,15 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_end_screen_test tests/rendering/end_screen_test.cpp)
+    target_link_libraries(lezac_end_screen_test PRIVATE lezac_rendering)
+    add_test(NAME end_screen_original COMMAND lezac_end_screen_test
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures"
+        "${CMAKE_CURRENT_BINARY_DIR}/end-screen-original")
+    set_tests_properties(end_screen_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^end_screen=ok original_frames=2 compared_pixels=128000 differing_pixels=0 masks=0 score_cases=8 rng_calls=8 timing_parity=0")
     add_executable(lezac_sound_shared_cursor_test tests/sound/sound_shared_cursor_test.cpp
         src/sound/sound_engine.cpp src/resources/binary.cpp)
     target_include_directories(lezac_sound_shared_cursor_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

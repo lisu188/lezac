@@ -27511,14 +27511,15 @@ private:
         // 1000:0E34/0E90 read both compressed planes into DS:C498, the
         // background buffer. Decoder 082D:0000 continues through its retained
         // tail until the requested output length, ignoring compressed length.
-        auto decodePlane = [&](const std::vector<uint8_t>& encoded, size_t outputSize) {
-            return presentation_.decodeLevelPlane(encoded, outputSize);
-        };
         // JSON assets already contain decoded maps, without original input bytes.
         if (!level_.encodedTiles.empty()) {
-            level_.tiles = decodePlane(level_.encodedTiles, level_.tiles.size());
-            const auto words = decodePlane(level_.encodedWords, level_.wordLayer.size() * 2);
-            for (size_t i = 0; i < level_.wordLayer.size(); ++i) level_.wordLayer[i] = le16(words, i * 2);
+            auto tiles = presentation_.decodeLevelPlaneWithTail(level_.encodedTiles, level_.tiles.size());
+            level_.tiles = std::move(tiles.bytes);
+            // Preserve decoder order where an object tail aliases the word allocation.
+            mapPlaneMemory_.retainObjectDecoderTail(tiles.tail, level_.tiles, level_.wordLayer);
+            const auto words = presentation_.decodeLevelPlaneWithTail(level_.encodedWords, level_.wordLayer.size() * 2);
+            for (size_t i = 0; i < level_.wordLayer.size(); ++i) level_.wordLayer[i] = le16(words.bytes, i * 2);
+            mapPlaneMemory_.retainWordDecoderTail(words.tail, level_.tiles, level_.wordLayer);
         }
         collected_ = destroyed_ = 0;
         presentation_.resetHudObjectivesForLevel();

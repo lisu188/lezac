@@ -230,11 +230,16 @@ void PresentationState::beginLevel(size_t mapTileCount) {
 }
 
 std::vector<uint8_t> PresentationState::decodeLevelPlane(const std::vector<uint8_t>& encoded, size_t outputSize) {
+    return decodeLevelPlaneWithTail(encoded, outputSize).bytes;
+}
+
+resources::DecodedLevelPlane PresentationState::decodeLevelPlaneWithTail(
+        const std::vector<uint8_t>& encoded, size_t outputSize) {
     if (backdropBuffer_.size() != 60000 || encoded.size() > backdropBuffer_.size()) {
         throw std::runtime_error("level decoder background buffer bounds");
     }
     std::copy(encoded.begin(), encoded.end(), backdropBuffer_.begin());
-    return resources::decodeLevelRle3(backdropBuffer_, outputSize);
+    return resources::decodeLevelRle3WithTail(backdropBuffer_, outputSize);
 }
 
 void PresentationState::writeBackdropPrefix(const std::vector<uint8_t>& bytes) {

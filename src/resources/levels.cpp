@@ -13,16 +13,18 @@ namespace lezac::resources {
 
 using lezac::core::countPhysicalDamageProgressCells;
 
-std::vector<uint8_t> decodeLevelRle3(const std::vector<uint8_t>& encoded, size_t targetSize) {
+DecodedLevelPlane decodeLevelRle3WithTail(const std::vector<uint8_t>& encoded, size_t targetSize) {
     std::vector<uint8_t> out(targetSize + 32, 0);
     size_t in = 0;
     size_t pos = 0;
+    size_t writtenEnd = 0;
 
     auto run = [&](uint8_t value, size_t len) {
         const size_t end = std::min(pos + len, out.size() - 1);
         for (size_t i = pos; i <= end; ++i) {
             out[i] = value;
         }
+        writtenEnd = std::max(writtenEnd, end + 1);
         pos += len;
     };
 
@@ -37,8 +39,17 @@ std::vector<uint8_t> decodeLevelRle3(const std::vector<uint8_t>& encoded, size_t
         run(b, static_cast<size_t>((cmd & 0x0f) + 1));
     }
 
+    // 082D:0000 writes each run inclusively, including up to 16 tail bytes.
+    std::vector<uint8_t> tail;
+    if (writtenEnd > targetSize) {
+        tail.assign(out.begin() + targetSize, out.begin() + writtenEnd);
+    }
     out.resize(targetSize);
-    return out;
+    return {std::move(out), std::move(tail)};
+}
+
+std::vector<uint8_t> decodeLevelRle3(const std::vector<uint8_t>& encoded, size_t targetSize) {
+    return decodeLevelRle3WithTail(encoded, targetSize).bytes;
 }
 
 MonsterSpawner parseMonsterSpawner(const std::array<uint8_t, 30>& rec) {

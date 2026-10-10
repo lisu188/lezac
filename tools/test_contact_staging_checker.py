@@ -45,13 +45,15 @@ def source_contract(source):
     required = ('auto scan = [&](int delta, bool collectContacts = false)',
                 'if (collectContacts && word != 0 && std::none_of(result.contacts.begin(), result.contacts.end(),',
                 'writeContactWordGuardAlias(result.contacts.size(), word);',
-                'result.contacts.push_back({target, word});',
+                'result.contacts.push_back({static_cast<uint16_t>(target * 2u) / 2, word});',
                 'scan(-width, true).contacts', 'Scan result = scan(delta, true);',
                 'const auto support = scan(width);', '!scan(-1).blocked', '!scan(1).blocked')
     if any(collapse.count(compact(statement)) != 1 for statement in required):
         raise ValueError('contact collection roles differ')
+    if collapse.count(compact('const uint16_t target = static_cast<uint16_t>(cell + delta);')) != 2:
+        raise ValueError('scan and movement target wrap differ')
     if collapse.index(compact('writeContactWordGuardAlias(result.contacts.size(), word);')) > collapse.index(
-            compact('result.contacts.push_back({target, word});')):
+            compact('result.contacts.push_back({static_cast<uint16_t>(target * 2u) / 2, word});')):
         raise ValueError('contact index is not the zero-based staging slot')
     impact = compact(body(source, 'blendDebrisImpactLane'))
     stage = compact('writeContactWordGuardAlias(0, word);')
@@ -150,6 +152,12 @@ class ContactTests(unittest.TestCase):
                          ('scan(-1).blocked', 'scan(-1, true).blocked'),
                          ('scan(1).blocked', 'scan(1, true).blocked'),
                          ('collectContacts && word != 0', 'word != 0'),
+                         ('const uint16_t target = static_cast<uint16_t>(cell + delta);',
+                          'const int target = cell + delta;'),
+                         ('result.contacts.push_back({static_cast<uint16_t>(target * 2u) / 2, word});',
+                          'result.contacts.push_back({target, word});'),
+                         ('result.contacts.push_back({static_cast<uint16_t>(target * 2u) / 2, word});',
+                          'result.contacts.push_back({static_cast<uint16_t>(target * 2u / 2), word});'),
                          ('writeContactWordGuardAlias(result.contacts.size(), word);', ''),
                          ('writeContactWordGuardAlias(0, word);', '')):
             with self.assertRaises(ValueError):

@@ -5347,6 +5347,24 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^monster_object_branch_original=ok cases=1024 compared_bytes=18432 production_app=1 first_seeder_gate=0 sound_requests_checked=1 seeded=1 natural_route=0 whole_game_claim=0")
 
+    add_executable(lezac_collapse_rectangle_test tests/gameplay/collapse_rectangle_test.cpp)
+    target_include_directories(lezac_collapse_rectangle_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME collapse_rectangle_unit COMMAND lezac_collapse_rectangle_test)
+    add_test(NAME collapse_map_fixture COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_map.py)
+    add_test(NAME collapse_map_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_map.py --self-check)
+    add_test(NAME collapse_map_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_map.py --exe $<TARGET_FILE:lezac_cpp>
+        --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-map-app)
+    set_tests_properties(collapse_rectangle_unit collapse_map_fixture collapse_map_checker collapse_map_original
+        PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1" TIMEOUT 180)
+    set_tests_properties(collapse_rectangle_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "^collapse_rectangle_unit=ok fixed_dimensions=1 directional_order=1 word_cursor_wrap=1 zero_count_loop=1")
+    set_tests_properties(collapse_map_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^collapse_map_original=ok scenes=19 boundaries=34 compared_bytes=5365064 masks=0 production_app=1 natural_route=0 whole_game_claim=0")
+
     add_executable(lezac_map_plane_memory_test tests/gameplay/map_plane_memory_test.cpp)
     target_include_directories(lezac_map_plane_memory_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME map_plane_memory_unit COMMAND lezac_map_plane_memory_test)

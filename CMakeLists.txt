@@ -243,6 +243,12 @@ if(BUILD_TESTING)
         "^level_results=ok count_bonus=1 whole_award=1 reel_steps=41 rng_draws=41 delayed_rng=1 typing_steps=89 typing_boundaries=1 batching=1 rollover=1 zero_bonus=1 word_wrap=1 original_runtime_claim=0")
     add_executable(lezac_core_primitives_test tests/core/core_primitives_test.cpp)
     target_link_libraries(lezac_core_primitives_test PRIVATE lezac_core)
+    add_executable(lezac_actor_storage_test tests/gameplay/actor_storage_test.cpp)
+    target_include_directories(lezac_actor_storage_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME actor_storage_api_contract COMMAND lezac_actor_storage_test --api-contract)
+    set_tests_properties(actor_storage_api_contract PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^actor_storage_api=ok rejected=7 mutable_writebacks=2 stable_tail=1 compiled_core=1 production_app=0")
     add_executable(lezac_monster_animation_selectors_test tests/gameplay/monster_animation_selectors_test.cpp)
     target_include_directories(lezac_monster_animation_selectors_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME monster_animation_selectors
@@ -368,6 +374,17 @@ if(BUILD_TESTING)
     target_include_directories(lezac_flame_contact_word_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
     if(Python3_Interpreter_FOUND)
+        add_test(NAME actor_storage_core_original
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_storage_core.py
+                --exe $<TARGET_FILE:lezac_actor_storage_test>
+                --out ${CMAKE_CURRENT_BINARY_DIR}/actor-storage-checks)
+        set_tests_properties(actor_storage_core_original PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 60
+            PASS_REGULAR_EXPRESSION "^actor_storage_core=ok operations=5852 compared_bytes=9216900 compiled_core=1 production_app=0 whole_game_claim=0")
+        add_test(NAME actor_storage_checker_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_storage_checker.py -v)
+        set_tests_properties(actor_storage_checker_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
         add_test(NAME clocked_sound_routing
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_clocked_sound_routing.py)
         set_tests_properties(clocked_sound_routing PROPERTIES PASS_REGULAR_EXPRESSION
@@ -694,8 +711,41 @@ if(BUILD_TESTING)
                 tests/fixtures/shared_actor_order_original.txt)
     set_tests_properties(shared_actor_order_original PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        PASS_REGULAR_EXPRESSION "shared_actor_order_original=ok cases=10 samples=410 actor_states=7685 stable_compaction=1 same_pass_appends=1 in_place_conversion=1 rng=1 map=1 seeded=1 natural_route=0 whole_game_parity=0")
+        PASS_REGULAR_EXPRESSION "shared_actor_order_original=ok cases=10 samples=410 actor_states=7685 stable_compaction=1 same_pass_appends=1 in_place_conversion=1 rng=1 map=1 seeded=1 natural_route=0 whole_game_parity=0 birth_id_conservation=1")
     if(Python3_Interpreter_FOUND)
+        set(actor_identity_mutant_source ${CMAKE_CURRENT_BINARY_DIR}/actor-identity-mutant/app.cpp)
+        add_custom_command(OUTPUT ${actor_identity_mutant_source}
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/make_corpse_identity_mutant.py
+                --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp --out ${actor_identity_mutant_source}
+            DEPENDS src/app/app.cpp tools/make_corpse_identity_mutant.py VERBATIM)
+        add_executable(lezac_actor_identity_mutant src/main.cpp ${actor_identity_mutant_source}
+            src/app/sdl_runtime.cpp src/app/input_mapper.cpp src/diagnostics/frame_inspector.cpp)
+        target_compile_definitions(lezac_actor_identity_mutant PRIVATE SDL_MAIN_HANDLED)
+        target_include_directories(lezac_actor_identity_mutant PRIVATE ${SDL2_INCLUDE_DIRS})
+        target_link_directories(lezac_actor_identity_mutant PRIVATE ${SDL2_LIBRARY_DIRS})
+        target_link_libraries(lezac_actor_identity_mutant PRIVATE lezac_core lezac_resources lezac_sound
+            lezac_sound_diagnostics lezac_rendering lezac_ui lezac_ui_diagnostics ${SDL2_LIBRARIES})
+        target_compile_options(lezac_actor_identity_mutant PRIVATE ${SDL2_CFLAGS_OTHER})
+        add_test(NAME corpse_conversion_identity_mutant
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_corpse_identity_mutant.py
+                --exe $<TARGET_FILE:lezac_actor_identity_mutant>
+                --fixture ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/shared_actor_order_original.txt
+                --out ${CMAKE_CURRENT_BINARY_DIR}/actor-identity-mutant-checks)
+        set_tests_properties(corpse_conversion_identity_mutant PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+            TIMEOUT 90 PASS_REGULAR_EXPRESSION "^corpse_identity_mutant=ok rejected=1 production_app=1 original_replay=1 whole_game_claim=0")
+        add_test(NAME corpse_conversion_identity_checker_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_corpse_identity_checker.py -v)
+        set_tests_properties(corpse_conversion_identity_checker_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 30)
+        add_test(NAME corpse_conversion_identity_live_binding
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_corpse_identity_live_binding.py
+                --exe $<TARGET_FILE:lezac_cpp> --mutant $<TARGET_FILE:lezac_actor_identity_mutant>
+                --fixture ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/shared_actor_order_original.txt
+                --out ${CMAKE_CURRENT_BINARY_DIR}/actor-identity-live-binding)
+        set_tests_properties(corpse_conversion_identity_live_binding PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+            TIMEOUT 210 PASS_REGULAR_EXPRESSION "^corpse_identity_live_binding=ok cases=3 compiled_baseline=1 compiled_mutant=1 real_children=1 retained_input=1 audio=dummy whole_game_claim=0")
         add_test(NAME shared_actor_order_capture_contract
             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_shared_actor_order.py --self-check)
         set_tests_properties(shared_actor_order_capture_contract PROPERTIES
@@ -4348,6 +4398,20 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^bomb_motion_original=ok cases=16 samples=2304 seeds=20,30,40,200 first_update_next_frame=1 pause=1 live_motion_states=2288 expiry_positions=16 sprites=57,58,59,60")
+
+    add_test(NAME original_bomb_lifetime_capture_contract
+        COMMAND ${Python3_EXECUTABLE} tools/check_original_bomb_native.py --self-check)
+    set_tests_properties(original_bomb_lifetime_capture_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        PASS_REGULAR_EXPRESSION "^original_bomb_lifetime_self_check=ok native_traces=16 updates=2304 executor_required=0 live=0")
+
+    add_test(NAME original_bomb_native_contract_regression
+        COMMAND ${Python3_EXECUTABLE} -B tools/test_original_bomb_native_contract.py)
+    set_tests_properties(original_bomb_native_contract_regression PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        PASS_REGULAR_EXPRESSION "original_bomb_native_contract=ok tests=27 executor_required=0")
 
     add_test(NAME natural_bomb_visual_original
         COMMAND ${Python3_EXECUTABLE} tools/check_natural_bomb_visual_fixture.py

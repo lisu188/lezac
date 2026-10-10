@@ -35,7 +35,7 @@ CONTRACT = {
         '            flameRecords_, sound_, tileSeederResult_, lanes);',
     ),
     'seedDamageLaneContact': (
-        'queueTileDamage(cell % level_.width, cell / level_.width, 0, 0, true, &seededClass);',
+        'queuePhysicalTileDamage(cell, 0, 0, true, &seededClass);',
         'if (tileSeederResult_ == 0) return lezac::gameplay::DamageLaneSeed::Failed;',
         'return seededClass ? lezac::gameplay::DamageLaneSeed::Debris : lezac::gameplay::DamageLaneSeed::Collapse;',
     ),

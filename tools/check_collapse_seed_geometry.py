@@ -17,7 +17,7 @@ FIXTURE = ROOT / 'tests/gameplay/collapse_seed_geometry_original.bin.gz'
 META = ROOT / 'tests/gameplay/collapse_seed_geometry_original.json'
 META_SHA = 'ae20124be0e1489ca0acb04985339805de2f7da63678709bdb3f72f8d003d881'
 CONTRACT = (
-    'auto geometry = lezac::gameplay::seedCollapseWordGroup(level_.wordLayer, level_.width, start);',
+    'auto geometry = lezac::gameplay::seedCollapseWordGroupPhysical(level_.width, start,',
     'record.startOffsetBytes = geometry.firstOffsetBytes;',
     'record.endOffsetBytes = geometry.lastOffsetBytes;',
     'record.affectedBytes = static_cast<uint8_t>((geometry.cells.size() * 2) & 0xff);',
@@ -31,7 +31,7 @@ def compact(text):
 
 
 def check_source(text):
-    first, last = function_ranges(text, ['queueTileDamage'])['queueTileDamage']
+    first, last = function_ranges(text, ['queuePhysicalTileDamage'])['queuePhysicalTileDamage']
     body = compact('\n'.join(text.splitlines()[first - 1:last]))
     for statement in CONTRACT:
         if body.count(compact(statement)) != 1:

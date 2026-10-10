@@ -1,0 +1,486 @@
+{
+  "passed": true,
+  "schema": "lezac.outside-map-seeding.v1",
+  "scenes": [
+    {
+      "name": "fracture-in-map-debris",
+      "first": 1953,
+      "fracture": true,
+      "next_word": 16640,
+      "initial_sha256": "242d8ccbca7548507d24927d3ee5bb841ac480127de4bbabcd52578837c1da3b",
+      "state_sha256": "b0ef2699049d08f7db6ad085d167b9642b2346588092a5cf3a79649ab2242e36",
+      "initial_ram_sha256": "2ed1b62e9222e65e0a08013192c3b69b26bf556b8c3d1d394acec2e60cc22901",
+      "final_ram_sha256": "ac9a80c869fb6ed66b53bb9dbc537cabf45d0db0f9f2d769fd4dfcfe490ff048",
+      "debris_count": 1,
+      "collapse_count": 0,
+      "added_cell": 1953,
+      "added_cell_outside_logical_map": false,
+      "final_added_cell_word": 49408,
+      "map_reads": 24,
+      "map_writes": 3,
+      "visits": {
+        "0x15102": 1,
+        "0x1557b": 1,
+        "0x1370e": 1,
+        "0x1508b": 1
+      },
+      "seed_entries": [
+        {
+          "case": 0,
+          "stack_words": [
+            20587,
+            31139,
+            6818,
+            65505,
+            9,
+            1953
+          ],
+          "ax": 65505,
+          "di": 31139,
+          "debris_bound": 199,
+          "collapse_count": 1
+        }
+      ]
+    },
+    {
+      "name": "fracture-tail-debris",
+      "first": 2013,
+      "fracture": true,
+      "next_word": 16640,
+      "initial_sha256": "bb96a07cca1eeb8fd014787471b9096cc766ad3f92858aaeef437f64c8187ce7",
+      "state_sha256": "cd37574b2dc21569c6ee66b5240c45de1a70e14d217bb7522047f144ee10bbe5",
+      "initial_ram_sha256": "70602ddd49c7cd5ce2187e126965d272c5e466f6a4a376be59a658aa30efa883",
+      "final_ram_sha256": "ca1118b2366e9da5c515025033eac9ea04c660b4c8ecc6121987243893691448",
+      "debris_count": 1,
+      "collapse_count": 0,
+      "added_cell": 2013,
+      "added_cell_outside_logical_map": true,
+      "final_added_cell_word": 49408,
+      "map_reads": 24,
+      "map_writes": 3,
+      "visits": {
+        "0x15102": 1,
+        "0x1557b": 1,
+        "0x1370e": 1,
+        "0x1508b": 1
+      },
+      "seed_entries": [
+        {
+          "case": 1,
+          "stack_words": [
+            20587,
+            31139,
+            6818,
+            65505,
+            9,
+            2013
+          ],
+          "ax": 65505,
+          "di": 31139,
+          "debris_bound": 199,
+          "collapse_count": 1
+        }
+      ]
+    },
+    {
+      "name": "above-tail-collapse",
+      "first": 2073,
+      "target": 2013,
+      "target_word": 18,
+      "above": true,
+      "initial_sha256": "4cbebd302539ef364218beca47452f2294124e6e701afbd8e276a30f11c4265f",
+      "state_sha256": "31af5eeaab114eefe4d029da566848a261ef7174e796039b9b8c1bec58832e46",
+      "initial_ram_sha256": "b46b1fbb7eebb76d89c2a1b18b1d0d7ee22e86bf9ee866b451e79bb71f4a081d",
+      "final_ram_sha256": "b9669a7219304adcba9ef56743011a57f30b43249c2b0c816551e7e3e8936249",
+      "debris_count": 0,
+      "collapse_count": 2,
+      "added_cell": 2013,
+      "added_cell_outside_logical_map": true,
+      "final_added_cell_word": 32786,
+      "map_reads": 33,
+      "map_writes": 5,
+      "visits": {
+        "0x15102": 1,
+        "0x1370e": 1
+      },
+      "seed_entries": [
+        {
+          "case": 2,
+          "stack_words": [
+            21080,
+            65261,
+            32768,
+            1,
+            0,
+            2013
+          ],
+          "ax": 2013,
+          "di": 65261,
+          "debris_bound": 199,
+          "collapse_count": 1
+        }
+      ]
+    },
+    {
+      "name": "above-tail-debris",
+      "first": 2073,
+      "target": 2013,
+      "target_word": 16641,
+      "above": true,
+      "initial_sha256": "351f4c200b1082adff8dee59e8974e88282173f9b4ee0937f675d5751d795050",
+      "state_sha256": "f5aaf83da19a3dabfed5cbc9c831d6a0a091ee72f233b01a6aae8d8f73a663b5",
+      "initial_ram_sha256": "bda232004d2a96be5814bdb3ef0646d6933ceef03dff8ec6c79501e29aa41262",
+      "final_ram_sha256": "ae12a2034c1b9a505a65c004d704d73b1eece9feda91070569d050ce248fd21b",
+      "debris_count": 1,
+      "collapse_count": 1,
+      "added_cell": 2013,
+      "added_cell_outside_logical_map": true,
+      "final_added_cell_word": 49409,
+      "map_reads": 14,
+      "map_writes": 5,
+      "visits": {
+        "0x15102": 1,
+        "0x1370e": 1
+      },
+      "seed_entries": [
+        {
+          "case": 3,
+          "stack_words": [
+            21080,
+            65261,
+            32768,
+            1,
+            0,
+            2013
+          ],
+          "ax": 2013,
+          "di": 65261,
+          "debris_bound": 199,
+          "collapse_count": 1
+        }
+      ]
+    },
+    {
+      "name": "blocked-tail-collapse",
+      "first": 2013,
+      "target": 2014,
+      "target_word": 18,
+      "initial_sha256": "74a493e46189bb848847dad5eea21785acce745cc99da8e875889fce1fab8c6b",
+      "state_sha256": "82eab73efe759914c8fbd6490caf479c2ab2be5c14e5c98ab1192c563d074bd4",
+      "initial_ram_sha256": "2b6992a2b52beab8365daaf308ee3a6e210f6d3e8df7d118b37f30a5ccd79c47",
+      "final_ram_sha256": "fc3f00138d25e1209c337a2de123936808c9584fb87a64c7465ea05534718e90",
+      "debris_count": 0,
+      "collapse_count": 2,
+      "added_cell": 2014,
+      "added_cell_outside_logical_map": true,
+      "final_added_cell_word": 32786,
+      "map_reads": 28,
+      "map_writes": 1,
+      "visits": {
+        "0x15102": 1,
+        "0x1370e": 1
+      },
+      "seed_entries": [
+        {
+          "case": 4,
+          "stack_words": [
+            15398,
+            65232,
+            32768,
+            0,
+            0,
+            2014
+          ],
+          "ax": 2014,
+          "di": 65232,
+          "debris_bound": 199,
+          "collapse_count": 1
+        }
+      ]
+    },
+    {
+      "name": "blocked-tail-debris",
+      "first": 2013,
+      "target": 2014,
+      "target_word": 16641,
+      "initial_sha256": "e1719f2f76031bf29d1adea335a850b6f4e0d9bac36ad8022220312dc1246ec6",
+      "state_sha256": "f298e23454875464b112678929feddd4325257edfa11e9247a6e94b05c0ca7f4",
+      "initial_ram_sha256": "c751949356f294f0136db9a2eeb7bec36e5380f444a858906544ee961fe1cf23",
+      "final_ram_sha256": "2d76e1fbdf60d7464528303c1f6123f2aa2597f1bc99d0f653543a3083f20e2d",
+      "debris_count": 1,
+      "collapse_count": 1,
+      "added_cell": 2014,
+      "added_cell_outside_logical_map": true,
+      "final_added_cell_word": 49409,
+      "map_reads": 9,
+      "map_writes": 1,
+      "visits": {
+        "0x15102": 1,
+        "0x1370e": 1
+      },
+      "seed_entries": [
+        {
+          "case": 5,
+          "stack_words": [
+            15398,
+            65232,
+            32768,
+            0,
+            0,
+            2014
+          ],
+          "ax": 2014,
+          "di": 65232,
+          "debris_bound": 199,
+          "collapse_count": 1
+        }
+      ]
+    },
+    {
+      "name": "above-in-map-collapse",
+      "first": 1953,
+      "target": 1893,
+      "target_word": 18,
+      "above": true,
+      "initial_sha256": "5de81aa8c3da4cdf24ea57f42b4dd9ec9e8b2132500f73d29616aac0bd98e6c6",
+      "state_sha256": "d81997616f5b7507e2ce98b24e93541b84a8312e2e2d9705ec5154af3f9a5b7a",
+      "initial_ram_sha256": "8e3d1cc92adfc9bcb5e99fefecd15ae7bbc125067d3fb34d0a54038ac055b7da",
+      "final_ram_sha256": "6c2843d899abc11406d6c0d54ead925363e58025d5494a7177e27cecefc94553",
+      "debris_count": 0,
+      "collapse_count": 2,
+      "added_cell": 1893,
+      "added_cell_outside_logical_map": false,
+      "final_added_cell_word": 32786,
+      "map_reads": 33,
+      "map_writes": 5,
+      "visits": {
+        "0x15102": 1,
+        "0x1370e": 1
+      },
+      "seed_entries": [
+        {
+          "case": 6,
+          "stack_words": [
+            21080,
+            65261,
+            32768,
+            1,
+            0,
+            1893
+          ],
+          "ax": 1893,
+          "di": 65261,
+          "debris_bound": 199,
+          "collapse_count": 1
+        }
+      ]
+    },
+    {
+      "name": "above-tail-flagged-control",
+      "first": 2073,
+      "target": 2013,
+      "target_word": 32786,
+      "above": true,
+      "initial_sha256": "9b31b17a82b7592ee08422f1521e11d8193b27411ad984eac7ea936c9251424b",
+      "state_sha256": "321c7f458d5d950567417eb4fa11927168e72b6c3a36d95e73eb9b59835b9242",
+      "initial_ram_sha256": "e05bbe12b2b89b87a9b90791a764826c13b2ca35848d96e4473275a16b5f143d",
+      "final_ram_sha256": "df8b4ea6aafbd9cc2ef1d66c6753c65b0a7bf12c24db406ee2cb8652604b05fc",
+      "debris_count": 0,
+      "collapse_count": 1,
+      "added_cell": 2013,
+      "added_cell_outside_logical_map": true,
+      "final_added_cell_word": 32786,
+      "map_reads": 11,
+      "map_writes": 4,
+      "visits": {
+        "0x15102": 1
+      },
+      "seed_entries": []
+    },
+    {
+      "name": "debris-consume-tail-collapse",
+      "first": 2073,
+      "target": 2013,
+      "target_word": 18,
+      "debris": true,
+      "consume": true,
+      "initial_sha256": "f0d1574f4000fa31131106eded712969124b97cfefbfd00d7191ca5e49f24f6c",
+      "state_sha256": "65b9830dedec303f616387001ba22549dc65893feb0ef288cf9f75610d24d377",
+      "initial_ram_sha256": "fc2582470987ef1c119628606db0f9aec4d6e58542622311cdc488a6692028aa",
+      "final_ram_sha256": "1c510b05fd187c329e5050864ad0297ec6630f979c0f4d139b4ead4697c35efd",
+      "debris_count": 0,
+      "collapse_count": 1,
+      "added_cell": 2013,
+      "added_cell_outside_logical_map": true,
+      "final_added_cell_word": 32786,
+      "map_reads": 27,
+      "map_writes": 3,
+      "visits": {
+        "0x1370e": 1,
+        "0x15102": 1
+      },
+      "seed_entries": [
+        {
+          "case": 8,
+          "stack_words": [
+            19061,
+            65258,
+            32768,
+            0,
+            0,
+            2013
+          ],
+          "ax": 2013,
+          "di": 65258,
+          "debris_bound": 199,
+          "collapse_count": 0
+        }
+      ]
+    },
+    {
+      "name": "debris-move-tail-debris",
+      "first": 2073,
+      "target": 2013,
+      "target_word": 16641,
+      "debris": true,
+      "initial_sha256": "1e2f700b49726ee08e01cb52c6c0c7bc75a1d289cfccffd03c1cef01c494676d",
+      "state_sha256": "12f51b1d0d2ac37f734f134e9cf5d068f6ce21b99420253b481bc2f2e4ef5411",
+      "initial_ram_sha256": "af05bf9b3513777e7208774ec25342e457d49a883686966b67a811b9de34f7a1",
+      "final_ram_sha256": "05e524c5afad5fbdd88a108979be0c738ab3ba2a21e857e2ca9322b4e6fcdb5d",
+      "debris_count": 2,
+      "collapse_count": 0,
+      "added_cell": 2013,
+      "added_cell_outside_logical_map": true,
+      "final_added_cell_word": 49409,
+      "map_reads": 9,
+      "map_writes": 5,
+      "visits": {
+        "0x1370e": 1
+      },
+      "seed_entries": [
+        {
+          "case": 9,
+          "stack_words": [
+            19467,
+            65259,
+            32768,
+            0,
+            0,
+            2013
+          ],
+          "ax": 2013,
+          "di": 65259,
+          "debris_bound": 200,
+          "collapse_count": 0
+        }
+      ]
+    },
+    {
+      "name": "debris-consume-wrap-collapse",
+      "first": 40,
+      "target": 32748,
+      "target_word": 18,
+      "debris": true,
+      "consume": true,
+      "initial_sha256": "1a711fc8b068e4f275dbf9e23680ee53eeee40db1775a9fad14b5beeccd56cd2",
+      "state_sha256": "ba081f9bcbec002c4644acce26f7b7b7b62fb921746fcfb49c3fb8ccb289230a",
+      "initial_ram_sha256": "ae10bf0e35a5296be9c75546f05d05ace543f58ab0bc8143a8afb1c201807e27",
+      "final_ram_sha256": "42e14e838c210b138387635375399b71da5e95d1d5481e2a8bb827b183235028",
+      "debris_count": 0,
+      "collapse_count": 1,
+      "added_cell": 32748,
+      "added_cell_outside_logical_map": true,
+      "final_added_cell_word": 32786,
+      "map_reads": 27,
+      "map_writes": 3,
+      "visits": {
+        "0x1370e": 1,
+        "0x15102": 1
+      },
+      "seed_entries": [
+        {
+          "case": 10,
+          "stack_words": [
+            19061,
+            65258,
+            32768,
+            0,
+            0,
+            65516
+          ],
+          "ax": 65516,
+          "di": 65258,
+          "debris_bound": 199,
+          "collapse_count": 0
+        }
+      ]
+    },
+    {
+      "name": "debris-move-wrap-collapse",
+      "first": 40,
+      "target": 32748,
+      "target_word": 18,
+      "debris": true,
+      "initial_sha256": "6b00ddfbded26ec11ec2007faff0da6a5a31ba4130c24855be5507bdd88fd68b",
+      "state_sha256": "f9660c1dd5d123c810e2d2dbcb01a610487d6d60f80364a645a9e24598bf01c8",
+      "initial_ram_sha256": "e2a4d7c4ad3830e985ba65b2607d03b0e5a0d7f9422fb504ec2c4e8993d081d9",
+      "final_ram_sha256": "be7948b20715c1c70fe1e8abde6e38c2c4f8704e28d09eede2e48ffd88a03498",
+      "debris_count": 1,
+      "collapse_count": 1,
+      "added_cell": 32748,
+      "added_cell_outside_logical_map": true,
+      "final_added_cell_word": 32786,
+      "map_reads": 29,
+      "map_writes": 5,
+      "visits": {
+        "0x1370e": 1,
+        "0x15102": 1
+      },
+      "seed_entries": [
+        {
+          "case": 11,
+          "stack_words": [
+            19467,
+            65259,
+            32768,
+            0,
+            0,
+            65516
+          ],
+          "ax": 65516,
+          "di": 65259,
+          "debris_bound": 200,
+          "collapse_count": 0
+        }
+      ]
+    }
+  ],
+  "boundaries": 12,
+  "fixture_sha256": "5e38a8ecfea7daec191122570be9404b72ba3340a9573e5f1b73bb9edc758ae3",
+  "raw_sha256": "ac320f2f16942c5e8757c2a6a94496fc8e51af6ba48e3e49050462afabd55b7a",
+  "events_sha256": "0931f1e6a82709820364c0e6abbe24cf40051e89a0a5a77dbc29757176299d93",
+  "original_exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "producer_sha256": "c3fc40a4aaa783c57fa7daad8114d232c6267c44ae1ab99be5028c9651ddab46",
+  "base_producer_sha256": "cb430a6be7f33d8c27cb5cf3440f9dfbaebfbadf2ef7bdf5b3e76b1ac59b9439",
+  "dependencies": {
+    "capture_original_contact_staging": "f703d8bd4cd3e646c8b78ae98a78b85d15fb42d58a11f271ad06d9696c01c9d1",
+    "original_bomb_cpu": "fd3066a8b28edc5872221692a88f24d4758c8e7961cb7b91a03d9b94c16fe41c",
+    "capture_original_fracture_retirement": "50cd6bc4d44a9d805b2598d89b7c626a34c0eb5339b8350b8f8125ffa6c74c73",
+    "capture_original_physics_dispatch": "927dce949bafdf712cc953a778599a52357df6a2451eff90f93857601ff563ef"
+  },
+  "prior_fixture_sha256": "e6552d851b95d4b30d931887eee00d75beafede7a173dabf3add77504c83b1cf",
+  "observer_neutrality_memory_bytes": 1048576,
+  "observer_neutrality_registers": 14,
+  "full_ram_hash_chain": "295c4135016b1d2cf9c92f090cbc0791b9ec3af21ea5c2abf6448d0e232f79a3",
+  "reads": 268,
+  "writes": 43,
+  "original_instructions_patched": false,
+  "original_calls_stubbed": false,
+  "hardware_io_permitted": false,
+  "seeded": true,
+  "natural_route": false,
+  "actual_app_executed": false,
+  "actual_app_parity_proven": false,
+  "whole_game_complete": false,
+  "all_execution_silent": true
+}

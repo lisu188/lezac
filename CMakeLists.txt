@@ -5365,6 +5365,24 @@ if(BUILD_TESTING)
     set_tests_properties(collapse_removal_original PROPERTIES
         PASS_REGULAR_EXPRESSION "^collapse_removal_original=ok scenes=7 compared_bytes=1104572 masks=0 production_app=1 natural_route=0 whole_game_claim=0")
 
+    add_executable(lezac_physical_collapse_seed_test tests/gameplay/physical_collapse_seed_test.cpp)
+    target_include_directories(lezac_physical_collapse_seed_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME collapse_physical_seed_unit COMMAND lezac_physical_collapse_seed_test)
+    add_test(NAME collapse_physical_seed_fixture COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_outside_map_seeding.py)
+    add_test(NAME collapse_physical_seed_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_outside_map_seeding.py --self-check)
+    add_test(NAME collapse_physical_seed_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_outside_map_seeding.py --exe $<TARGET_FILE:lezac_cpp>
+        --out ${CMAKE_CURRENT_BINARY_DIR}/physical-seed-app)
+    set_tests_properties(collapse_physical_seed_unit collapse_physical_seed_fixture collapse_physical_seed_checker
+        collapse_physical_seed_original PROPERTIES TIMEOUT 180
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(collapse_physical_seed_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "^physical_collapse_seed=ok layouts=2 wrapped=1 crossing=1 logical_adapter=1")
+    set_tests_properties(collapse_physical_seed_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^collapse_physical_seed_original=ok scenes=12 compared_bytes=1893552 masks=0 production_app=1 natural_route=0 whole_game_claim=0")
+
     add_executable(lezac_collapse_rectangle_test tests/gameplay/collapse_rectangle_test.cpp)
     target_include_directories(lezac_collapse_rectangle_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME collapse_rectangle_unit COMMAND lezac_collapse_rectangle_test)

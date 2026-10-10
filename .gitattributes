@@ -118,3 +118,6 @@ tests/gameplay/map_planes_original.bin.gz -text
 tests/gameplay/map_planes_expected.bin.gz -text
 tests/gameplay/collapse_removal_original.json -text
 tests/gameplay/collapse_removal_original.bin.gz -text
+tests/gameplay/outside_map_seeding_original.json -text
+tests/gameplay/outside_map_seeding_original.bin.gz -text
+tests/gameplay/outside_map_seeding_events.json.gz -text

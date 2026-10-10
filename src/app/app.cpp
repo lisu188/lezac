@@ -30683,9 +30683,17 @@ private:
     void queueTileDamage(int tx, int ty, uint8_t forwardPhase = 0, uint8_t reversePhase = 0,
                          bool preserveCollapseGlyphs = true, uint8_t* seededClass = nullptr) {
         if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return;
-        size_t start = static_cast<size_t>(ty) * level_.width + tx;
+        const size_t start = static_cast<size_t>(ty) * level_.width + tx;
         if (start >= level_.wordLayer.size()) return;
-        uint16_t word = level_.wordLayer[start];
+        queuePhysicalTileDamage(static_cast<uint16_t>(start), forwardPhase,
+                                reversePhase, preserveCollapseGlyphs, seededClass);
+    }
+
+    void queuePhysicalTileDamage(uint16_t cell, uint8_t forwardPhase = 0, uint8_t reversePhase = 0,
+                                 bool preserveCollapseGlyphs = true, uint8_t* seededClass = nullptr) {
+        if (level_.width <= 0) return;
+        const uint16_t start = static_cast<uint16_t>(static_cast<uint16_t>(cell * 2u) >> 1);
+        const uint16_t word = mapPlaneMemory_.readWord(start, level_.tiles, level_.wordLayer);
         if (word == 0 || (word & kDamagedWordBit) != 0) return;
         if (seededClass) *seededClass = static_cast<uint8_t>(word >= kDeferredThreshold);
 
@@ -30696,12 +30704,12 @@ private:
             // move (CONFIRMED by the L2 capture; the earlier markDamagedTile
             // call here was unfaithful). Cap check 3753: refuse once slot
             // index base + record count reaches 0x640.
-            uint8_t lookup = tileAt(tx, ty) & 0xff;
+            uint8_t lookup = mapPlaneMemory_.readObject(start, level_.tiles, level_.wordLayer);
             uint16_t flaggedWord = static_cast<uint16_t>(word | kDamagedWordBit);
             // The word is flagged (3770/3780) only after the cap check passes
             // (3753 jumps straight to the failure return when full).
             if (kDebrisRecordIndexBase + debrisQueue_.size() < kDebrisCapacity) {
-                level_.wordLayer[start] = flaggedWord;
+                mapPlaneMemory_.writeWord(start, flaggedWord, level_.tiles, level_.wordLayer);
                 DebrisRecord record;
                 record.tileIndex = static_cast<int>(start);
                 record.flaggedWord = flaggedWord;
@@ -30716,7 +30724,11 @@ private:
 
         tileSeederResult_ = 0;
         if (collapseQueue_.size() >= kCollapseCapacity) return;
-        auto geometry = lezac::gameplay::seedCollapseWordGroup(level_.wordLayer, level_.width, start);
+        auto geometry = lezac::gameplay::seedCollapseWordGroupPhysical(level_.width, start,
+            [&](uint16_t physicalCell) { return mapPlaneMemory_.readWord(physicalCell, level_.tiles, level_.wordLayer); },
+            [&](uint16_t physicalCell, uint16_t flaggedWord) {
+                mapPlaneMemory_.writeWord(physicalCell, flaggedWord, level_.tiles, level_.wordLayer);
+            });
         for (size_t index : geometry.cells) {
             int x = static_cast<int>(index % static_cast<size_t>(level_.width));
             int y = static_cast<int>(index / static_cast<size_t>(level_.width));
@@ -30724,8 +30736,8 @@ private:
         }
         if (!geometry.cells.empty() && collapseQueue_.size() < kCollapseCapacity) {
             CollapseRecord record;
-            record.x = tx;
-            record.y = ty;
+            record.x = start % level_.width;
+            record.y = start / level_.width;
             record.startOffsetBytes = geometry.firstOffsetBytes;
             record.endOffsetBytes = geometry.lastOffsetBytes;
             record.word = word;
@@ -30798,7 +30810,7 @@ private:
     }
 
     lezac::gameplay::DamageLaneSeed seedDamageLaneContact(uint16_t cell, uint8_t& seededClass) {
-        queueTileDamage(cell % level_.width, cell / level_.width, 0, 0, true, &seededClass);
+        queuePhysicalTileDamage(cell, 0, 0, true, &seededClass);
         if (tileSeederResult_ == 0) return lezac::gameplay::DamageLaneSeed::Failed;
         return seededClass ? lezac::gameplay::DamageLaneSeed::Debris : lezac::gameplay::DamageLaneSeed::Collapse;
     }
@@ -31182,8 +31194,8 @@ private:
                 debrisQueue_.erase(debrisQueue_.begin() +
                                    static_cast<std::ptrdiff_t>(i));  // 4A39 -> 458D
                 const int above = pos - width;
-                if (above >= 0 && wordCellAt(above) > 0) {           // 4A5B
-                    queueTileDamage(above % width, above / width);   // 4A72 -> 370E
+                if (wordCellAt(above) > 0) {                        // 4A5B
+                    queuePhysicalTileDamage(static_cast<uint16_t>(above));  // 4A72 -> 370E
                 }
                 continue;
             }
@@ -31262,9 +31274,9 @@ private:
                     if (delta != -width) {
                         const int above = pos - width;
                         const uint16_t aboveWord = wordCellAt(above);
-                        if (above >= 0 && aboveWord > 0 &&
+                        if (aboveWord > 0 &&
                             aboveWord < kDamagedWordBit) {  // 4BE4..4BF5
-                            queueTileDamage(above % width, above / width);  // 4C08
+                            queuePhysicalTileDamage(static_cast<uint16_t>(above));  // 4C08
                             // Set even when the seeder is at capacity (no
                             // DS:79C8 check at 4C0B..4C19). queueTileDamage
                             // may reallocate the queue, so re-index.
@@ -31402,7 +31414,7 @@ private:
             auto seedAbove = [&] {
                 for (const auto& contact : scan(-width, true).contacts) {
                     if (contact.word < kDamagedWordBit) {
-                        queueTileDamage(contact.cell % width, contact.cell / width, 0, 1, true);
+                        queuePhysicalTileDamage(contact.cell, 0, 1, true);
                     }
                 }
             };
@@ -31498,7 +31510,7 @@ private:
                     sound_.writeSharedCursor(static_cast<uint16_t>(cell));  // 1000:501F
                     const auto x = static_cast<uint8_t>(incomingX + randomRangeValue(0, 20) - 10);
                     const auto y = static_cast<uint8_t>(incomingY - randomRangeValue(0, 40));
-                    queueTileDamage(cell % width, cell / width, x, y, true);
+                    queuePhysicalTileDamage(static_cast<uint16_t>(cell), x, y, true);
                 }
                 // 1000:558C selects a cell backward from the bottom-right.
                 const uint16_t actorCell = lezac::gameplay::collapseActorCell(

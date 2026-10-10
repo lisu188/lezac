@@ -106,7 +106,7 @@ class FractureTests(unittest.TestCase):
             self.assertEqual(text.count(statement), 1)
             write = text.index(statement)
             self.assertLess(write, text.index('randomRangeValue(0, 20)'))
-            self.assertLess(write, text.index('queueTileDamage(cell % width'))
+            self.assertLess(write, text.index('queuePhysicalTileDamage(static_cast<uint16_t>(cell)'))
 
         check(fracture)
         with self.assertRaises(AssertionError):

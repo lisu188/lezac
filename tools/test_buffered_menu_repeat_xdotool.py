@@ -86,6 +86,10 @@ def observe(exe, output, choice, held, expected):
                 return image if image.tobytes() in (expected[name][len(HEADER):] for name in
                     ("italian-line0-step02", "italian-line0-step06", "italian-line0-step30")) else None
 
+            def full_menu():
+                image = frame()
+                return image if image.tobytes() == expected["italian-full"][len(HEADER):] else None
+
             capture("natural-menu-typing", wait(natural_text))
             if held:
                 key("keydown", str(choice))
@@ -125,9 +129,15 @@ def observe(exe, output, choice, held, expected):
                 result["gameplay_sample"] = wait(lambda: samples()[-1] if samples() else None, timeout=6)
                 capture("fresh-intro-ack-gameplay", wait(gameplay_frame, timeout=3))
             key("key", "Escape")
-            for _ in range(3):
+            time.sleep(.15)
+            capture("game-over-before-acknowledgement")
+            key("key", "Return")
+            for _ in range(2):
                 time.sleep(.15)
                 key("key", "Escape")
+            capture("returned-main-menu", wait(full_menu, 3))
+            time.sleep(.15)
+            key("key", "Escape")
             require(child.wait(timeout=5) == 0, "interactive app did not exit cleanly")
             result["status"] = "observed"
         except Exception as error:

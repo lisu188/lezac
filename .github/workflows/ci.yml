@@ -65,6 +65,23 @@ jobs:
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
+      - name: Live keyboard end-run regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(bios_menu_input|buffered_menu_repeat|main_menu|key_ownership)_live_xvfb$'
+      - name: Preserve live keyboard end-run diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-keyboard-linux-focused
+          path: |
+            build/bios-menu-input-checks/
+            build/buffered-menu-live-checks/
+            build/main-menu-live-checks/
+            build/key-ownership-live-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
       - name: Collapse map boundary regressions
         env:
           SDL_VIDEODRIVER: dummy

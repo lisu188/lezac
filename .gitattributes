@@ -121,3 +121,5 @@ tests/gameplay/collapse_removal_original.bin.gz -text
 tests/gameplay/outside_map_seeding_original.json -text
 tests/gameplay/outside_map_seeding_original.bin.gz -text
 tests/gameplay/outside_map_seeding_events.json.gz -text
+# Decoder fixtures are checksummed byte-for-byte on every platform.
+tests/fixtures/level_rle_tail_original.json.gz -text

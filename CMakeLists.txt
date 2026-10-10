@@ -5401,6 +5401,23 @@ if(BUILD_TESTING)
     set_tests_properties(collapse_map_original PROPERTIES
         PASS_REGULAR_EXPRESSION "^collapse_map_original=ok scenes=19 boundaries=34 compared_bytes=5365064 masks=0 production_app=1 natural_route=0 whole_game_claim=0")
 
+    add_executable(lezac_level_rle_tail_test tests/resources/level_rle_tail_test.cpp)
+    target_link_libraries(lezac_level_rle_tail_test PRIVATE lezac_rendering)
+    add_test(NAME level_rle_tail_unit COMMAND lezac_level_rle_tail_test)
+    add_test(NAME level_rle_tail_fixture COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_level_rle_tail.py)
+    add_test(NAME level_rle_tail_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_level_rle_tail.py --self-check)
+    add_test(NAME level_rle_tail_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_level_rle_tail.py --exe $<TARGET_FILE:lezac_level_rle_tail_test>)
+    set_tests_properties(level_rle_tail_unit level_rle_tail_fixture level_rle_tail_checker
+        level_rle_tail_original PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1" TIMEOUT 60)
+    set_tests_properties(level_rle_tail_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "^level_rle_tail_unit=ok inclusive_runs=1 exact_tail=1 alias_order=1 retained_heap=1")
+    set_tests_properties(level_rle_tail_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^level_rle_tail_original=ok cases=22.* masks=0 natural_gameplay=0 whole_game_claim=0")
+
     add_executable(lezac_map_plane_memory_test tests/gameplay/map_plane_memory_test.cpp)
     target_include_directories(lezac_map_plane_memory_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME map_plane_memory_unit COMMAND lezac_map_plane_memory_test)

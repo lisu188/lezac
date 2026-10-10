@@ -14,11 +14,14 @@ struct CollapseSeedGeometry {
 
 // 1000:37FE..3A46 expands all matching perimeter edges simultaneously, then
 // flags matching words inside the rectangle, including disconnected islands.
-inline CollapseSeedGeometry seedCollapseWordGroup(std::vector<uint16_t>& words,
-                                                   int width, std::size_t seed) {
+template<class ReadWord, class WriteWord>
+inline CollapseSeedGeometry seedCollapseWordGroupPhysical(int width, uint16_t seed,
+                                                          ReadWord readWord, WriteWord writeWord) {
     CollapseSeedGeometry result;
-    if (width <= 0 || seed >= words.size() || words[seed] == 0 || words[seed] >= 0x4000) return result;
-    const uint16_t key = words[seed];
+    seed = static_cast<uint16_t>(static_cast<uint16_t>(seed * 2u) >> 1);
+    if (width <= 0) return result;
+    const uint16_t key = readWord(seed);
+    if (key == 0 || key >= 0x4000) return result;
     const uint16_t stride = static_cast<uint16_t>(2 * width);
     uint16_t topLeft = static_cast<uint16_t>(2 * seed - stride - 2);
     uint16_t topRight = static_cast<uint16_t>(2 * seed - stride);
@@ -26,8 +29,7 @@ inline CollapseSeedGeometry seedCollapseWordGroup(std::vector<uint16_t>& words,
     uint16_t bottomRight = static_cast<uint16_t>(2 * seed);
     uint16_t columns = 2, rows = 2;
     auto wordAt = [&](uint16_t offset) -> uint16_t {
-        const std::size_t cell = offset / 2;
-        return cell < words.size() ? words[cell] : 0;
+        return readWord(static_cast<uint16_t>(offset >> 1));
     };
     auto edgeMatches = [&](uint16_t offset, uint16_t step, uint16_t count) {
         for (uint16_t i = 0; i < count; ++i) {
@@ -72,7 +74,7 @@ inline CollapseSeedGeometry seedCollapseWordGroup(std::vector<uint16_t>& words,
         do {
             if (wordAt(offset) == key) {
                 const std::size_t cell = offset / 2;
-                words[cell] = static_cast<uint16_t>(key | 0x8000);
+                writeWord(static_cast<uint16_t>(cell), static_cast<uint16_t>(key | 0x8000));
                 result.cells.push_back(cell);
             }
             offset = static_cast<uint16_t>(offset + 2);
@@ -81,6 +83,14 @@ inline CollapseSeedGeometry seedCollapseWordGroup(std::vector<uint16_t>& words,
         last = static_cast<uint16_t>(last + stride);
     } while (static_cast<int16_t>(last) <= static_cast<int16_t>(result.lastOffsetBytes));
     return result;
+}
+
+inline CollapseSeedGeometry seedCollapseWordGroup(std::vector<uint16_t>& words,
+                                                   int width, std::size_t seed) {
+    if (width <= 0 || seed >= words.size()) return {};
+    return seedCollapseWordGroupPhysical(width, static_cast<uint16_t>(seed),
+        [&](uint16_t cell) -> uint16_t { return cell < words.size() ? words[cell] : 0; },
+        [&](uint16_t cell, uint16_t word) { words[cell] = word; });
 }
 
 }

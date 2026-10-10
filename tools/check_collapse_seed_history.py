@@ -133,8 +133,8 @@ def run_probe(exe, out, data, production_app):
 def self_check(data, source):
     source_mutants = (
         source.replace('uint16_t cell, uint8_t& seededClass', 'uint16_t cell, uint8_t seededClass'),
-        source.replace('queueTileDamage(cell % level_.width',
-                       'seededClass = 0;\n        queueTileDamage(cell % level_.width'),
+        source.replace('queuePhysicalTileDamage(cell, 0, 0, true, &seededClass);',
+                       'seededClass = 0;\n        queuePhysicalTileDamage(cell, 0, 0, true, &seededClass);'),
         source.replace('return seedDamageLaneContact(cell, seededClass);',
                        'seededClass = 0; return seedDamageLaneContact(cell, seededClass);'),
         source.replace('return seededClass ? lezac::gameplay::DamageLaneSeed::Debris',

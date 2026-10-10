@@ -250,6 +250,12 @@ if(BUILD_TESTING)
     add_test(NAME ui_components COMMAND lezac_ui_components_test)
     set_tests_properties(ui_components PROPERTIES PASS_REGULAR_EXPRESSION "^ui_components=ok input=1 records=1 timing=1 callback_order=1 rng_order=1")
 
+    add_executable(lezac_abort_run_test tests/ui/abort_run_test.cpp)
+    target_link_libraries(lezac_abort_run_test PRIVATE lezac_ui)
+    add_test(NAME abort_run_unit COMMAND lezac_abort_run_test)
+    set_tests_properties(abort_run_unit PROPERTIES PASS_REGULAR_EXPRESSION
+        "^abort_run=ok cases=8 pause_cleared=1 game_over=1 records=1 player_order=1,2 current_level=1 acknowledgement=1 restart=1 original_record_claim=0")
+
     add_executable(lezac_level_results_test tests/ui/level_results_test.cpp)
     target_link_libraries(lezac_level_results_test PRIVATE lezac_ui)
     add_test(NAME level_results COMMAND lezac_level_results_test)
@@ -5420,6 +5426,19 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1" TIMEOUT 180)
     set_tests_properties(startup_map_original PROPERTIES
         PASS_REGULAR_EXPRESSION "^startup_map_original=ok original_samples=3 cpp_boundaries=6 compared_bytes=786432 masks=0 production_app=1 whole_game_claim=0")
+
+    add_test(NAME abort_map_fixture COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_abort_map_memory.py)
+    add_test(NAME abort_map_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_abort_map_memory.py --self-check)
+    add_test(NAME abort_map_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_abort_map_memory.py --exe $<TARGET_FILE:lezac_cpp>
+        --out ${CMAKE_CURRENT_BINARY_DIR}/abort_map_original_out)
+    set_tests_properties(abort_map_fixture abort_map_checker abort_map_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1" TIMEOUT 180)
+    set_tests_properties(abort_map_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^abort_map_original=ok original_images=11 cpp_boundaries=10 compared_bytes=1310720 masks=0 production_app=1 whole_game_claim=0")
 
     add_executable(lezac_level_rle_tail_test tests/resources/level_rle_tail_test.cpp)
     target_link_libraries(lezac_level_rle_tail_test PRIVATE lezac_rendering)

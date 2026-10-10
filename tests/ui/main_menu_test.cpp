@@ -259,6 +259,8 @@ int main(int argc, char** argv) {
         actions.clearScores = [] {};
         actions.prepareNewGame = [&](int) { ++games; };
         actions.beginLevel = [](int) {};
+        actions.resetAfterEndRun = [] {};
+        actions.abortRun = [&] { ui.beginEndRun(EndReason::GameOver, 0, 1, 0, 0, records, actions); };
         require(mainMenuStepCount(true) == 158 && mainMenuStepCount(false) == 155, "menu cycle count");
         ui.beginMainMenu(100);
         require(ui.mainMenuProgress(100).fade == 0 && ui.mainMenuProgress(100).steps == 0, "initial fade");
@@ -283,7 +285,11 @@ int main(int argc, char** argv) {
         ui.onKey(Key::One, running, 0, 1, records, actions, 323);
         require(games == 1 && !ui.snapshot().menu, "fresh selection failed");
         ui.onKey(Key::Escape, running, 0, 1, records, actions, 400);
-        require(ui.snapshot().menu && ui.mainMenuProgress(400).fade == 0, "game return redraw");
+        require(ui.snapshot().menu && ui.snapshot().page == MenuPage::GameOver,
+                "game Escape skipped Game Over");
+        ui.onKey(Key::Return, running, 0, 1, records, actions, 401);
+        require(ui.snapshot().page == MenuPage::Main && ui.mainMenuProgress(401).fade == 0,
+                "Game Over acknowledgement did not redraw menu");
         ui.beginMainMenu(UINT32_MAX - 20);
         require(ui.mainMenuProgress(1).fade == 1, "menu clock rollover");
         ui.beginMainMenu(0);

@@ -125,3 +125,5 @@ tests/gameplay/outside_map_seeding_events.json.gz -text
 tests/fixtures/level_rle_tail_original.json.gz -text
 tests/fixtures/startup_map_original.json -text
 tests/fixtures/startup_map_original.bin.gz -text
+tests/fixtures/abort_map_original.json -text
+tests/fixtures/abort_map_original.bin.gz -text

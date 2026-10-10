@@ -5506,6 +5506,7 @@ public:
         score_ = 999999u;
         levelIndex_ = 2;
         beginGameOver();
+        acknowledgeEndRunForFixture();
         if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::NameEntry ||
             recordStore_.pending().score != 999999u || recordStore_.pending().level != 3 ||
             recordStore_.pending().player != 1) {
@@ -5523,13 +5524,13 @@ public:
             processEvents(running);
         }
         auto reloaded = loadRecords(recordStore_.path());
-        if (ui_.snapshot().page != MenuPage::Records || reloaded.empty() ||
+        if (ui_.snapshot().page != MenuPage::Main || reloaded.empty() ||
             reloaded[0].score != 999999u || reloaded[0].level != 3 ||
             reloaded[0].name != "bot") {
             throw std::runtime_error("records autoplayer did not save entered record");
         }
 
-        FrameInspection recordsFrame = inspectRenderedFrame("autoplayer-records-page");
+        FrameInspection recordsFrame = inspectRenderedFrame("autoplayer-after-record-main");
         if (recordsFrame.hash == nameFrame.hash) {
             throw std::runtime_error("records autoplayer records frame did not change");
         }
@@ -7441,6 +7442,13 @@ public:
                   << " triggers=" << triggers << '\n';
     }
 
+    void acknowledgeEndRunForFixture() {
+        if (ui_.snapshot().page != MenuPage::GameOver && ui_.snapshot().page != MenuPage::CompletedGame)
+            throw std::runtime_error("end-run fixture was not waiting for acknowledgement");
+        bool running = true;
+        onUiKey(Key::Return, running);
+    }
+
     void debugRecordNameEntry(const std::string& path) {
         load();
         recordStore_.setPath(path);
@@ -7459,6 +7467,7 @@ public:
         score_ = 999999u;
         levelIndex_ = 0;
         beginGameOver();
+        acknowledgeEndRunForFixture();
         if (ui_.snapshot().page != MenuPage::NameEntry) {
             throw std::runtime_error("high score did not open name entry");
         }
@@ -7490,6 +7499,7 @@ public:
         score_ = 1000000u;
         levelIndex_ = 0;
         beginGameOver();
+        acknowledgeEndRunForFixture();
         if (ui_.snapshot().page != MenuPage::NameEntry) {
             throw std::runtime_error("third high score did not open name entry");
         }
@@ -7514,6 +7524,7 @@ public:
         score_ = 1000001u;
         levelIndex_ = 0;
         beginGameOver();
+        acknowledgeEndRunForFixture();
         if (ui_.snapshot().page != MenuPage::NameEntry) {
             throw std::runtime_error("fourth high score did not open name entry");
         }
@@ -7528,6 +7539,7 @@ public:
         score_ = 1000002u;
         levelIndex_ = 0;
         beginGameOver();
+        acknowledgeEndRunForFixture();
         if (ui_.snapshot().page != MenuPage::NameEntry) {
             throw std::runtime_error("fifth high score did not open name entry");
         }
@@ -7562,6 +7574,7 @@ public:
         score_ = 999999u;
         levelIndex_ = 0;
         beginGameOver();
+        acknowledgeEndRunForFixture();
         if (ui_.snapshot().page != MenuPage::NameEntry || !recordStore_.pending().name.empty()) {
             throw std::runtime_error("record name cursor fixture did not open name entry");
         }
@@ -7642,6 +7655,7 @@ public:
         score_ = 999999u;
         levelIndex_ = 0;
         beginGameOver();
+        acknowledgeEndRunForFixture();
         if (ui_.snapshot().page != MenuPage::NameEntry || !recordStore_.pending().name.empty()) {
             throw std::runtime_error("record name repeat fixture did not open name entry");
         }
@@ -7682,7 +7696,7 @@ public:
         pushKeyDown(SDLK_RETURN);
         processEvents(running);
         auto reloaded = loadRecords(path);
-        if (ui_.snapshot().page != MenuPage::Records || reloaded.empty() ||
+        if (ui_.snapshot().page != MenuPage::Main || reloaded.empty() ||
             reloaded[0].score != 999999u || reloaded[0].name != "a b") {
             throw std::runtime_error("name-entry repeat record did not commit");
         }
@@ -7704,6 +7718,7 @@ public:
         score_ = 999999u;
         levelIndex_ = 0;
         beginGameOver();
+        acknowledgeEndRunForFixture();
         recordStore_.setPendingNameForFixture("FAIL");
         finalizePendingRecord();
         if (ui_.snapshot().page != MenuPage::NameEntry || recordStore_.pending().score != 999999u ||
@@ -7721,7 +7736,7 @@ public:
         saveRecords(recordStore_.path(), recordStore_.records());
         finalizePendingRecord();
         auto reloaded = loadRecords(recordStore_.path());
-        if (ui_.snapshot().page != MenuPage::Records || recordStore_.pending().score != 0 ||
+        if (ui_.snapshot().page != MenuPage::Main || recordStore_.hasPendingRecord() ||
             !recordStore_.pending().name.empty() || reloaded.empty() ||
             reloaded[0].score != 999999u || reloaded[0].name != "FAIL") {
             throw std::runtime_error("record save retry did not commit pending entry");
@@ -7773,6 +7788,7 @@ public:
         score2_ = 0;
         levelIndex_ = 2;
         beginGameOver();
+        acknowledgeEndRunForFixture();
         if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::NameEntry ||
             recordStore_.pending().score != 999997u || recordStore_.pending().level != 3 ||
             recordStore_.pending().player != 1 || lives_ != 2 || lives2_ != 2 ||
@@ -7808,14 +7824,21 @@ public:
         beginGameOver();
         if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::GameOver || recordStore_.pending().score != 0 ||
             recordStore_.pending().level != 0 || !recordStore_.pending().name.empty()) {
-            throw std::runtime_error("score equal to record cutoff qualified");
+            throw std::runtime_error("equal-cutoff fixture bypassed Game Over");
         }
+        if (!recordStore_.scoreQualifies(score_)) throw std::runtime_error("equal cutoff did not qualify");
+        acknowledgeEndRunForFixture();
+        if (ui_.snapshot().page != MenuPage::NameEntry || !recordStore_.hasPendingRecord())
+            throw std::runtime_error("equal cutoff did not prompt for the original rank eight");
+        // The unsafe original write remains outside this bounded fixture.
+        cancelPendingRecord();
 
         playerCount_ = 2;
         score_ = 1u;
         score2_ = 999998u;
         levelIndex_ = 4;
         beginGameOver();
+        acknowledgeEndRunForFixture();
         if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::NameEntry ||
             recordStore_.pending().score != 999998u || recordStore_.pending().level != 5 ||
             recordStore_.pending().player != 2) {
@@ -7832,6 +7855,7 @@ public:
         score2_ = 999995u;
         levelIndex_ = 5;
         beginGameOver();
+        acknowledgeEndRunForFixture();
         if (ui_.snapshot().page != MenuPage::NameEntry || recordStore_.pending().player != 1 ||
             recordStore_.pending().score != 999996u) {
             throw std::runtime_error("two-player double qualifier did not start with player 1");
@@ -7844,7 +7868,7 @@ public:
         }
         recordStore_.setPendingNameForFixture("dog");
         finalizePendingRecord();
-        if (ui_.snapshot().page != MenuPage::Records || score_ != 0 || score2_ != 0 ||
+        if (ui_.snapshot().page != MenuPage::Main || score_ != 0 || score2_ != 0 ||
             !containsRecord(999996u, "cat") || !containsRecord(999995u, "dog")) {
             throw std::runtime_error("two-player queued records did not finish cleanly");
         }
@@ -7859,6 +7883,7 @@ public:
         score2_ = recordStore_.records()[6].score + 1u;
         levelIndex_ = 4;
         beginGameOver();
+        acknowledgeEndRunForFixture();
         if (ui_.snapshot().page != MenuPage::NameEntry || recordStore_.pending().player != 1 ||
             recordStore_.pending().score != score_) {
             throw std::runtime_error("threshold re-check did not start with player 1");
@@ -7866,7 +7891,7 @@ public:
         uint32_t recheckP2Score = score2_;
         recordStore_.setPendingNameForFixture("top");
         finalizePendingRecord();
-        if (ui_.snapshot().page != MenuPage::Records || recordStore_.pending().score != 0 ||
+        if (ui_.snapshot().page != MenuPage::Main || recordStore_.hasPendingRecord() ||
             containsScore(recheckP2Score)) {
             throw std::runtime_error("player 2 was not re-checked after player 1 insert");
         }
@@ -7891,7 +7916,7 @@ public:
         std::cout << "end_flow_records=ok completion_level=" << completionLevel
                   << " p1_record=999997 p2_record=999998 records="
                   << finalRecords.size()
-                  << " cutoff_equal_skipped=1"
+                  << " cutoff_equal_prompted=1 rank8_memory_claim=0"
                   << " p2_recheck_skipped=1\n";
     }
 
@@ -9567,6 +9592,7 @@ public:
         score_ = 999999u;
         levelIndex_ = 0;
         beginGameOver();
+        acknowledgeEndRunForFixture();
         if (ui_.snapshot().page != MenuPage::NameEntry ||
             !sound_.latch().active ||
             sound_.latch().latchedOffset != kRecordNamePromptSoundCursor ||
@@ -9585,7 +9611,7 @@ public:
         onKey(SDLK_o, running);
         onKey(SDLK_k, running);
         onKey(SDLK_RETURN, running);
-        if (ui_.snapshot().page != MenuPage::Records ||
+        if (ui_.snapshot().page != MenuPage::Main ||
             !sound_.latch().active ||
             sound_.latch().latchedOffset != kRecordNameCommitSoundCursor ||
             sound_.latch().currentSelector != kRecordNameCommitSoundPriority ||

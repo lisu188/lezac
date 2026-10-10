@@ -69,10 +69,10 @@ to the new component pixel test, and retains frames on failure.
 
 ## Remaining Fidelity Work
 
-The port still needs original Game Over acknowledgement before name entry,
-both-player processing in one-player mode, signed cutoff/insertion behavior
-for the negative-score fixture, zero-score pending-state ownership, final
-return to Main, exact typing/key-buffer timing and character sound requests.
+The acknowledgement, both-score-slot processing, signed cutoff/insertion,
+zero-score pending ownership and direct Main return are now exercised through
+the production controller and record store; see `end_run_record_flow.md`.
+Exact typing/key-buffer timing and character sound requests remain open.
 The old zero-cutoff equality observation reached unsafe rank eight and wrote
 beyond the seven-entry original table; that failure is retained and is not
 reproduced as unsafe host memory access. Full application CI, external review,

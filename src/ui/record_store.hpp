@@ -12,6 +12,7 @@ public:
     const std::vector<resources::Record>& records() const { return records_; }
     const std::string& path() const { return recordPath_; }
     const PendingRecordState& pending() const { return pending_; }
+    bool hasPendingRecord() const { return pendingActive_; }
     void replaceRecords(std::vector<resources::Record> records);
     void setPath(std::string path);
     void setPendingNameForFixture(std::string name);
@@ -30,6 +31,7 @@ private:
     std::vector<resources::Record> records_;
     std::string recordPath_ = "RECS.DAT";
     PendingRecordState pending_;
+    bool pendingActive_ = false;
     std::vector<PendingRecordEntry> pendingRecordQueue_;
 };
 }

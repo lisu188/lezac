@@ -1,0 +1,253 @@
+{
+  "schema": "lezac-original-end-run-v1",
+  "passed": true,
+  "original_report_sha256": "2cb0eafaafa446be76d9c828c01e7a9b5a3f56dd640465c6998084f0e483a92d",
+  "producer_sha256": "d2b73289fc13c366d19b66b98ccb4255d9bdb2c929ec26def42ed56cf8723cd7",
+  "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "ram_samples_verified": 10,
+  "unchanged_code_bytes_per_sample": 43552,
+  "code_differences": 0,
+  "pngs_verified": 10,
+  "configured_players": 1,
+  "natural_scores": [
+    0,
+    0
+  ],
+  "acknowledgement_key": "1",
+  "score_order": "signed high word, then unsigned low word",
+  "insertion_ranks": [
+    4,
+    5
+  ],
+  "stable_tie_order": [
+    "zero::::",
+    "q:::::::",
+    "r:::::::"
+  ],
+  "saved_bytes": 276,
+  "fixture_sha256": {
+    "end_run_mixed-cutoff-fixture.dat": "389aa3b7a7e08dd8ec983c8b2cd9796c5bb78e4acd9cfd2ca20eb0ccf03dbf2f",
+    "end_run_after-player1-file.dat": "1655aad4e8fccd0861a4effa542fe81b5a79d77218b54223c1740d5da55d7da8",
+    "end_run_saved-original.dat": "074a42720a0b2129a4033354fffa63a730fdd4acca0a1b9c2c19e0ab46f64cf8"
+  },
+  "samples": [
+    {
+      "name": "main-mixed-cutoff",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 0,
+      "frame_counter": 0,
+      "record_bytes": "ffffff7f08686967683a3a3a3a00000100086d6964646c653a3a00000000087a65726f3a3a3a3affffffff086d696e75736f6e650000ffff086c6f773a3a3a3a3a01000080086c6f776573743a3a00000080086d696e3a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "b21c076616be7a9badc859e14bc9cea709a13c12c384f005890ad010f17900a8",
+      "ram_gzip_sha256": "159349f146f0691be5a4884c1fe985816cdf7f1803eecd1a6fcb8661f3733941",
+      "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+      "pixels_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914",
+      "code_bytes_verified": 43552,
+      "code_differences": 0
+    },
+    {
+      "name": "level1-intro",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 0,
+      "record_bytes": "ffffff7f08686967683a3a3a3a00000100086d6964646c653a3a00000000087a65726f3a3a3a3affffffff086d696e75736f6e650000ffff086c6f773a3a3a3a3a01000080086c6f776573743a3a00000080086d696e3a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "15b8e4fb312e1d02faf07df779afc9de62a95a804a0a784820ed4879e42b498b",
+      "ram_gzip_sha256": "4c67f6041e438a920eb75cb97b7220f8e8652188d011dfe7a1a51994f269c864",
+      "png_sha256": "01a3f5fa6014b17ba3317fe7015fec6205b30b83fd2d3ae2f8d4f53b15d06619",
+      "pixels_sha256": "7d6f6c01b4591129ae35e357b2ee9414548e91e783bae8bce03468951988d4c8",
+      "code_bytes_verified": 43552,
+      "code_differences": 0
+    },
+    {
+      "name": "natural-zero-gameplay",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 12,
+      "record_bytes": "ffffff7f08686967683a3a3a3a00000100086d6964646c653a3a00000000087a65726f3a3a3a3affffffff086d696e75736f6e650000ffff086c6f773a3a3a3a3a01000080086c6f776573743a3a00000080086d696e3a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "c0148d5e44d83759817132cf6f3e42756d0aa34537aa461df65e40babcbd69a3",
+      "ram_gzip_sha256": "bef54f62538314050b51e5fc73b9d310ff689b82f82166033da44d9b0dfc2c5a",
+      "png_sha256": "1b8c5a1a38aeaec7836ba56f658cbe884bd1fe9ec5ad8eea82afe9de731b835a",
+      "pixels_sha256": "29712972a679071861ec23ea5abd4858c40789aa81d0d5e0dea8a421c1fd72ff",
+      "code_bytes_verified": 43552,
+      "code_differences": 0
+    },
+    {
+      "name": "game-over-before-ack",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "record_bytes": "ffffff7f08686967683a3a3a3a00000100086d6964646c653a3a00000000087a65726f3a3a3a3affffffff086d696e75736f6e650000ffff086c6f773a3a3a3a3a01000080086c6f776573743a3a00000080086d696e3a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "359873f7a341e64d93efa65405bcb4a02799746f6d313f0eae760f33bb34dcfd",
+      "ram_gzip_sha256": "42b63fa90f59a260161454a64740c1307a05ddc6201d80073bdd333985f7b3e7",
+      "png_sha256": "fbaa98f43b213350caabfcd016f03181c09bc7214f6b58c71e2ce52fc4cb2882",
+      "pixels_sha256": "b5c08ae755a349b73155f0e4ee31bd691417a851b8cc0a038f2bcf54ad607289",
+      "code_bytes_verified": 43552,
+      "code_differences": 0
+    },
+    {
+      "name": "player1-empty",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "record_bytes": "ffffff7f08686967683a3a3a3a00000100086d6964646c653a3a00000000087a65726f3a3a3a3affffffff086d696e75736f6e650000ffff086c6f773a3a3a3a3a01000080086c6f776573743a3a00000080086d696e3a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "35b4321c3f5bfce106b1a09e62cf6ce839e4319034658818b5f4745324c49d51",
+      "ram_gzip_sha256": "4b472ad83ec00fdf1a78fd1c8be6ce23f8a5256bcf3ee3a3a686fdb01b91b8c6",
+      "png_sha256": "2ecd9681f2d8ccf45ad32e899526abd0c70ad12fb4bae733b49544f3260cb078",
+      "pixels_sha256": "deeb35bce1539f375422ecf3178d3bfa9a8cee8fd4afa13079f731a18670936d",
+      "code_bytes_verified": 43552,
+      "code_differences": 0
+    },
+    {
+      "name": "player1-after-escape",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "record_bytes": "ffffff7f08686967683a3a3a3a00000100086d6964646c653a3a00000000087a65726f3a3a3a3affffffff086d696e75736f6e650000ffff086c6f773a3a3a3a3a01000080086c6f776573743a3a00000080086d696e3a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "12df3d508e46d54c26930c09cc79ca03152c378450f2901812667128b0955504",
+      "ram_gzip_sha256": "3a7ac7bcf3d71d52c0ceb05b2c0fe707e113bbd39f7a4164f801fb3854416b0a",
+      "png_sha256": "2ecd9681f2d8ccf45ad32e899526abd0c70ad12fb4bae733b49544f3260cb078",
+      "pixels_sha256": "deeb35bce1539f375422ecf3178d3bfa9a8cee8fd4afa13079f731a18670936d",
+      "code_bytes_verified": 43552,
+      "code_differences": 0
+    },
+    {
+      "name": "player1-q",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "record_bytes": "ffffff7f08686967683a3a3a3a00000100086d6964646c653a3a00000000087a65726f3a3a3a3affffffff086d696e75736f6e650000ffff086c6f773a3a3a3a3a01000080086c6f776573743a3a00000080086d696e3a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "2c37fdcf7df48da93db123943d580d20aee7f57898f059f680710c0d048ae4de",
+      "ram_gzip_sha256": "5d34042bb2de78fb52373effee7af4d2dae61c9a5233d95907fa14ca67fc8966",
+      "png_sha256": "9582db1d0c3e0a819a8e023e5162cc8b9ae89e05943605e342893875b7ff580a",
+      "pixels_sha256": "05c92d437a65e55bc1a8c12cea7c7525177990e849bf45630870e9fc48467ea7",
+      "code_bytes_verified": 43552,
+      "code_differences": 0
+    },
+    {
+      "name": "after-player1-commit",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "record_bytes": "ffffff7f08686967683a3a3a3a00000100086d6964646c653a3a00000000087a65726f3a3a3a3a0000000008713a3a3a3a3a3a3affffffff086d696e75736f6e650000ffff086c6f773a3a3a3a3a01000080086c6f776573743a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "aed4e2b9a5071cc5ecf5ae566b98fe04150aff0b66000ec755a210f94ad06eb9",
+      "ram_gzip_sha256": "8e63a4a1a0a923ca8dd751c2ef1160b65f606459e299ec8d931df6a813da666b",
+      "png_sha256": "768cc4f0a2a7bc28e51ac35d65221aa5b2f79bdec84ef75fa41d0fb0840ac193",
+      "pixels_sha256": "988a97c8f4e0902dbf4c61b797278904c3324f4c1c149f30cae27a270afda718",
+      "code_bytes_verified": 43552,
+      "code_differences": 0
+    },
+    {
+      "name": "player2-r",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "record_bytes": "ffffff7f08686967683a3a3a3a00000100086d6964646c653a3a00000000087a65726f3a3a3a3a0000000008713a3a3a3a3a3a3affffffff086d696e75736f6e650000ffff086c6f773a3a3a3a3a01000080086c6f776573743a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "998ff00fdcee7cd67846e2849d82a99fa930c983dce8aa0fb583ec7ed91b2701",
+      "ram_gzip_sha256": "099c3af6c99525aee9d33be62d9851397cdad507940339307b0362dd6cf4c5dd",
+      "png_sha256": "2fc6a085d53df5c4af235503c2412af6f3eb95a6ed24814b30cc40a11478779f",
+      "pixels_sha256": "e77a6567537a6c08dc4130639fbc921ee6b170df27fea6d28619b0653ed6450a",
+      "code_bytes_verified": 43552,
+      "code_differences": 0
+    },
+    {
+      "name": "after-player2-commit",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "record_bytes": "ffffff7f08686967683a3a3a3a00000100086d6964646c653a3a00000000087a65726f3a3a3a3a0000000008713a3a3a3a3a3a3a0000000008723a3a3a3a3a3a3affffffff086d696e75736f6e650000ffff086c6f773a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "c40459860ec7ad297fce510889d342632ab4b853acd80090fd3bccb55aa020a3",
+      "ram_gzip_sha256": "145a4cdf413b11c694a787e163d5e2e776d5c243b2c24430fa39a78b3738cf32",
+      "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+      "pixels_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914",
+      "code_bytes_verified": 43552,
+      "code_differences": 0
+    }
+  ],
+  "events": [
+    {
+      "key": "1",
+      "observed_utc": "2026-10-10T09:43:35.802482+00:00"
+    },
+    {
+      "key": "Return",
+      "observed_utc": "2026-10-10T09:43:39.848947+00:00"
+    },
+    {
+      "key": "Escape",
+      "observed_utc": "2026-10-10T09:43:40.904693+00:00"
+    },
+    {
+      "key": "1",
+      "observed_utc": "2026-10-10T09:43:45.958621+00:00"
+    },
+    {
+      "key": "Escape",
+      "observed_utc": "2026-10-10T09:43:56.019711+00:00"
+    },
+    {
+      "key": "q",
+      "observed_utc": "2026-10-10T09:43:56.277540+00:00"
+    },
+    {
+      "key": "Return",
+      "observed_utc": "2026-10-10T09:43:56.575693+00:00"
+    },
+    {
+      "key": "r",
+      "observed_utc": "2026-10-10T09:44:06.634846+00:00"
+    },
+    {
+      "key": "Return",
+      "observed_utc": "2026-10-10T09:44:06.894867+00:00"
+    }
+  ],
+  "player2_prompt_in_one_player_mode": true,
+  "escape_ignored": true,
+  "final_main_matches_initial": true,
+  "process_memory_writes": 0,
+  "instruction_patches": 0,
+  "gameplay_state_seeded": false,
+  "inferred_timing_claim": false,
+  "ram_atomic": false,
+  "original_assets_and_agents_unchanged": true,
+  "whole_game_complete": false
+}

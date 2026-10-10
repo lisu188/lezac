@@ -32,17 +32,19 @@ void UiController::enterRecordsPage(const UiActions& actions, bool playSound) {
 }
 void UiController::finalizePendingRecord(RecordStore& records, const UiActions& actions) {
     const auto result = records.finalizePendingRecord();
-    if (result == RecordStore::CommitResult::NoPending) { enterRecordsPage(actions); return; }
+    if (result == RecordStore::CommitResult::NoPending) { finishEndRun(actions); return; }
     if (result == RecordStore::CommitResult::SaveFailed) { state_.page = MenuPage::NameEntry; return; }
     if (startNextPendingRecord(records, actions)) return;
-    actions.clearScores();
-    enterRecordsPage(actions);
+    finishEndRun(actions);
 }
 void UiController::cancelPendingRecord(RecordStore& records, const UiActions& actions) {
     records.clearPendingRecord();
     if (startNextPendingRecord(records, actions)) return;
+    finishEndRun(actions);
+}
+void UiController::finishEndRun(const UiActions& actions) {
     actions.clearScores();
-    enterRecordsPage(actions);
+    state_.page = MenuPage::Main;
 }
 void UiController::handleNameEntryKey(Key key, RecordStore& records, const UiActions& actions) {
     if (key == Key::Return || key == Key::KeypadEnter) {
@@ -59,8 +61,8 @@ void UiController::beginEndRun(EndReason reason, int levelIndex, int playerCount
     records.beginEndRun(reason, levelIndex, playerCount, score, score2);
     state_.menu = true;
     state_.lastEndReason = reason;
+    state_.page = endMenuPage(reason);
     actions.resetAfterEndRun();
-    if (!startNextPendingRecord(records, actions)) state_.page = endMenuPage(reason);
 }
 void UiController::onKey(Key key, bool& running, int levelIndex, int playerCount,
                          RecordStore& records, const UiActions& actions, uint32_t now) {
@@ -94,10 +96,7 @@ void UiController::onKey(Key key, bool& running, int levelIndex, int playerCount
             // 1000:2160 waits for one ReadKey, then returns to the title menu.
             state_.page = MenuPage::Main;
         } else if (state_.page == MenuPage::GameOver || state_.page == MenuPage::CompletedGame) {
-            if (key == Key::Escape || key == Key::Return || key == Key::KeypadEnter || key == Key::Space) {
-                actions.clearScores(); records.clearQueue(); records.clearPendingRecord();
-                state_.page = MenuPage::Main;
-            }
+            if (!startNextPendingRecord(records, actions)) finishEndRun(actions);
         } else if (key == Key::Escape) {
             if (state_.page == MenuPage::Main) running = false;
             else state_.page = MenuPage::Main;

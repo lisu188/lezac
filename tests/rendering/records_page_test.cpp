@@ -74,13 +74,28 @@ void checkInput() {
     UiController controller;
     RecordStore records;
     UiActions actions;
-    int prepared = 0;
+    int prepared = 0, cleared = 0;
     actions.prepareRecordsPage = [&] { ++prepared; };
-    actions.clearScores = [] {};
+    actions.clearScores = [&] { ++cleared; };
+    actions.resetAfterEndRun = [] {};
+    actions.prepareNewGame = [](int) { throw std::runtime_error("end acknowledgement started a game"); };
     controller.finalizePendingRecord(records, actions);
     controller.cancelPendingRecord(records, actions);
-    require(prepared == 2 && controller.snapshot().page == MenuPage::Records,
-            "record completion/cancellation missed background preparation");
+    require(prepared == 0 && cleared == 2 && controller.snapshot().page == MenuPage::Main,
+            "empty record completion/cancellation did not return directly to Main");
+    records.replaceRecords(std::vector<resources::Record>(7, resources::makeRecord(1, 1, "cutoff")));
+    for (auto reason : {EndReason::GameOver, EndReason::CompletedGame}) {
+        const int before = cleared;
+        controller.beginEndRun(reason, 0, 1, 0, 0, records, actions);
+        require(controller.snapshot().page == UiController::endMenuPage(reason) &&
+                !records.hasPendingRecord() && cleared == before && prepared == 0,
+                "empty end flow skipped the acknowledgement page");
+        bool running = true;
+        controller.onKey(Key::One, running, 0, 1, records, actions);
+        require(running && controller.snapshot().page == MenuPage::Main &&
+                !records.hasPendingRecord() && cleared == before + 1 && prepared == 0,
+                "empty end acknowledgement entered records or missed Main return");
+    }
 }
 
 void writePpm(const std::filesystem::path& path, const std::vector<uint32_t>& pixels) {

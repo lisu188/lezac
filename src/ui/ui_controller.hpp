@@ -51,6 +51,7 @@ public:
     void cancelPendingRecord(RecordStore& records, const UiActions& actions);
     bool startNextPendingRecord(RecordStore& records, const UiActions& actions);
 private:
+    void finishEndRun(const UiActions& actions);
     void enterRecordsPage(const UiActions& actions, bool playSound = false);
     UiState state_;
 };

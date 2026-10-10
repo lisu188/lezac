@@ -5401,6 +5401,22 @@ if(BUILD_TESTING)
     set_tests_properties(collapse_map_original PROPERTIES
         PASS_REGULAR_EXPRESSION "^collapse_map_original=ok scenes=19 boundaries=34 compared_bytes=5365064 masks=0 production_app=1 natural_route=0 whole_game_claim=0")
 
+    add_executable(lezac_map_allocation_state_test tests/gameplay/map_allocation_state_test.cpp)
+    target_include_directories(lezac_map_allocation_state_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME map_allocation_state_unit COMMAND lezac_map_allocation_state_test)
+    add_test(NAME startup_map_fixture COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_startup_map_memory.py)
+    add_test(NAME startup_map_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_startup_map_memory.py --self-check)
+    add_test(NAME startup_map_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_startup_map_memory.py --exe $<TARGET_FILE:lezac_cpp>
+        --out ${CMAKE_CURRENT_BINARY_DIR}/startup_map_original_out)
+    set_tests_properties(map_allocation_state_unit startup_map_fixture startup_map_checker startup_map_original
+        PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1" TIMEOUT 180)
+    set_tests_properties(startup_map_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^startup_map_original=ok original_samples=3 cpp_boundaries=6 compared_bytes=786432 masks=0 production_app=1 whole_game_claim=0")
+
     add_executable(lezac_level_rle_tail_test tests/resources/level_rle_tail_test.cpp)
     target_link_libraries(lezac_level_rle_tail_test PRIVATE lezac_rendering)
     add_test(NAME level_rle_tail_unit COMMAND lezac_level_rle_tail_test)

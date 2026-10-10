@@ -1,0 +1,317 @@
+{
+  "clock_rng_or_heap_seeded": false,
+  "format": "lezac-startup-map-observation-v1",
+  "frame_aligned": false,
+  "gameplay_state_seeded": false,
+  "instruction_patches": 0,
+  "levels_sha256": "d8b553871014108515d6af05b0853de8ccc22e4d3e44d63533ba1167fdc8c7b2",
+  "memory_writes": 0,
+  "natural_original_startup_observed": true,
+  "natural_reload_history_proven": false,
+  "original_exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "original_producer_sha256": "450561c202904cd9da9c9948ec7e8a3695169129e99c506fc277b3987c684dd9",
+  "original_report_sha256": "bb2dfd2a2c3e8b1ff9adb970b92c5a5bf3c204ac7bbf919ddf8e637c83773585",
+  "samples": [
+    {
+      "code_bytes_verified": 43552,
+      "code_segment": 417,
+      "compressed_ram_bytes": 65432,
+      "compressed_ram_sha256": "dc1cce53e2c8bf95c513fb787522bddef3c604e4da475102c3c0da2ceaa35307",
+      "data_segment": 3139,
+      "frame_counter": 0,
+      "level": 0,
+      "map_base_after_four_persistent_allocations": 256632,
+      "map_cells": 0,
+      "map_segment_windows_nonzero_bytes": 0,
+      "map_segment_windows_sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471",
+      "name": "menu-first",
+      "observed_utc": "2026-10-10T02:32:04.270555+00:00",
+      "pointers": {
+        "backdrop": [
+          8,
+          12289
+        ],
+        "draw_buffer": [
+          8,
+          7395
+        ],
+        "free_list": [
+          8,
+          16039
+        ],
+        "heap_error": [
+          169,
+          2753
+        ],
+        "heap_limit": [
+          0,
+          40959
+        ],
+        "heap_start": [
+          0,
+          7346
+        ],
+        "heap_top": [
+          8,
+          16039
+        ],
+        "objects": [
+          0,
+          0
+        ],
+        "raw_objects": [
+          0,
+          0
+        ],
+        "raw_words": [
+          0,
+          0
+        ],
+        "sound": [
+          0,
+          7346
+        ],
+        "sprites": [
+          0,
+          10958
+        ],
+        "words": [
+          0,
+          0
+        ]
+      },
+      "ram_file": "menu-first.ram.gz",
+      "raw_ram_bytes": 1048576,
+      "raw_ram_sha256": "84d08e5685bb693871c8d1457e8a41d4a64ec9b93c5f6bafd18feca51b199bc7",
+      "relocated_code_differences": 0,
+      "screenshot_not_instruction_aligned": true,
+      "screenshot_sha256": "50bd5cdb60c1eac09a114ffad33f66a666a31d019df43f8b54cd3a36cc6a6ca0"
+    },
+    {
+      "code_bytes_verified": 43552,
+      "code_segment": 417,
+      "compressed_ram_bytes": 66329,
+      "compressed_ram_sha256": "c462602b3a037457b03777afade65943196b246a4f582684bbfa704c1daa1699",
+      "data_segment": 3139,
+      "frame_counter": 0,
+      "level": 1,
+      "map_base_after_four_persistent_allocations": 256632,
+      "map_cells": 1980,
+      "map_segment_windows_nonzero_bytes": 910,
+      "map_segment_windows_sha256": "a294f4942860df20d71f5fde80feeb4f87c3d85d5c4502e1d7ec65c43aeb93cd",
+      "name": "level1-intro",
+      "observed_utc": "2026-10-10T02:32:09.882664+00:00",
+      "pointers": {
+        "backdrop": [
+          8,
+          12289
+        ],
+        "draw_buffer": [
+          8,
+          7395
+        ],
+        "free_list": [
+          0,
+          16413
+        ],
+        "heap_error": [
+          169,
+          2753
+        ],
+        "heap_limit": [
+          0,
+          40959
+        ],
+        "heap_start": [
+          0,
+          7346
+        ],
+        "heap_top": [
+          0,
+          16413
+        ],
+        "objects": [
+          0,
+          16040
+        ],
+        "raw_objects": [
+          8,
+          16039
+        ],
+        "raw_words": [
+          8,
+          16164
+        ],
+        "sound": [
+          0,
+          7346
+        ],
+        "sprites": [
+          0,
+          10958
+        ],
+        "words": [
+          0,
+          16165
+        ]
+      },
+      "ram_file": "level1-intro.ram.gz",
+      "raw_ram_bytes": 1048576,
+      "raw_ram_sha256": "665a21a106ef02913c793f216dbd22ac5f44db01bd7086143630d5700ab06879",
+      "relocated_code_differences": 0,
+      "screenshot_not_instruction_aligned": true,
+      "screenshot_sha256": "3863bf99c5beed4171253395f72848cdc0d3fa16ad6d4b60cf39b81c8f493e9b"
+    },
+    {
+      "code_bytes_verified": 43552,
+      "code_segment": 417,
+      "compressed_ram_bytes": 50436,
+      "compressed_ram_sha256": "9fa98a443a76b22e12b4f71e2dcec801cb91174c9b086bbccafad44a4f5378e4",
+      "data_segment": 3139,
+      "frame_counter": 12,
+      "level": 1,
+      "map_base_after_four_persistent_allocations": 256632,
+      "map_cells": 1980,
+      "map_segment_windows_nonzero_bytes": 910,
+      "map_segment_windows_sha256": "a294f4942860df20d71f5fde80feeb4f87c3d85d5c4502e1d7ec65c43aeb93cd",
+      "name": "level1-running-first",
+      "observed_utc": "2026-10-10T02:32:10.952493+00:00",
+      "pointers": {
+        "backdrop": [
+          8,
+          12289
+        ],
+        "draw_buffer": [
+          8,
+          7395
+        ],
+        "free_list": [
+          0,
+          16413
+        ],
+        "heap_error": [
+          169,
+          2753
+        ],
+        "heap_limit": [
+          0,
+          40959
+        ],
+        "heap_start": [
+          0,
+          7346
+        ],
+        "heap_top": [
+          0,
+          16413
+        ],
+        "objects": [
+          0,
+          16040
+        ],
+        "raw_objects": [
+          8,
+          16039
+        ],
+        "raw_words": [
+          8,
+          16164
+        ],
+        "sound": [
+          0,
+          7346
+        ],
+        "sprites": [
+          0,
+          10958
+        ],
+        "words": [
+          0,
+          16165
+        ]
+      },
+      "ram_file": "level1-running-first.ram.gz",
+      "raw_ram_bytes": 1048576,
+      "raw_ram_sha256": "f08634e9e1ad51537b5511e98a47805aa9c44dbf69fe69cd22ff9addace61f93",
+      "relocated_code_differences": 0,
+      "screenshot_not_instruction_aligned": true,
+      "screenshot_sha256": "87aa0c81725b67a3b925671cc955da8d76a8cdcb9fbd67119a7f9a97fa771b7e"
+    },
+    {
+      "code_bytes_verified": 43552,
+      "code_segment": 417,
+      "compressed_ram_bytes": 51014,
+      "compressed_ram_sha256": "cc11d998da37c72383d71e24566f6dc73e4de6dbc5a6dd9c234989c3e24b1c0e",
+      "data_segment": 3139,
+      "frame_counter": 43,
+      "level": 1,
+      "map_base_after_four_persistent_allocations": 256632,
+      "map_cells": 1980,
+      "map_segment_windows_nonzero_bytes": 910,
+      "map_segment_windows_sha256": "a294f4942860df20d71f5fde80feeb4f87c3d85d5c4502e1d7ec65c43aeb93cd",
+      "name": "level1-running-second",
+      "observed_utc": "2026-10-10T02:32:12.990398+00:00",
+      "pointers": {
+        "backdrop": [
+          8,
+          12289
+        ],
+        "draw_buffer": [
+          8,
+          7395
+        ],
+        "free_list": [
+          0,
+          16413
+        ],
+        "heap_error": [
+          169,
+          2753
+        ],
+        "heap_limit": [
+          0,
+          40959
+        ],
+        "heap_start": [
+          0,
+          7346
+        ],
+        "heap_top": [
+          0,
+          16413
+        ],
+        "objects": [
+          0,
+          16040
+        ],
+        "raw_objects": [
+          8,
+          16039
+        ],
+        "raw_words": [
+          8,
+          16164
+        ],
+        "sound": [
+          0,
+          7346
+        ],
+        "sprites": [
+          0,
+          10958
+        ],
+        "words": [
+          0,
+          16165
+        ]
+      },
+      "ram_file": "level1-running-second.ram.gz",
+      "raw_ram_bytes": 1048576,
+      "raw_ram_sha256": "010ee7174ca3d76404c42d4281ca31eed40e34234c3552a05468721d303313e4",
+      "relocated_code_differences": 0,
+      "screenshot_not_instruction_aligned": true,
+      "screenshot_sha256": "72890d74ff99d9fcfa0e47b3cc1771fc5d30bdcc3fce42915c30a7c1327c4ef3"
+    }
+  ],
+  "whole_game_complete": false
+}

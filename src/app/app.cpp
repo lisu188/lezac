@@ -10450,6 +10450,37 @@ public:
                   << " mode0_unchanged=1 ghidra=1000:6053\n";
     }
 
+    void debugOriginalTransientAnimationBackup() {
+        // Seeded original behavior-5 returns; see the 2026-10-09 recovery note.
+        constexpr std::array<std::array<uint8_t, 7>, 6> restored{{
+            {{43, 43, 46, 2, 2, 2, 255}}, {{42, 43, 46, 0, 2, 2, 1}},
+            {{42, 43, 46, 1, 2, 2, 1}}, {{42, 43, 46, 2, 2, 2, 1}},
+            {{43, 43, 46, 0, 2, 2, 255}}, {{43, 43, 46, 1, 2, 2, 255}},
+        }};
+        const ActorAnimation backup{43, 43, 46, 2, 2, 2, -1};
+        for (const uint8_t mode : {uint8_t{0}, uint8_t{3}}) {
+            TransientActor actor;
+            actor.x = 192; actor.y = 88; actor.kind = 0;
+            actor.timer = 64; actor.spriteIndex = 68;
+            actor.animation = {9, 6, 9, 0, 0, mode, 1};
+            actor.animationBackup = backup;
+            for (size_t sample = 0; sample < restored.size(); ++sample) {
+                logicTick_ = static_cast<uint32_t>(101 + sample);
+                updateTransientActor(actor);
+                const auto expected = mode == 0 ? std::array<uint8_t, 7>{{9, 6, 9, 0, 0, 0, 1}}
+                                                : restored[sample];
+                const uint8_t sprite = mode == 0 ? 68 : static_cast<uint8_t>(expected[0] - 1);
+                if (actor.animation.packed() != expected || actor.animationBackup.packed() != backup.packed() ||
+                    actor.spriteIndex != sprite || actor.timer != 64 - (sample + 2) / 2 ||
+                    actor.x != 192 || actor.y != 88 || actor.fracX || actor.fracY || actor.vx8 || actor.vy8) {
+                    throw std::runtime_error("original transient animation backup mismatch");
+                }
+            }
+        }
+        std::cout << "transient_animation_backup_original=ok cases=2 updates=12 production_updater=1 "
+                     "backup_preserved=1 seeded=1 natural_route=0 whole_game_parity=0\n";
+    }
+
     void debugOriginalState2VisualRowModel() {
         constexpr uint8_t kDrawOffsetXByte = 0x10;
         constexpr uint8_t kDrawOffsetYByte = 0x10;
@@ -24493,18 +24524,37 @@ public:
                   << std::hex << inspected.hash << std::dec << '\n';
     }
 
-    void debugMonsterAnimationOriginal(const std::string& fixturePath) {
+    void replayMonsterAnimationInApp(const std::string& fixturePath, bool corpse, bool bossDebris) {
         struct AnimationBoundary {};
         struct ResetObserver {
             std::function<void(const ActiveMonster&, bool)>& observer;
             ~ResetObserver() { observer = {}; }
         } reset{debugMonsterAnimationObserver_};
         lezac::diagnostics::replayMonsterAnimationFixture(fixturePath,
-            [&](const ActiveMonster& monster) { monsters_.assign(1, monster); },
+            [&](const ActiveMonster& monster) {
+                auto seeded = monster;
+                if (corpse) {
+                    seeded.kind = bossDebris ? 0x1e : 0x0c;
+                    seeded.behavior = 2;
+                    seeded.bossDebris = bossDebris;
+                    seeded.stateTimer = 400;
+                    seeded.x = 32;
+                    seeded.y = 24;
+                }
+                monsters_.assign(1, seeded);
+            },
             [&](ActiveMonster& state) {
                 bool advanced = false;
                 bool stopped = false;
+                const auto before = monsters_.front();
                 debugMonsterAnimationObserver_ = [&](const ActiveMonster& monster, bool value) {
+                    if (corpse && (monster.kind != before.kind || monster.behavior != 2 ||
+                        monster.bossDebris != bossDebris || monster.stateTimer != before.stateTimer ||
+                        monster.x != before.x || monster.y != before.y ||
+                        monster.vx8 != before.vx8 || monster.vy8 != before.vy8 ||
+                        monster.fracX != before.fracX || monster.fracY != before.fracY)) {
+                        throw std::runtime_error("corpse dispatch preceded animation boundary");
+                    }
                     state = monster;
                     advanced = value;
                     throw AnimationBoundary{};
@@ -24518,6 +24568,16 @@ public:
                 return advanced;
             });
         debugMonsterAnimationObserver_ = {};
+    }
+
+    void debugCorpseAnimationOriginal(const std::string& fixturePath) {
+        prepareMonsterMotionDebugLevel(false);
+        for (bool bossDebris : {false, true}) replayMonsterAnimationInApp(fixturePath, true, bossDebris);
+        std::cout << "corpse_animation_original=ok cases=106 updates=1272 production_app=1 diagnostic_stop_after_prologue=1 normal_corpse=1 boss_debris=1 dispatch_untouched=1 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
+    void debugMonsterAnimationOriginal(const std::string& fixturePath) {
+        replayMonsterAnimationInApp(fixturePath, false, false);
         const auto shipped = loadRawGran("GRAN.MST");
         std::vector<uint8_t> granBytes;
         for (const auto& record : shipped.records) granBytes.insert(granBytes.end(), record.bytes.begin(), record.bytes.end());
@@ -24642,6 +24702,45 @@ public:
         output.flush();
         if (!output) throw std::runtime_error("cannot write pickup post-init output");
         std::cout << "pickup_post_init_probe=ok cases=" << cases << " audio=dummy\n";
+    }
+
+    void debugCorpseRewardAnimationMode() {
+        load();
+        initSdl();
+        for (const uint8_t mode : std::array<uint8_t, 4>{{0, 1, 2, 3}}) {
+            resetLevel(0);
+            prepareAutoplayerMonsterFixtureLevel();
+            logicTick_ = 101;
+            randomSeed_ = 0x12345678u;
+            ActiveMonster monster;
+            monster.x = 336;
+            monster.y = 124;
+            monster.kind = 0x0c;
+            monster.behavior = 2;
+            monster.hotspotY = 6;
+            monster.animCursor = 8;
+            monster.animStart = 5;
+            monster.animEnd = 8;
+            monster.animTick = 0;
+            monster.animDelay = 0;
+            monster.animMode = mode;
+            monster.animStep = 1;
+            monster.actorOrder = 1;
+            lezac::core::TurboRandom expected(randomSeed_);
+            const auto roll = expected.range(0, 100);
+            expected.range(0, 20);
+            for (int draw = 0; draw < 4; ++draw) expected.range(0, 600);
+            if (roll < 40) throw std::runtime_error("corpse animation probe seed produced no reward");
+            finishMonsterDeathReward(monster);
+            if (bonusDrops_.size() != 1 || randomSeed_ != expected.seed()) {
+                throw std::runtime_error("corpse animation probe changed reward or RNG");
+            }
+            const std::array<uint8_t, 7> animation{{9, 6, 9, 0, 0, 0, 1}};
+            if (bonusDrops_.front().animation.packed() != animation) {
+                throw std::runtime_error("corpse reward animation mode was not disabled");
+            }
+        }
+        std::cout << "corpse_reward_animation_mode_original=ok cases=4 mode_disabled=1 production_conversion=1 seeded=1 natural_route=0 whole_game_parity=0\n";
     }
 
     void debugTransientActorLimits() {
@@ -27326,7 +27425,7 @@ private:
     }
 
     void updateTransientActor(TransientActor& actor) {
-        if (actor.animation.advance(ActorAnimation{})) {
+        if (actor.animation.advance(actor.animationBackup)) {
             actor.spriteIndex = static_cast<uint8_t>(actor.animation.current - 1);
         }
         // 1000:65A2..65D7 bypasses collision/gravity and deletes before
@@ -28262,6 +28361,9 @@ private:
         for (ActiveMonster& monster : monsters_) {
             if (onlyOrder && monster.actorOrder != onlyOrder) continue;
             if (!monster.alive) continue;
+            // 1000:6078..615A precedes behavior dispatch, including corpses.
+            const bool animationAdvanced = lezac::gameplay::advanceMonsterAnimation(monster);
+            if (debugMonsterAnimationObserver_) debugMonsterAnimationObserver_(monster, animationAdvanced);
             if (monster.behavior == 2) {
                 if (monster.bossDebris) {
                     updateTimedActorMotion(monster.x, monster.y, monster.vx8, monster.vy8,
@@ -28300,9 +28402,6 @@ private:
             }
             const int damageColumn = (monster.x + 4) >> 3;
             const int damageRow = monster.y >> 3;
-            const bool animationAdvanced = lezac::gameplay::advanceMonsterAnimation(monster);
-            if (debugMonsterAnimationObserver_) debugMonsterAnimationObserver_(monster, animationAdvanced);
-
             // Rank 5: the player-contact test runs BEFORE the tile scan and
             // the motion update (contact at 1000:63C6..63F0, scan from
             // 1000:655B), i.e. from the PRE-motion position. monster.y is the
@@ -29550,11 +29649,11 @@ private:
             reward.vy8 = static_cast<int16_t>(monster.vy8 - 200);
             reward.fracX = monster.fracX;
             reward.fracY = monster.fracY;
-            // 1000:760D changes the descriptor/kind without reinitializing +16h..1Ch.
+            // The conversion preserves cursor/counters, but 1000:76E6 clears mode.
             reward.animation = {static_cast<uint8_t>(monster.animCursor + 1),
                 static_cast<uint8_t>(monster.animStart + 1), static_cast<uint8_t>(monster.animEnd + 1),
                 static_cast<uint8_t>(monster.animTick), static_cast<uint8_t>(monster.animDelay),
-                static_cast<uint8_t>(monster.animMode), static_cast<int8_t>(monster.animStep)};
+                0, static_cast<int8_t>(monster.animStep)};
             bonusDrops_.push_back(reward);
         } else {
             // 1000:760D converts the existing corpse in place, even at full
@@ -30571,6 +30670,10 @@ int lezac::app::runApplication(int argc, char** argv) {
             app.debugOriginalState2AnimationAdvance();
             return 0;
         }
+        if (argc > 1 && std::string(argv[1]) == "--debug-original-transient-animation-backup") {
+            app.debugOriginalTransientAnimationBackup();
+            return 0;
+        }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-visual-row-model") {
             app.debugOriginalState2VisualRowModel();
             return 0;
@@ -30776,6 +30879,10 @@ int lezac::app::runApplication(int argc, char** argv) {
             app.debugTransientActorLimits();
             return 0;
         }
+        if (argc == 2 && std::string(argv[1]) == "--debug-original-corpse-reward-animation-mode") {
+            app.debugCorpseRewardAnimationMode();
+            return 0;
+        }
         if (argc > 2 && std::string(argv[1]) == "--debug-pickup-landing-original") {
             app.debugPickupLandingOriginal(argv[2]);
             return 0;
@@ -30786,6 +30893,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-monster-animation-original") {
             app.debugMonsterAnimationOriginal(argv[2]);
+            return 0;
+        }
+        if (argc == 3 && std::string(argv[1]) == "--debug-corpse-animation-original") {
+            app.debugCorpseAnimationOriginal(argv[2]);
             return 0;
         }
         if (argc == 3 && std::string(argv[1]) == "--debug-natural-bomb-visual-original") {

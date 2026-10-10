@@ -2,8 +2,10 @@
   "actor_pool_controlled_empty": true,
   "actor_records_compared": false,
   "cases": 2395,
+  "collapse_table_base": 26144,
   "compiled_cpp_comparison": false,
   "complete_live_records_maps_rng": true,
+  "debris_table_base": 8350,
   "dependency_sha256": {
     "capture_original_debris_update.py": "3d0d105142d2ea57cbce1038531008c8398766b23d8c27f06daded1e535cbcd2",
     "scan_livels_debris_sites.py": "240cb49cac605ac784fdc7c5b3e6e661b0d0dac84085d537a1bada4d08b7c4d7"
@@ -12,14 +14,15 @@
   "entry_counts": {
     "actor_constructor": 301,
     "random": 1429,
+    "record_table_initializer": 2395,
     "remove": 388,
     "seed": 507,
     "sound_latch": 423,
     "updater": 2395
   },
   "executor": "Unicorn 2.1.4",
-  "fixture_sha256": "efcd52e8d5e91450fae51d858cbad3ee9fda56bbb244b9b3bfe530fc9b3facd4",
-  "generator_sha256": "626e9c295d493641f8e4dea7adcaebadbdf7ed835fddb7e00888450c93a7cb56",
+  "fixture_sha256": "cff76fe4c1793cd054fa78cbcb1f190381a5d1f1bbef87c28512d55aed67e6e4",
+  "generator_sha256": "f3bcb52b18469a5f0864f4315223e26154b6650095bc5f244853213a9e443ebb",
   "groups": {
     "collapse_contact": 512,
     "debris_contact": 128,
@@ -31,6 +34,9 @@
     "vertical_airborne": 288,
     "vertical_supported": 288
   },
+  "initialization_end": 10569,
+  "initialization_sha256": "aaef4f5b7b8e4a213d7a9c11a2cc003cddd8026c89bd5cc0ee80006e945aefde",
+  "initialization_start": 10557,
   "input_sha256": "2fd028b3793a587f363d4264503c67e5f41340975cb66e579b6b3c9b03d60b8e",
   "instruction_end": 22154,
   "instruction_sha256": "59d3e4f2faec6b30834f35a255daac062a7387032a6ec446871d4b139be91351",
@@ -48,9 +54,11 @@
   "original_exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
   "original_instructions_patched": false,
   "original_return_boundaries_verified": true,
-  "output_sha256": "dbe19b64202b5825bb1b27294aa2f278f5564a076e5fe83b192c3f37c243dcda",
+  "output_sha256": "b8784c1803a7c49f53084a7468c822b9e42cfcc5eabc98221540db556a6b6b20",
+  "record_table_initialization_boundaries_verified": true,
+  "record_table_initializers_executed": true,
   "relocated_image_sha256": "3ce03c5434d54490e663ef405457fc665dbf87cdf956056eac823733f95d5102",
-  "schema": "lezac.original-collapse-update.v1",
+  "schema": "lezac.original-collapse-update.v2",
   "sound_state_compared": false,
   "whole_game_complete": false,
   "word_segment_cache_initialized": true

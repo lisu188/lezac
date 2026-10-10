@@ -155,16 +155,19 @@ def export_records() -> None:
     for i in range(count):
         score = le32(data, off)
         off += 4
-        level = data[off]
+        name_length = data[off]
+        if name_length > 8:
+            raise ValueError("RECS.DAT invalid name length")
         off += 1
         raw = data[off : off + 8]
         off += 8
-        name = raw.decode("latin1").replace(":", " ").rstrip()
+        name = raw[:name_length].decode("latin1").replace(":", " ").rstrip(" ")
         records.append(
             {
                 "index": i,
                 "score": score,
-                "level": level,
+                "level": 0,
+                "name_length": name_length,
                 "encoded_name": raw.decode("latin1"),
                 "decoded_name": name or "nessuno",
             }

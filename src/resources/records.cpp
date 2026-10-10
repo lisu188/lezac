@@ -21,6 +21,9 @@ std::vector<Record> parseJsonRecords(const std::string& json) {
         Record r;
         r.score = static_cast<uint32_t>(extractInt(recJson, "score"));
         r.level = static_cast<uint8_t>(extractInt(recJson, "level"));
+        const int length = extractInt(recJson, "name_length", 8);
+        if (length < 0 || length > 8) throw std::runtime_error("invalid record name length");
+        r.nameLength = static_cast<uint8_t>(length);
         r.name = extractString(recJson, "decoded_name", "nessuno");
         r.encodedName = extractString(recJson, "encoded_name", "");
         records.push_back(r);
@@ -52,10 +55,11 @@ std::vector<Record> parseRawRecords(const std::vector<uint8_t>& data,
         size_t off = 1 + i * kRecordSize;
         Record record;
         record.score = le32(data, off);
-        record.level = data[off + 4];
+        record.nameLength = data[off + 4];
+        if (record.nameLength > 8) throw std::runtime_error(path + " invalid record name length");
         std::string encoded(data.begin() + static_cast<std::ptrdiff_t>(off + 5),
                             data.begin() + static_cast<std::ptrdiff_t>(off + 13));
-        record.name = decodeRawRecordName(encoded);
+        record.name = decodeRawRecordName(encoded.substr(0, record.nameLength));
         record.encodedName = encoded;
         records.push_back(std::move(record));
     }
@@ -111,12 +115,15 @@ bool isJsonRecordPath(const std::string& path) {
 }
 
 void saveRecords(const std::string& path, const std::vector<Record>& records) {
+    const size_t count = std::min<size_t>(records.size(), 255);
+    for (size_t i = 0; i < count; ++i) {
+        if (records[i].nameLength > 8) throw std::runtime_error("invalid record name length");
+    }
     if (!isJsonRecordPath(path)) {
         std::ofstream out(path, std::ios::binary);
         if (!out) {
             throw std::runtime_error("cannot create " + path);
         }
-        size_t count = std::min<size_t>(records.size(), 255);
         out.put(static_cast<char>(count));
         for (size_t i = 0; i < count; ++i) {
             uint32_t score = records[i].score;
@@ -124,8 +131,9 @@ void saveRecords(const std::string& path, const std::vector<Record>& records) {
             out.put(static_cast<char>((score >> 8) & 0xffu));
             out.put(static_cast<char>((score >> 16) & 0xffu));
             out.put(static_cast<char>((score >> 24) & 0xffu));
-            out.put(static_cast<char>(records[i].level));
             std::string name = encodedRecordName(records[i]);
+            // DOS stores a Pascal string[8], not the port's JSON level metadata.
+            out.put(static_cast<char>(records[i].nameLength));
             out.write(name.data(), static_cast<std::streamsize>(name.size()));
         }
         return;
@@ -135,7 +143,6 @@ void saveRecords(const std::string& path, const std::vector<Record>& records) {
     if (!out) {
         throw std::runtime_error("cannot create " + path);
     }
-    size_t count = std::min<size_t>(records.size(), 255);
     out << "{\n";
     out << "  \"file\": \"RECS.DAT\",\n";
     out << "  \"type\": \"high_scores\",\n";
@@ -147,6 +154,7 @@ void saveRecords(const std::string& path, const std::vector<Record>& records) {
         out << "      \"index\": " << i << ",\n";
         out << "      \"score\": " << records[i].score << ",\n";
         out << "      \"level\": " << static_cast<int>(records[i].level) << ",\n";
+        out << "      \"name_length\": " << static_cast<int>(records[i].nameLength) << ",\n";
         out << "      \"encoded_name\": " << std::quoted(name) << ",\n";
         out << "      \"decoded_name\": " << std::quoted(records[i].name) << "\n";
         out << "    }" << (i + 1 == count ? "\n" : ",\n");

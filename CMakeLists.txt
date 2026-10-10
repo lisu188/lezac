@@ -398,6 +398,14 @@ if(BUILD_TESTING)
     set_tests_properties(resource_domain_codecs PROPERTIES
         PASS_REGULAR_EXPRESSION "^resource_domain_codecs=ok records=2 sound=2 gran=1 levels=2 malformed=14")
 
+    add_executable(lezac_record_save_original_test tests/resources/record_save_original_test.cpp)
+    target_link_libraries(lezac_record_save_original_test PRIVATE lezac_resources)
+    add_test(NAME record_save_original COMMAND lezac_record_save_original_test
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/record_save_original.dat
+        ${CMAKE_CURRENT_BINARY_DIR}/record-save-checks)
+    set_tests_properties(record_save_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^record_save_original=ok cases=5 compared_bytes=460 differences=0")
+
     add_executable(lezac_render_state_boundary_test tests/rendering/render_state_boundary_test.cpp)
     target_link_libraries(lezac_render_state_boundary_test PRIVATE lezac_rendering)
     add_test(NAME render_state_boundary COMMAND lezac_render_state_boundary_test)
@@ -411,6 +419,10 @@ if(BUILD_TESTING)
     target_include_directories(lezac_flame_contact_word_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
     if(Python3_Interpreter_FOUND)
+        add_test(NAME buffered_menu_output_tools_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_buffered_menu_output.py -v)
+        set_tests_properties(buffered_menu_output_tools_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
         add_test(NAME corpse_animation_tools_contract
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_corpse_animation_tools.py -v)
         set_tests_properties(corpse_animation_tools_contract PROPERTIES
@@ -3371,7 +3383,7 @@ if(BUILD_TESTING)
     set_tests_properties(records_update_temp PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^record_update=ok top=999999 level=9 name=TEST binary=1 raw_size=92 encoded=TEST::::")
+            "^record_update=ok top=999999 level=0 name=TEST binary=1 raw_size=92 encoded=TEST::::")
 
     add_test(NAME records_update_json_temp
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-update
@@ -3386,7 +3398,7 @@ if(BUILD_TESTING)
     set_tests_properties(records_raw_roundtrip PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^records_raw_roundtrip=ok raw_size=92 count=7 record_size=13 score_sum=3508890 top=541200 cutoff=474930 level8_count=7 decoded_aga=7 encoded_colon_padded=7 byte_sum=6047 weighted_sum=278918 xor=0xdd")
+            "^records_raw_roundtrip=ok raw_size=92 count=7 record_size=13 score_sum=3508890 top=541200 cutoff=474930 name_length8_count=7 decoded_aga=7 encoded_colon_padded=7 byte_sum=6047 weighted_sum=278918 xor=0xdd")
 
     add_test(NAME record_entry_static_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-entry-static-model)

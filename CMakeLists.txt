@@ -6723,7 +6723,7 @@ if(BUILD_TESTING)
                 COMMAND ${CMAKE_COMMAND} -E env SDL_AUDIODRIVER=dummy
                         ${XVFB_RUN_EXECUTABLE} -a ${Python3_EXECUTABLE}
                         ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_key_ownership_xdotool.py
-                        --exe $<TARGET_FILE:lezac_cpp>)
+                        --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/key-ownership-live-checks)
             set_tests_properties(key_ownership_live_xvfb PROPERTIES
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 TIMEOUT 60

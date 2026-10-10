@@ -282,7 +282,7 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_abort_run_test PRIVATE lezac_ui)
     add_test(NAME abort_run_unit COMMAND lezac_abort_run_test)
     set_tests_properties(abort_run_unit PROPERTIES PASS_REGULAR_EXPRESSION
-        "^abort_run=ok cases=8 pause_cleared=1 game_over=1 records=1 player_order=1,2 current_level=1 acknowledgement=1 restart=1 original_record_claim=0")
+        "^abort_run=ok cases=8 pause_cleared=1 game_over=1 records=1 player_order=1,2 current_level=1 acknowledgement=1 restart=1 name_escape_ignored=1 fixture_teardown=1 original_record_claim=0")
 
     add_executable(lezac_level_results_test tests/ui/level_results_test.cpp)
     target_link_libraries(lezac_level_results_test PRIVATE lezac_ui)

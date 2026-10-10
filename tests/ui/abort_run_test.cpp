@@ -48,14 +48,25 @@ int main() {
                     require(ui.snapshot().page == MenuPage::NameEntry && records.pending().score == 100 &&
                             records.pending().level == 5 && records.pending().player == 1,
                             "abort lost current score, level or first-player record");
+                    const auto beforeNameEscape = events;
                     ui.onKey(Key::Escape, running, 4, players, records, actions, 101);
+                    require(ui.snapshot().page == MenuPage::NameEntry && records.pending().score == 100 &&
+                            records.pending().player == 1 && events == beforeNameEscape,
+                            "name entry Escape changed first-player pending state");
+                    // Explicit fixture teardown is not an original-game key action.
+                    ui.cancelPendingRecord(records, actions);
                     if (players == 2) {
                         require(records.pending().score == 200 && records.pending().player == 2 &&
                                 records.pending().level == 5, "abort lost second-player record");
+                        const auto beforeSecondEscape = events;
                         ui.onKey(Key::Escape, running, 4, players, records, actions, 102);
+                        require(ui.snapshot().page == MenuPage::NameEntry && records.pending().score == 200 &&
+                                records.pending().player == 2 && events == beforeSecondEscape,
+                                "name entry Escape changed second-player pending state");
+                        ui.cancelPendingRecord(records, actions);
                     }
                     require(ui.snapshot().page == MenuPage::Records && score == 0 && score2 == 0,
-                            "record cancellation did not finish existing end flow");
+                            "record fixture teardown did not finish existing end flow");
                     ui.onKey(Key::Escape, running, 4, players, records, actions, 103);
                 } else {
                     require(ui.snapshot().page == MenuPage::GameOver, "zero-score abort skipped Game Over");
@@ -74,7 +85,8 @@ int main() {
             }
         }
         std::cout << "abort_run=ok cases=" << cases << " pause_cleared=1 game_over=1 records=1"
-                     " player_order=1,2 current_level=1 acknowledgement=1 restart=1 original_record_claim=0\n";
+                     " player_order=1,2 current_level=1 acknowledgement=1 restart=1"
+                     " name_escape_ignored=1 fixture_teardown=1 original_record_claim=0\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

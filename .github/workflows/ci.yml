@@ -48,6 +48,46 @@ jobs:
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
         run: cmake --build build --parallel
+      - name: Corpse reward animation mode regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^corpse_reward_animation_mode_original$'
+      - name: Preserve focused corpse reward animation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpse-reward-animation-linux-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: Transient animation backup regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^transient_animation_backup_original$'
+      - name: Preserve transient animation backup diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: transient-animation-backup-linux
+          path: build/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+      - name: Monster animation and GRAN ownership regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^(monster_animation_(original_helper|original_app|fixture_contract)|gran_usage_guardrail(_selftest)?)$'
+      - name: Preserve focused monster animation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monster-animation-linux-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
       - name: In-place corpse conversion regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -299,6 +339,46 @@ jobs:
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
         run: cmake --build build --parallel
+      - name: Corpse reward animation mode regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^corpse_reward_animation_mode_original$'
+      - name: Preserve focused corpse reward animation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpse-reward-animation-windows-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: Transient animation backup regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^transient_animation_backup_original$'
+      - name: Preserve transient animation backup diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: transient-animation-backup-windows
+          path: build/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
+      - name: Monster animation and GRAN ownership regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^(monster_animation_(original_helper|original_app|fixture_contract)|gran_usage_guardrail(_selftest)?)$'
+      - name: Preserve focused monster animation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monster-animation-windows-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
       - name: In-place corpse conversion regressions
         env:
           SDL_VIDEODRIVER: dummy

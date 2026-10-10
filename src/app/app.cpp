@@ -13,6 +13,7 @@
 #include "gameplay/damage_lane_memory.hpp"
 #include "gameplay/map_plane_memory.hpp"
 #include "gameplay/collapse_rectangle.hpp"
+#include "gameplay/collapse_removal.hpp"
 #include "gameplay/initial_damage_data.hpp"
 #include "gameplay/monster_damage.hpp"
 #include "gameplay/monster_spawners.hpp"
@@ -31500,8 +31501,8 @@ private:
                     queueTileDamage(cell % width, cell / width, x, y, true);
                 }
                 // 1000:558C selects a cell backward from the bottom-right.
-                const int actorCell = last - randomRangeValue(0,
-                    static_cast<uint16_t>(last % width - first % width + 1));
+                const uint16_t actorCell = lezac::gameplay::collapseActorCell(
+                    static_cast<uint16_t>(last * 2u), randomRangeValue(0, rectangle.columns()));
                 spawnTransientActor((actorCell % width) * 8, (actorCell / width) * 8,
                                     0, 74, 0x0b, 8, ActorAnimation::initialize(74, 79, 2, 1));
             }
@@ -31517,8 +31518,16 @@ private:
                 collapseQueue_[slot] = record;
             }
             if (fracture || record.restTicks == 95) {
-                for (int cell : cells()) setMapWord(cell, static_cast<uint16_t>(mapWord(cell) & ~kDamagedWordBit));
                 collapseQueue_.erase(collapseQueue_.begin() + static_cast<std::ptrdiff_t>(slot));
+                // Fracture leaves top-right in cells; timer retirement doubles it at 5660.
+                lezac::gameplay::visitCollapseRemovalWords(static_cast<uint16_t>(first * 2u),
+                    fracture ? rectangle.topRight : static_cast<uint16_t>(rectangle.topRight * 2u),
+                    static_cast<uint16_t>(last * 2u), static_cast<uint16_t>(width), [&](uint16_t cell) {
+                        const uint16_t word = mapWord(cell);
+                        if (word == record.flaggedWord) {
+                            setMapWord(cell, static_cast<uint16_t>(word & ~kDamagedWordBit));
+                        }
+                    });
                 continue;
             }
         }

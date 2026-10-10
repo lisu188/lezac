@@ -5347,6 +5347,24 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^monster_object_branch_original=ok cases=1024 compared_bytes=18432 production_app=1 first_seeder_gate=0 sound_requests_checked=1 seeded=1 natural_route=0 whole_game_claim=0")
 
+    add_executable(lezac_collapse_removal_test tests/gameplay/collapse_removal_test.cpp)
+    target_include_directories(lezac_collapse_removal_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME collapse_removal_unit COMMAND lezac_collapse_removal_test)
+    add_test(NAME collapse_removal_fixture COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_removal.py)
+    add_test(NAME collapse_removal_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_removal.py --self-check)
+    add_test(NAME collapse_removal_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_removal.py --exe $<TARGET_FILE:lezac_cpp>
+        --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-removal-app)
+    set_tests_properties(collapse_removal_unit collapse_removal_fixture collapse_removal_checker collapse_removal_original
+        PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1" TIMEOUT 180)
+    set_tests_properties(collapse_removal_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "^collapse_removal_unit=ok signed_endpoints=1 mixed_units=1 actor_wrap=1 fixed_columns=1 unclamped_cycle=1")
+    set_tests_properties(collapse_removal_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^collapse_removal_original=ok scenes=7 compared_bytes=1104572 masks=0 production_app=1 natural_route=0 whole_game_claim=0")
+
     add_executable(lezac_collapse_rectangle_test tests/gameplay/collapse_rectangle_test.cpp)
     target_include_directories(lezac_collapse_rectangle_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME collapse_rectangle_unit COMMAND lezac_collapse_rectangle_test)

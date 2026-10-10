@@ -118,10 +118,8 @@ public:
                 drawInstructionsMenu();
                 break;
             case MenuPage::Records:
-                drawRecordsMenu();
                 break;
             case MenuPage::NameEntry:
-                drawNameEntryMenu();
                 break;
             case MenuPage::GameOver:
                 break;
@@ -228,63 +226,6 @@ public:
         }
     }
 
-    void drawRecordsMenu() {
-        // Original records title: "il file dei records" (LEZAC.EXE 1000:16a7).
-        const char* title = menu_.italian ? "IL FILE DEI RECORDS" : "BEST SCORES";
-        const int tx = (kScreenW - static_cast<int>(std::string(title).size()) * 8) / 2;
-        text_.text(std::max(0, tx), 48, title, 0xff90ffb0u, false, 0xff101010u);
-        int y = 70;
-        for (size_t i = 0; i < menu_.records.size(); ++i) {
-            drawRecordLine(i, y);
-            y += 12;
-        }
-        text_.text(38, 166, "ESC: BACK", 0xff90ffb0u, false, 0xff101010u);
-    }
-
-    void drawNameEntryMenu() {
-        // Labels recovered from LEZAC.EXE: "giocatore" (1000:17f3), "punteggio
-        // finale" (1000:b3ab), "inserisci il tuo nome" (1000:1826).
-        const bool it = menu_.italian;
-        text_.text(it ? 82 : 86, 48, it ? "NUOVO RECORD" : "NEW RECORD",
-             0xff90ffb0u, false, 0xff101010u);
-        text_.text(58, 64,
-             (it ? "GIOCATORE " : "PLAYER ") + std::to_string(menu_.pendingPlayer),
-             0xffffffffu, false, 0xff101010u);
-        text_.text(58, 78,
-             (it ? "PUNTEGGIO " : "SCORE ") + std::to_string(menu_.pendingScore),
-             0xffffe060u, false, 0xff101010u);
-        text_.text(58, 94,
-             (it ? "LIVELLO " : "LEVEL ") + std::to_string(menu_.pendingLevel),
-             0xffffffffu, false, 0xff101010u);
-        text_.text(kNameEntryLabelX, kNameEntrySlotY, it ? "NOME " : "NAME ",
-             0xffffffffu, false, 0xff101010u);
-        drawNameEntrySlots();
-        text_.text(30, 148,
-             it ? "INSERISCI IL TUO NOME" : "TYPE LETTERS OR SPACE",
-             0xffffffffu, false, 0xff101010u);
-        text_.text(30, 160,
-             it ? "ENTER SALVA. BACKSPACE CANCELLA" : "ENTER SAVE. BACKSPACE ERASES",
-             0xff90ffb0u, false, 0xff101010u);
-    }
-
-    void drawNameEntrySlots() {
-        int activeSlot = renderer_.nameEntryCursorSlot(menu_.pendingName);
-        for (int slot = 0; slot < kNameEntrySlotCount; ++slot) {
-            int x = renderer_.nameEntrySlotX(slot);
-            bool active = slot == activeSlot;
-            if (active) {
-                canvas_.rect(x - 1, kNameEntrySlotY - 2, kNameEntryCursorBoxW,
-                     kNameEntryCursorBoxH, kNameEntryCursorBackground);
-            }
-            char ch = slot < static_cast<int>(menu_.pendingName.size())
-                          ? menu_.pendingName[static_cast<size_t>(slot)]
-                          : '_';
-            text_.text(x, kNameEntrySlotY, std::string(1, ch),
-                 active ? kNameEntryCursorForeground : 0xffffffffu,
-                 false, active ? 0 : 0xff101010u);
-        }
-    }
-
     void drawCompletedGameMenu() {
         text_.text(90, 58, "ECCELLENTE>>>", 0xffffe060u, false, 0xff101010u);
         text_.text(54, 76, "HAI COMPLETATO IL GIOCO", 0xffffffffu, false, 0xff101010u);
@@ -321,9 +262,40 @@ private:
 }
 
 void GameRenderer::drawMenu(const MenuView& menu) {
-    if (menu.page == MenuPage::GameOver) {
+    if (menu.page == MenuPage::GameOver || menu.page == MenuPage::Records ||
+        menu.page == MenuPage::NameEntry) {
         drawPatternBackground(canvas_, menu.endScreenPattern);
-        const auto lines = LevelFlow::gameOverLines(menu.italian, menu.scores);
+        std::vector<OutroLine> lines;
+        if (menu.page == MenuPage::GameOver) {
+            lines = LevelFlow::gameOverLines(menu.italian, menu.scores);
+        } else if (menu.page == MenuPage::NameEntry) {
+            // 1845 scans upward from slot seven, stopping before equal scores.
+            const auto signedScore = [](uint32_t score) {
+                return score < 0x80000000u ? int64_t(score) : int64_t(score) - 0x100000000LL;
+            };
+            size_t rank = std::min<size_t>(7, menu.records.size()) + 1;
+            while (rank > 1 && signedScore(menu.records[rank - 2].score) < signedScore(menu.pendingScore))
+                --rank;
+            lines = {{"GIOCATORE " + std::to_string(menu.pendingPlayer), 11, 31, 25, 10, -1, true},
+                     {"HAI OTTENUTO IL " + std::to_string(rank) + " POSTO", 11, 31, 25, 21, -1, true},
+                     {"NEI RECORDS !!!", 11, 31, 25, 32, -1, true},
+                     {"INSERISCI IL TUO NOME:", 11, 31, 25, 43, -1, true}};
+        } else {
+            // 1000:20AC centers each Pascal name + four spaces + signed score.
+            lines.push_back({"PUNTEGGI MIGLIORI", 9, 10, 6, 10, -1});
+            for (size_t i = 0; i < menu.records.size() && i < 7; ++i) {
+                const Record& record = menu.records[i];
+                std::string name = encodedRecordName(record).substr(0, record.nameLength);
+                constexpr char punctuation[]{'.', ':', ';', ',', '!', '\''};
+                for (char& ch : name) {
+                    if (ch >= ':' && ch <= '?') ch = punctuation[ch - ':'];
+                }
+                const int64_t score = record.score < 0x80000000u ? int64_t(record.score) :
+                                     int64_t(record.score) - 0x100000000LL;
+                lines.push_back({name + "    " + std::to_string(score), 9, 10, 6,
+                                 72 + static_cast<int>(i) * 11, -1});
+            }
+        }
         std::vector<OutroSegment> segments;
         uint32_t settledElapsed = 0;
         for (size_t i = 0; i < lines.size(); ++i) {
@@ -334,6 +306,20 @@ void GameRenderer::drawMenu(const MenuView& menu) {
         }
         // Settled key-wait presentation only; end-run typing/record ordering remains separate work.
         drawLevelOutro({true, settledElapsed, lines, segments});
+        if (menu.page == MenuPage::NameEntry) {
+            // 1962 frames a fixed string[8]; 197E uses 9px cells and +1/+1 shadow.
+            canvas_.rect(122, 58, 76, 13, argb(presentation_.palette(), 7));
+            canvas_.rect(123, 59, 74, 11, argb(presentation_.palette(), 8));
+            const std::string name = encodeRecordName(menu.pendingName);
+            for (size_t slot = 0; slot < name.size(); ++slot) {
+                const int index = text_.fontGlyphIndex(name[slot] == ':' ? '.' : name[slot], false);
+                if (index < 0 || index >= static_cast<int>(assets_.fontSprites().sprites.size())) continue;
+                const Sprite& glyph = assets_.fontSprites().sprites[static_cast<size_t>(index)];
+                const int x = kNameEntryLabelX + static_cast<int>(slot) * kNameEntrySlotAdvance;
+                text_.drawFontSprite(x + 1, kNameEntrySlotY + 1, glyph, argb(presentation_.palette(), 55), false);
+                text_.drawFontSprite(x, kNameEntrySlotY, glyph, argb(presentation_.palette(), 77), false);
+            }
+        }
         return;
     }
     MenuPainter(canvas_, text_, assets_, presentation_, *this, menu).drawMenu();
@@ -372,9 +358,8 @@ void GameRenderer::drawLevelOutro(const OutroView& outro) {
         const OutroLine& line = lines[static_cast<size_t>(seg.line)];
         const size_t steps = std::min(line.text.size() + kLevelOutroColorSpan,
             static_cast<size_t>((elapsed - seg.start) / kLevelIntroCharacterDelayMs) + 1);
-        // The 11px-cell headline uses the large font face; the 9px-cell
-        // lines use the small face (measured against the original banner).
-        const bool large = line.cell == 11;
+        // Name entry spaces the small face at 11px; other 11px headlines use the large face.
+        const bool large = line.cell == 11 && !line.smallFont;
         const int startX = kScreenW / 2 -
                 static_cast<int>(line.text.size()) * line.cell / 2;
         // 146A pads both ends, recolors a five-column window, and paints a

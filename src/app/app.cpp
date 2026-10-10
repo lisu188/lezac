@@ -1564,17 +1564,22 @@ public:
             inspectMenuPage(MenuPage::Instructions, "instructions");
         clearSoundLatch();
         sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
+        lezac::core::TurboRandom expectedRecordsRandom(randomSeed_);
+        for (int i = 0; i < 8; ++i) expectedRecordsRandom.range(0, 1);
         press(SDLK_r);
         FrameInspection recordsFrame = inspectMenuPage(MenuPage::Records, "records");
+        inspectMenuPage(MenuPage::Records, "records-redraw");
+        if (randomSeed_ != expectedRecordsRandom.seed())
+            throw std::runtime_error("records entry/redraw RNG draw count changed");
         pumpSoundLatch();
         if (sound_.lastPumped().offset != kRecordsPageSoundCursor ||
             sound_.lastPumped().selector != kRecordsPageSoundPriority) {
             throw std::runtime_error("records menu frame flow did not pump records sound");
         }
 
-        press(SDLK_ESCAPE);
+        press(SDLK_RETURN);
         if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::Main) {
-            throw std::runtime_error("records menu did not return to main with Escape");
+            throw std::runtime_error("records menu did not return to main with Return");
         }
         ui_.setShowBackground(true);
         press(SDLK_1);
@@ -7286,6 +7291,7 @@ public:
             if (a.size() != b.size()) return false;
             for (size_t i = 0; i < a.size(); ++i) {
                 if (a[i].score != b[i].score || a[i].level != b[i].level ||
+                    a[i].nameLength != b[i].nameLength ||
                     a[i].name != b[i].name ||
                     encodedRecordName(a[i]) != encodedRecordName(b[i])) {
                     return false;
@@ -7458,17 +7464,10 @@ public:
         }
         bool running = true;
         onKey(SDLK_ESCAPE, running);
-        auto afterCancel = loadRecords(path);
-        if (ui_.snapshot().page != MenuPage::Records || recordStore_.pending().score != 0 ||
-            (!afterCancel.empty() && afterCancel[0].score == 999999u)) {
-            throw std::runtime_error("Escape committed pending record instead of cancelling");
-        }
-
-        score_ = 999999u;
-        levelIndex_ = 0;
-        beginGameOver();
-        if (ui_.snapshot().page != MenuPage::NameEntry) {
-            throw std::runtime_error("second high score did not open name entry");
+        auto afterEscape = loadRecords(path);
+        if (ui_.snapshot().page != MenuPage::NameEntry || recordStore_.pending().score != 999999u ||
+            (!afterEscape.empty() && afterEscape[0].score == 999999u)) {
+            throw std::runtime_error("name entry did not ignore Escape");
         }
         onKey(SDLK_t, running);
         onKey(SDLK_e, running);
@@ -7508,7 +7507,7 @@ public:
         auto capped = loadRecords(path);
         if (capped.empty() || capped[0].score != 1000000u ||
             capped[0].name != "ab cdefg" ||
-            encodedNameAt(path, 0) != "ab:cdefg") {
+            encodedNameAt(path, 0) != "ab cdefg") {
             throw std::runtime_error("name-entry cap or space encoding changed");
         }
 
@@ -7550,7 +7549,7 @@ public:
         std::cout << "record_name_entry=ok top=" << reloaded[0].score
                   << " name=" << reloaded[0].name
                   << " padded=test:::: capped=" << capped[0].name
-                  << " encoded_space=ab:cdefg"
+                  << " encoded_space=ab cdefg"
                   << " empty=" << emptyName[0].name
                   << " empty_encoded=" << emptyNameEncoding
                   << " typed_nessuno_encoded=nessuno:"
@@ -27690,6 +27689,14 @@ private:
             },
             [this](int delta) { adjustGameplayViewWidth(delta); },
             [this] { abortRun(); },
+            [this] {
+                presentation_.setPalette(assets_.backgroundPalette());
+                endScreenPattern_ = makeLevelIntroPattern();
+            },
+            [this] {
+                presentation_.setPalette(assets_.palette());
+                endScreenPattern_ = makeLevelIntroPattern();
+            },
         };
     }
 

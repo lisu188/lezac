@@ -10,13 +10,13 @@
 namespace lezac::ui {
 using resources::Rgb;
 
-inline constexpr int kNameEntryLabelX = 58;
-inline constexpr int kNameEntrySlotY = 120;
+inline constexpr int kNameEntryLabelX = 124;
+inline constexpr int kNameEntrySlotY = 60;
 inline constexpr int kNameEntrySlotCount = 8;
 inline constexpr int kNameEntrySlotAdvance = 9;
 inline constexpr int kNameEntryCursorBoxW = 8;
 inline constexpr int kNameEntryCursorBoxH = 10;
-inline constexpr uint32_t kNameEntryCursorBackground = 0xff90ffb0u;
+inline constexpr uint32_t kNameEntryCursorBackground = 0xff555555u;
 inline constexpr uint32_t kNameEntryCursorForeground = 0xff000000u;
 inline constexpr uint32_t kLevelIntroCharacterDelayMs = 81;
 inline constexpr uint32_t kLevelOutroColorSpan = 5;
@@ -108,6 +108,7 @@ struct OutroLine {
     uint8_t shadowColor;
     int y;
     int player;  // -1 for shared lines; 0/1 for the per-player lines
+    bool smallFont = false;
 };
 
 struct OutroSegment {

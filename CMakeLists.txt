@@ -245,6 +245,17 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_core_primitives_test PRIVATE lezac_core)
     add_executable(lezac_actor_storage_test tests/gameplay/actor_storage_test.cpp)
     target_include_directories(lezac_actor_storage_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_executable(lezac_actor_slots_test tests/gameplay/actor_slots_test.cpp)
+    target_include_directories(lezac_actor_slots_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME actor_slots_binding_contract COMMAND lezac_actor_slots_test)
+    set_tests_properties(actor_slots_binding_contract PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^actor_slots=ok operations=1800")
+    add_test(NAME production_actor_lifecycle_app COMMAND lezac_cpp --debug-production-actor-lifecycle)
+    set_tests_properties(production_actor_lifecycle_app PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^production_actor_lifecycle=ok capacity=30")
     add_test(NAME actor_storage_api_contract COMMAND lezac_actor_storage_test --api-contract)
     set_tests_properties(actor_storage_api_contract PROPERTIES
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"

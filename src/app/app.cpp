@@ -26676,11 +26676,18 @@ public:
         for (int cycle = 1; cycle <= 2; ++cycle) {
             if (score_ != 0 || score2_ != 0 || ui_.snapshot().menu || levelFlow_.intro().active)
                 throw std::runtime_error("abort map fixture did not reach zero-score gameplay");
+            lezac::core::TurboRandom expectedRandom(randomSeed_);
+            for (int draw = 0; draw < 8; ++draw) expectedRandom.range(0, 1);
             onKey(SDLK_ESCAPE, running);
             if (!running || !ui_.snapshot().menu || ui_.snapshot().paused ||
                 ui_.snapshot().page != MenuPage::GameOver)
                 throw std::runtime_error("gameplay Escape skipped Game Over");
+            if (randomSeed_ != expectedRandom.seed())
+                throw std::runtime_error("Game Over did not consume eight shared RNG draws");
             capture("game-over-" + std::to_string(cycle));
+            draw();
+            if (randomSeed_ != expectedRandom.seed())
+                throw std::runtime_error("Game Over redraw consumed RNG");
             onKey(SDLK_RETURN, running);
             if (!running || !ui_.snapshot().menu || ui_.snapshot().page != MenuPage::Main)
                 throw std::runtime_error("abort acknowledgement skipped the main menu");
@@ -26701,7 +26708,7 @@ public:
         }
         replayClockEnabled_ = false;
         std::cout << "abort_map_memory=ok cycles=3 aborts=2 views=10 bytes=1310720 audio=dummy"
-                     " menu_timing_claim=0 whole_game_parity=0\n";
+                     " end_screen_rng_calls=8 redraw_rng_calls=0 menu_timing_claim=0 whole_game_parity=0\n";
     }
 
     void debugLevelIntro(const std::string& framePath = {}) {
@@ -27266,6 +27273,7 @@ private:
     UiController ui_;
     RecordStore recordStore_;
     LevelFlow levelFlow_;
+    LevelIntroPattern endScreenPattern_{};
     InputMapper inputMapper_;
     AssetCatalog assets_;
     lezac::rendering::PresentationState presentation_;
@@ -30373,6 +30381,7 @@ private:
     }
 
     void abortRun() {
+        endScreenPattern_ = makeLevelIntroPattern();
         auto actions = uiActions();
         // Natural Escape retains the live map through Game Over and the menu.
         // The next beginLevelForPlay owns freeing and replacing that allocation.
@@ -30381,6 +30390,7 @@ private:
     }
 
     void beginEndRun(EndReason reason) {
+        if (reason == EndReason::GameOver) endScreenPattern_ = makeLevelIntroPattern();
         ui_.beginEndRun(reason, levelIndex_, playerCount_, score_, score2_, recordStore_, uiActions());
     }
 
@@ -31709,7 +31719,7 @@ private:
     lezac::rendering::MenuView menuRenderView() const {
         const auto progress = ui_.mainMenuProgress(presentationMilliseconds());
         return {ui_.snapshot().page, ui_.snapshot().italian, recordStore_.records(), recordStore_.pending().player, recordStore_.pending().score,
-                recordStore_.pending().level, recordStore_.pending().name, playerCount_, {{score_, score2_}}, progress.fade, progress.steps};
+                recordStore_.pending().level, recordStore_.pending().name, playerCount_, {{score_, score2_}}, progress.fade, progress.steps, endScreenPattern_};
     }
 
     void drawWorldView(const Player& cameraPlayer, int viewX, int viewY, int viewW, int viewH) {

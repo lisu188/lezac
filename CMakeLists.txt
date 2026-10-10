@@ -735,8 +735,41 @@ if(BUILD_TESTING)
                 tests/fixtures/shared_actor_order_original.txt)
     set_tests_properties(shared_actor_order_original PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        PASS_REGULAR_EXPRESSION "shared_actor_order_original=ok cases=10 samples=410 actor_states=7685 stable_compaction=1 same_pass_appends=1 in_place_conversion=1 rng=1 map=1 seeded=1 natural_route=0 whole_game_parity=0")
+        PASS_REGULAR_EXPRESSION "shared_actor_order_original=ok cases=10 samples=410 actor_states=7685 stable_compaction=1 same_pass_appends=1 in_place_conversion=1 rng=1 map=1 seeded=1 natural_route=0 whole_game_parity=0 birth_id_conservation=1")
     if(Python3_Interpreter_FOUND)
+        set(actor_identity_mutant_source ${CMAKE_CURRENT_BINARY_DIR}/actor-identity-mutant/app.cpp)
+        add_custom_command(OUTPUT ${actor_identity_mutant_source}
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/make_corpse_identity_mutant.py
+                --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp --out ${actor_identity_mutant_source}
+            DEPENDS src/app/app.cpp tools/make_corpse_identity_mutant.py VERBATIM)
+        add_executable(lezac_actor_identity_mutant src/main.cpp ${actor_identity_mutant_source}
+            src/app/sdl_runtime.cpp src/app/input_mapper.cpp src/diagnostics/frame_inspector.cpp)
+        target_compile_definitions(lezac_actor_identity_mutant PRIVATE SDL_MAIN_HANDLED)
+        target_include_directories(lezac_actor_identity_mutant PRIVATE ${SDL2_INCLUDE_DIRS})
+        target_link_directories(lezac_actor_identity_mutant PRIVATE ${SDL2_LIBRARY_DIRS})
+        target_link_libraries(lezac_actor_identity_mutant PRIVATE lezac_core lezac_resources lezac_sound
+            lezac_sound_diagnostics lezac_rendering lezac_ui lezac_ui_diagnostics ${SDL2_LIBRARIES})
+        target_compile_options(lezac_actor_identity_mutant PRIVATE ${SDL2_CFLAGS_OTHER})
+        add_test(NAME corpse_conversion_identity_mutant
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_corpse_identity_mutant.py
+                --exe $<TARGET_FILE:lezac_actor_identity_mutant>
+                --fixture ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/shared_actor_order_original.txt
+                --out ${CMAKE_CURRENT_BINARY_DIR}/actor-identity-mutant-checks)
+        set_tests_properties(corpse_conversion_identity_mutant PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+            TIMEOUT 90 PASS_REGULAR_EXPRESSION "^corpse_identity_mutant=ok rejected=1 production_app=1 original_replay=1 whole_game_claim=0")
+        add_test(NAME corpse_conversion_identity_checker_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_corpse_identity_checker.py -v)
+        set_tests_properties(corpse_conversion_identity_checker_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 30)
+        add_test(NAME corpse_conversion_identity_live_binding
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_corpse_identity_live_binding.py
+                --exe $<TARGET_FILE:lezac_cpp> --mutant $<TARGET_FILE:lezac_actor_identity_mutant>
+                --fixture ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/shared_actor_order_original.txt
+                --out ${CMAKE_CURRENT_BINARY_DIR}/actor-identity-live-binding)
+        set_tests_properties(corpse_conversion_identity_live_binding PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+            TIMEOUT 210 PASS_REGULAR_EXPRESSION "^corpse_identity_live_binding=ok cases=3 compiled_baseline=1 compiled_mutant=1 real_children=1 retained_input=1 audio=dummy whole_game_claim=0")
         add_test(NAME shared_actor_order_capture_contract
             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_shared_actor_order.py --self-check)
         set_tests_properties(shared_actor_order_capture_contract PROPERTIES
@@ -3529,6 +3562,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "original_state2_animation_init=ok actor_offset=0x16 bytes=12,12,8,6,6,4,1 duplicate_0a=1 duplicate_06=1 terminator=1 ghidra=1000:06ab")
 
+    add_test(NAME transient_animation_backup_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-transient-animation-backup)
+    set_tests_properties(transient_animation_backup_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "transient_animation_backup_original=ok cases=2 updates=12 production_updater=1 backup_preserved=1 seeded=1 natural_route=0 whole_game_parity=0")
+
     add_test(NAME state2_animation_advance_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-animation-advance)
     set_tests_properties(state2_animation_advance_model PROPERTIES
@@ -5500,6 +5541,13 @@ if(BUILD_TESTING)
     set_tests_properties(pickup_post_init_checker_failures PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+    add_test(NAME corpse_reward_animation_mode_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-corpse-reward-animation-mode)
+    set_tests_properties(corpse_reward_animation_mode_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^corpse_reward_animation_mode_original=ok cases=4 mode_disabled=1 production_conversion=1 seeded=1 natural_route=0 whole_game_parity=0")
 
     add_test(NAME transient_actor_limits
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-transient-actor-limits)

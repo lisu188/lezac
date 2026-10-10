@@ -3083,11 +3083,18 @@ public:
                 requireFields({"sample", "frame", "count", "visuals", "rng", "actors", "map", "regs"});
                 if (stage != 4 || sample >= 41 || std::stoi(fields.at("sample")) != sample || std::stoi(fields.at("frame")) != 101 + sample) fail("nonconsecutive tick");
                 checkRegisters();
+                const uint64_t nextBirthBeforePass = nextActorOrder_;
                 debugActorPassObserver_ = [&] {
                     const auto expected = entries(fields.at("actors"));
                     const auto actual = sharedActorEntries();
                     if (actual.size() != expected.size() || actual.size() != std::stoul(fields.at("count")) || actual.size() + 2 != std::stoul(fields.at("visuals"))) fail("count mismatch");
                     if (randomSeed_ != le32(bytes(fields.at("rng"), 4), 0)) fail("RNG mismatch");
+                    // These cases retain every new particle through its birth pass.
+                    const auto births = std::count_if(actual.begin(), actual.end(), [&](const SharedActorEntry& item) {
+                        return item.order >= nextBirthBeforePass;
+                    });
+                    if (nextActorOrder_ - nextBirthBeforePass != static_cast<uint64_t>(births))
+                        fail("unused birth identity");
                     for (size_t i = 0; i < actual.size(); ++i) {
                         const auto& item = actual[i]; const auto& raw = expected[i].first; const auto& visual = expected[i].second;
                         const auto suffix = " at slot=" + std::to_string(i + 1);
@@ -3145,7 +3152,7 @@ public:
         }
         if (!complete) fail("missing completion");
         std::cout << "shared_actor_order_original=ok cases=" << cases << " samples=" << total << " actor_states=" << compared
-                  << " stable_compaction=1 same_pass_appends=1 in_place_conversion=1 rng=1 map=1 seeded=1 natural_route=0 whole_game_parity=0\n";
+                  << " stable_compaction=1 same_pass_appends=1 in_place_conversion=1 rng=1 map=1 seeded=1 natural_route=0 whole_game_parity=0 birth_id_conservation=1\n";
     }
 
     void debugOriginalActorConstructorVelocity(const std::string& outputPath) {
@@ -10441,6 +10448,37 @@ public:
                   << " mode2_seq=4,3,2,3 mode2_final_step=1"
                   << " mode3_restored_frame=8 mode3_restored_mode=1"
                   << " mode0_unchanged=1 ghidra=1000:6053\n";
+    }
+
+    void debugOriginalTransientAnimationBackup() {
+        // Seeded original behavior-5 returns; see the 2026-10-09 recovery note.
+        constexpr std::array<std::array<uint8_t, 7>, 6> restored{{
+            {{43, 43, 46, 2, 2, 2, 255}}, {{42, 43, 46, 0, 2, 2, 1}},
+            {{42, 43, 46, 1, 2, 2, 1}}, {{42, 43, 46, 2, 2, 2, 1}},
+            {{43, 43, 46, 0, 2, 2, 255}}, {{43, 43, 46, 1, 2, 2, 255}},
+        }};
+        const ActorAnimation backup{43, 43, 46, 2, 2, 2, -1};
+        for (const uint8_t mode : {uint8_t{0}, uint8_t{3}}) {
+            TransientActor actor;
+            actor.x = 192; actor.y = 88; actor.kind = 0;
+            actor.timer = 64; actor.spriteIndex = 68;
+            actor.animation = {9, 6, 9, 0, 0, mode, 1};
+            actor.animationBackup = backup;
+            for (size_t sample = 0; sample < restored.size(); ++sample) {
+                logicTick_ = static_cast<uint32_t>(101 + sample);
+                updateTransientActor(actor);
+                const auto expected = mode == 0 ? std::array<uint8_t, 7>{{9, 6, 9, 0, 0, 0, 1}}
+                                                : restored[sample];
+                const uint8_t sprite = mode == 0 ? 68 : static_cast<uint8_t>(expected[0] - 1);
+                if (actor.animation.packed() != expected || actor.animationBackup.packed() != backup.packed() ||
+                    actor.spriteIndex != sprite || actor.timer != 64 - (sample + 2) / 2 ||
+                    actor.x != 192 || actor.y != 88 || actor.fracX || actor.fracY || actor.vx8 || actor.vy8) {
+                    throw std::runtime_error("original transient animation backup mismatch");
+                }
+            }
+        }
+        std::cout << "transient_animation_backup_original=ok cases=2 updates=12 production_updater=1 "
+                     "backup_preserved=1 seeded=1 natural_route=0 whole_game_parity=0\n";
     }
 
     void debugOriginalState2VisualRowModel() {
@@ -24666,6 +24704,45 @@ public:
         std::cout << "pickup_post_init_probe=ok cases=" << cases << " audio=dummy\n";
     }
 
+    void debugCorpseRewardAnimationMode() {
+        load();
+        initSdl();
+        for (const uint8_t mode : std::array<uint8_t, 4>{{0, 1, 2, 3}}) {
+            resetLevel(0);
+            prepareAutoplayerMonsterFixtureLevel();
+            logicTick_ = 101;
+            randomSeed_ = 0x12345678u;
+            ActiveMonster monster;
+            monster.x = 336;
+            monster.y = 124;
+            monster.kind = 0x0c;
+            monster.behavior = 2;
+            monster.hotspotY = 6;
+            monster.animCursor = 8;
+            monster.animStart = 5;
+            monster.animEnd = 8;
+            monster.animTick = 0;
+            monster.animDelay = 0;
+            monster.animMode = mode;
+            monster.animStep = 1;
+            monster.actorOrder = 1;
+            lezac::core::TurboRandom expected(randomSeed_);
+            const auto roll = expected.range(0, 100);
+            expected.range(0, 20);
+            for (int draw = 0; draw < 4; ++draw) expected.range(0, 600);
+            if (roll < 40) throw std::runtime_error("corpse animation probe seed produced no reward");
+            finishMonsterDeathReward(monster);
+            if (bonusDrops_.size() != 1 || randomSeed_ != expected.seed()) {
+                throw std::runtime_error("corpse animation probe changed reward or RNG");
+            }
+            const std::array<uint8_t, 7> animation{{9, 6, 9, 0, 0, 0, 1}};
+            if (bonusDrops_.front().animation.packed() != animation) {
+                throw std::runtime_error("corpse reward animation mode was not disabled");
+            }
+        }
+        std::cout << "corpse_reward_animation_mode_original=ok cases=4 mode_disabled=1 production_conversion=1 seeded=1 natural_route=0 whole_game_parity=0\n";
+    }
+
     void debugTransientActorLimits() {
         load();
         initSdl();
@@ -27348,7 +27425,7 @@ private:
     }
 
     void updateTransientActor(TransientActor& actor) {
-        if (actor.animation.advance(ActorAnimation{})) {
+        if (actor.animation.advance(actor.animationBackup)) {
             actor.spriteIndex = static_cast<uint8_t>(actor.animation.current - 1);
         }
         // 1000:65A2..65D7 bypasses collision/gravity and deletes before
@@ -29561,21 +29638,23 @@ private:
                    rewardRoll > kRewardUpperBounds[rewardIndex]) {
                 ++rewardIndex;
             }
-            spawnBonusDrop(
-                static_cast<float>(monster.x),
-                static_cast<float>(monster.y + monster.hotspotY),
-                static_cast<BonusType>(rewardIndex));
-            BonusDrop& reward = bonusDrops_.back();
+            // Reuse the corpse's identity; this conversion is not an allocation.
+            BonusDrop reward;
+            reward.x = static_cast<float>(monster.x);
+            reward.y = static_cast<float>(monster.y + monster.hotspotY);
+            reward.type = static_cast<BonusType>(rewardIndex);
+            reward.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(bonusSpriteIndex(reward.type)).height);
             reward.actorOrder = monster.actorOrder;
             reward.vx8 = monster.vx8;
             reward.vy8 = static_cast<int16_t>(monster.vy8 - 200);
             reward.fracX = monster.fracX;
             reward.fracY = monster.fracY;
-            // 1000:760D changes the descriptor/kind without reinitializing +16h..1Ch.
+            // The conversion preserves cursor/counters, but 1000:76E6 clears mode.
             reward.animation = {static_cast<uint8_t>(monster.animCursor + 1),
                 static_cast<uint8_t>(monster.animStart + 1), static_cast<uint8_t>(monster.animEnd + 1),
                 static_cast<uint8_t>(monster.animTick), static_cast<uint8_t>(monster.animDelay),
-                static_cast<uint8_t>(monster.animMode), static_cast<int8_t>(monster.animStep)};
+                0, static_cast<int8_t>(monster.animStep)};
+            bonusDrops_.push_back(reward);
         } else {
             // 1000:760D converts the existing corpse in place, even at full
             // capacity. Its fractions survive; this frame does not tick it twice.
@@ -30591,6 +30670,10 @@ int lezac::app::runApplication(int argc, char** argv) {
             app.debugOriginalState2AnimationAdvance();
             return 0;
         }
+        if (argc > 1 && std::string(argv[1]) == "--debug-original-transient-animation-backup") {
+            app.debugOriginalTransientAnimationBackup();
+            return 0;
+        }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-visual-row-model") {
             app.debugOriginalState2VisualRowModel();
             return 0;
@@ -30794,6 +30877,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-transient-actor-limits") {
             app.debugTransientActorLimits();
+            return 0;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--debug-original-corpse-reward-animation-mode") {
+            app.debugCorpseRewardAnimationMode();
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-pickup-landing-original") {

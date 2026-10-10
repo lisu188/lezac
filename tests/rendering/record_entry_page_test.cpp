@@ -28,6 +28,7 @@ void checkEditing(const std::filesystem::path& out) {
     using namespace ui;
     UiController controller;
     RecordStore records;
+    records.replaceRecords(std::vector<resources::Record>(7, resources::makeRecord(1, 1, "old")));
     records.setPath((out / "editing.dat").string());
     bool running = true;
     int prepared = 0, randomDraws = 0, prompts = 0, commits = 0;
@@ -43,6 +44,9 @@ void checkEditing(const std::filesystem::path& out) {
     actions.recordPromptSound = [&] { ++prompts; };
     actions.recordCommitSound = [&] { ++commits; };
     controller.beginEndRun(EndReason::GameOver, 0, 1, 100, 0, records, actions);
+    require(controller.snapshot().page == MenuPage::GameOver && prepared == 0 && prompts == 0,
+            "name entry bypassed Game Over acknowledgement");
+    controller.onKey(Key::One, running, 0, 1, records, actions);
     require(prepared == 1 && randomDraws == 8 && prompts == 1, "name entry background draw count changed");
     for (Key key : {Key::Escape, Key::Unknown, Key::One, Key::Two, Key::F5, Key::RightControl,
                     Key::Keypad0, Key::Insert, Key::PageUp, Key::PageDown, Key::Backspace}) {
@@ -61,7 +65,7 @@ void checkEditing(const std::filesystem::path& out) {
             "editing regenerated the name background or requested commit");
     controller.onKey(Key::KeypadEnter, running, 0, 1, records, actions);
     const auto saved = resources::loadRawRecords((out / "editing.dat").string());
-    require(commits == 1 && saved.size() == 1 && saved[0].encodedName == "a c:::::",
+    require(commits == 1 && saved.size() == 7 && saved[0].encodedName == "a c:::::",
             "Return did not commit literal space and colon padding");
 }
 

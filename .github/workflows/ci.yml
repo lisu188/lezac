@@ -112,6 +112,23 @@ jobs:
           name: end-screen-linux-focused
           path: build/end-screen-focused/
           if-no-files-found: error
+      - name: Original end-run regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          ./build/lezac_original_end_run_test tests/fixtures build/original-end-run-focused
+          ctest --test-dir build --verbose --output-on-failure -R '^(end_flow_records_temp|end_flow_frame_flow|records_save_failure_temp|record_name_sound|autoplayer_records_flow_dummy)$'
+      - name: Preserve original end-run diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-end-run-linux-focused
+          path: |
+            build/original-end-run-focused/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
       - name: Natural Escape and new-game regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -727,6 +744,23 @@ jobs:
         with:
           name: end-screen-windows-focused
           path: build/end-screen-focused/
+          if-no-files-found: error
+      - name: Original end-run regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          ./build/lezac_original_end_run_test.exe tests/fixtures build/original-end-run-focused
+          ctest --test-dir build --verbose --output-on-failure -R '^(end_flow_records_temp|end_flow_frame_flow|records_save_failure_temp|record_name_sound|autoplayer_records_flow_dummy)$'
+      - name: Preserve original end-run diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-end-run-windows-focused
+          path: |
+            build/original-end-run-focused/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
       - name: Natural Escape and new-game regressions
         env:

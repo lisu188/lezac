@@ -3,7 +3,8 @@
 The DOS record file is a count byte followed by 13-byte entries: a four-byte
 score and a Pascal string[8]. The byte after the score is the padded name
 length, not a gameplay level. Names occupy eight character bytes and use
-`:` for spaces and unused slots.
+`:` for unused slots. Entered spaces remain literal ASCII `0x20`; see the
+independent [name-entry observation](record_entry_presentation.md).
 
 ## Evidence
 
@@ -38,16 +39,35 @@ acquisition or a campaign playthrough.
 
 ## Regression Scope
 
-The raw serializer now writes the encoded name length. The existing helper
-always returns eight padded character bytes. Five port metadata levels
+The raw serializer now writes the explicit Pascal name length. Normal name
+entry produces eight padded storage bytes and a length of eight. Five port metadata levels
 (`1`, `0`, `7`, `8`, `255`) must each produce exactly the complete original
 92-byte file, with no masks or tolerated differences. JSON save/load must
-still preserve each level value. This changes raw output compatibility
-without changing the public `Record` layout or the JSON metadata contract.
+still preserve each level value. The new length field occupies tested padding:
+existing field offsets, size and alignment are unchanged in the GCC/MSVC
+component checks. This is not a universal ABI guarantee.
 
 The pre-fix serializer differs from the original oracle at byte 5 for the
 observed level-one case. CI runs the original-save and resource-codec tests
 early on Linux and Windows and preserves their output files.
+
+## Decoder And Diagnostics
+
+Follow-up original records-page observations distinguish lengths zero through
+eight from nonblank hidden storage tails. The already-validated codec from
+PR #385 is carried into this wire-format prerequisite: `Record::nameLength`
+controls decoding independently of the eight preserved storage bytes, and
+raw `level` is zero because the file has no gameplay-level metadata. Legacy
+JSON still preserves explicit level values and defaults a missing name length
+to eight. Raw and JSON round trips retain hidden tails and explicit lengths.
+Malformed lengths above eight fail closed; original unsafe behavior is not
+reproduced.
+
+The binary update diagnostic now checks decoded level zero and the actual
+wire length byte eight. Its JSON case still checks level nine. The shipped
+raw-table diagnostic verifies seven name lengths of eight, not seven levels.
+Full-file byte comparisons remain unchanged. Old-head PR #384 CI exposed the
+stale level-nine assertion on both platforms; those logs remain retained.
 
 ## Remaining Fidelity Work
 
@@ -56,7 +76,10 @@ The follow-up [records-page recovery](records_page_presentation.md) separates
 Pascal length, and preserves all eight stored bytes. The raw reader assigns
 unknown level metadata 0. Generated JSON includes `name_length`; existing JSON
 level values remain supported. Settled records-page rendering is covered by
-two complete original RGB fixtures. Full name-entry presentation remains open.
+two complete original RGB fixtures in PR #385. The subsequent
+[name-entry presentation](record_entry_presentation.md) covers eight settled
+states, literal spaces and ignored Escape. Typing timing and the entire
+end-run UI contract remain open.
 
 Game Over typing, record-entry ordering and cutoff equality are separate
 open contracts. A zero-cutoff observation displayed rank 8 for a zero score,

@@ -28,6 +28,10 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: python3 -S -B tools/test_review_history_repairs.py -v
+      - name: Buffered menu output retention regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python3 -S -B tools/test_buffered_menu_output.py -v
       - name: Raw lane-word classification regressions
         env:
           SDL_AUDIODRIVER: dummy
@@ -59,6 +63,23 @@ jobs:
           name: record-save-linux-focused
           path: |
             build/record-save-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: Original record-entry regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          ./build/lezac_record_entry_page_test tests/fixtures build/record-entry-focused
+          ctest --test-dir build --verbose --output-on-failure -R '^(records_name_entry_temp|records_name_entry_cursor|records_name_entry_repeat_temp|resource_domain_codecs|ui_components)$'
+      - name: Preserve record-entry diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: record-entry-linux-focused
+          path: |
+            build/record-entry-focused/
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
@@ -111,7 +132,9 @@ jobs:
       - name: Live keyboard end-run regressions
         env:
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^(bios_menu_input|buffered_menu_repeat|main_menu|key_ownership)_live_xvfb$'
+        run: |
+          ctest --test-dir build --verbose --output-on-failure -R '^(bios_menu_input|buffered_menu_repeat|main_menu|key_ownership)_live_xvfb$'
+          ctest --test-dir build --verbose --output-on-failure -R '^buffered_menu_repeat_live_xvfb$'
       - name: Preserve live keyboard end-run diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -621,6 +644,10 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: python3 -S -B tools/test_review_history_repairs.py -v
+      - name: Buffered menu output retention regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python3 -S -B tools/test_buffered_menu_output.py -v
       - name: Raw lane-word classification regressions
         env:
           SDL_AUDIODRIVER: dummy
@@ -652,6 +679,23 @@ jobs:
           name: record-save-windows-focused
           path: |
             build/record-save-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: Original record-entry regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          ./build/lezac_record_entry_page_test.exe tests/fixtures build/record-entry-focused
+          ctest --test-dir build --verbose --output-on-failure -R '^(records_name_entry_temp|records_name_entry_cursor|records_name_entry_repeat_temp|resource_domain_codecs|ui_components)$'
+      - name: Preserve record-entry diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: record-entry-windows-focused
+          path: |
+            build/record-entry-focused/
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error

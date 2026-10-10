@@ -7464,17 +7464,10 @@ public:
         }
         bool running = true;
         onKey(SDLK_ESCAPE, running);
-        auto afterCancel = loadRecords(path);
-        if (ui_.snapshot().page != MenuPage::Records || recordStore_.pending().score != 0 ||
-            (!afterCancel.empty() && afterCancel[0].score == 999999u)) {
-            throw std::runtime_error("Escape committed pending record instead of cancelling");
-        }
-
-        score_ = 999999u;
-        levelIndex_ = 0;
-        beginGameOver();
-        if (ui_.snapshot().page != MenuPage::NameEntry) {
-            throw std::runtime_error("second high score did not open name entry");
+        auto afterEscape = loadRecords(path);
+        if (ui_.snapshot().page != MenuPage::NameEntry || recordStore_.pending().score != 999999u ||
+            (!afterEscape.empty() && afterEscape[0].score == 999999u)) {
+            throw std::runtime_error("name entry did not ignore Escape");
         }
         onKey(SDLK_t, running);
         onKey(SDLK_e, running);
@@ -7514,7 +7507,7 @@ public:
         auto capped = loadRecords(path);
         if (capped.empty() || capped[0].score != 1000000u ||
             capped[0].name != "ab cdefg" ||
-            encodedNameAt(path, 0) != "ab:cdefg") {
+            encodedNameAt(path, 0) != "ab cdefg") {
             throw std::runtime_error("name-entry cap or space encoding changed");
         }
 
@@ -7556,7 +7549,7 @@ public:
         std::cout << "record_name_entry=ok top=" << reloaded[0].score
                   << " name=" << reloaded[0].name
                   << " padded=test:::: capped=" << capped[0].name
-                  << " encoded_space=ab:cdefg"
+                  << " encoded_space=ab cdefg"
                   << " empty=" << emptyName[0].name
                   << " empty_encoded=" << emptyNameEncoding
                   << " typed_nessuno_encoded=nessuno:"
@@ -27698,6 +27691,10 @@ private:
             [this] { abortRun(); },
             [this] {
                 presentation_.setPalette(assets_.backgroundPalette());
+                endScreenPattern_ = makeLevelIntroPattern();
+            },
+            [this] {
+                presentation_.setPalette(assets_.palette());
                 endScreenPattern_ = makeLevelIntroPattern();
             },
         };

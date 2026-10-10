@@ -178,6 +178,15 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_record_entry_page_test tests/rendering/record_entry_page_test.cpp)
+    target_link_libraries(lezac_record_entry_page_test PRIVATE lezac_rendering)
+    add_test(NAME record_entry_page_original COMMAND lezac_record_entry_page_test
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures"
+        "${CMAKE_CURRENT_BINARY_DIR}/record-entry-page-original")
+    set_tests_properties(record_entry_page_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^record_entry_page=ok original_frames=8 compared_pixels=1024000 differing_pixels=0 masks=0 literal_space=1 saved_bytes=184 escape_ignored=1 background_rng_calls=8 timing_parity=0 end_flow_parity=0")
     add_executable(lezac_records_page_test tests/rendering/records_page_test.cpp)
     target_link_libraries(lezac_records_page_test PRIVATE lezac_rendering)
     add_test(NAME records_page_original COMMAND lezac_records_page_test
@@ -273,7 +282,7 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_abort_run_test PRIVATE lezac_ui)
     add_test(NAME abort_run_unit COMMAND lezac_abort_run_test)
     set_tests_properties(abort_run_unit PROPERTIES PASS_REGULAR_EXPRESSION
-        "^abort_run=ok cases=8 pause_cleared=1 game_over=1 records=1 player_order=1,2 current_level=1 acknowledgement=1 restart=1 original_record_claim=0")
+        "^abort_run=ok cases=8 pause_cleared=1 game_over=1 records=1 player_order=1,2 current_level=1 acknowledgement=1 restart=1 name_escape_ignored=1 fixture_teardown=1 original_record_claim=0")
 
     add_executable(lezac_level_results_test tests/ui/level_results_test.cpp)
     target_link_libraries(lezac_level_results_test PRIVATE lezac_ui)
@@ -428,6 +437,10 @@ if(BUILD_TESTING)
     target_include_directories(lezac_flame_contact_word_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
     if(Python3_Interpreter_FOUND)
+        add_test(NAME buffered_menu_output_tools_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_buffered_menu_output.py -v)
+        set_tests_properties(buffered_menu_output_tools_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
         add_test(NAME corpse_animation_tools_contract
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_corpse_animation_tools.py -v)
         set_tests_properties(corpse_animation_tools_contract PROPERTIES
@@ -3418,7 +3431,7 @@ if(BUILD_TESTING)
     set_tests_properties(records_name_entry_temp PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^record_name_entry=ok top=999999 name=test padded=test:::: capped=ab cdefg encoded_space=ab:cdefg empty=nessuno empty_encoded=:::::::: typed_nessuno_encoded=nessuno: preserved_empty=::::::::")
+            "^record_name_entry=ok top=999999 name=test padded=test:::: capped=ab cdefg encoded_space=ab cdefg empty=nessuno empty_encoded=:::::::: typed_nessuno_encoded=nessuno: preserved_empty=::::::::")
 
     add_test(NAME records_name_entry_cursor
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-name-entry-cursor)

@@ -36,7 +36,7 @@ int main() {
     TestFile binary{"resource_domain_codecs_test.bin"};
     TestFile json{"resource_domain_codecs_test.json"};
     const Record record = makeRecord(0x12345678, 7, "A B");
-    require(record.name == "A B" && record.encodedName == "A:B:::::");
+    require(record.name == "A B" && record.encodedName == "A B:::::");
     saveRecords(binary.path, {record});
     auto rawRecords = loadRawRecords(binary.path);
     require(rawRecords.size() == 1 && rawRecords[0].score == 0x12345678 &&

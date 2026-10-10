@@ -100,7 +100,9 @@ class BufferedMenuOutputTests(unittest.TestCase):
         actual = harness.prepare_output(output)
         self.assertEqual(actual.parent, output)
         self.assertTrue(actual.name.startswith("run-"))
-        self.assertEqual(list(output.iterdir()), [actual])
+        entries = list(output.iterdir())
+        self.assertEqual(len(entries), 1)
+        self.assertTrue(entries[0].samefile(actual))
 
     def test_concurrent_allocations_have_distinct_directories(self):
         output = self.root / "concurrent"

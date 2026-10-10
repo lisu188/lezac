@@ -10,6 +10,7 @@ namespace lezac::resources {
 struct Record {
     uint32_t score = 0;
     uint8_t level = 0;
+    uint8_t nameLength = 8;
     std::string name;
     std::string encodedName;
 };

@@ -51,11 +51,12 @@ early on Linux and Windows and preserves their output files.
 
 ## Remaining Fidelity Work
 
-The raw reader still exposes the length byte through the legacy
-`Record::level` member. Generated JSON metadata and the records-page level
-label retain that historical interpretation. Their migration, actual name
-length decoding, records-page rendering and full name-entry presentation
-are not completed here.
+The follow-up [records-page recovery](records_page_presentation.md) separates
+`Record::nameLength` from port-only `Record::level`, decodes only the declared
+Pascal length, and preserves all eight stored bytes. The raw reader assigns
+unknown level metadata 0. Generated JSON includes `name_length`; existing JSON
+level values remain supported. Settled records-page rendering is covered by
+two complete original RGB fixtures. Full name-entry presentation remains open.
 
 Game Over typing, record-entry ordering and cutoff equality are separate
 open contracts. A zero-cutoff observation displayed rank 8 for a zero score,

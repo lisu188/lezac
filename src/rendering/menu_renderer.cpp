@@ -118,7 +118,6 @@ public:
                 drawInstructionsMenu();
                 break;
             case MenuPage::Records:
-                drawRecordsMenu();
                 break;
             case MenuPage::NameEntry:
                 drawNameEntryMenu();
@@ -228,19 +227,6 @@ public:
         }
     }
 
-    void drawRecordsMenu() {
-        // Original records title: "il file dei records" (LEZAC.EXE 1000:16a7).
-        const char* title = menu_.italian ? "IL FILE DEI RECORDS" : "BEST SCORES";
-        const int tx = (kScreenW - static_cast<int>(std::string(title).size()) * 8) / 2;
-        text_.text(std::max(0, tx), 48, title, 0xff90ffb0u, false, 0xff101010u);
-        int y = 70;
-        for (size_t i = 0; i < menu_.records.size(); ++i) {
-            drawRecordLine(i, y);
-            y += 12;
-        }
-        text_.text(38, 166, "ESC: BACK", 0xff90ffb0u, false, 0xff101010u);
-    }
-
     void drawNameEntryMenu() {
         // Labels recovered from LEZAC.EXE: "giocatore" (1000:17f3), "punteggio
         // finale" (1000:b3ab), "inserisci il tuo nome" (1000:1826).
@@ -321,9 +307,27 @@ private:
 }
 
 void GameRenderer::drawMenu(const MenuView& menu) {
-    if (menu.page == MenuPage::GameOver) {
+    if (menu.page == MenuPage::GameOver || menu.page == MenuPage::Records) {
         drawPatternBackground(canvas_, menu.endScreenPattern);
-        const auto lines = LevelFlow::gameOverLines(menu.italian, menu.scores);
+        std::vector<OutroLine> lines;
+        if (menu.page == MenuPage::GameOver) {
+            lines = LevelFlow::gameOverLines(menu.italian, menu.scores);
+        } else {
+            // 1000:20AC centers each Pascal name + four spaces + signed score.
+            lines.push_back({"PUNTEGGI MIGLIORI", 9, 10, 6, 10, -1});
+            for (size_t i = 0; i < menu.records.size() && i < 7; ++i) {
+                const Record& record = menu.records[i];
+                std::string name = encodedRecordName(record).substr(0, record.nameLength);
+                constexpr char punctuation[]{'.', ':', ';', ',', '!', '\''};
+                for (char& ch : name) {
+                    if (ch >= ':' && ch <= '?') ch = punctuation[ch - ':'];
+                }
+                const int64_t score = record.score < 0x80000000u ? int64_t(record.score) :
+                                     int64_t(record.score) - 0x100000000LL;
+                lines.push_back({name + "    " + std::to_string(score), 9, 10, 6,
+                                 72 + static_cast<int>(i) * 11, -1});
+            }
+        }
         std::vector<OutroSegment> segments;
         uint32_t settledElapsed = 0;
         for (size_t i = 0; i < lines.size(); ++i) {

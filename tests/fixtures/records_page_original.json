@@ -1,0 +1,134 @@
+{
+  "schema": "lezac-original-records-page-fixtures-v1",
+  "passed": true,
+  "observations": [
+    {
+      "kind": "shipped",
+      "observation": "/tmp/lezac-original-records-shipped-20261010-t158",
+      "horizontal_step": 79,
+      "vertical_step": 50,
+      "colors": [
+        [
+          77,
+          12,
+          56
+        ],
+        [
+          85,
+          16,
+          69
+        ],
+        [
+          97,
+          20,
+          81
+        ],
+        [
+          109,
+          24,
+          93
+        ],
+        [
+          121,
+          28,
+          105
+        ],
+        [
+          134,
+          32,
+          117
+        ],
+        [
+          146,
+          36,
+          130
+        ]
+      ],
+      "first_row_candidates": 1,
+      "background_pixels_for_input_inference": 35520,
+      "rgb_file": "records_page_shipped.rgb",
+      "rgb_sha256": "6a36da1f42cbf6a59e232b8d94da4a1f3c36213891420dfef7d0a9fed1d17a2a",
+      "records_file": "records_page_shipped.dat",
+      "records_sha256": "27197ebb56fb339e4d41baf6ad5282cd79bb66b642c81ae406e607a263c80eb8",
+      "capture_sha256": "af9402edcc019222468030fedaaedca58f3c0126be1d64823649c07c071c1f35",
+      "report_sha256": "748e6a991e2f26ea065e1aa598f8167343c717a4b2ef4bb209b660c65214e4b2",
+      "producer_sha256": "d41793457bde6701b39a7accf5eea7d30fc38ed160195bb6cf5011fae5581fc7",
+      "record_file_fixture_seeded": false,
+      "samples_verified": 4,
+      "typing_pngs_verified": 40,
+      "code_bytes_verified_per_sample": 43552,
+      "code_differences": 0,
+      "process_memory_writes": 0,
+      "return_frame_matches_initial_main_menu": true
+    },
+    {
+      "kind": "short",
+      "observation": "/tmp/lezac-original-records-short-20261010-t158",
+      "horizontal_step": 74,
+      "vertical_step": 24,
+      "colors": [
+        [
+          20,
+          52,
+          32
+        ],
+        [
+          24,
+          60,
+          32
+        ],
+        [
+          32,
+          69,
+          32
+        ],
+        [
+          40,
+          81,
+          32
+        ],
+        [
+          44,
+          89,
+          32
+        ],
+        [
+          52,
+          101,
+          32
+        ],
+        [
+          60,
+          109,
+          32
+        ]
+      ],
+      "first_row_candidates": 2,
+      "background_pixels_for_input_inference": 35520,
+      "rgb_file": "records_page_short.rgb",
+      "rgb_sha256": "dbc09fb46bd10d77f14b50976302cc849e6d5c89b8326115145f41463b591e26",
+      "records_file": "records_page_short.dat",
+      "records_sha256": "2f842f9980e7d205c09bb22b186437d1b1fbec017f61c3d8943790e570d968e6",
+      "capture_sha256": "861f784c154dc55aa950447cac02baeedde6b2cee5d9d73bdebdf3ca6a55a25e",
+      "report_sha256": "866aaf2c39a8bc3f547f3d43add860c1d83550d06734e7d86154b94108f3e179",
+      "producer_sha256": "d41793457bde6701b39a7accf5eea7d30fc38ed160195bb6cf5011fae5581fc7",
+      "record_file_fixture_seeded": true,
+      "samples_verified": 4,
+      "typing_pngs_verified": 40,
+      "code_bytes_verified_per_sample": 43552,
+      "code_differences": 0,
+      "process_memory_writes": 0,
+      "return_frame_matches_initial_main_menu": true
+    }
+  ],
+  "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "audio": "dummy",
+  "no_resampling": true,
+  "ram_atomic": false,
+  "records_routine_cs": "20AC",
+  "background_routine_cs": "01FC",
+  "title_cs": "2095",
+  "typing_timing_parity": false,
+  "rng_seed_alignment": false,
+  "whole_game_parity": false
+}

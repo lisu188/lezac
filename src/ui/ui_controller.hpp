@@ -19,6 +19,7 @@ struct UiActions {
     std::function<void(int)> firePlayer;
     std::function<void(int)> adjustViewWidth;
     std::function<void()> abortRun;
+    std::function<void()> prepareRecordsPage;
 };
 
 class UiController {
@@ -49,6 +50,7 @@ public:
     void cancelPendingRecord(RecordStore& records, const UiActions& actions);
     bool startNextPendingRecord(RecordStore& records, const UiActions& actions);
 private:
+    void enterRecordsPage(const UiActions& actions, bool playSound = false);
     UiState state_;
 };
 }

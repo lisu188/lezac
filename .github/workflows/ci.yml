@@ -62,6 +62,23 @@ jobs:
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
+      - name: Original records-page regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          ./build/lezac_records_page_test tests/fixtures build/records-page-focused
+          ctest --test-dir build --verbose --output-on-failure -R '^(records_update(_json)?_temp|records_raw_roundtrip|original_asset_load|menu_frame_flow_dummy|ui_components|main_menu_models)$'
+      - name: Preserve records-page diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: records-page-linux-focused
+          path: |
+            build/records-page-focused/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
       - name: Original Game Over pixel regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -635,6 +652,23 @@ jobs:
           name: record-save-windows-focused
           path: |
             build/record-save-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: Original records-page regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          ./build/lezac_records_page_test.exe tests/fixtures build/records-page-focused
+          ctest --test-dir build --verbose --output-on-failure -R '^(records_update(_json)?_temp|records_raw_roundtrip|original_asset_load|menu_frame_flow_dummy|ui_components|main_menu_models)$'
+      - name: Preserve records-page diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: records-page-windows-focused
+          path: |
+            build/records-page-focused/
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error

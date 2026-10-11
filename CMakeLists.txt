@@ -250,6 +250,19 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^actor_storage_api=ok rejected=7 mutable_writebacks=2 stable_tail=1 compiled_core=1 production_app=0")
     add_executable(lezac_monster_animation_selectors_test tests/gameplay/monster_animation_selectors_test.cpp)
+    add_executable(lezac_monster_animation_original_test tests/gameplay/monster_animation_original_test.cpp)
+    target_include_directories(lezac_monster_animation_original_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME monster_animation_original_helper
+        COMMAND lezac_monster_animation_original_test ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_animation_original.txt)
+    set_tests_properties(monster_animation_original_helper PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30
+        PASS_REGULAR_EXPRESSION "^monster_animation_original=ok cases=53 updates=636 compiled_helper=1 production_app=0 seeded=1 natural_route=0 whole_game_claim=0")
+    add_test(NAME monster_animation_original_app
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-animation-original ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_animation_original.txt)
+    set_tests_properties(monster_animation_original_app PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 30
+        PASS_REGULAR_EXPRESSION "^monster_animation_original=ok cases=53 updates=636 production_app=1 diagnostic_stop_after_prologue=1 boss_backup_copies=14 seeded=1 natural_route=0 whole_game_claim=0")
     target_include_directories(lezac_monster_animation_selectors_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME monster_animation_selectors
         COMMAND lezac_monster_animation_selectors_test ${CMAKE_CURRENT_SOURCE_DIR})
@@ -342,6 +355,13 @@ if(BUILD_TESTING)
     target_include_directories(lezac_flame_contact_word_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
     if(Python3_Interpreter_FOUND)
+        add_test(NAME monster_animation_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_animation_fixture_contract.py
+                --exe $<TARGET_FILE:lezac_monster_animation_original_test>
+                --fixture ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_animation_original.txt)
+        set_tests_properties(monster_animation_fixture_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 60
+            PASS_REGULAR_EXPRESSION "^monster_animation_fixture_contract=ok accepted=2 rejected=7 compiled_helper=1 production_app=0")
         add_test(NAME actor_storage_core_original
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_storage_core.py
                 --exe $<TARGET_FILE:lezac_actor_storage_test>

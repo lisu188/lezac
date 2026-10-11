@@ -702,7 +702,7 @@ if(BUILD_TESTING)
         target_include_directories(lezac_actor_identity_mutant PRIVATE ${SDL2_INCLUDE_DIRS})
         target_link_directories(lezac_actor_identity_mutant PRIVATE ${SDL2_LIBRARY_DIRS})
         target_link_libraries(lezac_actor_identity_mutant PRIVATE lezac_core lezac_resources lezac_sound
-            lezac_sound_diagnostics lezac_rendering lezac_ui lezac_ui_diagnostics ${SDL2_LIBRARIES})
+            lezac_sound_diagnostics lezac_rendering lezac_ui lezac_ui_diagnostics lezac_app_loop ${SDL2_LIBRARIES})
         target_compile_options(lezac_actor_identity_mutant PRIVATE ${SDL2_CFLAGS_OTHER})
         add_test(NAME corpse_conversion_identity_mutant
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_corpse_identity_mutant.py

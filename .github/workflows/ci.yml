@@ -62,6 +62,21 @@ jobs:
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
+      - name: JollyCloud production regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^(jolly_cloud_.*|bonus_rewards|debris_collapse_order)$'
+      - name: Preserve focused JollyCloud comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jolly-cloud-linux-focused
+          path: |
+            build/jolly-cloud-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
       - name: In-place corpse conversion regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -213,6 +228,7 @@ jobs:
         with:
           name: recovery-diagnostics-linux-final
           path: |
+            build/jolly-cloud-checks/
             build/actor-identity-live-binding/
             build/actor-storage-checks/
             build/debris-update-failures/
@@ -327,6 +343,21 @@ jobs:
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
+      - name: JollyCloud production regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^(jolly_cloud_.*|bonus_rewards|debris_collapse_order)$'
+      - name: Preserve focused JollyCloud comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jolly-cloud-windows-focused
+          path: |
+            build/jolly-cloud-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
       - name: In-place corpse conversion regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -478,6 +509,7 @@ jobs:
         with:
           name: recovery-diagnostics-windows-final
           path: |
+            build/jolly-cloud-checks/
             build/actor-identity-live-binding/
             build/actor-storage-checks/
             build/debris-update-failures/

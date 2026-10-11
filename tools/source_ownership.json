@@ -96,6 +96,8 @@
       "runtime": [
         "src/app/app.cpp",
         "src/app/app.hpp",
+        "src/app/governed_loop.cpp",
+        "src/app/governed_loop.hpp",
         "src/app/input_mapper.cpp",
         "src/app/input_mapper.hpp",
         "src/app/sdl_runtime.cpp",

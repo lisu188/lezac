@@ -67,12 +67,15 @@ target_link_libraries(lezac_ui PUBLIC lezac_resources)
 add_library(lezac_ui_diagnostics STATIC src/diagnostics/ui_diagnostics.cpp)
 target_link_libraries(lezac_ui_diagnostics PUBLIC lezac_ui)
 
+add_library(lezac_app_loop STATIC src/app/governed_loop.cpp)
+target_include_directories(lezac_app_loop PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
 add_executable(lezac_cpp src/main.cpp src/app/app.cpp src/app/sdl_runtime.cpp src/app/input_mapper.cpp
     src/diagnostics/frame_inspector.cpp)
 target_compile_definitions(lezac_cpp PRIVATE SDL_MAIN_HANDLED)
 target_include_directories(lezac_cpp PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_directories(lezac_cpp PRIVATE ${SDL2_LIBRARY_DIRS})
-target_link_libraries(lezac_cpp PRIVATE lezac_core lezac_resources lezac_sound lezac_sound_diagnostics lezac_rendering lezac_ui lezac_ui_diagnostics ${SDL2_LIBRARIES})
+target_link_libraries(lezac_cpp PRIVATE lezac_core lezac_resources lezac_sound lezac_sound_diagnostics lezac_rendering lezac_ui lezac_ui_diagnostics lezac_app_loop ${SDL2_LIBRARIES})
 target_compile_options(lezac_cpp PRIVATE ${SDL2_CFLAGS_OTHER})
 
 if(WIN32)
@@ -177,6 +180,13 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_governed_loop_test tests/app/governed_loop_test.cpp)
+    target_link_libraries(lezac_governed_loop_test PRIVATE lezac_app_loop)
+    add_test(NAME governed_loop_unit COMMAND lezac_governed_loop_test)
+    set_tests_properties(governed_loop_unit PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "governed_loop=ok cadence=1 rollover=1 cap_boundaries=4 stop_boundaries=3 quit_boundaries=2 exceptions=2 stats_reset=1")
+
     add_executable(lezac_clocked_sound_test tests/sound/clocked_sound_test.cpp
         src/sound/sound_engine.cpp)
     target_link_libraries(lezac_clocked_sound_test PRIVATE lezac_resources)
@@ -744,7 +754,7 @@ if(BUILD_TESTING)
         target_include_directories(lezac_actor_identity_mutant PRIVATE ${SDL2_INCLUDE_DIRS})
         target_link_directories(lezac_actor_identity_mutant PRIVATE ${SDL2_LIBRARY_DIRS})
         target_link_libraries(lezac_actor_identity_mutant PRIVATE lezac_core lezac_resources lezac_sound
-            lezac_sound_diagnostics lezac_rendering lezac_ui lezac_ui_diagnostics ${SDL2_LIBRARIES})
+            lezac_sound_diagnostics lezac_rendering lezac_ui lezac_ui_diagnostics lezac_app_loop ${SDL2_LIBRARIES})
         target_compile_options(lezac_actor_identity_mutant PRIVATE ${SDL2_CFLAGS_OTHER})
         add_test(NAME corpse_conversion_identity_mutant
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_corpse_identity_mutant.py

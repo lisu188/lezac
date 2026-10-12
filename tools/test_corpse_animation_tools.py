@@ -1,4 +1,5 @@
 """Tool contracts only; these mocks do not establish compiled App parity."""
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -18,9 +19,45 @@ class GeneratorTests(unittest.TestCase):
                   '            if (monster.behavior == 2) continue;\n' + generator.ANCHOR +
                   '    }\n    void other() {}\nsuffix')
         mutated = generator.generate(source)
-        self.assertEqual(mutated.replace(generator.PROLOGUE, ''), source.replace(generator.PROLOGUE, ''))
-        self.assertGreater(mutated.index(generator.PROLOGUE), mutated.index('continue;'))
-        self.assertEqual(mutated.count(generator.PROLOGUE), 1)
+        self.assertEqual(mutated.replace(generator.DEFERRED_PROLOGUE, '').replace(generator.DECLARATION, ''),
+                         source.replace(generator.PROLOGUE, ''))
+        self.assertGreater(mutated.index(generator.DEFERRED_PROLOGUE), mutated.index('continue;'))
+        self.assertLess(mutated.index(generator.DECLARATION), mutated.index('if (monster.behavior == 2)'))
+        self.assertEqual(mutated.count(generator.DECLARATION), 1)
+        self.assertEqual(mutated.count(generator.DEFERRED_PROLOGUE), 1)
+
+    def test_current_production_source_retains_corpse_result_scope(self):
+        source = Path(__file__).resolve().parents[1] / 'src/app/app.cpp'
+        original = source.read_bytes()
+        normalized = original.decode('utf-8').replace('\r\n', '\n')
+        mutated = generator.generate(normalized)
+        expected = normalized.replace(generator.PROLOGUE, generator.DECLARATION, 1).replace(
+            generator.ANCHOR, generator.ANCHOR + generator.DEFERRED_PROLOGUE, 1)
+        self.assertEqual(mutated, expected)
+        self.assertEqual(generator.DECLARATION, '            bool animationAdvanced = false;\n')
+        self.assertEqual(mutated.count(generator.DECLARATION), 1)
+        self.assertLess(mutated.index(generator.DECLARATION), mutated.index('actorSlots_.writeCorpse('))
+        self.assertLess(mutated.index('actorSlots_.writeCorpse('), mutated.index(generator.DEFERRED_PROLOGUE))
+        self.assertNotIn('const bool animationAdvanced =', mutated)
+        self.assertEqual(source.read_bytes(), original)
+
+    def test_cli_preserves_crlf_source_and_records_hashes(self):
+        text = ('prefix\n    void updateMonsters() {\n' + generator.PROLOGUE +
+                '            if (monster.behavior == 2) continue;\n' + generator.ANCHOR +
+                '    }\n    void other() {}\nsuffix')
+        original = text.replace('\n', '\r\n').encode('utf-8')
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / 'source.cpp'
+            output = root / 'generated/app.cpp'
+            source.write_bytes(original)
+            with patch.object(sys, 'argv', ['generator', '--source', str(source), '--out', str(output)]):
+                generator.main()
+            self.assertEqual(source.read_bytes(), original)
+            self.assertEqual(output.read_bytes(), generator.generate(text).encode('utf-8'))
+            manifest = json.loads(output.with_suffix('.json').read_bytes())
+            self.assertEqual(manifest['source_sha256'], hashlib.sha256(original).hexdigest())
+            self.assertEqual(manifest['mutant_sha256'], hashlib.sha256(output.read_bytes()).hexdigest())
 
     def test_missing_prologue_rejected(self):
         with self.assertRaises(ValueError):

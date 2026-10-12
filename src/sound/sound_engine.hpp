@@ -13,6 +13,11 @@ public:
     SoundLatch latch() const { return soundLatch_; }
     uint16_t requestCursor() const { return requestCursor_; }
     uint8_t requestSelector() const { return requestSelector_; }
+    // DS:2074 also holds the generic tile-damage footprint, without a request.
+    void writeSharedCursor(uint16_t cursor) { requestCursor_ = cursor; }
+    void setRequestAttemptCounting(bool enabled) { countRequestAttempts_ = enabled; }
+    uint64_t requestAttemptCount() const { return requestAttemptCount_; }
+    void clearRequestAttemptCount() { requestAttemptCount_ = 0; }
     SoundInterruptState interruptState() const { return soundInterrupt_; }
     SoundClockState clockState() const { return soundClock_; }
     SpeakerToneState speakerState() const { return speaker_; }
@@ -73,6 +78,8 @@ private:
     SoundLatch soundLatch_;
     uint16_t requestCursor_ = 0;
     uint8_t requestSelector_ = 0;
+    bool countRequestAttempts_ = false;
+    uint64_t requestAttemptCount_ = 0;
     SoundInterruptState soundInterrupt_;
     SoundClockState soundClock_;
     SpeakerToneState speaker_;

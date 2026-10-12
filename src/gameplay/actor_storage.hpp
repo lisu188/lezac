@@ -40,6 +40,9 @@ public:
 
     const State& state() const { return state_; }
 
+    // DS:2072 is shared by allocation and the generic tile-damage query.
+    void setSharedResult(uint16_t value) { state_.success = value; }
+
     void restore(const State& state) {
         if (state.count > capacity || state.visualCount != state.count + 2 || state.links[0][15] > 7) {
             throw std::invalid_argument("invalid actor storage counts");

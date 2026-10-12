@@ -128,6 +128,20 @@ struct LaunchPadMarker {
     ActorAnimation animation{0, 0, 0, 0, 0, 0, 1};
 };
 
+inline bool advanceLaunchPadMarker(LaunchPadMarker& marker, const ActorAnimation& backup, uint32_t logicTick) {
+    const bool advanced = marker.animation.advance(backup);
+    if (advanced) marker.frame = marker.animation.current;
+    marker.timer = static_cast<uint8_t>(marker.timer - (logicTick & 1u));
+    if (marker.timer == 0) return advanced;
+    const int x = marker.fracX + marker.velocityX8;
+    const int y = marker.fracY + marker.velocityY8;
+    marker.x = static_cast<int16_t>(marker.x + (x >> 8));
+    marker.y = static_cast<int16_t>(marker.y + (y >> 8));
+    marker.fracX = static_cast<uint8_t>(x);
+    marker.fracY = static_cast<uint8_t>(y);
+    return advanced;
+}
+
 struct TransientActor {
     int x = 0;
     int y = 0;

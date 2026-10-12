@@ -80,7 +80,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^spawner_construction_(fixture|storage_original)$'
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(spawner_construction_(fixture|storage_original)|spawner_storage)$'
       - name: Preserve focused spawner construction diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -89,6 +89,27 @@ jobs:
           path: |
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: Complete fatal-entry physical storage regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original|monster_object_seeder_(checker|fixture|original)|retained_record_queue|falling_fragment_seed|seeder_capacity_(checker|fixture|original)|multicell_seeder_(checker|fixture|original))$'
+      - name: Preserve complete fatal-entry diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fatal-entry-linux-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+            build/fatal-entry-app/
+            build/monster-object-seeder-app/
+            build/monster-seeder-input-*/fixture.bin.gz
+            build/seeder-capacity-app/
+            build/seeder-capacity-input-*/fixture.bin.gz
+            build/multicell-seeder-app/
+            build/multicell-seeder-input-*/fixture.bin.gz
           if-no-files-found: error
       - name: Complete corpse physical storage regressions
         env:
@@ -509,7 +530,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^spawner_construction_(fixture|storage_original)$'
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(spawner_construction_(fixture|storage_original)|spawner_storage)$'
       - name: Preserve focused spawner construction diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -518,6 +539,27 @@ jobs:
           path: |
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: Complete fatal-entry physical storage regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original|monster_object_seeder_(checker|fixture|original)|retained_record_queue|falling_fragment_seed|seeder_capacity_(checker|fixture|original)|multicell_seeder_(checker|fixture|original))$'
+      - name: Preserve complete fatal-entry diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fatal-entry-windows-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+            build/fatal-entry-app/
+            build/monster-object-seeder-app/
+            build/monster-seeder-input-*/fixture.bin.gz
+            build/seeder-capacity-app/
+            build/seeder-capacity-input-*/fixture.bin.gz
+            build/multicell-seeder-app/
+            build/multicell-seeder-input-*/fixture.bin.gz
           if-no-files-found: error
       - name: Complete corpse physical storage regressions
         env:

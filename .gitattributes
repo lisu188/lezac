@@ -94,3 +94,5 @@ docs/recovery/evidence/corpse_animation_prologue_20261009/** -text
 docs/recovery/evidence/reward_animation_mode_20261009/** -text
 docs/recovery/evidence/production_actor_lifecycle_20261009/** -text
 tests/fixtures/marker_storage/*.bin.gz binary
+tests/fixtures/reward_storage/*.bin.gz binary
+docs/recovery/evidence/reward_storage_20261009/** -text

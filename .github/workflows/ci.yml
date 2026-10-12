@@ -90,11 +90,26 @@ jobs:
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
+      - name: Byte-addressed damage lane regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^damage_lane_(bytes_(unit|checker|fixture|original)|memory_(unit|initial_data(_checker)?|original)|history_(checker|fixture|original))$'
+      - name: Preserve byte-addressed damage lane diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: damage-lane-bytes-linux
+          path: |
+            build/damage-lane-bytes-app/
+            build/damage-lane-memory-app/
+            build/damage-lane-history-app/
+          if-no-files-found: ignore
       - name: Complete fatal-entry physical storage regressions
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original|monster_object_seeder_(checker|fixture|original)|retained_record_queue|falling_fragment_seed|seeder_capacity_(checker|fixture|original)|multicell_seeder_(checker|fixture|original)|collapse_retirement_(checker|fixture|original)|fracture_retirement_(checker|fixture|original)|fracture_capacity_(checker|fixture|original)|collapse_contact_pools_(fixture|original)|contact_staging_(checker|fixture|original)|above_contact_staging_(checker|fixture|original))$'
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original|monster_object_seeder_(checker|fixture|original)|retained_record_queue|falling_fragment_seed|seeder_capacity_(checker|fixture|original)|multicell_seeder_(checker|fixture|original)|collapse_retirement_(checker|fixture|original)|fracture_retirement_(checker|fixture|original)|fracture_capacity_(checker|fixture|original)|collapse_contact_pools_(fixture|original)|contact_staging_(checker|fixture|original)|above_contact_staging_(checker|fixture|original)|debris_contact_pools_(checker|fixture|original))$'
       - name: Preserve complete fatal-entry diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -122,6 +137,8 @@ jobs:
             build/contact-staging-input-*/fixture.bin.gz
             build/above-contact-staging-app/
             build/above-contact-staging-input-*/fixture.bin.gz
+            build/debris-contact-pools-app/
+            build/debris-contact-pools-input-*/fixture.bin.gz
           if-no-files-found: error
       - name: Complete corpse physical storage regressions
         env:
@@ -345,7 +362,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --output-on-failure -R '^flame_contact_word(_contract)?$'
+        run: ctest --test-dir build --output-on-failure -R '^(flame_contact_word(_contract)?|flame_seeded_cursor_contract)$'
       - name: Original sound interrupt regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -552,11 +569,26 @@ jobs:
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
+      - name: Byte-addressed damage lane regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^damage_lane_(bytes_(unit|checker|fixture|original)|memory_(unit|initial_data(_checker)?|original)|history_(checker|fixture|original))$'
+      - name: Preserve byte-addressed damage lane diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: damage-lane-bytes-windows
+          path: |
+            build/damage-lane-bytes-app/
+            build/damage-lane-memory-app/
+            build/damage-lane-history-app/
+          if-no-files-found: ignore
       - name: Complete fatal-entry physical storage regressions
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original|monster_object_seeder_(checker|fixture|original)|retained_record_queue|falling_fragment_seed|seeder_capacity_(checker|fixture|original)|multicell_seeder_(checker|fixture|original)|collapse_retirement_(checker|fixture|original)|fracture_retirement_(checker|fixture|original)|fracture_capacity_(checker|fixture|original)|collapse_contact_pools_(fixture|original)|contact_staging_(checker|fixture|original)|above_contact_staging_(checker|fixture|original))$'
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original|monster_object_seeder_(checker|fixture|original)|retained_record_queue|falling_fragment_seed|seeder_capacity_(checker|fixture|original)|multicell_seeder_(checker|fixture|original)|collapse_retirement_(checker|fixture|original)|fracture_retirement_(checker|fixture|original)|fracture_capacity_(checker|fixture|original)|collapse_contact_pools_(fixture|original)|contact_staging_(checker|fixture|original)|above_contact_staging_(checker|fixture|original)|debris_contact_pools_(checker|fixture|original))$'
       - name: Preserve complete fatal-entry diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -584,6 +616,8 @@ jobs:
             build/contact-staging-input-*/fixture.bin.gz
             build/above-contact-staging-app/
             build/above-contact-staging-input-*/fixture.bin.gz
+            build/debris-contact-pools-app/
+            build/debris-contact-pools-input-*/fixture.bin.gz
           if-no-files-found: error
       - name: Complete corpse physical storage regressions
         env:
@@ -807,7 +841,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --output-on-failure -R '^flame_contact_word(_contract)?$'
+        run: ctest --test-dir build --output-on-failure -R '^(flame_contact_word(_contract)?|flame_seeded_cursor_contract)$'
       - name: Original sound interrupt regressions
         env:
           SDL_VIDEODRIVER: dummy

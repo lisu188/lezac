@@ -18,16 +18,46 @@ ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = ROOT / 'tests/gameplay/collapse_contacts_original.bin.gz'
 METADATA = ROOT / 'tests/gameplay/collapse_contacts_original.json'
 METADATA_SHA = '475425270eb27681d932a7ba20f6c2231eddbc8a779fa5e480df40ae527d1bd5'
-CONTRACT = (
-    'int weight = ownWeight;', 'int sum = velocity * weight;',
-    'queueTileDamage(contact.cell % level_.width, contact.cell / level_.width, 0, 0, true);',
-    'if (beforeDebris == debrisQueue_.size() && beforeCollapse == collapseQueue_.size()) return;',
-    'sum += contribution * static_cast<int8_t>(match.phase);',
-    'velocity = static_cast<int8_t>(sum / weight);',
-    'debrisQueue_[index].velocityX = static_cast<int8_t>(velocity);',
-    'debrisQueue_[index].velocityY = static_cast<int8_t>(velocity);',
-    'collapseQueue_[index].reversePhase = static_cast<uint8_t>(velocity);',
-    'collapseQueue_[index].forwardPhase = static_cast<uint8_t>(velocity);',
+CONTRACT = {
+    'blendCollapseContacts': (
+        'auto memory = damageLaneMemory();',
+        'lezac::gameplay::writeDamageLaneWord(memory, 0x2078, static_cast<uint16_t>(contacts.size()));',
+        'lezac::gameplay::writeDamageLaneWord(memory, static_cast<uint16_t>(0x655e + 2 * index), contacts[index].word);',
+        'lezac::gameplay::writeDamageLaneWord(memory, static_cast<uint16_t>(0x659a + 2 * index),\n'
+        '                static_cast<uint16_t>(contacts[index].cell * 2));',
+        'const auto phase = lezac::gameplay::blendDamageLaneValue(memory, static_cast<uint8_t>(velocity),\n'
+        '            ownWeight, reverse, [&](uint16_t cell) { return seedDamageLaneContact(cell); });',
+        'if (phase) velocity = lezac::gameplay::damageLaneSignedByte(*phase);',
+    ),
+    'damageLaneMemory': (
+        'return lezac::gameplay::DamageLaneMemory(damageLaneData_, debrisQueue_, collapseQueue_,\n'
+        '            flameRecords_, sound_, tileSeederResult_, lanes);',
+    ),
+    'seedDamageLaneContact': (
+        'queueTileDamage(cell % level_.width, cell / level_.width, 0, 0, true, &seededClass);',
+        'if (tileSeederResult_ == 0) return lezac::gameplay::DamageLaneSeed::Failed;',
+        'return seededClass ? lezac::gameplay::DamageLaneSeed::Debris : lezac::gameplay::DamageLaneSeed::Collapse;',
+    ),
+    'blendDamageLaneValue': (
+        'uint16_t weight = ownWeight;',
+        'uint32_t sum = static_cast<uint32_t>(damageLaneSignedByte(incoming) * ownWeight);',
+        'const uint16_t contacts = damageLaneWord(memory, 0x2078);',
+        'if (result == DamageLaneSeed::Failed) return std::nullopt;',
+        'lookupDamageLaneBytes(memory, reverse);',
+        'sum += static_cast<uint32_t>(damageLaneSignedByte(memory.read(0x661e)) * contribution);',
+        'weight = static_cast<uint16_t>(weight + contribution);',
+        'const uint8_t phase = static_cast<uint8_t>(signedSum / weight);',
+        'memory.write(damageLaneWriteAddress(tag, reverse), phase);',
+    ),
+    'damageLaneWriteAddress': (
+        'return tag < 0x4e20\n'
+        '        ? static_cast<uint16_t>(0x6617 + reverse + 15u * tag)\n'
+        '        : static_cast<uint16_t>(0x2097 + reverse + 11u * (tag - 0x4e20));',
+    ),
+}
+CONSUMERS = (
+    ('updateCollapseRecords', 'blendCollapseContacts(result.contacts, velocity, record.affectedBytes, reverse);'),
+    ('debugCollapseContactsOriginal', 'blendCollapseContacts(contacts, velocity, weight, reverse != 0);'),
 )
 
 
@@ -35,19 +65,30 @@ def compact(text):
     return re.sub(r'\s+', '', mask_cpp(text))
 
 
+def contact_ranges(text, names):
+    # Adapt this multiline return type and braced default for the shared parser,
+    # preserving line positions and every function body.
+    signature = 'damageLaneMemory(std::array<int*, 4> lanes = {})'
+    parsed = text.replace(signature, 'auto ' + signature.replace('{}', '0 '))
+    return function_ranges(parsed, names)
+
+
 def check_source(text):
-    names = ('blendCollapseContacts', 'updateCollapseRecords', 'debugCollapseContactsOriginal')
-    ranges = function_ranges(text, names)
+    names = (*CONTRACT, *(name for name, _ in CONSUMERS))
+    ranges = contact_ranges(text, names)
     if set(ranges) != set(names):
-        raise ValueError('missing production contact helper or consumer')
+        raise ValueError('missing production contact helper or consumer: ' + ', '.join(sorted(set(names) - set(ranges))))
     bodies = {name: compact('\n'.join(text.splitlines()[first - 1:last]))
               for name, (first, last) in ranges.items()}
-    for statement in CONTRACT:
-        if bodies['blendCollapseContacts'].count(compact(statement)) != 1:
-            raise ValueError('production contact contract differs: ' + statement)
-    for name, call in (
-        ('updateCollapseRecords', 'blendCollapseContacts(result.contacts, velocity, record.affectedBytes, reverse);'),
-        ('debugCollapseContactsOriginal', 'blendCollapseContacts(contacts, velocity, weight, reverse != 0);')):
+    for name, statements in CONTRACT.items():
+        previous = -1
+        for statement in statements:
+            token = compact(statement)
+            position = bodies[name].find(token)
+            if bodies[name].count(token) != 1 or position <= previous:
+                raise ValueError('production contact contract differs: ' + name + ': ' + statement)
+            previous = position
+    for name, call in CONSUMERS:
         if bodies[name].count(compact(call)) != 1 or bodies[name].count('blendCollapseContacts(') != 1:
             raise ValueError('production contact consumer differs: ' + name)
 
@@ -182,18 +223,23 @@ def main():
     mode.add_argument('--self-check', action='store_true')
     args = parser.parse_args()
     data = metadata()
-    source = '\n'.join(item.text for item in source_files(ROOT, 'app', 'runtime'))
+    source = '\n'.join(item.text for item in source_files(ROOT, ('app', 'gameplay'), 'runtime'))
     check_source(source)
     if args.self_check:
-        first, last = function_ranges(source, ['blendCollapseContacts'])['blendCollapseContacts']
-        lines = source.splitlines(keepends=True)
-        before, helper, after = ''.join(lines[:first - 1]), ''.join(lines[first - 1:last]), ''.join(lines[last:])
-        for statement in CONTRACT:
-            if helper.count(statement) != 1:
-                raise ValueError('contact source mutation is not unique')
-            rejects(check_source, before + helper.replace(statement, '// ' + statement) + after)
-        check_source(source + '\n// ' + CONTRACT[0] + '\n')
-        print('collapse_contacts_contract=ok source_mutants=10 compiled_cpp=0 natural_gameplay=0')
+        count = 0
+        for name, statements in (*CONTRACT.items(), *((name, (call,)) for name, call in CONSUMERS)):
+            first, last = contact_ranges(source, [name])[name]
+            lines = source.splitlines(keepends=True)
+            before, helper, after = ''.join(lines[:first - 1]), ''.join(lines[first - 1:last]), ''.join(lines[last:])
+            for statement in statements:
+                if helper.count(statement) != 1:
+                    raise ValueError('contact source mutation is not unique: ' + name)
+                mutated = before + helper.replace(statement, '/* ' + statement + ' */') + after
+                rejects(check_source, mutated + '\nvoid unrelatedContact() {\n' + statement + '\n}\n')
+                count += 1
+        statement = CONTRACT['blendCollapseContacts'][0]
+        check_source(source + '\n/* ' + statement + ' */\nconst char* unused = ' + json.dumps(statement) + ';\n')
+        print(f'collapse_contacts_contract=ok source_mutants={count} compiled_cpp=0 natural_gameplay=0')
         return
     if args.oracle_only:
         unpack(data)

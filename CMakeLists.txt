@@ -255,6 +255,17 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_core_primitives_test PRIVATE lezac_core)
     add_executable(lezac_actor_storage_test tests/gameplay/actor_storage_test.cpp)
     target_include_directories(lezac_actor_storage_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_executable(lezac_actor_slots_test tests/gameplay/actor_slots_test.cpp)
+    target_include_directories(lezac_actor_slots_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME actor_slots_binding_contract COMMAND lezac_actor_slots_test)
+    set_tests_properties(actor_slots_binding_contract PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^actor_slots=ok operations=1800")
+    add_test(NAME production_actor_lifecycle_app COMMAND lezac_cpp --debug-production-actor-lifecycle)
+    set_tests_properties(production_actor_lifecycle_app PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^production_actor_lifecycle=ok capacity=30.*descriptor_banks=2 descriptor_checks=295 descriptor_reset=1 descriptor_bounds=2")
     add_test(NAME actor_storage_api_contract COMMAND lezac_actor_storage_test --api-contract)
     set_tests_properties(actor_storage_api_contract PROPERTIES
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"
@@ -273,6 +284,12 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 30
         PASS_REGULAR_EXPRESSION "^monster_animation_original=ok cases=53 updates=636 production_app=1 diagnostic_stop_after_prologue=1 boss_backup_copies=14 seeded=1 natural_route=0 whole_game_claim=0")
+    add_test(NAME corpse_animation_original_app
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-corpse-animation-original ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_animation_original.txt)
+    set_tests_properties(corpse_animation_original_app PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 30
+        PASS_REGULAR_EXPRESSION "^corpse_animation_original=ok cases=106 updates=1272 production_app=1 diagnostic_stop_after_prologue=1 normal_corpse=1 boss_debris=1 dispatch_untouched=1 seeded=1 natural_route=0 whole_game_claim=0")
     target_include_directories(lezac_monster_animation_selectors_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME monster_animation_selectors
         COMMAND lezac_monster_animation_selectors_test ${CMAKE_CURRENT_SOURCE_DIR})
@@ -397,6 +414,36 @@ if(BUILD_TESTING)
     target_include_directories(lezac_flame_contact_word_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
     if(Python3_Interpreter_FOUND)
+        add_test(NAME corpse_animation_tools_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_corpse_animation_tools.py -v)
+        set_tests_properties(corpse_animation_tools_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
+        set(LEZAC_CORPSE_SKIP_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/corpse-animation-skip/app.cpp)
+        add_custom_command(OUTPUT ${LEZAC_CORPSE_SKIP_SOURCE}
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/make_corpse_animation_skip_mutant.py
+                --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp --out ${LEZAC_CORPSE_SKIP_SOURCE}
+            DEPENDS src/app/app.cpp tools/make_corpse_animation_skip_mutant.py
+            VERBATIM)
+        get_target_property(LEZAC_CORPSE_SKIP_SOURCES lezac_cpp SOURCES)
+        list(REMOVE_ITEM LEZAC_CORPSE_SKIP_SOURCES src/app/app.cpp)
+        add_executable(lezac_corpse_animation_skip_mutant ${LEZAC_CORPSE_SKIP_SOURCES} ${LEZAC_CORPSE_SKIP_SOURCE})
+        foreach(property COMPILE_DEFINITIONS INCLUDE_DIRECTORIES LINK_DIRECTORIES LINK_LIBRARIES COMPILE_OPTIONS)
+            get_target_property(value lezac_cpp ${property})
+            if(value)
+                set_target_properties(lezac_corpse_animation_skip_mutant PROPERTIES ${property} "${value}")
+            endif()
+        endforeach()
+        # Serialize the two large App compilations and reuse the primary SDL DLL.
+        add_dependencies(lezac_corpse_animation_skip_mutant lezac_cpp)
+        add_test(NAME corpse_animation_skip_mutant
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_corpse_animation_skip_mutant.py
+                --exe $<TARGET_FILE:lezac_corpse_animation_skip_mutant>
+                --fixture ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_animation_original.txt
+                --out ${CMAKE_CURRENT_BINARY_DIR}/corpse-animation-mutant-checks)
+        set_tests_properties(corpse_animation_skip_mutant PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 60
+            PASS_REGULAR_EXPRESSION "^corpse_animation_skip_mutant=rejected actual_app=1 expected_boundary_failure=1 seeded=1 natural_route=0 whole_game_claim=0")
         add_test(NAME monster_animation_fixture_contract
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_animation_fixture_contract.py
                 --exe $<TARGET_FILE:lezac_monster_animation_original_test>
@@ -5573,6 +5620,78 @@ if(BUILD_TESTING)
     set_tests_properties(pickup_post_init_checker_failures PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+    add_test(NAME corpse_reward_animation_mode_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-corpse-reward-animation-mode)
+    set_tests_properties(corpse_reward_animation_mode_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^corpse_reward_animation_mode_original=ok cases=4 mode_disabled=1 production_conversion=1 seeded=1 natural_route=0 whole_game_parity=0 rng_observables=6")
+
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME corpse_reward_animation_tools_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_corpse_reward_rng_tools.py -v)
+        set_tests_properties(corpse_reward_animation_tools_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
+        set(LEZAC_REWARD_RNG_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/corpse-reward-rng-mutant/app.cpp)
+        add_custom_command(OUTPUT ${LEZAC_REWARD_RNG_SOURCE}
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/make_corpse_reward_rng_mutant.py
+                --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp --out ${LEZAC_REWARD_RNG_SOURCE}
+            DEPENDS src/app/app.cpp tools/make_corpse_reward_rng_mutant.py
+            VERBATIM)
+        get_target_property(LEZAC_REWARD_RNG_SOURCES lezac_cpp SOURCES)
+        list(REMOVE_ITEM LEZAC_REWARD_RNG_SOURCES src/app/app.cpp)
+        add_executable(lezac_corpse_reward_rng_mutant ${LEZAC_REWARD_RNG_SOURCES} ${LEZAC_REWARD_RNG_SOURCE})
+        foreach(property COMPILE_DEFINITIONS INCLUDE_DIRECTORIES LINK_DIRECTORIES LINK_LIBRARIES COMPILE_OPTIONS)
+            get_target_property(value lezac_cpp ${property})
+            if(value)
+                set_target_properties(lezac_corpse_reward_rng_mutant PROPERTIES ${property} "${value}")
+            endif()
+        endforeach()
+        add_dependencies(lezac_corpse_reward_rng_mutant lezac_cpp)
+        foreach(existing_mutant IN ITEMS lezac_actor_identity_mutant lezac_corpse_animation_skip_mutant)
+            if(TARGET ${existing_mutant})
+                add_dependencies(lezac_corpse_reward_rng_mutant ${existing_mutant})
+            endif()
+        endforeach()
+        add_test(NAME corpse_reward_animation_rng_mutants
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_corpse_reward_rng_mutant.py
+                --exe $<TARGET_FILE:lezac_corpse_reward_rng_mutant>
+                --out ${CMAKE_CURRENT_BINARY_DIR}/corpse-reward-rng-checks)
+        set_tests_properties(corpse_reward_animation_rng_mutants PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 120
+            PASS_REGULAR_EXPRESSION "^corpse_reward_rng_mutants=rejected controls=3 actual_app=1 equal_final_seed=1 natural_route=0 whole_game_claim=0")
+
+        add_test(NAME actor_descriptor_bank_tools_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_descriptor_bank_tools.py -v)
+        set_tests_properties(actor_descriptor_bank_tools_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
+        set(LEZAC_DESCRIPTOR_BANK_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/actor-descriptor-bank-mutant/app.cpp)
+        add_custom_command(OUTPUT ${LEZAC_DESCRIPTOR_BANK_SOURCE}
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/make_actor_descriptor_bank_mutant.py
+                --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp --out ${LEZAC_DESCRIPTOR_BANK_SOURCE}
+            DEPENDS src/app/app.cpp tools/make_actor_descriptor_bank_mutant.py
+            VERBATIM)
+        get_target_property(LEZAC_DESCRIPTOR_BANK_SOURCES lezac_cpp SOURCES)
+        list(REMOVE_ITEM LEZAC_DESCRIPTOR_BANK_SOURCES src/app/app.cpp)
+        add_executable(lezac_actor_descriptor_bank_mutant ${LEZAC_DESCRIPTOR_BANK_SOURCES} ${LEZAC_DESCRIPTOR_BANK_SOURCE})
+        foreach(property COMPILE_DEFINITIONS INCLUDE_DIRECTORIES LINK_DIRECTORIES LINK_LIBRARIES COMPILE_OPTIONS)
+            get_target_property(value lezac_cpp ${property})
+            if(value)
+                set_target_properties(lezac_actor_descriptor_bank_mutant PROPERTIES ${property} "${value}")
+            endif()
+        endforeach()
+        add_dependencies(lezac_actor_descriptor_bank_mutant lezac_corpse_reward_rng_mutant)
+        add_test(NAME actor_descriptor_bank_old_bank_mutant
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_descriptor_bank_mutant.py
+                --exe $<TARGET_FILE:lezac_actor_descriptor_bank_mutant>
+                --out ${CMAKE_CURRENT_BINARY_DIR}/actor-descriptor-bank-checks)
+        set_tests_properties(actor_descriptor_bank_old_bank_mutant PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 60
+            PASS_REGULAR_EXPRESSION "^actor_descriptor_bank_mutant=rejected old_normal_bank=1 actual_app=1 unchanged_diagnostic=1 natural_route=0 whole_game_claim=0")
+    endif()
 
     add_test(NAME transient_actor_limits
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-transient-actor-limits)

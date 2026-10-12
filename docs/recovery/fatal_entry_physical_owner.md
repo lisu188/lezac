@@ -128,6 +128,36 @@ All runs use dummy audio. The host's disk reserve blocks local game builds,
 DOSBox, and new screenshots. No natural route, rendered-pixel, sound-interrupt,
 or whole-game claim follows from these seeded checks.
 
+## First-Only Seeder Integration
+
+A separate 896-case unmodified-original capture executes the same kind-4 branch
+with both consume glyph boundaries, four current-word flag combinations, seven
+first above-word boundaries, and an empty or eligible second above-word. It
+includes 256 first seeder calls: 128 collapse and 128 debris constructions.
+The eligible second above-word is never seeded. Each case was independently
+repeated with full 1 MiB memory and 14 registers equal between observers.
+No original instruction was patched, no call was stubbed, and hardware I/O was
+forbidden. Raw fixture SHA-256:
+`e0b7ac8a68fae110cbb112c764049335616387495747b0c07cd18ece468c9c3d`.
+
+The application command `--debug-monster-object-seeder-original` restores only
+the ten input bytes for each case and invokes production consumption/seeding.
+It writes all 5,360,768 result bytes for an independent checker: both complete
+terrain planes, queue counts, the first 11-byte debris and 15-byte collapse
+records, scratch/result/request/latch bytes, DS:79C8, and sound-request count.
+No state byte is masked. The complete expected output stream SHA-256 is
+`7ed60f56e6050d1c02c7dd03360f17359306cff1141d5d046b26699743604250`.
+
+DS:79C8 now has an explicit production owner. Successful queue insertion writes
+one, capacity rejection writes zero, and already-flagged words preserve its
+previous value. The seeded branch starts this byte at `0xA5`, so cases that do
+not invoke the seeder distinguish preservation from a guessed boolean result.
+The fixture uses available queue capacity and single distinct-word collapse
+geometry; it does not prove full-capacity or multi-cell seeder integration.
+Actual-App acceptance for this fixture remains unproven until exact-head CI
+executes and the independent complete-byte comparison passes. Python checker
+contract tests establish tooling behavior only, not C++ gameplay parity.
+
 ```text
 raw_prefix_guard_status=failed
 sound_runtime_parity_claim=false

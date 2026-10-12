@@ -1,6 +1,7 @@
 """Check actor-oracle diagnostics with mocked probes, not game execution."""
 from contextlib import redirect_stdout
 import io
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -13,6 +14,33 @@ import check_original_collapse_actors as checker
 
 
 class ActorCheckerTests(unittest.TestCase):
+    def test_metadata_and_all_provenance_pins(self):
+        data = checker.metadata()
+        paths = {
+            checker.ROOT / 'LEZAC.EXE': data['original_exe_sha256'],
+            checker.FIXTURE: data['fixture_sha256'],
+            checker.ROOT / 'tests/fixtures/fracture_actor_original.txt': data['native_fixture_sha256'],
+            checker.ROOT / 'tests/gameplay/collapse_update_original.json': data['legacy_metadata_sha256'],
+            checker.ROOT / 'tools/capture_original_collapse_actors.py': data['generator_sha256'],
+        }
+        paths.update({checker.ROOT / 'tools' / name: digest
+                      for name, digest in data['dependency_sha256'].items()})
+        paths[checker.META] = checker.META_SHA
+        self.assertEqual(len(paths), 12)
+        original_read = Path.read_bytes
+        for target, digest in paths.items():
+            raw = original_read(target)
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), digest)
+            for changed in (raw[:-1], raw + b'x', bytes((raw[0] ^ 1,)) + raw[1:]):
+                with self.subTest(path=str(target), changed_size=len(changed)):
+                    def read(path):
+                        return changed if path == target else original_read(path)
+
+                    with patch.object(Path, 'read_bytes', read):
+                        with self.assertRaisesRegex(ValueError, 'metadata differs|provenance differs'):
+                            checker.metadata()
+        self.assertEqual(checker.metadata(), data)
+
     def test_comparison_boundaries(self):
         content = b'a' * 389 + b'b' * 400
         with tempfile.TemporaryDirectory(prefix='lezac-actor-compare-') as directory:

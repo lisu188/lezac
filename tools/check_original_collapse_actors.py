@@ -17,7 +17,7 @@ from source_guardrails import function_ranges, source_files
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = ROOT / 'tests/gameplay/collapse_actor_creation_original.bin.gz'
 META = ROOT / 'tests/gameplay/collapse_actor_creation_original.json'
-META_SHA = '81bd9b9c0aabc58fda81d76c1e02a380b9e15991fd477786ba26e6ae2c84c666'
+META_SHA = '60ccb54029fb40af5399afcfd1ac1f1346d70012654e322c6802b1bb72d231e8'
 CONTRACT = {
     'debugOriginalDebrisUpdate': (
         'if (collapseUpdate) updateCollapseRecords();',

@@ -1,0 +1,222 @@
+{
+  "passed": true,
+  "recorded_utc": "2026-10-09T03:05:32.761311+00:00",
+  "producer_sha256": "e2b70eff9649911c06460480aae821a36a7c2d11be54a8e495a7c4759efd3252",
+  "original_result_sha256": "c058adcf9b7a4657fb1574b1f97198100cc62570d4f57c5ab50919df6912fe85",
+  "compiled_app_mutants": false,
+  "whole_game_claim": false,
+  "mutants": [
+    {
+      "name": "skip-writeback",
+      "rejected": true,
+      "root": "/tmp/lezac-marker-mutant-skip-writeback-20261009-t90-v2",
+      "root_bytes": 1703726,
+      "source_sha256": "eab1b73ae773f92413f20f302dd170f2ae317107c286a148443062c860aa55d9",
+      "executable_sha256": "664df90d5fea28d26f4148bede7f5c3d3ae10b2d71348000f9c9a7cc5c08a2aa",
+      "actual_sha256": "0817c0b6882f77cb952d82c8f1fc55bd57f2ff0ff32797200f2c91d838849fae",
+      "first_difference": {
+        "output_offset": 4787,
+        "operation": 4,
+        "state_offset": 50,
+        "area": "actors",
+        "actual": 0,
+        "expected": 56,
+        "actual_bytes": 1587612,
+        "expected_bytes": 1587612
+      }
+    },
+    {
+      "name": "rewrite-dimensions",
+      "rejected": true,
+      "root": "/tmp/lezac-marker-mutant-rewrite-dimensions-20261009-t90-v2",
+      "root_bytes": 1703828,
+      "source_sha256": "108d64911a52eb373cefed8df4e3f648d5d83af22f687997574d469efe6ae680",
+      "executable_sha256": "652ab033504c904224b3f908b42a57b27644cf7d02f5c7fc0550e3ad40f6badb",
+      "actual_sha256": "789d5d391a3e587c7f04d18939b28aace3e66778016bb869bac3db6b9f889220",
+      "first_difference": {
+        "output_offset": 478435,
+        "operation": 304,
+        "state_offset": 1198,
+        "area": "visuals",
+        "actual": 16,
+        "expected": 12,
+        "actual_bytes": 1587612,
+        "expected_bytes": 1587612
+      }
+    },
+    {
+      "name": "clear-launch-animation",
+      "rejected": true,
+      "root": "/tmp/lezac-marker-mutant-clear-launch-animation-20261009-t90-v2",
+      "root_bytes": 1703868,
+      "source_sha256": "f9e3fe5ec3c6345296ac53138ef9eeea075b023d6dbc0b3357cccf00f3051de1",
+      "executable_sha256": "d23f61d84b2c50da391df2a6cd6c572445c91aff1ec7f8f9ddbc7a6adb25762a",
+      "actual_sha256": "5301fc9e1ab35ee270c882ddbf7d2b410e258f723d2732f41bd667b43291fba5",
+      "first_difference": {
+        "output_offset": 1647,
+        "operation": 2,
+        "state_offset": 60,
+        "area": "actors",
+        "actual": 0,
+        "expected": 143,
+        "actual_bytes": 1587612,
+        "expected_bytes": 1587612
+      }
+    },
+    {
+      "name": "clear-backup",
+      "rejected": true,
+      "root": "/tmp/lezac-marker-mutant-clear-backup-20261009-t90-v2",
+      "root_bytes": 1703854,
+      "source_sha256": "460ad085c7d30100ae1c6dcafa71b1a639a7574aa9986ebccf0a9347690f7e72",
+      "executable_sha256": "e76311ff85db26a6c187eb9352fcef361e7ec0b3e43ae15eb0dc639b9b27f02a",
+      "actual_sha256": "ce33691b246a6c2ff6677837df8cd04078a33fdf25727cd1c47d53e25a261e3f",
+      "first_difference": {
+        "output_offset": 1654,
+        "operation": 2,
+        "state_offset": 67,
+        "area": "actors",
+        "actual": 0,
+        "expected": 90,
+        "actual_bytes": 1587612,
+        "expected_bytes": 1587612
+      }
+    },
+    {
+      "name": "skip-portal-initializer",
+      "rejected": true,
+      "root": "/tmp/lezac-marker-mutant-skip-portal-initializer-20261009-t90-v2",
+      "root_bytes": 1701180,
+      "source_sha256": "82e4e0ad52c19486cbd71a7f672ffbcb58543873da2e66c9da229c1160da6777",
+      "executable_sha256": "98263b640f25e3c7dee0994c5b74a7db61864804ed6f756f342f83e2a1717a37",
+      "actual_sha256": "c78f17d347ca8d40ca43a423e480b505e9776a18b2b6124944636b8c33d9c97f",
+      "first_difference": {
+        "output_offset": 3260,
+        "operation": 3,
+        "state_offset": 98,
+        "area": "actors",
+        "actual": 160,
+        "expected": 74,
+        "actual_bytes": 1587612,
+        "expected_bytes": 1587612
+      }
+    },
+    {
+      "name": "saturating-timer",
+      "rejected": true,
+      "root": "/tmp/lezac-marker-mutant-saturating-timer-20261009-t90-v2",
+      "root_bytes": 1712121,
+      "source_sha256": "00a777f8ed3a8522f0439bf2ecc2c97a9b27baa0fe62ed1f2c9f8ecf8226b918",
+      "executable_sha256": "ca23babfe59845cb8eced6cac3494b65d50c2faccd30f3df7f1f2a2d36064d89",
+      "actual_sha256": "7a01dcba18261bd17111d5337a720ce358129b2fa49cf8fdb99a75bac16d412a",
+      "first_difference": {
+        "output_offset": 241027,
+        "operation": 154,
+        "state_offset": 40,
+        "area": "actors",
+        "actual": 4,
+        "expected": 255,
+        "actual_bytes": 1587612,
+        "expected_bytes": 1587612
+      }
+    },
+    {
+      "name": "clamp-coordinate",
+      "rejected": true,
+      "root": "/tmp/lezac-marker-mutant-clamp-coordinate-20261009-t90-v2",
+      "root_bytes": 1712156,
+      "source_sha256": "653f9d807e4ee5f23aa35a918eeb08f50e16ac14ed21d369fa72d4580b783792",
+      "executable_sha256": "27c9aff2a5f0e9a8d5fef7c23f866d3c67384c560ab7675ce30a59e3f477ce0e",
+      "actual_sha256": "021424a2bce726bb50d61561493232b6f2f0bf50e5eeb73297f0b1ac80cb8deb",
+      "first_difference": {
+        "output_offset": 84689,
+        "operation": 54,
+        "state_offset": 1202,
+        "area": "visuals",
+        "actual": 255,
+        "expected": 6,
+        "actual_bytes": 1587612,
+        "expected_bytes": 1587612
+      }
+    },
+    {
+      "name": "truncate-negative-carry",
+      "rejected": true,
+      "root": "/tmp/lezac-marker-mutant-truncate-negative-carry-20261009-t90-v2",
+      "root_bytes": 1712104,
+      "source_sha256": "4bbc1e952af6180e8c299e7a9cf8e5e61c1ad33123de94fd8c596ef7126cec2f",
+      "executable_sha256": "2754e548b43e27f90a53977d120329c4638e2a8921d09615e2558a6a42481a18",
+      "actual_sha256": "6a1a071359f5d7b49acbf4b5a6efa83527b1329e2f94dc499915286d36248fe5",
+      "first_difference": {
+        "output_offset": 124056,
+        "operation": 79,
+        "state_offset": 1194,
+        "area": "visuals",
+        "actual": 127,
+        "expected": 126,
+        "actual_bytes": 1587612,
+        "expected_bytes": 1587612
+      }
+    },
+    {
+      "name": "skip-terminal-write",
+      "rejected": true,
+      "root": "/tmp/lezac-marker-mutant-skip-terminal-write-20261009-t90-v2",
+      "root_bytes": 1703853,
+      "source_sha256": "09fb052b3c1521ae470cc26b75b27f9bc1bff5ef048d8546dd94661f431099d6",
+      "executable_sha256": "b89b69aaa662a8417bf3a433557ba7d9ce88c37a8e73bb450c93440521411947",
+      "actual_sha256": "5b924cbc9d772e93b5dcdbaa5b825e22680e633a751f565eb4bc0e5d44bdd45a",
+      "first_difference": {
+        "output_offset": 1576627,
+        "operation": 1002,
+        "state_offset": 40,
+        "area": "actors",
+        "actual": 1,
+        "expected": 0,
+        "actual_bytes": 1587612,
+        "expected_bytes": 1587612
+      }
+    },
+    {
+      "name": "early-capacity-return",
+      "rejected": true,
+      "root": "/tmp/lezac-marker-mutant-early-capacity-return-20261009-t90-v2",
+      "root_bytes": 1701386,
+      "source_sha256": "8cb93a798a991d76fde307f1ee2edbc017d1fba3c168ab28ddec691cad21c0ad",
+      "executable_sha256": "9d580cfe3256f70eef5ba9d0422ae4eabc2092173220bcf0cce8e77152cc6365",
+      "actual_sha256": "09df091df184b9143c725264ffb885058ccffc04f1fcd8c9ac5892dfbecad8a5",
+      "first_difference": {
+        "output_offset": 122860,
+        "operation": 78,
+        "state_offset": 1573,
+        "area": "scalars",
+        "actual": 1,
+        "expected": 0,
+        "actual_bytes": 1587612,
+        "expected_bytes": 1587612
+      }
+    },
+    {
+      "name": "preempt-later-zero-timers",
+      "rejected": true,
+      "root": "/tmp/lezac-marker-mutant-preempt-later-zero-timers-20261009-t90-v2",
+      "root_bytes": 1701737,
+      "source_sha256": "fc292e5eb50a3522851203ae299fed7fadd56c30ffbb50e5d8690c94bfefac45",
+      "executable_sha256": "97f6689c307f761f6a6a2f804c6ecd8771729eb3ed50403401d782d48aa177d2",
+      "actual_sha256": "c93d2ed50fc637ae8307021c86a4190220fbb52b45e7a065f1a36de68d31eb1f",
+      "first_difference": {
+        "output_offset": 163639,
+        "operation": 104,
+        "state_offset": 1402,
+        "area": "visuals",
+        "actual": 251,
+        "expected": 243,
+        "actual_bytes": 1587612,
+        "expected_bytes": 1587612
+      }
+    }
+  ],
+  "rejected": 11,
+  "operations_per_mutant": 1008,
+  "compared_bytes_per_mutant": 1587600
+}

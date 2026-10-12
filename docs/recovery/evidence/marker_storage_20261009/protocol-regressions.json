@@ -1,0 +1,359 @@
+{
+  "passed": true,
+  "recorded_utc": "2026-10-09T03:07:34.433423+00:00",
+  "malformed": [
+    {
+      "name": "bad_magic",
+      "rejected": true,
+      "request_sha256": "44cdcf6e6dc6417db6ede1af227b087e9969c79011750dd55b609169fe3a3d94"
+    },
+    {
+      "name": "truncated_header",
+      "rejected": true,
+      "request_sha256": "12d35f7287cac8f0564579a7f1c22a5c3796d5ec9ffffd6897eca4d5967d03c7"
+    },
+    {
+      "name": "zero_operations",
+      "rejected": true,
+      "request_sha256": "2d04cd3572fe3c2cd508aa4b53865d36b854d2fb42492341de0e8af62221f6f6"
+    },
+    {
+      "name": "excessive_operations",
+      "rejected": true,
+      "request_sha256": "90e313e1619e34f34a387cddf886b843aff6f67bf9baaa65ff1e24902c80dfea"
+    },
+    {
+      "name": "truncated_descriptors",
+      "rejected": true,
+      "request_sha256": "fcf20a3509c52d46dbfd64501608374de234e0edbbfaff17670241d06ceef445"
+    },
+    {
+      "name": "unknown_command",
+      "rejected": true,
+      "request_sha256": "294815af7cab0168c6fa4257bf6db5b26f52bf90a20dfd9de8ff44a11df00f66"
+    },
+    {
+      "name": "truncated_seed",
+      "rejected": true,
+      "request_sha256": "a2cbd9a58f8bd12b42fc2fbe9c3ad9082ef4126a179021c0907dde008408505e"
+    },
+    {
+      "name": "truncated_launch",
+      "rejected": true,
+      "request_sha256": "db79c88902a054bb7d92d84644a37a7b31390ca1f3b5cd940a717eae4e059db0"
+    },
+    {
+      "name": "truncated_portal",
+      "rejected": true,
+      "request_sha256": "64542afca1412a0f88973445994dfd9a85ada80e88630691b66a49267734adc4"
+    },
+    {
+      "name": "truncated_update",
+      "rejected": true,
+      "request_sha256": "c488db30b459a49240383abfc8a83a4996dd80444b8ef07e041142a878f24d0f"
+    },
+    {
+      "name": "trailing_bytes",
+      "rejected": true,
+      "request_sha256": "37b130fa1b3a9fd27ef8bfc4f37ef7aef25b5c2a1e6c3fe8d5d2819477fb090a"
+    },
+    {
+      "name": "invalid_actor_count",
+      "rejected": true,
+      "request_sha256": "552ea7b180c7e67fb0071a86235ae92575e9b7e2ed660dfec82ca717eaf38753"
+    },
+    {
+      "name": "invalid_visual_count",
+      "rejected": true,
+      "request_sha256": "cb57e16dc488482e3a50edfca89e8f4dfa8b4ba8ff5a10ab8bf14cf020d8fc40"
+    },
+    {
+      "name": "inconsistent_link_count",
+      "rejected": true,
+      "request_sha256": "a290fdcafcdd080a84d456ab2bd6564fdfa8e85b9b3d7a57ede3ac0448b299fa"
+    },
+    {
+      "name": "invalid_visual_reference",
+      "rejected": true,
+      "request_sha256": "0a9a5c7876a6feebea09e5b3f97ee55d12f539cd1f0385555504cb3be60c244d"
+    },
+    {
+      "name": "non_marker_kind",
+      "rejected": true,
+      "request_sha256": "1a7e0b0e5de958eec5416ec39e2863ee87752c23b244e2055a3837411a36cd9f"
+    },
+    {
+      "name": "non_marker_behavior",
+      "rejected": true,
+      "request_sha256": "fbc3d400438fb8c4f39782e092af56876f6ec8017a61ce7e49260caa145c9ced"
+    }
+  ],
+  "commands": [
+    {
+      "name": "bad_magic",
+      "args": [
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/bad_magic.bin",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/bad_magic-actual.bin"
+      ],
+      "returncode": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "c75ef5bde8d7bb6b84f9d0b842bac4e432bfdba2066762d2fbafcf35f94d4dc6"
+    },
+    {
+      "name": "truncated_header",
+      "args": [
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/truncated_header.bin",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/truncated_header-actual.bin"
+      ],
+      "returncode": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "c75ef5bde8d7bb6b84f9d0b842bac4e432bfdba2066762d2fbafcf35f94d4dc6"
+    },
+    {
+      "name": "zero_operations",
+      "args": [
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/zero_operations.bin",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/zero_operations-actual.bin"
+      ],
+      "returncode": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "fda4bdf45aca3a6af334db458dae8615356389386617bf88b9f7426482d81b72"
+    },
+    {
+      "name": "excessive_operations",
+      "args": [
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/excessive_operations.bin",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/excessive_operations-actual.bin"
+      ],
+      "returncode": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "fda4bdf45aca3a6af334db458dae8615356389386617bf88b9f7426482d81b72"
+    },
+    {
+      "name": "truncated_descriptors",
+      "args": [
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/truncated_descriptors.bin",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/truncated_descriptors-actual.bin"
+      ],
+      "returncode": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "b0cfb717cd1f67f86be573051b84ee49da409eccd7567ebe25f5d117162bf583"
+    },
+    {
+      "name": "unknown_command",
+      "args": [
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/unknown_command.bin",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/unknown_command-actual.bin"
+      ],
+      "returncode": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "5c691e89d4fcef129191483bc4a5f76c7f7d6c11c7611535251fbb4d52f42453"
+    },
+    {
+      "name": "truncated_seed",
+      "args": [
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/truncated_seed.bin",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/truncated_seed-actual.bin"
+      ],
+      "returncode": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "b0cfb717cd1f67f86be573051b84ee49da409eccd7567ebe25f5d117162bf583"
+    },
+    {
+      "name": "truncated_launch",
+      "args": [
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/truncated_launch.bin",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/truncated_launch-actual.bin"
+      ],
+      "returncode": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "b0cfb717cd1f67f86be573051b84ee49da409eccd7567ebe25f5d117162bf583"
+    },
+    {
+      "name": "truncated_portal",
+      "args": [
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/truncated_portal.bin",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/truncated_portal-actual.bin"
+      ],
+      "returncode": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "b0cfb717cd1f67f86be573051b84ee49da409eccd7567ebe25f5d117162bf583"
+    },
+    {
+      "name": "truncated_update",
+      "args": [
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/truncated_update.bin",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/truncated_update-actual.bin"
+      ],
+      "returncode": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "b0cfb717cd1f67f86be573051b84ee49da409eccd7567ebe25f5d117162bf583"
+    },
+    {
+      "name": "trailing_bytes",
+      "args": [
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/trailing_bytes.bin",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/trailing_bytes-actual.bin"
+      ],
+      "returncode": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "876f13a38361120c18dd1e13411d6c5bfaff6a9d3601a007e2db22dc6ff68f6d"
+    },
+    {
+      "name": "invalid_actor_count",
+      "args": [
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/invalid_actor_count.bin",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/invalid_actor_count-actual.bin"
+      ],
+      "returncode": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "443534dd88aca132c25e531c726ae7396a5442ae8a5c412bf9e3a0e37f29680c"
+    },
+    {
+      "name": "invalid_visual_count",
+      "args": [
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/invalid_visual_count.bin",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/invalid_visual_count-actual.bin"
+      ],
+      "returncode": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "09c8d18fd6bb5fb8d93e038409b395ae920109e21e08deace0ad21c9b1826ebf"
+    },
+    {
+      "name": "inconsistent_link_count",
+      "args": [
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/inconsistent_link_count.bin",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/inconsistent_link_count-actual.bin"
+      ],
+      "returncode": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "c1f8152b399ba1a934b59b47b1d5f7346491c2af8f8fd028b2d5a893e278887f"
+    },
+    {
+      "name": "invalid_visual_reference",
+      "args": [
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/invalid_visual_reference.bin",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/invalid_visual_reference-actual.bin"
+      ],
+      "returncode": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "fb525c2ba7fe0ca7288a40705aa0866521b4b793e6818a8e6c6ef7969c20d6f6"
+    },
+    {
+      "name": "non_marker_kind",
+      "args": [
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/non_marker_kind.bin",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/non_marker_kind-actual.bin"
+      ],
+      "returncode": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "1ee889848c5a46684e244e556154d054c03a847804a897ce398f15eeda439a4d"
+    },
+    {
+      "name": "non_marker_behavior",
+      "args": [
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/non_marker_behavior.bin",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/non_marker_behavior-actual.bin"
+      ],
+      "returncode": 1,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "5927aa09dc56b920f9dfd5366b58da52100ac591d50039f9629b0beff3e9f0e5"
+    },
+    {
+      "name": "materialize-binding",
+      "args": [
+        "git",
+        "sparse-checkout",
+        "add",
+        "/tests/gameplay/actor_slots_test.cpp"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "compile-binding",
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-O1",
+        "-I",
+        "/tmp/lezac-marker-writeback-20261009-t90/src",
+        "/tmp/lezac-marker-writeback-20261009-t90/tests/gameplay/actor_slots_test.cpp",
+        "-o",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/binding-test"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "binding",
+      "args": [
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/binding-test"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "3dcda19f5ce15c41d3180d2a43b88c64ddd3217ddbbceed1536c0f2494409d23",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "compile-transient",
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-O1",
+        "-I",
+        "/tmp/lezac-marker-writeback-20261009-t90/src",
+        "/tmp/lezac-marker-writeback-20261009-t90/tests/gameplay/transient_storage_probe.cpp",
+        "-o",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/transient-probe"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "transient-original",
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-marker-writeback-20261009-t90/tools/check_transient_storage_original.py",
+        "--exe",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/transient-probe",
+        "--root",
+        "/tmp/lezac-marker-writeback-20261009-t90",
+        "--out",
+        "/tmp/lezac-marker-protocol-regressions-20261009-t90/transient-checker"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "0cf9194fab89ff2e5783fc56da95da4370a1f68264a9c753b4c9b0b167c79c40",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "actual_app_runtime_verified": false,
+  "full_game_build": false,
+  "whole_game_claim": false,
+  "malformed_rejected": 17,
+  "binding_operations": 1800,
+  "transient_operations": 256,
+  "probe_sha256": "2e41627aa92a5cb851c2589cf9e6be560eb9ade2c7992b68d583c03a26121320",
+  "out_bytes": 2609020
+}

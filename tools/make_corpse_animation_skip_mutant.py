@@ -8,6 +8,8 @@ PROLOGUE = '''            // 1000:6078..615A precedes behavior dispatch, includi
             const bool animationAdvanced = lezac::gameplay::advanceMonsterAnimation(monster);
             if (debugMonsterAnimationObserver_) debugMonsterAnimationObserver_(monster, animationAdvanced);
 '''
+DECLARATION = '            bool animationAdvanced = false;\n'
+DEFERRED_PROLOGUE = PROLOGUE.replace('const bool animationAdvanced =', 'animationAdvanced =')
 ANCHOR = '            const int damageRow = monster.y >> 3;\n'
 
 
@@ -19,7 +21,8 @@ def generate(source):
         raise ValueError('unexpected production prologue layout')
     if not body.index(PROLOGUE) < body.index('if (monster.behavior == 2)') < body.index(ANCHOR):
         raise ValueError('source does not contain the repaired ordering')
-    old = body.replace(PROLOGUE, '').replace(ANCHOR, ANCHOR + PROLOGUE)
+    # Corpse write-through still consumes the result when playback is skipped.
+    old = body.replace(PROLOGUE, DECLARATION).replace(ANCHOR, ANCHOR + DEFERRED_PROLOGUE)
     return source[:start] + old + source[end:]
 
 

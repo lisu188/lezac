@@ -80,6 +80,35 @@ public:
         std::copy(bytes.begin(), bytes.end(), raw.begin() + 29);
     }
 
+    void setSpriteDescriptor(uint64_t order, const Descriptor& descriptor) {
+        auto& raw = storage_.actor(require(order));
+        auto& row = storage_.visual(raw[1]);
+        std::copy(descriptor.begin(), descriptor.end(), row.begin() + 4);
+        raw[20] = static_cast<uint8_t>(16 - descriptor[1]);
+    }
+
+    void writeReward(uint64_t order, const BonusDrop& drop, bool animationAdvanced,
+                     const Descriptor& descriptor) {
+        auto& raw = storage_.actor(require(order));
+        auto& row = storage_.visual(raw[1]);
+        auto word = [](auto& bytes, size_t offset, uint16_t value) {
+            bytes[offset] = static_cast<uint8_t>(value);
+            bytes[offset + 1] = static_cast<uint8_t>(value >> 8);
+        };
+        raw[0] = static_cast<uint8_t>(static_cast<uint8_t>(drop.type) + 0x13);
+        raw[2] = drop.timer;
+        word(raw, 6, static_cast<uint16_t>(drop.vx8));
+        word(raw, 8, static_cast<uint16_t>(drop.vy8));
+        word(raw, 10, drop.fracX);
+        word(raw, 12, drop.fracY);
+        raw[20] = drop.hotspotY;
+        raw[21] = 2;
+        setActiveAnimation(order, drop.animation);
+        word(row, 0, static_cast<uint16_t>(static_cast<int16_t>(drop.x)));
+        word(row, 2, static_cast<uint16_t>(static_cast<int16_t>(drop.y)));
+        if (animationAdvanced) { row[6] = descriptor[2]; row[7] = descriptor[3]; }
+    }
+
     void writeTransient(uint64_t order, const TransientActor& actor, bool animationAdvanced,
                         const Descriptor& descriptor) {
         auto& raw = storage_.actor(require(order));

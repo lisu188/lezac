@@ -119,6 +119,7 @@
         "src/diagnostics/marker_storage_fixture.hpp",
         "src/diagnostics/monster_animation_fixture.hpp",
         "src/diagnostics/jolly_cloud_probe.hpp",
+        "src/diagnostics/reward_storage_fixture.hpp",
         "src/diagnostics/transient_storage_fixture.hpp",
         "src/diagnostics/frame_inspector.cpp",
         "src/diagnostics/frame_inspector.hpp",

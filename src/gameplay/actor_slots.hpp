@@ -19,6 +19,7 @@ public:
 
     size_t count() const { return storage_.state().count; }
     const State& state() const { return storage_.state(); }
+    void setSharedResult(uint16_t value) { storage_.setSharedResult(value); }
     const ActorStorage::Actor& actor(uint64_t order) const { return state().actors[require(order)]; }
     const ActorStorage::Visual& visual(uint64_t order) const { return state().visuals[actor(order)[1]]; }
 
@@ -59,10 +60,137 @@ public:
         return {raw[29], raw[30], raw[31], raw[32], raw[33], raw[34], static_cast<int8_t>(raw[35])};
     }
 
+    ActorAnimation activeAnimation(uint64_t order) const {
+        const auto& raw = actor(order);
+        return {raw[22], raw[23], raw[24], raw[25], raw[26], raw[27], static_cast<int8_t>(raw[28])};
+    }
+
+    void disableAnimation(uint64_t order) {
+        storage_.actor(require(order))[27] = 0;
+    }
+
+    void setActiveAnimation(uint64_t order, const ActorAnimation& animation) {
+        auto& raw = storage_.actor(require(order));
+        const auto bytes = animation.packed();
+        std::copy(bytes.begin(), bytes.end(), raw.begin() + 22);
+    }
+
     void setAnimationBackup(uint64_t order, const ActorAnimation& animation) {
         auto& raw = storage_.actor(require(order));
         const auto bytes = animation.packed();
         std::copy(bytes.begin(), bytes.end(), raw.begin() + 29);
+    }
+
+    void setSpriteDescriptor(uint64_t order, const Descriptor& descriptor) {
+        auto& raw = storage_.actor(require(order));
+        auto& row = storage_.visual(raw[1]);
+        std::copy(descriptor.begin(), descriptor.end(), row.begin() + 4);
+        raw[20] = static_cast<uint8_t>(16 - descriptor[1]);
+    }
+
+    void initializeSpawnedMonster(uint64_t order, const ActiveMonster& monster, uint8_t source) {
+        auto& raw = storage_.actor(require(order));
+        raw[3] = monster.animationSetLeft;
+        raw[4] = monster.animationSetRight;
+        const std::array<uint16_t, 3> parameters{monster.ai0, monster.ai1, monster.ai2};
+        for (size_t index = 0; index < parameters.size(); ++index) {
+            raw[14 + index * 2] = static_cast<uint8_t>(parameters[index]);
+            raw[15 + index * 2] = static_cast<uint8_t>(parameters[index] >> 8);
+        }
+        setActiveAnimation(order, monsterAnimation(monster));
+        // 1000:7B43..7C36 leaves opaque byte5 and animation backup29..35 intact.
+        raw[36] = static_cast<uint8_t>(monster.hp - 1);
+        raw[37] = source;
+    }
+
+    void applyMonsterImpact(uint64_t order, const Descriptor& descriptor) {
+        setSpriteDescriptor(order, descriptor);
+        auto& raw = storage_.actor(require(order));
+        raw[25] = static_cast<uint8_t>(raw[26] - 4);
+    }
+
+    void enterMonsterCorpse(uint64_t order) {
+        auto& raw = storage_.actor(require(order));
+        // 1000:74BB..7517 preserves stored HP, source, backup and opaque bytes.
+        raw[0] = 12;
+        raw[2] = 25;
+        raw[21] = 2;
+        raw[27] = 0;
+    }
+
+    bool applyMonsterDamage(uint64_t order, int8_t delta) {
+        auto& raw = storage_.actor(require(order));
+        const int health = static_cast<int>(raw[36]) + delta;
+        if (health < 0) {
+            enterMonsterCorpse(order);
+            return true;
+        }
+        raw[36] = static_cast<uint8_t>(health);
+        return false;
+    }
+
+    void writeCorpse(uint64_t order, const ActiveMonster& corpse, uint8_t timer,
+                     bool animationAdvanced, const Descriptor& descriptor) {
+        auto& raw = storage_.actor(require(order));
+        auto& row = storage_.visual(raw[1]);
+        auto word = [](auto& bytes, size_t offset, uint16_t value) {
+            bytes[offset] = static_cast<uint8_t>(value);
+            bytes[offset + 1] = static_cast<uint8_t>(value >> 8);
+        };
+        raw[0] = corpse.kind;
+        raw[2] = timer;
+        word(raw, 6, static_cast<uint16_t>(corpse.vx8));
+        word(raw, 8, static_cast<uint16_t>(corpse.vy8));
+        word(raw, 10, corpse.fracX);
+        word(raw, 12, corpse.fracY);
+        raw[20] = static_cast<uint8_t>(corpse.hotspotY);
+        raw[21] = corpse.behavior;
+        setActiveAnimation(order, monsterAnimation(corpse));
+        word(row, 0, static_cast<uint16_t>(corpse.x));
+        word(row, 2, static_cast<uint16_t>(corpse.y + corpse.hotspotY));
+        if (animationAdvanced) { row[6] = descriptor[2]; row[7] = descriptor[3]; }
+    }
+
+    void convertCorpse(uint64_t order, const CorpseRewardConversion& conversion, const Descriptor& descriptor) {
+        auto& raw = storage_.actor(require(order));
+        setSpriteDescriptor(order, descriptor);
+        // 1000:766d..76f4 preserves coordinates, fractions, backup and opaque bytes.
+        if (conversion.hasReward) {
+            raw[0] = static_cast<uint8_t>(conversion.reward.type) + 0x13;
+            raw[2] = conversion.reward.timer;
+            const uint16_t vy = static_cast<uint16_t>(conversion.reward.vy8);
+            raw[8] = static_cast<uint8_t>(vy);
+            raw[9] = static_cast<uint8_t>(vy >> 8);
+            raw[27] = 0;
+        } else {
+            raw[0] = conversion.fade.kind;
+            raw[2] = conversion.fade.timer;
+            std::fill(raw.begin() + 6, raw.begin() + 10, 0);
+            raw[21] = 5;
+            setActiveAnimation(order, conversion.fade.animation);
+        }
+    }
+
+    void writeReward(uint64_t order, const BonusDrop& drop, bool animationAdvanced,
+                     const Descriptor& descriptor) {
+        auto& raw = storage_.actor(require(order));
+        auto& row = storage_.visual(raw[1]);
+        auto word = [](auto& bytes, size_t offset, uint16_t value) {
+            bytes[offset] = static_cast<uint8_t>(value);
+            bytes[offset + 1] = static_cast<uint8_t>(value >> 8);
+        };
+        raw[0] = static_cast<uint8_t>(static_cast<uint8_t>(drop.type) + 0x13);
+        raw[2] = drop.timer;
+        word(raw, 6, static_cast<uint16_t>(drop.vx8));
+        word(raw, 8, static_cast<uint16_t>(drop.vy8));
+        word(raw, 10, drop.fracX);
+        word(raw, 12, drop.fracY);
+        raw[20] = drop.hotspotY;
+        raw[21] = 2;
+        setActiveAnimation(order, drop.animation);
+        word(row, 0, static_cast<uint16_t>(static_cast<int16_t>(drop.x)));
+        word(row, 2, static_cast<uint16_t>(static_cast<int16_t>(drop.y)));
+        if (animationAdvanced) { row[6] = descriptor[2]; row[7] = descriptor[3]; }
     }
 
     void writeTransient(uint64_t order, const TransientActor& actor, bool animationAdvanced,
@@ -86,6 +214,27 @@ public:
         word(row, 0, static_cast<uint16_t>(actor.x));
         word(row, 2, static_cast<uint16_t>(actor.y));
         // 1000:6156 changes the pixel-offset word, retaining width/height.
+        if (animationAdvanced) { row[6] = descriptor[2]; row[7] = descriptor[3]; }
+    }
+
+    void writeMarker(uint64_t order, const LaunchPadMarker& marker, bool animationAdvanced,
+                     const Descriptor& descriptor) {
+        auto& raw = storage_.actor(require(order));
+        auto& row = storage_.visual(raw[1]);
+        auto word = [](auto& bytes, size_t offset, uint16_t value) {
+            bytes[offset] = static_cast<uint8_t>(value);
+            bytes[offset + 1] = static_cast<uint8_t>(value >> 8);
+        };
+        raw[0] = marker.kind;
+        raw[2] = marker.timer;
+        word(raw, 6, static_cast<uint16_t>(marker.velocityX8));
+        word(raw, 8, static_cast<uint16_t>(marker.velocityY8));
+        word(raw, 10, marker.fracX);
+        word(raw, 12, marker.fracY);
+        raw[21] = marker.mode;
+        setActiveAnimation(order, marker.animation);
+        word(row, 0, static_cast<uint16_t>(marker.x));
+        word(row, 2, static_cast<uint16_t>(marker.y));
         if (animationAdvanced) { row[6] = descriptor[2]; row[7] = descriptor[3]; }
     }
 

@@ -1,0 +1,98 @@
+{
+  "actual_app_runtime_verified": false,
+  "animation_header_sha256": "5907fa7bf9745d426f4233b60516439960e2a35bc46f507b61598d08caad5c45",
+  "animation_modes": {
+    "0": 1404,
+    "1": 462,
+    "2": 3733,
+    "3": 69
+  },
+  "app_source_sha256": "975798791affae01a08c3907d1118a3f5a18714cd798d8f3b29c0a74175a97d9",
+  "commands": [
+    {
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O1",
+        "-I",
+        "/tmp/lezac-marker-writeback-20261009-t90/src",
+        "/mnt/c/Users/andrz/.codex/visualizations/2026/07/05/019f3283-94f8-7603-b1b5-c9d78bf86769/reward-animation-probe-t91.cpp",
+        "-o",
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-probe"
+      ],
+      "label": "compile",
+      "returncode": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-probe",
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-input.bin",
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-actual.bin"
+      ],
+      "label": "probe",
+      "returncode": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "b0c62098420e9aaf051a9d46e28dac348b428752d31bafa5f648a33454fbf616"
+    }
+  ],
+  "compared_native_table_bytes": 7896470,
+  "compiled_animation_cases": 5668,
+  "compiled_animation_output_sha256": "c0751b7ca768d87e26eb7fa5ac8a09ad60d3a3be08826410bc8410cf13ef5308",
+  "compiled_helper_scope": "ActorAnimation only; each input is an original pre-pass record, not a continuous C++ game replay",
+  "current_reward_updater_missing_animation_advance": true,
+  "current_reward_updater_missing_physical_write_through": true,
+  "current_source_unchanged": true,
+  "full_reward_cpp_comparison": false,
+  "masks_applied": false,
+  "native_semantic_totals": {
+    "draws": 35,
+    "expiry_conversions": 159,
+    "pickup_conversions": 28,
+    "retired": 159,
+    "reward_continuations": 5668,
+    "transient_continuations": 6145
+  },
+  "natural_route": false,
+  "operations": 4982,
+  "original_only_full_tables": true,
+  "original_repeat_equal": true,
+  "passed": true,
+  "producer_sha256": "425567423b788ae3f9befe6a9f3a7e4b0421bcdc5b584eea55b32448dad279e5",
+  "recorded_utc": "2026-10-09T03:39:01.555304+00:00",
+  "root_bytes": 192498,
+  "semantic_negative_controls": {
+    "alive": true,
+    "allocation-result": true,
+    "backup": true,
+    "behavior": true,
+    "hits": true,
+    "hotspot": true,
+    "links": true,
+    "opaque": true,
+    "player-row": true,
+    "rng": true,
+    "timer": true,
+    "visual-width": true
+  },
+  "source_head": "4944b39b76aa1d8ce07d38d08650b8a9e49f1919",
+  "streams": {
+    "expected": {
+      "bytes": 7896482,
+      "compressed_bytes": 142198,
+      "compressed_sha256": "6797216835dad9113684141b1395fc55010d036b4333d0d7575b0e23f2a69ef4",
+      "sha256": "b503b8304a767b08a0d5af3471c537f66c4393283d909afd7b7632cdfa58ba44"
+    },
+    "requests": {
+      "bytes": 158987,
+      "compressed_bytes": 12054,
+      "compressed_sha256": "098ef3d5b15a7819f9ea98f4e3ccbb75530ee671d55cc4e5eb268f1a81abe456",
+      "sha256": "8a68fc46f6457f784423eca69a70978081102bffd836b09cc58b1b18cc452338"
+    }
+  },
+  "whole_game_claim": false
+}

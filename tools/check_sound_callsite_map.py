@@ -154,6 +154,26 @@ def require_bonus_sound(source: str) -> None:
         raise RuntimeError("bonus_pickup source: sound must follow an accepted deferred grant")
 
 
+def require_death_sound_ownership(source: str, ghidra: str) -> None:
+    notes = " ".join(ghidra.split())
+    require(notes, "boss-death chain starting at `1000:5bcc`", "boss_death docs owner")
+    require(notes, "`1000:5c9e..5ca9`. The C++ `bossDeathChain` path mirrors this with "
+            "`requestMonsterDeathSound`", "boss_death docs callsite")
+    require(notes, "generic tile-damage corpse conversion at `1000:74bb..7517` is silent.",
+            "generic_corpse docs")
+    require(notes, "The C++ `enterMonsterDeath` path does not request sound.",
+            "generic_corpse docs owner")
+    ranges = function_ranges(source, ("enterMonsterDeath", "bossDeathChain"))
+    for name in ("enterMonsterDeath", "bossDeathChain"):
+        if name not in ranges:
+            raise RuntimeError(f"death sound source: missing {name} definition")
+    bodies = {name: mask_cpp("\n".join(source.splitlines()[first - 1:last]))
+              for name, (first, last) in ranges.items()}
+    require(bodies["bossDeathChain"], "requestMonsterDeathSound();", "boss_death source")
+    if re.search(r"\brequest\w*Sound\w*\s*\(", bodies["enterMonsterDeath"]):
+        raise RuntimeError("generic_corpse source: conversion must not request sound")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Check recovered sound callsite map consistency."
@@ -176,6 +196,7 @@ def main() -> int:
     require_ctest(cmake, "sound_cursor_segments")
     require_ctest(cmake, "son_step_fields")
     require_bonus_sound(source)
+    require_death_sound_ownership(source, ghidra)
 
     for offset, selector in DIRECT_SWEEPS.items():
         require(ghidra, offset, f"ghidra direct sweep {offset}")

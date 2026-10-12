@@ -24741,6 +24741,69 @@ public:
         std::cout << "pickup_post_init_probe=ok cases=" << cases << " audio=dummy\n";
     }
 
+    void debugCorpseRewardAnimationMode() {
+        load();
+        initSdl();
+        for (const uint8_t mode : std::array<uint8_t, 4>{{0, 1, 2, 3}}) {
+            resetLevel(0);
+            prepareAutoplayerMonsterFixtureLevel();
+            logicTick_ = 101;
+            randomSeed_ = 0x12345678u;
+            ActiveMonster monster;
+            monster.x = 336;
+            monster.y = 124;
+            monster.kind = 0x0c;
+            monster.behavior = 2;
+            monster.hotspotY = 6;
+            monster.animCursor = 8;
+            monster.animStart = 5;
+            monster.animEnd = 8;
+            monster.animTick = 0;
+            monster.animDelay = 0;
+            monster.animMode = mode;
+            monster.animStep = 1;
+            monster.actorOrder = 1;
+            lezac::core::TurboRandom expected(randomSeed_);
+            const auto roll = expected.range(0, 100);
+            const auto soundCursor = static_cast<uint16_t>(0xea74 + expected.range(0, 20));
+            std::array<std::array<int16_t, 2>, 2> particleVelocities{};
+            for (auto& velocity : particleVelocities) {
+                velocity[0] = static_cast<int16_t>(expected.range(0, 600) - 300);
+                velocity[1] = static_cast<int16_t>(expected.range(0, 600) - 300);
+            }
+            if (roll < 40) throw std::runtime_error("corpse animation probe seed produced no reward");
+            clearSoundLatch();
+            finishMonsterDeathReward(monster);
+            if (bonusDrops_.size() != 1 || randomSeed_ != expected.seed()) {
+                throw std::runtime_error("corpse animation probe changed reward or RNG");
+            }
+            if (roll != 59 || bonusDrops_.front().type != BonusType::Present) {
+                throw std::runtime_error("corpse reward selection draw changed");
+            }
+            const auto latch = sound_.latch();
+            if (soundCursor != 0xea7f || !latch.active || latch.latchedOffset != soundCursor ||
+                latch.currentSelector != 4) {
+                throw std::runtime_error("corpse reward sound draw ordering changed");
+            }
+            const std::array<std::array<int16_t, 2>, 2> pinnedVelocities{{{{216, -56}}, {{-211, 99}}}};
+            if (particleVelocities != pinnedVelocities || transientActors_.size() != particleVelocities.size()) {
+                throw std::runtime_error("corpse reward particle fixture changed");
+            }
+            for (size_t particle = 0; particle < particleVelocities.size(); ++particle) {
+                const auto& actual = transientActors_[particle];
+                if (actual.kind != 0x0b || actual.vx8 != particleVelocities[particle][0] ||
+                    actual.vy8 != particleVelocities[particle][1]) {
+                    throw std::runtime_error("corpse reward particle draw ordering changed");
+                }
+            }
+            const std::array<uint8_t, 7> animation{{9, 6, 9, 0, 0, 0, 1}};
+            if (bonusDrops_.front().animation.packed() != animation) {
+                throw std::runtime_error("corpse reward animation mode was not disabled");
+            }
+        }
+        std::cout << "corpse_reward_animation_mode_original=ok cases=4 mode_disabled=1 production_conversion=1 seeded=1 natural_route=0 whole_game_parity=0 rng_observables=6\n";
+    }
+
     void debugTransientActorLimits() {
         load();
         initSdl();
@@ -29636,11 +29699,11 @@ private:
             reward.vy8 = static_cast<int16_t>(monster.vy8 - 200);
             reward.fracX = monster.fracX;
             reward.fracY = monster.fracY;
-            // 1000:760D changes the descriptor/kind without reinitializing +16h..1Ch.
+            // The conversion preserves cursor/counters, but 1000:76E6 clears mode.
             reward.animation = {static_cast<uint8_t>(monster.animCursor + 1),
                 static_cast<uint8_t>(monster.animStart + 1), static_cast<uint8_t>(monster.animEnd + 1),
                 static_cast<uint8_t>(monster.animTick), static_cast<uint8_t>(monster.animDelay),
-                static_cast<uint8_t>(monster.animMode), static_cast<int8_t>(monster.animStep)};
+                0, static_cast<int8_t>(monster.animStep)};
             bonusDrops_.push_back(reward);
         } else {
             // 1000:760D converts the existing corpse in place, even at full
@@ -30872,6 +30935,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-transient-actor-limits") {
             app.debugTransientActorLimits();
+            return 0;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--debug-original-corpse-reward-animation-mode") {
+            app.debugCorpseRewardAnimationMode();
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-pickup-landing-original") {

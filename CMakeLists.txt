@@ -255,6 +255,17 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_core_primitives_test PRIVATE lezac_core)
     add_executable(lezac_actor_storage_test tests/gameplay/actor_storage_test.cpp)
     target_include_directories(lezac_actor_storage_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_executable(lezac_actor_slots_test tests/gameplay/actor_slots_test.cpp)
+    target_include_directories(lezac_actor_slots_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME actor_slots_binding_contract COMMAND lezac_actor_slots_test)
+    set_tests_properties(actor_slots_binding_contract PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^actor_slots=ok operations=1800")
+    add_test(NAME production_actor_lifecycle_app COMMAND lezac_cpp --debug-production-actor-lifecycle)
+    set_tests_properties(production_actor_lifecycle_app PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^production_actor_lifecycle=ok capacity=30.*descriptor_banks=2 descriptor_checks=295 descriptor_reset=1 descriptor_bounds=2")
     add_test(NAME actor_storage_api_contract COMMAND lezac_actor_storage_test --api-contract)
     set_tests_properties(actor_storage_api_contract PROPERTIES
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"
@@ -5651,6 +5662,35 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 120
             PASS_REGULAR_EXPRESSION "^corpse_reward_rng_mutants=rejected controls=3 actual_app=1 equal_final_seed=1 natural_route=0 whole_game_claim=0")
+
+        add_test(NAME actor_descriptor_bank_tools_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_descriptor_bank_tools.py -v)
+        set_tests_properties(actor_descriptor_bank_tools_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
+        set(LEZAC_DESCRIPTOR_BANK_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/actor-descriptor-bank-mutant/app.cpp)
+        add_custom_command(OUTPUT ${LEZAC_DESCRIPTOR_BANK_SOURCE}
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/make_actor_descriptor_bank_mutant.py
+                --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp --out ${LEZAC_DESCRIPTOR_BANK_SOURCE}
+            DEPENDS src/app/app.cpp tools/make_actor_descriptor_bank_mutant.py
+            VERBATIM)
+        get_target_property(LEZAC_DESCRIPTOR_BANK_SOURCES lezac_cpp SOURCES)
+        list(REMOVE_ITEM LEZAC_DESCRIPTOR_BANK_SOURCES src/app/app.cpp)
+        add_executable(lezac_actor_descriptor_bank_mutant ${LEZAC_DESCRIPTOR_BANK_SOURCES} ${LEZAC_DESCRIPTOR_BANK_SOURCE})
+        foreach(property COMPILE_DEFINITIONS INCLUDE_DIRECTORIES LINK_DIRECTORIES LINK_LIBRARIES COMPILE_OPTIONS)
+            get_target_property(value lezac_cpp ${property})
+            if(value)
+                set_target_properties(lezac_actor_descriptor_bank_mutant PROPERTIES ${property} "${value}")
+            endif()
+        endforeach()
+        add_dependencies(lezac_actor_descriptor_bank_mutant lezac_corpse_reward_rng_mutant)
+        add_test(NAME actor_descriptor_bank_old_bank_mutant
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_descriptor_bank_mutant.py
+                --exe $<TARGET_FILE:lezac_actor_descriptor_bank_mutant>
+                --out ${CMAKE_CURRENT_BINARY_DIR}/actor-descriptor-bank-checks)
+        set_tests_properties(actor_descriptor_bank_old_bank_mutant PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 60
+            PASS_REGULAR_EXPRESSION "^actor_descriptor_bank_mutant=rejected old_normal_bank=1 actual_app=1 unchanged_diagnostic=1 natural_route=0 whole_game_claim=0")
     endif()
 
     add_test(NAME transient_actor_limits

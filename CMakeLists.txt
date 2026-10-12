@@ -5574,6 +5574,49 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+    add_test(NAME corpse_reward_animation_mode_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-corpse-reward-animation-mode)
+    set_tests_properties(corpse_reward_animation_mode_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^corpse_reward_animation_mode_original=ok cases=4 mode_disabled=1 production_conversion=1 seeded=1 natural_route=0 whole_game_parity=0 rng_observables=6")
+
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME corpse_reward_animation_tools_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_corpse_reward_rng_tools.py -v)
+        set_tests_properties(corpse_reward_animation_tools_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
+        set(LEZAC_REWARD_RNG_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/corpse-reward-rng-mutant/app.cpp)
+        add_custom_command(OUTPUT ${LEZAC_REWARD_RNG_SOURCE}
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/make_corpse_reward_rng_mutant.py
+                --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp --out ${LEZAC_REWARD_RNG_SOURCE}
+            DEPENDS src/app/app.cpp tools/make_corpse_reward_rng_mutant.py
+            VERBATIM)
+        get_target_property(LEZAC_REWARD_RNG_SOURCES lezac_cpp SOURCES)
+        list(REMOVE_ITEM LEZAC_REWARD_RNG_SOURCES src/app/app.cpp)
+        add_executable(lezac_corpse_reward_rng_mutant ${LEZAC_REWARD_RNG_SOURCES} ${LEZAC_REWARD_RNG_SOURCE})
+        foreach(property COMPILE_DEFINITIONS INCLUDE_DIRECTORIES LINK_DIRECTORIES LINK_LIBRARIES COMPILE_OPTIONS)
+            get_target_property(value lezac_cpp ${property})
+            if(value)
+                set_target_properties(lezac_corpse_reward_rng_mutant PROPERTIES ${property} "${value}")
+            endif()
+        endforeach()
+        add_dependencies(lezac_corpse_reward_rng_mutant lezac_cpp)
+        foreach(existing_mutant IN ITEMS lezac_actor_identity_mutant lezac_corpse_animation_skip_mutant)
+            if(TARGET ${existing_mutant})
+                add_dependencies(lezac_corpse_reward_rng_mutant ${existing_mutant})
+            endif()
+        endforeach()
+        add_test(NAME corpse_reward_animation_rng_mutants
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_corpse_reward_rng_mutant.py
+                --exe $<TARGET_FILE:lezac_corpse_reward_rng_mutant>
+                --out ${CMAKE_CURRENT_BINARY_DIR}/corpse-reward-rng-checks)
+        set_tests_properties(corpse_reward_animation_rng_mutants PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 120
+            PASS_REGULAR_EXPRESSION "^corpse_reward_rng_mutants=rejected controls=3 actual_app=1 equal_final_seed=1 natural_route=0 whole_game_claim=0")
+    endif()
+
     add_test(NAME transient_actor_limits
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-transient-actor-limits)
     set_tests_properties(transient_actor_limits PROPERTIES

@@ -1,0 +1,149 @@
+{
+  "passed": true,
+  "recorded_utc": "2026-10-09T02:25:13.451990+00:00",
+  "commands": [
+    {
+      "label": "head",
+      "args": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "metadata-0",
+      "args": [
+        "git",
+        "show",
+        "HEAD:tests/gameplay/collapse_actor_creation_original.json"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "metadata-1",
+      "args": [
+        "git",
+        "show",
+        "HEAD:tests/gameplay/collapse_update_original.json"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "materialize",
+      "args": [
+        "git",
+        "sparse-checkout",
+        "add",
+        "/tests/fixtures/collapse_steps_original.txt",
+        "/tests/fixtures/fracture_actor_original.txt",
+        "/tests/gameplay/collapse_actor_creation_original.bin.gz",
+        "/tests/gameplay/collapse_actor_creation_original.json",
+        "/tests/gameplay/collapse_update_original.bin.gz",
+        "/tests/gameplay/collapse_update_original.json",
+        "/tools/capture_original_collapse_actors.py",
+        "/tools/capture_original_collapse_update.py",
+        "/tools/capture_original_debris_update.py",
+        "/tools/check_original_collapse_actors.py",
+        "/tools/check_original_collapse_update.py",
+        "/tools/check_original_debris_update.py",
+        "/tools/scan_livels_debris_sites.py",
+        "/tools/source_guardrails.py",
+        "/tools/test_collapse_actor_checker.py"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "diff-check",
+      "args": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "contract",
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-transient-writeback-20261009-t87/tools/check_original_collapse_actors.py",
+        "--self-check"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "oracle",
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-transient-writeback-20261009-t87/tools/check_original_collapse_actors.py",
+        "--oracle-only"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "checker-contract",
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-transient-writeback-20261009-t87/tools/test_collapse_actor_checker.py"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "source-guardrails",
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-transient-writeback-20261009-t87/tools/check_source_guardrails.py"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "configure",
+      "args": [
+        "cmake",
+        "-S",
+        "/tmp/lezac-transient-writeback-20261009-t87",
+        "-B",
+        "/tmp/lezac-transient-collapse-contract-20261009-t88-v2/configure",
+        "-G",
+        "Ninja",
+        "-DBUILD_TESTING=ON"
+      ],
+      "returncode": 0
+    },
+    {
+      "label": "ctest-source-contracts",
+      "args": [
+        "ctest",
+        "--test-dir",
+        "/tmp/lezac-transient-collapse-contract-20261009-t88-v2/configure",
+        "--output-on-failure",
+        "-R",
+        "^original_collapse_actors_(contract|checker)$"
+      ],
+      "returncode": 0
+    }
+  ],
+  "producer_sha256": "7569c68eb19cf001cedcb2987baefa7fe61965b035c6dc2ab36b0f0a35b54bd1",
+  "production_code_changed": false,
+  "actual_app_runtime_verified": false,
+  "full_app_build": false,
+  "whole_game_claim": false,
+  "source_mutants_rejected": 29,
+  "comparator_mutants_rejected": 6,
+  "original_oracle_cases": 2476,
+  "original_actor_states": 1822,
+  "original_admissions": 414,
+  "mocked_probe_modes": 10,
+  "comparison_cases": 9,
+  "ctest_source_contracts_passed": 2,
+  "root_bytes": 4806354,
+  "out_bytes": 865147
+}

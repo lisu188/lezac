@@ -255,6 +255,23 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_core_primitives_test PRIVATE lezac_core)
     add_executable(lezac_actor_storage_test tests/gameplay/actor_storage_test.cpp)
     target_include_directories(lezac_actor_storage_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_executable(lezac_actor_slots_test tests/gameplay/actor_slots_test.cpp)
+    target_include_directories(lezac_actor_slots_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_executable(lezac_transient_storage_probe tests/gameplay/transient_storage_probe.cpp)
+    target_include_directories(lezac_transient_storage_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_executable(lezac_marker_storage_probe tests/gameplay/marker_storage_probe.cpp)
+    target_include_directories(lezac_marker_storage_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_executable(lezac_reward_storage_probe tests/gameplay/reward_storage_probe.cpp)
+    target_include_directories(lezac_reward_storage_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME actor_slots_binding_contract COMMAND lezac_actor_slots_test)
+    set_tests_properties(actor_slots_binding_contract PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^actor_slots=ok operations=1800")
+    add_test(NAME production_actor_lifecycle_app COMMAND lezac_cpp --debug-production-actor-lifecycle)
+    set_tests_properties(production_actor_lifecycle_app PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^production_actor_lifecycle=ok capacity=30.*descriptor_banks=2 descriptor_checks=295 descriptor_reset=1 descriptor_bounds=2")
     add_test(NAME actor_storage_api_contract COMMAND lezac_actor_storage_test --api-contract)
     set_tests_properties(actor_storage_api_contract PROPERTIES
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"
@@ -440,6 +457,77 @@ if(BUILD_TESTING)
         set_tests_properties(monster_animation_fixture_contract PROPERTIES
             ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 60
             PASS_REGULAR_EXPRESSION "^monster_animation_fixture_contract=ok accepted=2 rejected=7 compiled_helper=1 production_app=0")
+        foreach(transient_target IN ITEMS helper app)
+            if(transient_target STREQUAL "app")
+                set(transient_exe $<TARGET_FILE:lezac_cpp>)
+                set(transient_app_flag --production-app)
+            else()
+                set(transient_exe $<TARGET_FILE:lezac_transient_storage_probe>)
+                set(transient_app_flag)
+            endif()
+            add_test(NAME transient_storage_${transient_target}_original
+                COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_transient_storage_original.py
+                    --exe ${transient_exe} ${transient_app_flag}
+                    --out ${CMAKE_CURRENT_BINARY_DIR}/transient-storage-checks)
+            set_tests_properties(transient_storage_${transient_target}_original PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 60
+                PASS_REGULAR_EXPRESSION "^transient_storage_original=ok operations=256 compared_bytes=403200")
+        endforeach()
+        add_test(NAME transient_storage_tools_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_transient_storage_checker.py -v)
+        set_tests_properties(transient_storage_tools_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
+        foreach(marker_target IN ITEMS helper app)
+            if(marker_target STREQUAL "app")
+                set(marker_exe $<TARGET_FILE:lezac_cpp>)
+                set(marker_app_flag --production-app)
+            else()
+                set(marker_exe $<TARGET_FILE:lezac_marker_storage_probe>)
+                set(marker_app_flag)
+            endif()
+            add_test(NAME marker_storage_${marker_target}_original
+                COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_marker_storage_original.py
+                    --exe ${marker_exe} ${marker_app_flag}
+                    --out ${CMAKE_CURRENT_BINARY_DIR}/marker-storage-checks)
+            set_tests_properties(marker_storage_${marker_target}_original PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 60
+                PASS_REGULAR_EXPRESSION "^marker_storage_original=ok operations=1008 compared_bytes=1587600")
+        endforeach()
+        add_test(NAME marker_storage_tools_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_marker_storage_checker.py -v)
+        set_tests_properties(marker_storage_tools_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
+        foreach(reward_target IN ITEMS helper app)
+            if(reward_target STREQUAL "app")
+                set(reward_exe $<TARGET_FILE:lezac_cpp>)
+                set(reward_app_flag --production-app)
+            else()
+                set(reward_exe $<TARGET_FILE:lezac_reward_storage_probe>)
+                set(reward_app_flag)
+            endif()
+            add_test(NAME reward_storage_${reward_target}_original
+                COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_reward_storage_original.py
+                    --exe ${reward_exe} ${reward_app_flag}
+                    --out ${CMAKE_CURRENT_BINARY_DIR}/reward-storage-checks)
+            set_tests_properties(reward_storage_${reward_target}_original PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 60
+                PASS_REGULAR_EXPRESSION "^reward_storage_original=ok operations=4982 compared_bytes=7896470")
+            add_test(NAME reward_storage_${reward_target}_protocol
+                COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_reward_storage_protocol.py
+                    --exe ${reward_exe} ${reward_app_flag}
+                    --out ${CMAKE_CURRENT_BINARY_DIR}/reward-storage-checks)
+            set_tests_properties(reward_storage_${reward_target}_protocol PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 60
+                PASS_REGULAR_EXPRESSION "^reward_storage_protocol=ok rejected=34")
+        endforeach()
+        add_test(NAME reward_storage_tools_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_reward_storage_checker.py -v)
+        set_tests_properties(reward_storage_tools_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
         add_test(NAME actor_storage_core_original
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_storage_core.py
                 --exe $<TARGET_FILE:lezac_actor_storage_test>
@@ -4700,7 +4788,7 @@ if(BUILD_TESTING)
     set_tests_properties(original_collapse_actors_contract PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         TIMEOUT 30
-        PASS_REGULAR_EXPRESSION "^original_collapse_actors_contract=ok source_mutants=23 comparator_mutants=6 compiled_cpp=0")
+        PASS_REGULAR_EXPRESSION "^original_collapse_actors_contract=ok source_mutants=29 comparator_mutants=6 compiled_cpp=0")
     add_test(NAME original_collapse_actors_checker
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_collapse_actor_checker.py)
     set_tests_properties(original_collapse_actors_checker PROPERTIES
@@ -5651,6 +5739,35 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 120
             PASS_REGULAR_EXPRESSION "^corpse_reward_rng_mutants=rejected controls=3 actual_app=1 equal_final_seed=1 natural_route=0 whole_game_claim=0")
+
+        add_test(NAME actor_descriptor_bank_tools_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_descriptor_bank_tools.py -v)
+        set_tests_properties(actor_descriptor_bank_tools_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
+        set(LEZAC_DESCRIPTOR_BANK_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/actor-descriptor-bank-mutant/app.cpp)
+        add_custom_command(OUTPUT ${LEZAC_DESCRIPTOR_BANK_SOURCE}
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/make_actor_descriptor_bank_mutant.py
+                --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp --out ${LEZAC_DESCRIPTOR_BANK_SOURCE}
+            DEPENDS src/app/app.cpp tools/make_actor_descriptor_bank_mutant.py
+            VERBATIM)
+        get_target_property(LEZAC_DESCRIPTOR_BANK_SOURCES lezac_cpp SOURCES)
+        list(REMOVE_ITEM LEZAC_DESCRIPTOR_BANK_SOURCES src/app/app.cpp)
+        add_executable(lezac_actor_descriptor_bank_mutant ${LEZAC_DESCRIPTOR_BANK_SOURCES} ${LEZAC_DESCRIPTOR_BANK_SOURCE})
+        foreach(property COMPILE_DEFINITIONS INCLUDE_DIRECTORIES LINK_DIRECTORIES LINK_LIBRARIES COMPILE_OPTIONS)
+            get_target_property(value lezac_cpp ${property})
+            if(value)
+                set_target_properties(lezac_actor_descriptor_bank_mutant PROPERTIES ${property} "${value}")
+            endif()
+        endforeach()
+        add_dependencies(lezac_actor_descriptor_bank_mutant lezac_corpse_reward_rng_mutant)
+        add_test(NAME actor_descriptor_bank_old_bank_mutant
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_descriptor_bank_mutant.py
+                --exe $<TARGET_FILE:lezac_actor_descriptor_bank_mutant>
+                --out ${CMAKE_CURRENT_BINARY_DIR}/actor-descriptor-bank-checks)
+        set_tests_properties(actor_descriptor_bank_old_bank_mutant PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 60
+            PASS_REGULAR_EXPRESSION "^actor_descriptor_bank_mutant=rejected old_normal_bank=1 actual_app=1 unchanged_diagnostic=1 natural_route=0 whole_game_claim=0")
     endif()
 
     add_test(NAME transient_actor_limits

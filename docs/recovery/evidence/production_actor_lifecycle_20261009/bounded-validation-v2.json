@@ -1,0 +1,245 @@
+{
+  "actual_app_runtime_verified": false,
+  "app_syntax_verified": true,
+  "binding_operations": 1800,
+  "build_bytes": 1339144,
+  "commands": [
+    {
+      "args": [
+        "git",
+        "sparse-checkout",
+        "add",
+        "/src/gameplay/actor_slots.hpp",
+        "/tests/gameplay/actor_slots_test.cpp",
+        "/src/app/app.cpp",
+        "/CMakeLists.txt",
+        "/tools/source_ownership.json"
+      ],
+      "returncode": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "args": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "returncode": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-O1",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-I",
+        "/tmp/lezac-actor-lifecycle-20261009-t85/src",
+        "/tmp/lezac-actor-lifecycle-20261009-t85/tests/gameplay/actor_slots_test.cpp",
+        "-o",
+        "/tmp/lezac-actor-lifecycle-checks-20261009-t86-v2/actor-slots"
+      ],
+      "returncode": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "args": [
+        "/tmp/lezac-actor-lifecycle-checks-20261009-t86-v2/actor-slots"
+      ],
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "actor_slots=ok operations=1800 appended=818 retired=252 resets=18 backup_writes=137 capacity=30 invalid_count_255=rejected compiled_binding=1 production_app=0 whole_game_claim=0\n"
+    },
+    {
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-O1",
+        "-g0",
+        "-fsanitize=address,undefined",
+        "-fno-omit-frame-pointer",
+        "-I",
+        "/tmp/lezac-actor-lifecycle-20261009-t85/src",
+        "/tmp/lezac-actor-lifecycle-20261009-t85/tests/gameplay/actor_slots_test.cpp",
+        "-o",
+        "/tmp/lezac-actor-lifecycle-checks-20261009-t86-v2/actor-slots-sanitized"
+      ],
+      "returncode": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "args": [
+        "/tmp/lezac-actor-lifecycle-checks-20261009-t86-v2/actor-slots-sanitized"
+      ],
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "actor_slots=ok operations=1800 appended=818 retired=252 resets=18 backup_writes=137 capacity=30 invalid_count_255=rejected compiled_binding=1 production_app=0 whole_game_claim=0\n"
+    },
+    {
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-O1",
+        "-I",
+        "/tmp/lezac-actor-lifecycle-checks-20261009-t86-v2/clear-new-backup",
+        "-I",
+        "/tmp/lezac-actor-lifecycle-20261009-t85/src",
+        "/tmp/lezac-actor-lifecycle-20261009-t85/tests/gameplay/actor_slots_test.cpp",
+        "-o",
+        "/tmp/lezac-actor-lifecycle-checks-20261009-t86-v2/clear-new-backup/mutant"
+      ],
+      "returncode": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "args": [
+        "/tmp/lezac-actor-lifecycle-checks-20261009-t86-v2/clear-new-backup/mutant"
+      ],
+      "expected_failure": true,
+      "returncode": 1,
+      "stderr": "fatal: physical backup inheritance mismatch\n",
+      "stdout": ""
+    },
+    {
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-O1",
+        "-I",
+        "/tmp/lezac-actor-lifecycle-checks-20261009-t86-v2/keep-deleted-order",
+        "-I",
+        "/tmp/lezac-actor-lifecycle-20261009-t85/src",
+        "/tmp/lezac-actor-lifecycle-20261009-t85/tests/gameplay/actor_slots_test.cpp",
+        "-o",
+        "/tmp/lezac-actor-lifecycle-checks-20261009-t86-v2/keep-deleted-order/mutant"
+      ],
+      "returncode": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "args": [
+        "/tmp/lezac-actor-lifecycle-checks-20261009-t86-v2/keep-deleted-order/mutant"
+      ],
+      "expected_failure": true,
+      "returncode": 1,
+      "stderr": "fatal: stable actor identity compaction mismatch\n",
+      "stdout": ""
+    },
+    {
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-O1",
+        "-I",
+        "/tmp/lezac-actor-lifecycle-checks-20261009-t86-v2/clear-retired-tail",
+        "-I",
+        "/tmp/lezac-actor-lifecycle-20261009-t85/src",
+        "/tmp/lezac-actor-lifecycle-20261009-t85/tests/gameplay/actor_slots_test.cpp",
+        "-o",
+        "/tmp/lezac-actor-lifecycle-checks-20261009-t86-v2/clear-retired-tail/mutant"
+      ],
+      "returncode": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "args": [
+        "/tmp/lezac-actor-lifecycle-checks-20261009-t86-v2/clear-retired-tail/mutant"
+      ],
+      "expected_failure": true,
+      "returncode": 1,
+      "stderr": "fatal: inactive backup bytes changed\n",
+      "stdout": ""
+    },
+    {
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "tools/check_source_guardrails.py"
+      ],
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "source_guardrails_selftest=ok cases=19 mapped_sources=81\n"
+    },
+    {
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "tools/check_gran_usage_guardrail.py"
+      ],
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "gran_usage_guardrail=ok source_refs=26 load_refs=2 debug_refs=20 member_refs=1 live_consumer_refs=1 live_refs=0 ctest=3 docs=3 accessor_refs=1 alias_refs=1\n"
+    },
+    {
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-fsyntax-only",
+        "-DSDL_MAIN_HANDLED",
+        "-I/usr/include/SDL2",
+        "-I",
+        "/tmp/lezac-actor-lifecycle-20261009-t85/src",
+        "/tmp/lezac-actor-lifecycle-20261009-t85/src/app/app.cpp"
+      ],
+      "returncode": 0,
+      "stderr": "",
+      "stdout": ""
+    },
+    {
+      "args": [
+        "cmake",
+        "-S",
+        "/tmp/lezac-actor-lifecycle-20261009-t85",
+        "-B",
+        "/tmp/lezac-actor-lifecycle-checks-20261009-t86-v2/configure",
+        "-G",
+        "Ninja",
+        "-DBUILD_TESTING=ON",
+        "-DCMAKE_BUILD_TYPE=Release"
+      ],
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "-- The CXX compiler identification is GNU 13.3.0\n-- Detecting CXX compiler ABI info\n-- Detecting CXX compiler ABI info - done\n-- Check for working CXX compiler: /usr/bin/c++ - skipped\n-- Detecting CXX compile features\n-- Detecting CXX compile features - done\n-- Found PkgConfig: /usr/bin/pkg-config (found version \"1.8.1\") \n-- Checking for module 'sdl2'\n--   Found sdl2, version 2.30.0\n-- Configuring done (1.3s)\n-- Generating done (0.0s)\n-- Build files have been written to: /tmp/lezac-actor-lifecycle-checks-20261009-t86-v2/configure\n"
+    },
+    {
+      "args": [
+        "ctest",
+        "--test-dir",
+        "/tmp/lezac-actor-lifecycle-checks-20261009-t86-v2/configure",
+        "--show-only=json-v1",
+        "-R",
+        "^(actor_slots_binding_contract|production_actor_lifecycle_app)$"
+      ],
+      "returncode": 0,
+      "stderr": "",
+      "stdout": "{\n  \"backtraceGraph\" : \n  {\n    \"commands\" : \n    [\n      \"add_test\"\n    ],\n    \"files\" : \n    [\n      \"/tmp/lezac-actor-lifecycle-20261009-t85/CMakeLists.txt\"\n    ],\n    \"nodes\" : \n    [\n      {\n        \"file\" : 0\n      },\n      {\n        \"command\" : 0,\n        \"file\" : 0,\n        \"line\" : 250,\n        \"parent\" : 0\n      },\n      {\n        \"file\" : 0\n      },\n      {\n        \"command\" : 0,\n        \"file\" : 0,\n        \"line\" : 254,\n        \"parent\" : 2\n      }\n    ]\n  },\n  \"kind\" : \"ctestInfo\",\n  \"tests\" : \n  [\n    {\n      \"backtrace\" : 1,\n      \"name\" : \"actor_slots_binding_contract\",\n      \"properties\" : \n      [\n        {\n          \"name\" : \"ENVIRONMENT\",\n          \"value\" : \n          [\n            \"SDL_AUDIODRIVER=dummy\"\n          ]\n        },\n        {\n          \"name\" : \"PASS_REGULAR_EXPRESSION\",\n          \"value\" : \n          [\n            \"^actor_slots=ok operations=1800\"\n          ]\n        },\n        {\n          \"name\" : \"WORKING_DIRECTORY\",\n          \"value\" : \"/tmp/lezac-actor-lifecycle-checks-20261009-t86-v2/configure\"\n        }\n      ]\n    },\n    {\n      \"backtrace\" : 3,\n      \"name\" : \"production_actor_lifecycle_app\",\n      \"properties\" : \n      [\n        {\n          \"name\" : \"ENVIRONMENT\",\n          \"value\" : \n          [\n            \"SDL_VIDEODRIVER=dummy\",\n            \"SDL_AUDIODRIVER=dummy\"\n          ]\n        },\n        {\n          \"name\" : \"PASS_REGULAR_EXPRESSION\",\n          \"value\" : \n          [\n            \"^production_actor_lifecycle=ok capacity=30\"\n          ]\n        },\n        {\n          \"name\" : \"WORKING_DIRECTORY\",\n          \"value\" : \"/tmp/lezac-actor-lifecycle-20261009-t85\"\n        }\n      ]\n    }\n  ],\n  \"version\" : \n  {\n    \"major\" : 1,\n    \"minor\" : 0\n  }\n}"
+    }
+  ],
+  "compiled_binding_mutants_rejected": 3,
+  "full_game_build": false,
+  "full_raw_record_owner": false,
+  "natural_route_claim": false,
+  "passed": true,
+  "recorded_utc": "2026-10-09T01:22:14.120646+00:00",
+  "root_bytes": 5539071,
+  "sanitized_binding_operations": 1800,
+  "source_sha256": {
+    "CMakeLists.txt": "b81bce15e90182bcb1aa5fc18bb05a437dd3daea5e2b7eedb78347bcf7a9d7bf",
+    "src/app/app.cpp": "1910487f93e381197a240b2cb337afa1cc2c245f4dd78024d259874dabe94c93",
+    "src/gameplay/actor_slots.hpp": "b43221d1db8f04223b3e588b013af5ea15df874e6cf500888eff25e74a69ebe9",
+    "tests/gameplay/actor_slots_test.cpp": "ede2ae7a2ca966eea74c044f2e260d9530a5403c160d36b8f6f2e65d28543fcc",
+    "tools/source_ownership.json": "88028ebd8c9863f4a63607a2d94a622ebee6b4305332059e9d48cc2d128f3541"
+  },
+  "whole_game_claim": false
+}

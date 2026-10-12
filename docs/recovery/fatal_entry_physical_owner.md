@@ -165,3 +165,41 @@ original_fidelity_claim=false
 port.functionally_complete=false
 whole_game_complete=false
 ```
+
+## Seeder Capacity and Retained Queue Storage
+
+The `370E` seeder's current-head recovery now keeps inactive debris/collapse
+records when the live count is cleared, decremented, or compacted. Live iteration
+still visits only the active prefix, in the existing order. Insertion overwrites
+the next physical record; a rejected insertion leaves it intact. The optional
+caller-owned class byte is written before either capacity check, but flagged-word
+rejection preserves both that byte and `DS:79C8`.
+
+`seeder_capacity_original.bin.gz` contains 448 independently repeated executions
+of the unmodified original, with full 1 MiB memory and 14 registers compared per
+case. Inputs cover seven nonzero word classes, debris counts 199/1599/1600/1601,
+collapse counts 0/249/250/251, and four previous result bytes. Of these, 128 insert,
+128 reject for capacity, and 192 reject flagged words. Both candidate records are
+salted before execution; 640 rejected candidate records retain every byte.
+
+The actual-App diagnostic calls production `queueTileDamage` and serializes both
+complete terrain planes, both counts, the exact pre-call candidate records, the
+result byte and caller-owned class byte. It seeds inputs and salt constants only,
+never expected output. The checker independently compares all 2,675,456 state
+bytes without masks and retains raw output, failure details and executable pins.
+The previous 896-case consume/seeder diagnostic also reads retained records now;
+its original zeroed candidate state is explicitly initialized as fixture input.
+
+Fixture SHA-256 (gzip):
+`4d09cf11c69273c53df39ea8d2649659592022e5d62d4dfb5488f3c4a017b63a`.
+Fixture SHA-256 (raw):
+`403fa355373eb72a5cffa191692836c6c305024d9c21e9cf87bd301c0cfb547e`.
+Expected output SHA-256:
+`8b3a2daab47d116f1ffea0a8f4bc81db13332f335beac706967e743d6a374858`.
+
+Local queue/fixture/checker tests are not actual-App acceptance. Current-head
+Linux/Windows output comparisons and full CI remain separate delivery gates.
+This boundary fixture does not establish complete physical-bank equivalence,
+multi-cell collapse geometry, natural-route behavior, rendered parity, sound
+interrupt parity, or whole-game completion. The zero-word direct caller state
+remains outside this fixture; the existing C++ zero-word guard is unchanged.

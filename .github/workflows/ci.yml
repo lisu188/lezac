@@ -62,6 +62,51 @@ jobs:
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
+      - name: Generic corpse and boss sound ownership regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(monster_tile_damage_original|monster_death_sound)$'
+      - name: Preserve focused corpse sound diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpse-sound-linux-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: Physical spawner construction regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(spawner_construction_(fixture|storage_original)|spawner_storage)$'
+      - name: Preserve focused spawner construction diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spawner-construction-linux-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: Complete fatal-entry physical storage regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original|monster_object_seeder_(checker|fixture|original))$'
+      - name: Preserve complete fatal-entry diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fatal-entry-linux-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+            build/fatal-entry-app/
+            build/monster-object-seeder-app/
+            build/monster-seeder-input-*/fixture.bin.gz
+          if-no-files-found: error
       - name: Complete corpse physical storage regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -462,6 +507,51 @@ jobs:
           path: |
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: Generic corpse and boss sound ownership regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(monster_tile_damage_original|monster_death_sound)$'
+      - name: Preserve focused corpse sound diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpse-sound-windows-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: Physical spawner construction regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(spawner_construction_(fixture|storage_original)|spawner_storage)$'
+      - name: Preserve focused spawner construction diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spawner-construction-windows-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
+      - name: Complete fatal-entry physical storage regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original|monster_object_seeder_(checker|fixture|original))$'
+      - name: Preserve complete fatal-entry diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fatal-entry-windows-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+            build/fatal-entry-app/
+            build/monster-object-seeder-app/
+            build/monster-seeder-input-*/fixture.bin.gz
           if-no-files-found: error
       - name: Complete corpse physical storage regressions
         env:

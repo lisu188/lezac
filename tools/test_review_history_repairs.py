@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Source-contract regressions for the first historical-review repair batch."""
+"""Source-contract regressions for historical-review repairs."""
 from __future__ import annotations
 
 import ast
@@ -8,6 +8,8 @@ import re
 import unittest
 
 import check_behavior4_runtime_oracle_fixtures as behavior4
+import check_sound_callsite_map as sound_map
+from source_guardrails import source_text
 
 ROOT = Path(__file__).resolve().parents[1]
 PROBES = {
@@ -80,6 +82,40 @@ class ReviewHistoryRepairs(unittest.TestCase):
         for phrase in ('### Code review gate', 'immediately before merging the current head',
                        'Green CI is not a code', 'an empty review history is not approval'):
             self.assertIn(phrase, text)
+
+
+class DeathSoundOwnership(unittest.TestCase):
+    def setUp(self) -> None:
+        self.notes = (ROOT / 'docs' / 'GHIDRA_NOTES.md').read_text(encoding='utf-8')
+        self.source = ('void enterMonsterDeath() { /* requestMonsterDeathSound(); */ }\n'
+                       'void bossDeathChain() { requestMonsterDeathSound(); }\n')
+
+    def test_live_source_and_canonical_notes(self) -> None:
+        sound_map.require_death_sound_ownership(source_text(ROOT, ('sound', 'gameplay')), self.notes)
+
+    def test_comments_do_not_request_sound(self) -> None:
+        sound_map.require_death_sound_ownership(self.source, self.notes)
+
+    def test_old_callsite_owner_is_rejected(self) -> None:
+        notes = self.notes.replace('boss-death chain starting at', 'monster death/reward helper at', 1)
+        with self.assertRaisesRegex(RuntimeError, 'boss_death docs owner'):
+            sound_map.require_death_sound_ownership(self.source, notes)
+
+    def test_missing_generic_silence_is_rejected(self) -> None:
+        notes = self.notes.replace('`1000:74bb..7517` is silent.', '`1000:74bb..7517` requests sound.', 1)
+        with self.assertRaisesRegex(RuntimeError, 'generic_corpse docs'):
+            sound_map.require_death_sound_ownership(self.source, notes)
+
+    def test_generic_sound_request_is_rejected(self) -> None:
+        source = self.source.replace('/* requestMonsterDeathSound(); */', 'requestMonsterDeathSound();')
+        with self.assertRaisesRegex(RuntimeError, 'conversion must not request sound'):
+            sound_map.require_death_sound_ownership(source, self.notes)
+
+    def test_missing_boss_request_is_rejected(self) -> None:
+        source = self.source.replace('void bossDeathChain() { requestMonsterDeathSound(); }',
+                                     'void bossDeathChain() { }')
+        with self.assertRaisesRegex(RuntimeError, 'boss_death source'):
+            sound_map.require_death_sound_ownership(source, self.notes)
 
 
 if __name__ == '__main__':

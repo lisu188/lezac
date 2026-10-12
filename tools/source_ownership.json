@@ -96,7 +96,8 @@
         "src/gameplay/falling_fragment.hpp",
         "src/gameplay/jolly_cloud_rain.hpp",
         "src/gameplay/monster_damage.hpp",
-        "src/gameplay/monster_spawners.hpp"
+        "src/gameplay/monster_spawners.hpp",
+        "src/gameplay/retained_record_queue.hpp"
       ]
     },
     "app": {

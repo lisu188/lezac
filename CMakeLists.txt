@@ -5311,6 +5311,122 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^monster_object_branch_original=ok cases=1024 compared_bytes=18432 production_app=1 first_seeder_gate=0 sound_requests_checked=1 seeded=1 natural_route=0 whole_game_claim=0")
 
+    add_executable(lezac_falling_fragment_seed_test tests/gameplay/falling_fragment_seed_test.cpp)
+    target_include_directories(lezac_falling_fragment_seed_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME falling_fragment_seed COMMAND lezac_falling_fragment_seed_test)
+    set_tests_properties(falling_fragment_seed PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^falling_fragment_seed=ok queues=2 cases=48 retained_candidate=1 capacity_boundary=1 flagged_rejection=1")
+
+    add_executable(lezac_retained_record_queue_test tests/gameplay/retained_record_queue_test.cpp)
+    target_include_directories(lezac_retained_record_queue_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME retained_record_queue COMMAND lezac_retained_record_queue_test)
+    set_tests_properties(retained_record_queue PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^retained_record_queue=ok live_order=1 stale_tail=1 clear_retains=1 dormant_excluded=1")
+
+    add_test(NAME multicell_seeder_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_multicell_seeder_checker.py -v)
+    set_tests_properties(multicell_seeder_checker PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+
+    add_test(NAME collapse_retirement_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_collapse_retirement_checker.py -v)
+    set_tests_properties(collapse_retirement_checker PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    add_test(NAME collapse_retirement_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_retirement.py)
+    set_tests_properties(collapse_retirement_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        PASS_REGULAR_EXPRESSION "^collapse_retirement_fixture=ok cases=176 state_bytes=6027 retained_records=5")
+    add_test(NAME collapse_retirement_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_retirement.py
+            --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-retirement-app)
+    set_tests_properties(collapse_retirement_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^collapse_retirement_original=ok cases=176 compared_bytes=1060752 production_app=1 masks=0 retained_records=5 seeded=1 natural_route=0 whole_game_claim=0")
+
+    add_test(NAME fracture_retirement_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_fracture_retirement_checker.py -v)
+    set_tests_properties(fracture_retirement_checker PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    add_test(NAME fracture_retirement_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_fracture_retirement.py)
+    set_tests_properties(fracture_retirement_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        PASS_REGULAR_EXPRESSION "^fracture_retirement_fixture=ok cases=288 state_bytes=7664 complete_physical_banks=1")
+    add_test(NAME fracture_retirement_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_fracture_retirement.py
+            --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/fracture-retirement-app)
+    set_tests_properties(fracture_retirement_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^fracture_retirement_original=ok cases=288 compared_bytes=2207232 production_app=1 masks=0 complete_physical_banks=1 seeded=1 natural_route=0 whole_game_claim=0")
+
+    add_test(NAME multicell_seeder_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_multicell_seeder.py)
+    set_tests_properties(multicell_seeder_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        PASS_REGULAR_EXPRESSION "^multicell_seeder_fixture=ok cases=384 state_bytes=5972 complete_input_planes=1")
+    add_test(NAME multicell_seeder_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_multicell_seeder.py
+            --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/multicell-seeder-app)
+    set_tests_properties(multicell_seeder_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^multicell_seeder_original=ok cases=384 compared_bytes=2293248 production_app=1 masks=0 complete_input_planes=1 seeded=1 natural_route=0 whole_game_claim=0")
+
+    add_test(NAME seeder_capacity_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_seeder_capacity_checker.py -v)
+    set_tests_properties(seeder_capacity_checker PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    add_test(NAME seeder_capacity_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_seeder_capacity.py)
+    set_tests_properties(seeder_capacity_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        PASS_REGULAR_EXPRESSION "^seeder_capacity_fixture=ok cases=448 state_bytes=5972 inactive_salted=1")
+    add_test(NAME seeder_capacity_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_seeder_capacity.py
+            --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/seeder-capacity-app)
+    set_tests_properties(seeder_capacity_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^seeder_capacity_original=ok cases=448 compared_bytes=2675456 production_app=1 masks=0 inactive_salted=1 seeded=1 natural_route=0 whole_game_claim=0")
+
+    add_test(NAME monster_object_seeder_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_monster_object_seeder_checker.py -v)
+    set_tests_properties(monster_object_seeder_checker PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+
+    add_test(NAME monster_object_seeder_fixture
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_object_seeder.py)
+    set_tests_properties(monster_object_seeder_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^monster_object_seeder_fixture=ok cases=896 state_bytes=5983 first_seeder_calls=256")
+
+    add_test(NAME monster_object_seeder_original
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_object_seeder.py
+            --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/monster-object-seeder-app)
+    set_tests_properties(monster_object_seeder_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^monster_object_seeder_original=ok cases=896 compared_bytes=5360768 production_app=1 masks=0 first_only=1 seeded=1 natural_route=0 whole_game_claim=0")
+
     add_test(NAME fatal_entry_checker
         COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_fatal_entry_checker.py)
     set_tests_properties(fatal_entry_checker PROPERTIES

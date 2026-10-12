@@ -145,6 +145,20 @@ struct TransientActor {
     ActorAnimation animationBackup{0, 0, 0, 0, 0, 0, 0};
 };
 
+inline bool advanceTransientActor(TransientActor& actor, uint32_t logicTick) {
+    const bool advanced = actor.animation.advance(actor.animationBackup);
+    if (advanced) actor.spriteIndex = static_cast<uint8_t>(actor.animation.current - 1);
+    actor.timer = static_cast<uint8_t>(actor.timer - (logicTick & 1u));
+    if (actor.timer == 0) return advanced;
+    const int y = actor.fracY + actor.vy8;
+    const int x = actor.fracX + actor.vx8;
+    actor.y = static_cast<int16_t>(actor.y + (y >> 8));
+    actor.x = static_cast<int16_t>(actor.x + (x >> 8));
+    actor.fracY = static_cast<uint8_t>(y);
+    actor.fracX = static_cast<uint8_t>(x);
+    return advanced;
+}
+
 struct Player {
     float x = 24.0f;
     float y = 24.0f;

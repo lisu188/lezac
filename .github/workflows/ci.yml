@@ -80,7 +80,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --output-on-failure -R '^(monster_animation_(original_helper|original_app|fixture_contract)|gran_usage_guardrail(_selftest)?)$'
+        run: ctest --test-dir build --output-on-failure -R '^(corpse_animation_(original_app|skip_mutant|tools_contract)|monster_animation_(original_helper|original_app|fixture_contract)|gran_usage_guardrail(_selftest)?)$'
       - name: Preserve focused monster animation diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -89,6 +89,8 @@ jobs:
           path: |
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
+            build/corpse-animation-mutant-checks/
+            build/corpse-animation-skip/app.json
           if-no-files-found: error
       - name: JollyCloud production regressions
         env:
@@ -389,7 +391,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --output-on-failure -R '^(monster_animation_(original_helper|original_app|fixture_contract)|gran_usage_guardrail(_selftest)?)$'
+        run: ctest --test-dir build --output-on-failure -R '^(corpse_animation_(original_app|skip_mutant|tools_contract)|monster_animation_(original_helper|original_app|fixture_contract)|gran_usage_guardrail(_selftest)?)$'
       - name: Preserve focused monster animation diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -398,6 +400,8 @@ jobs:
           path: |
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
+            build/corpse-animation-mutant-checks/
+            build/corpse-animation-skip/app.json
           if-no-files-found: error
       - name: JollyCloud production regressions
         env:

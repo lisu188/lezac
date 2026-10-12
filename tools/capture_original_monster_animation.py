@@ -25,6 +25,8 @@ def main():
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument('--out', type=Path, required=True, help='new output directory; never overwritten')
     parser.add_argument('--unicorn-path', type=Path)
+    parser.add_argument('--actor-kind', type=int, choices=(1, 12, 30), default=1)
+    parser.add_argument('--actor-behavior', type=int, choices=(2, 3), default=3)
     args = parser.parse_args()
     ROOT, CONTROL = args.root.resolve(), args.out.resolve()
     assert not sys.flags.optimize and os.environ.get('SDL_AUDIODRIVER') == 'dummy'
@@ -85,10 +87,12 @@ def main():
         new_native_game_capture=False, original_instructions_patched=False, original_calls_stubbed=False,
         hardware_io_permitted=False, observer_neutrality=True, bytes_per_neutrality_return=1024**2,
         tracked_registers=14, audio='dummy', whole_game_complete=False)
+    report.update(actor_kind=args.actor_kind, actor_behavior=args.actor_behavior,
+                  stop_before_behavior_dispatch=True)
     updates = restores = descriptor_writes = 0
     for name, active, backup in seeds:
         raw = bytearray(38)
-        raw[0], raw[1], raw[2], raw[21] = 1, 2, 200, 3
+        raw[0], raw[1], raw[2], raw[21] = args.actor_kind, 2, 200, args.actor_behavior
         raw[22:29], raw[29:36] = active, backup
         for executor in (original, neutral):
             cpu = executor.cpu
@@ -126,7 +130,9 @@ def main():
             lines.append(f'tick sample={sample} advanced={advanced} active={after[22:29].hex()} backup={after[29:36].hex()} visible={visible}')
             case['ticks'].append(dict(sample=sample, active=after[22:29].hex(), advanced=advanced,
                 visible=visible, descriptor_word=bytes(original.cpu.mem_read(visual + 6, 2)).hex(),
-                instructions=original.instructions))
+                instructions=original.instructions,
+                memory_sha256=sha(bytes(original.cpu.mem_read(0, 1024**2))),
+                registers=[original.cpu.reg_read(r) for r in registers]))
             updates += 1
         lines.append('end samples=12')
     lines.append(f'complete cases={len(seeds)} updates={updates}')

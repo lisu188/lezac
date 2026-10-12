@@ -128,6 +128,36 @@ All runs use dummy audio. The host's disk reserve blocks local game builds,
 DOSBox, and new screenshots. No natural route, rendered-pixel, sound-interrupt,
 or whole-game claim follows from these seeded checks.
 
+## First-Only Seeder Integration
+
+A separate 896-case unmodified-original capture executes the same kind-4 branch
+with both consume glyph boundaries, four current-word flag combinations, seven
+first above-word boundaries, and an empty or eligible second above-word. It
+includes 256 first seeder calls: 128 collapse and 128 debris constructions.
+The eligible second above-word is never seeded. Each case was independently
+repeated with full 1 MiB memory and 14 registers equal between observers.
+No original instruction was patched, no call was stubbed, and hardware I/O was
+forbidden. Raw fixture SHA-256:
+`e0b7ac8a68fae110cbb112c764049335616387495747b0c07cd18ece468c9c3d`.
+
+The application command `--debug-monster-object-seeder-original` restores only
+the ten input bytes for each case and invokes production consumption/seeding.
+It writes all 5,360,768 result bytes for an independent checker: both complete
+terrain planes, queue counts, the first 11-byte debris and 15-byte collapse
+records, scratch/result/request/latch bytes, DS:79C8, and sound-request count.
+No state byte is masked. The complete expected output stream SHA-256 is
+`7ed60f56e6050d1c02c7dd03360f17359306cff1141d5d046b26699743604250`.
+
+DS:79C8 now has an explicit production owner. Successful queue insertion writes
+one, capacity rejection writes zero, and already-flagged words preserve its
+previous value. The seeded branch starts this byte at `0xA5`, so cases that do
+not invoke the seeder distinguish preservation from a guessed boolean result.
+The fixture uses available queue capacity and single distinct-word collapse
+geometry; it does not prove full-capacity or multi-cell seeder integration.
+Actual-App acceptance for this fixture remains unproven until exact-head CI
+executes and the independent complete-byte comparison passes. Python checker
+contract tests establish tooling behavior only, not C++ gameplay parity.
+
 ```text
 raw_prefix_guard_status=failed
 sound_runtime_parity_claim=false
@@ -135,3 +165,73 @@ original_fidelity_claim=false
 port.functionally_complete=false
 whole_game_complete=false
 ```
+
+## Seeder Capacity and Retained Queue Storage
+
+The `370E` seeder's current-head recovery now keeps inactive debris/collapse
+records when the live count is cleared, decremented, or compacted. Live iteration
+still visits only the active prefix, in the existing order. Insertion overwrites
+the next physical record; a rejected insertion leaves it intact. The optional
+caller-owned class byte is written before either capacity check, but flagged-word
+rejection preserves both that byte and `DS:79C8`.
+
+`seeder_capacity_original.bin.gz` contains 448 independently repeated executions
+of the unmodified original, with full 1 MiB memory and 14 registers compared per
+case. Inputs cover seven nonzero word classes, debris counts 199/1599/1600/1601,
+collapse counts 0/249/250/251, and four previous result bytes. Of these, 128 insert,
+128 reject for capacity, and 192 reject flagged words. Both candidate records are
+salted before execution; 640 rejected candidate records retain every byte.
+
+The actual-App diagnostic calls production `queueTileDamage` and serializes both
+complete terrain planes, both counts, the exact pre-call candidate records, the
+result byte and caller-owned class byte. It seeds inputs and salt constants only,
+never expected output. The checker independently compares all 2,675,456 state
+bytes without masks and retains raw output, failure details and executable pins.
+The previous 896-case consume/seeder diagnostic also reads retained records now;
+its original zeroed candidate state is explicitly initialized as fixture input.
+
+Fixture SHA-256 (gzip):
+`4d09cf11c69273c53df39ea8d2649659592022e5d62d4dfb5488f3c4a017b63a`.
+Fixture SHA-256 (raw):
+`403fa355373eb72a5cffa191692836c6c305024d9c21e9cf87bd301c0cfb547e`.
+Expected output SHA-256:
+`8b3a2daab47d116f1ffea0a8f4bc81db13332f335beac706967e743d6a374858`.
+
+Local queue/fixture/checker tests are not actual-App acceptance. Current-head
+Linux/Windows output comparisons and full CI remain separate delivery gates.
+This boundary fixture does not establish complete physical-bank equivalence,
+multi-cell collapse geometry, natural-route behavior, rendered parity, sound
+interrupt parity, or whole-game completion. The zero-word direct caller state
+remains outside this fixture; the existing C++ zero-word guard is unchanged.
+
+## Multi-Cell Seeder Integration
+
+The same actual-App seeder diagnostic now accepts the complete input terrain
+planes for 384 unmodified-original cases: 16 layouts, four low-word boundary
+values and six signed velocity pairs. Layouts include connected edges, diagonal
+expansion, disconnected islands, hollow/irregular regions and a 153-cell block.
+Both available collapse-counter boundaries (0 and 249), two debris counters and
+four previous result bytes are covered. Each original case is independently
+repeated with full 1 MiB memory and 14 registers compared, without instruction
+patches, stubs or hardware I/O.
+
+The existing production geometry owner matches all 1,522,560 recorded word-plane,
+bounding-offset and affected-byte bytes. The cases flag 7,152 cells in total;
+24 cases wrap the byte-sized affected count. Velocity magnitudes include 255
+and 256, retaining the full original word. This owner-only proof is not App
+acceptance: the new App checker must independently compare all 2,293,248 state
+bytes, including both complete terrain planes, both queue counts, both salted
+candidate records and the result/class bytes. The existing capacity protocol is
+retained through the shared diagnostic implementation.
+
+Multi-cell fixture SHA-256 (gzip):
+`1a6982b697f781921c34255dd89137bb577fbe74f8170211e18f878cae6560eb`.
+Multi-cell fixture SHA-256 (raw):
+`a75c151aa445fe8af4980ce55ac96842abc1430a6085547c35c4227726eb94bb`.
+Expected App output SHA-256:
+`f62479bc246f175396365df766ff71bab202a1497569d35153b4d8e06b31954e`.
+
+These seeded boundary cases do not establish complete physical-bank equivalence,
+natural-route or campaign behavior, rendered parity, sound-interrupt parity or
+whole-game completion. Actual-App host comparisons, required full CI, dependency
+delivery and current-head external review remain separate gates.

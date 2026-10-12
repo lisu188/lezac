@@ -94,7 +94,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original)$'
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original|monster_object_seeder_(checker|fixture|original)|retained_record_queue|falling_fragment_seed|seeder_capacity_(checker|fixture|original)|multicell_seeder_(checker|fixture|original)|collapse_retirement_(checker|fixture|original))$'
       - name: Preserve complete fatal-entry diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -104,6 +104,14 @@ jobs:
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
             build/fatal-entry-app/
+            build/monster-object-seeder-app/
+            build/monster-seeder-input-*/fixture.bin.gz
+            build/seeder-capacity-app/
+            build/seeder-capacity-input-*/fixture.bin.gz
+            build/multicell-seeder-app/
+            build/multicell-seeder-input-*/fixture.bin.gz
+            build/collapse-retirement-app/
+            build/collapse-retirement-input-*/fixture.bin.gz
           if-no-files-found: error
       - name: Complete corpse physical storage regressions
         env:
@@ -538,7 +546,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original)$'
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original|monster_object_seeder_(checker|fixture|original)|retained_record_queue|falling_fragment_seed|seeder_capacity_(checker|fixture|original)|multicell_seeder_(checker|fixture|original)|collapse_retirement_(checker|fixture|original))$'
       - name: Preserve complete fatal-entry diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -548,6 +556,14 @@ jobs:
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
             build/fatal-entry-app/
+            build/monster-object-seeder-app/
+            build/monster-seeder-input-*/fixture.bin.gz
+            build/seeder-capacity-app/
+            build/seeder-capacity-input-*/fixture.bin.gz
+            build/multicell-seeder-app/
+            build/multicell-seeder-input-*/fixture.bin.gz
+            build/collapse-retirement-app/
+            build/collapse-retirement-input-*/fixture.bin.gz
           if-no-files-found: error
       - name: Complete corpse physical storage regressions
         env:

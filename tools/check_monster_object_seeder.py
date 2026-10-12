@@ -40,6 +40,7 @@ class SeederFixture(NamedTuple):
     fixture_marker: str
     result_marker: str
     prefix: str
+    packed_limit: int = 128 * 1024
 
     @property
     def record_bytes(self):
@@ -72,7 +73,7 @@ def validate_format(raw, spec=None):
 
 def decode_fixture(packed, spec=None):
     spec = spec or branch_fixture()
-    require(len(packed) < 128 * 1024, 'compressed seeder fixture exceeds limit')
+    require(len(packed) < spec.packed_limit, 'compressed seeder fixture exceeds limit')
     require(sha(packed) == spec.packed_sha, 'compressed seeder fixture hash mismatch')
     with gzip.GzipFile(fileobj=io.BytesIO(packed)) as stream:
         raw = stream.read(6 * 1024**2 + 1)

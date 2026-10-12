@@ -12,6 +12,7 @@
 #include "gameplay/collapse_seed.hpp"
 #include "gameplay/falling_fragment.hpp"
 #include "gameplay/jolly_cloud_rain.hpp"
+#include "gameplay/retained_record_queue.hpp"
 #include "gameplay/monster_damage.hpp"
 #include "gameplay/monster_spawners.hpp"
 #include "ui/models.hpp"
@@ -440,6 +441,26 @@ struct CollapseRecord {
     uint8_t affectedBytes = 0;
     int count = 0;
 };
+
+void appendDebrisRecordBytes(std::vector<uint8_t>& bytes, const DebrisRecord& record) {
+    const auto word = [&](uint16_t value) {
+        bytes.push_back(static_cast<uint8_t>(value)); bytes.push_back(static_cast<uint8_t>(value >> 8));
+    };
+    word(static_cast<uint16_t>(record.tileIndex)); word(record.flaggedWord);
+    bytes.insert(bytes.end(), {static_cast<uint8_t>(record.velocityX), static_cast<uint8_t>(record.velocityY),
+        static_cast<uint8_t>(record.subX), static_cast<uint8_t>(record.subY), record.restTicks, record.lookup, record.aux});
+}
+
+void appendCollapseRecordBytes(std::vector<uint8_t>& bytes, const CollapseRecord& record) {
+    const auto word = [&](uint16_t value) {
+        bytes.push_back(static_cast<uint8_t>(value)); bytes.push_back(static_cast<uint8_t>(value >> 8));
+    };
+    word(record.startOffsetBytes); word(record.endOffsetBytes); word(record.flaggedWord);
+    bytes.insert(bytes.end(), {record.forwardPhase, record.reversePhase,
+        static_cast<uint8_t>(record.subX), static_cast<uint8_t>(record.subY)});
+    word(record.argMagnitude);
+    bytes.insert(bytes.end(), {record.flags, record.restTicks, record.affectedBytes});
+}
 
 struct DamagePhaseLookup {
     int slotIndex = 0;
@@ -7976,7 +7997,8 @@ public:
         lezac::diagnostics::runJollyCloudProbe(std::cin, std::cout, [&](auto& state, bool initial) {
             if (initial) {
                 level_ = std::move(state.level);
-                debrisQueue_ = std::move(state.records);
+                debrisQueue_ = {};
+                for (const auto& record : state.records) debrisQueue_.push_back(record);
                 bonusRainTicks_ = state.remaining;
                 nextCollapseFragmentWord_ = state.nextWord;
                 randomSeed_ = state.seed;
@@ -7993,7 +8015,7 @@ public:
             if (sharedActorCount() != 30 || nextActorOrder_ != 31 || !bonusDrops_.empty())
                 throw std::runtime_error("map rain changed shared actor allocation");
             state.level = level_;
-            state.records = debrisQueue_;
+            state.records.assign(debrisQueue_.begin(), debrisQueue_.end());
             state.remaining = bonusRainTicks_;
             state.nextWord = nextCollapseFragmentWord_;
             state.seed = randomSeed_;
@@ -19252,9 +19274,20 @@ public:
     }
 
     void debugOriginalDebrisUpdate(const std::string& inputPath, const std::string& outputPath,
-                                  bool collapseUpdate = false, bool actorCreation = false) {
+                                  bool collapseUpdate = false, bool actorCreation = false,
+                                  bool retirementStorage = false, bool fractureStorage = false) {
+        namespace storage = lezac::diagnostics::transient_storage;
+        const bool physicalStorage = retirementStorage || fractureStorage;
         if (actorCreation && !collapseUpdate) throw std::runtime_error("actor probe requires collapse update");
+        if (physicalStorage && (!collapseUpdate || actorCreation || (retirementStorage && fractureStorage))) {
+            throw std::runtime_error("retirement storage requires a collapse-only update");
+        }
         load();
+        if (fractureStorage) {
+            initSdl();
+            legacyActorSeedsEnabled_ = false;
+            clockedSoundEnabled_ = false;
+        }
         std::ifstream input(inputPath, std::ios::binary);
         std::ofstream output(outputPath, std::ios::binary);
         if (!input || !output) throw std::runtime_error("cannot open debris update probe files");
@@ -19266,17 +19299,34 @@ public:
             }
             return bytes;
         };
-        const auto header = take(12);
+        const auto header = take(physicalStorage ? 16 : 12);
         if (std::string(header.begin(), header.begin() + 8) !=
-            (actorCreation ? "LZCA0001" : (collapseUpdate ? "LZCU0001" : "LZDU0001"))) {
+            (fractureStorage ? "LZFR0001" : (retirementStorage ? "LZRT0001" : (actorCreation ? "LZCA0001" :
+                (collapseUpdate ? "LZCU0001" : "LZDU0001"))))) {
             throw std::runtime_error("invalid debris update input header");
         }
         const uint32_t cases = le32(header, 8);
         if (cases == 0 || cases > 4096) throw std::runtime_error("invalid debris update case count");
+        if (retirementStorage && (cases != 176 || le32(header, 12) != 12060)) {
+            throw std::runtime_error("invalid retirement storage fixture dimensions");
+        }
+        if (fractureStorage && (cases != 288 || le32(header, 12) != 15334)) {
+            throw std::runtime_error("invalid fracture storage fixture dimensions");
+        }
         auto appendWord = [](std::vector<uint8_t>& bytes, uint16_t value) {
             bytes.push_back(static_cast<uint8_t>(value));
             bytes.push_back(static_cast<uint8_t>(value >> 8));
         };
+        if (physicalStorage) {
+            const std::string magic = fractureStorage ? "LZFO0001" : "LZRO0001";
+            std::vector<uint8_t> outputHeader(magic.begin(), magic.end());
+            appendWord(outputHeader, static_cast<uint16_t>(cases));
+            appendWord(outputHeader, 0);
+            appendWord(outputHeader, fractureStorage ? 7664 : 6027);
+            appendWord(outputHeader, 0);
+            output.write(reinterpret_cast<const char*>(outputHeader.data()),
+                         static_cast<std::streamsize>(outputHeader.size()));
+        }
         // This diagnostic models clean unused slots with visual slots 1/2 reserved.
         // It is not a serializer for opaque bytes inherited from retired actors.
         auto collapseActorBytes = [&](const TransientActor& actor, size_t index) {
@@ -19317,6 +19367,10 @@ public:
                 debrisCount > 1401 || collapseCount > 250) {
                 throw std::runtime_error("invalid debris update dimensions or live counts");
             }
+            if (physicalStorage && (width != 60 || height != 33 || debrisCount != 0 ||
+                                      collapseCount == 0 || collapseCount > (fractureStorage ? 2 : 3))) {
+                throw std::runtime_error("unsupported retirement storage input");
+            }
             resetLevel(0);
             level_.width = width;
             level_.height = height;
@@ -19333,7 +19387,7 @@ public:
                 destroyed_ = le16(parameters, 14);
                 nextCollapseFragmentWord_ = le16(parameters, 16);
             }
-            for (size_t record = 0; record < debrisCount; ++record) {
+            for (size_t record = 0; record < (fractureStorage ? 5 : debrisCount); ++record) {
                 const auto raw = take(11);
                 DebrisRecord value;
                 value.tileIndex = le16(raw, 0);
@@ -19345,9 +19399,10 @@ public:
                 value.restTicks = raw[8];
                 value.lookup = raw[9];
                 value.aux = raw[10];
-                debrisQueue_.push_back(value);
+                if (record < debrisCount) debrisQueue_.push_back(value);
+                else debrisQueue_.retainedSlot(record) = value;
             }
-            for (size_t record = 0; record < collapseCount; ++record) {
+            for (size_t record = 0; record < (physicalStorage ? 5 : collapseCount); ++record) {
                 const auto raw = take(15);
                 CollapseRecord value;
                 value.startOffsetBytes = le16(raw, 0);
@@ -19362,7 +19417,30 @@ public:
                 value.flags = raw[12];
                 value.restTicks = raw[13];
                 value.affectedBytes = raw[14];
-                collapseQueue_.push_back(value);
+                if (record < collapseCount) collapseQueue_.push_back(value);
+                else collapseQueue_.retainedSlot(record) = value;
+            }
+            if (fractureStorage) {
+                const auto seed = storage::readSeed(input);
+                if (seed.visualCount != seed.count + 2 || seed.links[0][15] || seed.actors[0][1] != 1)
+                    throw std::runtime_error("unsupported fracture actor bank");
+                bombs_.clear(); monsters_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear();
+                transientActors_.clear(); pendingActorConversions_.clear();
+                std::array<uint64_t, lezac::gameplay::ActorStorage::capacity + 1> orders{};
+                for (size_t slot = 1; slot <= seed.count; ++slot) orders[slot] = nextActorOrder_++;
+                actorSlots_.restoreForFixture(seed, orders);
+                for (size_t slot = 1; slot <= seed.count; ++slot)
+                    transientActors_.push_back(storage::decode(actorSlots_, orders[slot]));
+                const uint16_t cursor = storage::word(input);
+                const uint8_t priority = storage::byte(input);
+                lezac::sound::SoundLatch latch;
+                latch.currentSelector = storage::byte(input);
+                latch.latchedOffset = storage::word(input);
+                const uint8_t active = storage::byte(input);
+                if (active > 1) throw std::runtime_error("invalid fracture sound active flag");
+                latch.active = active != 0;
+                sound_.restoreRequestForFixture(cursor, priority);
+                sound_.restoreLatchForFixture(latch);
             }
             if (actorCreation) {
                 const size_t actorCount = le16(take(2), 0);
@@ -19389,8 +19467,14 @@ public:
                     transientActors_.push_back(actor);
                 }
             }
+            // Expected fixture bytes are skipped, never installed as application state.
+            if (retirementStorage) take(6027);
+            if (fractureStorage) take(7664);
             if (collapseUpdate) updateCollapseRecords();
             else updateDebrisRecords();
+            if (retirementStorage && (!transientActors_.empty() || !debrisQueue_.empty())) {
+                throw std::runtime_error("retirement fixture unexpectedly created actors or debris");
+            }
             std::vector<uint8_t> result;
             appendWord(result, static_cast<uint16_t>(randomSeed_));
             appendWord(result, static_cast<uint16_t>(randomSeed_ >> 16));
@@ -19402,14 +19486,16 @@ public:
             }
             result.insert(result.end(), level_.tiles.begin(), level_.tiles.end());
             for (uint16_t word : level_.wordLayer) appendWord(result, word);
-            for (const auto& record : debrisQueue_) {
+            for (size_t slot = 0; slot < (fractureStorage ? 5 : debrisQueue_.size()); ++slot) {
+                const auto& record = debrisQueue_.retainedSlot(slot);
                 appendWord(result, static_cast<uint16_t>(record.tileIndex));
                 appendWord(result, record.flaggedWord);
                 result.insert(result.end(), {static_cast<uint8_t>(record.velocityX),
                     static_cast<uint8_t>(record.velocityY), static_cast<uint8_t>(record.subX),
                     static_cast<uint8_t>(record.subY), record.restTicks, record.lookup, record.aux});
             }
-            for (const auto& record : collapseQueue_) {
+            for (size_t slot = 0; slot < (physicalStorage ? 5 : collapseQueue_.size()); ++slot) {
+                const auto& record = collapseQueue_.retainedSlot(slot);
                 appendWord(result, record.startOffsetBytes);
                 appendWord(result, record.endOffsetBytes);
                 appendWord(result, record.flaggedWord);
@@ -19426,11 +19512,39 @@ public:
                 }
             }
             output.write(reinterpret_cast<const char*>(result.data()), static_cast<std::streamsize>(result.size()));
+            if (fractureStorage) {
+                const auto entries = sharedActorEntries();
+                if (entries.size() != actorSlots_.count() || legacyActorAdoptions_ || legacyActorRetirements_)
+                    throw std::runtime_error("fracture diagnostic used legacy actor projection");
+                for (size_t slot = 1; slot <= entries.size(); ++slot)
+                    if (actorSlots_.order(slot) != entries[slot - 1].order)
+                        throw std::runtime_error("fracture actor physical order mismatch");
+                storage::writeState(output, actorSlots_.state());
+                storage::write(output, sound_.requestCursor(), 2);
+                storage::write(output, sound_.requestSelector(), 1);
+                const auto latch = sound_.latch();
+                storage::write(output, latch.currentSelector, 1);
+                storage::write(output, latch.latchedOffset, 2);
+                storage::write(output, latch.active, 1);
+            }
             if (!output) throw std::runtime_error("cannot write debris update output");
         }
         if (input.peek() != std::char_traits<char>::eof()) throw std::runtime_error("trailing debris update input");
         output.flush();
         if (!output) throw std::runtime_error("cannot flush debris update output");
+        if (fractureStorage) {
+            std::cout << "fracture_retirement_app=ok cases=" << cases
+                      << " compared_bytes=" << cases * 7664
+                      << " retained_debris=5 retained_collapse=5 actor_bank_bytes=1575 sound_bytes=7"
+                      << " production_app=1 seeded=1 natural_route=0 whole_game_claim=0\n";
+            return;
+        }
+        if (retirementStorage) {
+            std::cout << "collapse_retirement_app=ok cases=" << cases
+                      << " compared_bytes=" << cases * 6027
+                      << " retained_records=5 production_app=1 seeded=1 natural_route=0 whole_game_claim=0\n";
+            return;
+        }
         std::cout << (actorCreation ? "original_collapse_actors=ok cases=" :
             (collapseUpdate ? "original_collapse_update=ok cases=" : "original_debris_update=ok cases="))
                   << cases << '\n';
@@ -25337,6 +25451,8 @@ public:
             std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
             std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
             debrisQueue_.clear(); collapseQueue_.clear();
+            debrisQueue_.retainedSlot(0) = {};
+            collapseQueue_.retainedSlot(0) = {};
             level_.tiles[762] = 77; level_.tiles[823] = 78;
             level_.tiles[822] = bytes[at]; level_.tiles[883] = bytes[at + 1];
             level_.wordLayer[822] = le16(bytes, at + 2); level_.wordLayer[883] = le16(bytes, at + 4);
@@ -25360,23 +25476,8 @@ public:
             for (const auto value : level_.wordLayer) word(value);
             word(static_cast<uint16_t>(kDebrisRecordIndexBase + debrisQueue_.size()));
             word(static_cast<uint16_t>(collapseQueue_.size()));
-            if (debrisQueue_.empty()) actual.insert(actual.end(), 11, 0);
-            else {
-                const auto& record = debrisQueue_.front();
-                word(static_cast<uint16_t>(record.tileIndex)); word(record.flaggedWord);
-                actual.insert(actual.end(), {static_cast<uint8_t>(record.velocityX),
-                    static_cast<uint8_t>(record.velocityY), static_cast<uint8_t>(record.subX),
-                    static_cast<uint8_t>(record.subY), record.restTicks, record.lookup, record.aux});
-            }
-            if (collapseQueue_.empty()) actual.insert(actual.end(), 15, 0);
-            else {
-                const auto& record = collapseQueue_.front();
-                word(record.startOffsetBytes); word(record.endOffsetBytes); word(record.flaggedWord);
-                actual.insert(actual.end(), {record.forwardPhase, record.reversePhase,
-                    static_cast<uint8_t>(record.subX), static_cast<uint8_t>(record.subY)});
-                word(record.argMagnitude);
-                actual.insert(actual.end(), {record.flags, record.restTicks, record.affectedBytes});
-            }
+            appendDebrisRecordBytes(actual, debrisQueue_.retainedSlot(0));
+            appendCollapseRecordBytes(actual, collapseQueue_.retainedSlot(0));
             actual.push_back(corpseRewardRoll_); word(actorSlots_.state().success);
             actual.push_back(static_cast<uint8_t>(monsterTileDamageDelta_)); word(sound_.requestCursor());
             actual.push_back(sound_.requestSelector());
@@ -25399,6 +25500,108 @@ public:
         std::cout << "monster_object_seeder_app=ok cases=896 compared_bytes=5360768 debris=" << debris
                   << " collapse=" << collapse << " sound_requests=" << requests
                   << " first_only=1 production_app=1 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
+    void debugSeederCapacityOriginal(const std::string& fixturePath, const std::string& outputPath,
+                                     bool multiCell = false) {
+        const auto bytes = readFile(fixturePath);
+        const size_t cases = multiCell ? 384 : 448, inputBytes = multiCell ? 5949 : 7;
+        const size_t recordBytes = inputBytes + 5972;
+        if (bytes.size() != 16 + cases * recordBytes || lezac::diagnostics::level1::fingerprint(bytes) !=
+            (multiCell ? "b3ab8e9851f61e6c" : "ea319976fe272a5b"))
+            throw std::runtime_error("tile seeder fixture bytes changed");
+        load();
+        initSdl();
+        legacyActorSeedsEnabled_ = false;
+        clockedSoundEnabled_ = false;
+        sound_.setRequestAttemptCounting(true);
+        level_ = Level{};
+        level_.width = 60; level_.height = 33;
+        level_.tiles.resize(1980); level_.wordLayer.resize(1980);
+        actorSlots_.resetForLevel(actorSpriteDescriptor(1));
+        std::ofstream output(outputPath, std::ios::binary);
+        if (!output) throw std::runtime_error("cannot open seeder capacity output");
+        output.write(multiCell ? "LZMO0001" : "LZSO0001", 8);
+        for (uint32_t value : {static_cast<uint32_t>(cases), 5972u})
+            for (int shift = 0; shift < 32; shift += 8) output.put(static_cast<char>(value >> shift));
+        std::vector<uint8_t> debrisSalt(11), collapseSalt(15);
+        for (size_t i = 0; i < debrisSalt.size(); ++i) debrisSalt[i] = static_cast<uint8_t>(17 + i * 13);
+        for (size_t i = 0; i < collapseSalt.size(); ++i) collapseSalt[i] = static_cast<uint8_t>(31 + i * 19);
+        DebrisRecord dormantDebris;
+        dormantDebris.tileIndex = le16(debrisSalt, 0); dormantDebris.flaggedWord = le16(debrisSalt, 2);
+        dormantDebris.velocityX = static_cast<int8_t>(debrisSalt[4]);
+        dormantDebris.velocityY = static_cast<int8_t>(debrisSalt[5]);
+        dormantDebris.subX = static_cast<int8_t>(debrisSalt[6]);
+        dormantDebris.subY = static_cast<int8_t>(debrisSalt[7]);
+        dormantDebris.restTicks = debrisSalt[8]; dormantDebris.lookup = debrisSalt[9]; dormantDebris.aux = debrisSalt[10];
+        CollapseRecord dormantCollapse;
+        dormantCollapse.startOffsetBytes = le16(collapseSalt, 0);
+        dormantCollapse.endOffsetBytes = le16(collapseSalt, 2);
+        dormantCollapse.flaggedWord = le16(collapseSalt, 4);
+        dormantCollapse.forwardPhase = collapseSalt[6]; dormantCollapse.reversePhase = collapseSalt[7];
+        dormantCollapse.subX = static_cast<int8_t>(collapseSalt[8]);
+        dormantCollapse.subY = static_cast<int8_t>(collapseSalt[9]);
+        dormantCollapse.argMagnitude = le16(collapseSalt, 10);
+        dormantCollapse.flags = collapseSalt[12]; dormantCollapse.restTicks = collapseSalt[13];
+        dormantCollapse.affectedBytes = collapseSalt[14];
+        size_t accepted = 0, capacityRejected = 0, flagged = 0;
+        for (size_t index = 0; index < cases; ++index) {
+            const size_t at = 16 + index * recordBytes;
+            const uint16_t seed = multiCell ? le16(bytes, at) : 762;
+            const uint16_t debrisCount = le16(bytes, at + (multiCell ? 4 : 2));
+            const uint16_t collapseCount = le16(bytes, at + (multiCell ? 6 : 4));
+            if (seed >= 1980 || debrisCount < kDebrisRecordIndexBase || debrisCount > 1601 || collapseCount > 251)
+                throw std::runtime_error("seeder capacity input exceeds physical bounds");
+            if (multiCell) {
+                std::copy_n(bytes.begin() + at + 9, 1980, level_.tiles.begin());
+                for (size_t cell = 0; cell < level_.wordLayer.size(); ++cell)
+                    level_.wordLayer[cell] = le16(bytes, at + 9 + 1980 + cell * 2);
+            } else {
+                std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+                std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+                level_.tiles[seed] = 77; level_.wordLayer[seed] = le16(bytes, at);
+            }
+            const uint16_t inputWord = level_.wordLayer[seed];
+            debrisQueue_.clear(); collapseQueue_.clear();
+            for (size_t slot = kDebrisRecordIndexBase; slot < debrisCount; ++slot) debrisQueue_.push_back({});
+            for (size_t slot = 0; slot < collapseCount; ++slot) collapseQueue_.push_back({});
+            const size_t debrisCandidate = debrisQueue_.size(), collapseCandidate = collapseQueue_.size();
+            debrisQueue_.retainedSlot(debrisCandidate) = dormantDebris;
+            collapseQueue_.retainedSlot(collapseCandidate) = dormantCollapse;
+            tileSeederResult_ = bytes[at + (multiCell ? 8 : 6)];
+            uint8_t seededClass = 0xa5;
+            sound_.clearRequestAttemptCount(); randomSeed_ = 0x12345678;
+            queueTileDamage(seed % 60, seed / 60, multiCell ? bytes[at + 2] : 0,
+                multiCell ? bytes[at + 3] : 0, true, &seededClass);
+            if (actorSlots_.count() != 0 || randomSeed_ != 0x12345678 || sound_.requestAttemptCount() != 0)
+                throw std::runtime_error("seeder capacity changed unrelated production state");
+            std::vector<uint8_t> actual(level_.tiles.begin(), level_.tiles.end());
+            const auto word = [&](uint16_t value) {
+                actual.push_back(static_cast<uint8_t>(value)); actual.push_back(static_cast<uint8_t>(value >> 8));
+            };
+            for (const auto value : level_.wordLayer) word(value);
+            word(static_cast<uint16_t>(kDebrisRecordIndexBase + debrisQueue_.size()));
+            word(static_cast<uint16_t>(collapseQueue_.size()));
+            appendDebrisRecordBytes(actual, debrisQueue_.retainedSlot(debrisCandidate));
+            appendCollapseRecordBytes(actual, collapseQueue_.retainedSlot(collapseCandidate));
+            actual.push_back(tileSeederResult_); actual.push_back(seededClass);
+            if (actual.size() != 5972) throw std::runtime_error("seeder capacity serialization extent changed");
+            output.write(reinterpret_cast<const char*>(actual.data()), static_cast<std::streamsize>(actual.size()));
+            if (!std::equal(actual.begin(), actual.end(), bytes.begin() + at + inputBytes)) {
+                output.flush();
+                throw std::runtime_error("seeder capacity differs at case " + std::to_string(index));
+            }
+            const bool inserted = debrisQueue_.size() != debrisCandidate || collapseQueue_.size() != collapseCandidate;
+            accepted += inserted;
+            flagged += (inputWord & kDamagedWordBit) != 0;
+            capacityRejected += !inserted && (inputWord & kDamagedWordBit) == 0;
+        }
+        output.flush();
+        if (!output) throw std::runtime_error("cannot finish seeder capacity output");
+        std::cout << (multiCell ? "multicell_seeder_app" : "seeder_capacity_app") << "=ok cases=" << cases
+                  << " compared_bytes=" << cases * 5972 << " accepted=" << accepted
+                  << " capacity_rejected=" << capacityRejected << " flagged=" << flagged
+                  << " inactive_salted=1 production_app=1 seeded=1 natural_route=0 whole_game_claim=0\n";
     }
 
     void debugFatalEntryOriginal(const std::string& requestPath, const std::string& outputPath) {
@@ -27092,8 +27295,8 @@ private:
     std::function<void(const SDL_Event&)> debugPhysicalInputObserver_;
     std::function<void(uint8_t)> debugDeathGateObserver_;
     std::function<void(const char*)> debugReentryBoundaryObserver_;
-    std::vector<DebrisRecord> debrisQueue_;
-    std::vector<CollapseRecord> collapseQueue_;
+    lezac::gameplay::RetainedRecordQueue<DebrisRecord> debrisQueue_;
+    lezac::gameplay::RetainedRecordQueue<CollapseRecord> collapseQueue_;
     uint16_t nextCollapseFragmentWord_ = 0;
     uint8_t bonusRainTicks_ = 0;
     std::vector<uint32_t>& fb_ = canvas_.pixels();
@@ -30516,12 +30719,13 @@ private:
     // Port of seeder 1000:370E for both word classes. The u8 velocity args map
     // to the seeder's vx/vy args ([bp+0xA]/[bp+0x8], stored at record +4/+5).
     void queueTileDamage(int tx, int ty, uint8_t forwardPhase = 0, uint8_t reversePhase = 0,
-                         bool preserveCollapseGlyphs = true) {
+                         bool preserveCollapseGlyphs = true, uint8_t* seededClass = nullptr) {
         if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return;
         size_t start = static_cast<size_t>(ty) * level_.width + tx;
         if (start >= level_.wordLayer.size()) return;
         uint16_t word = level_.wordLayer[start];
         if (word == 0 || (word & kDamagedWordBit) != 0) return;
+        if (seededClass) *seededClass = static_cast<uint8_t>(word >= kDeferredThreshold);
 
         if (word >= kDeferredThreshold) {
             // Debris branch 374C..37F4: flags the word (3770/3780), copies the
@@ -31307,7 +31511,13 @@ private:
             }
             if (moved) record.restTicks = 0;
             ++record.restTicks;
+            // The original commits these bytes before fracture, but not the motion fields.
+            collapseQueue_[slot].flags = record.flags;
+            collapseQueue_[slot].restTicks = record.restTicks;
             const int magnitude = std::abs(vx) + std::abs(vy);
+            sound_.writeSharedCursor(static_cast<uint16_t>(magnitude));  // 1000:555A
+            actorSlots_.setSharedResult(static_cast<uint16_t>(
+                std::abs(static_cast<int>(record.argMagnitude) - magnitude)));  // 1000:556E
             const bool fracture = std::abs(static_cast<int>(record.argMagnitude) - magnitude) > 63;
             if (fracture) {
                 requestSoundOffset(0xea74, 3);
@@ -31315,6 +31525,7 @@ private:
                     level_.wordLayer[static_cast<size_t>(cell)] = nextCollapseFragmentWord_++;
                     level_.tiles[static_cast<size_t>(cell)] = static_cast<uint8_t>(0x47 + (logicTick_ & 2));
                     ++destroyed_;
+                    sound_.writeSharedCursor(static_cast<uint16_t>(cell));  // 1000:501F
                     const auto x = static_cast<uint8_t>(incomingX + randomRangeValue(0, 20) - 10);
                     const auto y = static_cast<uint8_t>(incomingY - randomRangeValue(0, 40));
                     queueTileDamage(cell % width, cell / width, x, y, true);
@@ -31325,19 +31536,22 @@ private:
                 spawnTransientActor((actorCell % width) * 8, (actorCell / width) * 8,
                                     0, 74, 0x0b, 8, ActorAnimation::initialize(74, 79, 2, 1));
             }
+            if (!fracture) {
+                // 1000:5602..5651 commits normal motion before the timer-95 removal.
+                record.startOffsetBytes = static_cast<uint16_t>(first * 2);
+                record.endOffsetBytes = static_cast<uint16_t>(last * 2);
+                record.x = first % width;
+                record.y = first / width;
+                record.forwardPhase = static_cast<uint8_t>(vx);
+                record.reversePhase = static_cast<uint8_t>(vy);
+                record.argMagnitude = static_cast<uint16_t>(magnitude);
+                collapseQueue_[slot] = record;
+            }
             if (fracture || record.restTicks == 95) {
                 for (int cell : cells()) level_.wordLayer[static_cast<size_t>(cell)] &= ~kDamagedWordBit;
                 collapseQueue_.erase(collapseQueue_.begin() + static_cast<std::ptrdiff_t>(slot));
                 continue;
             }
-            record.startOffsetBytes = static_cast<uint16_t>(first * 2);
-            record.endOffsetBytes = static_cast<uint16_t>(last * 2);
-            record.x = first % width;
-            record.y = first / width;
-            record.forwardPhase = static_cast<uint8_t>(vx);
-            record.reversePhase = static_cast<uint8_t>(vy);
-            record.argMagnitude = static_cast<uint16_t>(magnitude);
-            collapseQueue_[slot] = record;
         }
     }
 
@@ -31586,6 +31800,14 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bonus-reward-static-model") {
             app.debugBonusRewardStaticModel();
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-multicell-seeder-original") {
+            app.debugSeederCapacityOriginal(argv[2], argv[3], true);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-seeder-capacity-original") {
+            app.debugSeederCapacityOriginal(argv[2], argv[3]);
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-monster-object-seeder-original") {
@@ -32053,6 +32275,14 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-update") {
             app.debugOriginalDebrisUpdate(argv[2], argv[3], true);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-retirement") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3], true, false, true);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-fracture-retirement") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3], true, false, false, true);
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-actors") {

@@ -19,17 +19,19 @@ FIXTURE = ROOT / 'tests/gameplay/collapse_update_original.bin.gz'
 META = ROOT / 'tests/gameplay/collapse_update_original.json'
 META_SHA = '1eee3a429a6b2fbfca3691b588846a4dab9c61c2b6f5102a1549c328bdfcf99e'
 INITIALIZER_SHA = 'aaef4f5b7b8e4a213d7a9c11a2cc003cddd8026c89bd5cc0ee80006e945aefde'
-CONTRACT = ('if (collapseUpdate) updateCollapseRecords();', 'level_.tiles = take(cells);',
-            'randomSeed_ = le32(parameters, 6);', 'monsters_.clear();',
-            'destroyed_ = le16(parameters, 14);', 'nextCollapseFragmentWord_ = le16(parameters, 16);',
-            'appendWord(result, static_cast<uint16_t>(destroyed_));',
-            'appendWord(result, nextCollapseFragmentWord_);')
+CONTRACT = {'if (collapseUpdate) updateCollapseRecords();': 1,
+            'level_.tiles = take(cells);': 1, 'randomSeed_ = le32(parameters, 6);': 1,
+            'monsters_.clear();': 2,
+            'destroyed_ = le16(parameters, 14);': 1,
+            'nextCollapseFragmentWord_ = le16(parameters, 16);': 1,
+            'appendWord(result, static_cast<uint16_t>(destroyed_));': 1,
+            'appendWord(result, nextCollapseFragmentWord_);': 1}
 
 
 def contract(source):
     first, last = function_ranges(source, ['debugOriginalDebrisUpdate'])['debugOriginalDebrisUpdate']
     body = compact('\n'.join(source.splitlines()[first - 1:last]))
-    if any(body.count(compact(statement)) != 1 for statement in CONTRACT):
+    if any(body.count(compact(statement)) != count for statement, count in CONTRACT.items()):
         raise ValueError('complete collapse production routing differs')
 
 
@@ -124,6 +126,14 @@ def main():
             try: contract(changed)
             except ValueError: continue
             raise ValueError('collapse checker accepted source mutation')
+        clear = 'monsters_.clear();'
+        clear_mutations = [body[:at] + '// ' + body[at:]
+                           for at in (body.index(clear), body.rindex(clear))]
+        clear_mutations.append(body.replace(clear, clear + ' ' + clear, 1))
+        for changed_body in clear_mutations:
+            try: contract(source.replace(body, changed_body))
+            except ValueError: continue
+            raise ValueError('collapse checker accepted clear occurrence mutation')
         original = (ROOT / 'LEZAC.EXE').read_bytes()
         mutations = (('collapse_table_base', 0), ('debris_table_base', 0),
                      ('record_table_initializers_executed', False),
@@ -137,7 +147,7 @@ def main():
             try: verify_initialization(changed, original)
             except ValueError: continue
             raise ValueError('collapse checker accepted initialization mutation: ' + key)
-        print('original_collapse_contract=ok source_mutants=8 initializer_mutants=8 compiled_cpp=0')
+        print('original_collapse_contract=ok source_mutants=8 initializer_mutants=8 compiled_cpp=0 clear_occurrence_mutants=3')
         return
     if args.oracle_only:
         list(records(data))

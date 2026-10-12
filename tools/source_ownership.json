@@ -44,6 +44,7 @@
       "runtime": [
         "src/app/app.cpp",
         "src/diagnostics/corpse_storage_fixture.hpp",
+        "src/diagnostics/fatal_entry_fixture.hpp",
         "src/sound/sdl_audio_output.cpp",
         "src/sound/sdl_audio_output.hpp",
         "src/sound/sound_engine.cpp",
@@ -93,7 +94,10 @@
         "src/gameplay/collapse_seed.hpp",
         "src/gameplay/frame_controls.hpp",
         "src/gameplay/falling_fragment.hpp",
-        "src/gameplay/jolly_cloud_rain.hpp"
+        "src/gameplay/jolly_cloud_rain.hpp",
+        "src/gameplay/monster_damage.hpp",
+        "src/gameplay/monster_spawners.hpp",
+        "src/gameplay/retained_record_queue.hpp"
       ]
     },
     "app": {

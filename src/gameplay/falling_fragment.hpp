@@ -20,7 +20,8 @@ struct DebrisRecord {
     uint8_t aux = 0;           // +A u8: bit 7 = cascade spawned by this move
 };
 
-inline bool seedFallingFragment(resources::Level& level, std::vector<DebrisRecord>& records,
+template <typename Records>
+inline bool seedFallingFragment(resources::Level& level, Records& records,
                                 size_t cell, uint8_t velocityX, uint8_t velocityY) {
     auto& word = level.wordLayer.at(cell);
     if (word < 0x4000 || (word & 0x8000) != 0 || 199 + records.size() >= 1600) return false;

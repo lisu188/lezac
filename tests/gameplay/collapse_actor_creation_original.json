@@ -15,7 +15,7 @@
   "dependency_sha256": {
     "capture_original_collapse_update.py": "f3bcb52b18469a5f0864f4315223e26154b6650095bc5f244853213a9e443ebb",
     "capture_original_debris_update.py": "3d0d105142d2ea57cbce1038531008c8398766b23d8c27f06daded1e535cbcd2",
-    "check_original_collapse_update.py": "984b053ae617df271f192c3dac9d51863124215a1bba3dbc9518d60c60a110bd",
+    "check_original_collapse_update.py": "ac7e10c907bfc7fa3a86ecfc2af75fd8fae1b8463be49ab226a4fef40a5170cc",
     "check_original_debris_update.py": "80c3c7854e103ec5679295b8e4bdf417d06a7d690a6715522dbec3218fcde947",
     "scan_livels_debris_sites.py": "240cb49cac605ac784fdc7c5b3e6e661b0d0dac84085d537a1bada4d08b7c4d7",
     "source_guardrails.py": "ddf90e06a004279c0d4280b7b490b61ea02b2fca442de33299d0fa99ef99e49a"

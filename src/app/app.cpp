@@ -1,8 +1,11 @@
 #include "diagnostics/frame_inspector.hpp"
 #include "diagnostics/monster_animation_fixture.hpp"
 #include "diagnostics/jolly_cloud_probe.hpp"
+#include "diagnostics/transient_storage_fixture.hpp"
+#include "diagnostics/marker_storage_fixture.hpp"
 #include "rendering/game_renderer.hpp"
 #include "gameplay/actor_models.hpp"
+#include "gameplay/actor_slots.hpp"
 #include "gameplay/collapse_seed.hpp"
 #include "gameplay/falling_fragment.hpp"
 #include "gameplay/jolly_cloud_rain.hpp"
@@ -597,6 +600,7 @@ public:
     App() = default;
     App(const App&) = delete;
     App& operator=(const App&) = delete;
+    void enableLegacyActorSeeds() { legacyActorSeedsEnabled_ = true; }
     void debugLevel1Replay(const std::string& routePath, const std::string& outDir, bool originalIntroWait = false,
                            bool captureResultReels = false, bool captureResultTyping = false,
                            uint32_t scoutStartTick = 0) {
@@ -24590,18 +24594,37 @@ public:
                   << std::hex << inspected.hash << std::dec << '\n';
     }
 
-    void debugMonsterAnimationOriginal(const std::string& fixturePath) {
+    void replayMonsterAnimationInApp(const std::string& fixturePath, bool corpse, bool bossDebris) {
         struct AnimationBoundary {};
         struct ResetObserver {
             std::function<void(const ActiveMonster&, bool)>& observer;
             ~ResetObserver() { observer = {}; }
         } reset{debugMonsterAnimationObserver_};
         lezac::diagnostics::replayMonsterAnimationFixture(fixturePath,
-            [&](const ActiveMonster& monster) { monsters_.assign(1, monster); },
+            [&](const ActiveMonster& monster) {
+                auto seeded = monster;
+                if (corpse) {
+                    seeded.kind = bossDebris ? 0x1e : 0x0c;
+                    seeded.behavior = 2;
+                    seeded.bossDebris = bossDebris;
+                    seeded.stateTimer = 400;
+                    seeded.x = 32;
+                    seeded.y = 24;
+                }
+                monsters_.assign(1, seeded);
+            },
             [&](ActiveMonster& state) {
                 bool advanced = false;
                 bool stopped = false;
+                const auto before = monsters_.front();
                 debugMonsterAnimationObserver_ = [&](const ActiveMonster& monster, bool value) {
+                    if (corpse && (monster.kind != before.kind || monster.behavior != 2 ||
+                        monster.bossDebris != bossDebris || monster.stateTimer != before.stateTimer ||
+                        monster.x != before.x || monster.y != before.y ||
+                        monster.vx8 != before.vx8 || monster.vy8 != before.vy8 ||
+                        monster.fracX != before.fracX || monster.fracY != before.fracY)) {
+                        throw std::runtime_error("corpse dispatch preceded animation boundary");
+                    }
                     state = monster;
                     advanced = value;
                     throw AnimationBoundary{};
@@ -24615,6 +24638,16 @@ public:
                 return advanced;
             });
         debugMonsterAnimationObserver_ = {};
+    }
+
+    void debugCorpseAnimationOriginal(const std::string& fixturePath) {
+        prepareMonsterMotionDebugLevel(false);
+        for (bool bossDebris : {false, true}) replayMonsterAnimationInApp(fixturePath, true, bossDebris);
+        std::cout << "corpse_animation_original=ok cases=106 updates=1272 production_app=1 diagnostic_stop_after_prologue=1 normal_corpse=1 boss_debris=1 dispatch_untouched=1 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
+    void debugMonsterAnimationOriginal(const std::string& fixturePath) {
+        replayMonsterAnimationInApp(fixturePath, false, false);
         const auto shipped = loadRawGran("GRAN.MST");
         std::vector<uint8_t> granBytes;
         for (const auto& record : shipped.records) granBytes.insert(granBytes.end(), record.bytes.begin(), record.bytes.end());
@@ -24739,6 +24772,383 @@ public:
         output.flush();
         if (!output) throw std::runtime_error("cannot write pickup post-init output");
         std::cout << "pickup_post_init_probe=ok cases=" << cases << " audio=dummy\n";
+    }
+
+    void debugTransientStorageOriginal(const std::string& requestPath, const std::string& outputPath) {
+        namespace fixture = lezac::diagnostics::transient_storage;
+        load();
+        initSdl();
+        legacyActorSeedsEnabled_ = false;
+        std::ifstream input(requestPath, std::ios::binary);
+        std::ofstream output(outputPath, std::ios::binary);
+        if (!input || !output) throw std::runtime_error("cannot open transient protocol files");
+        const fixture::Header header(input);
+        for (uint16_t sprite = 1; sprite < header.descriptors.size(); ++sprite) {
+            if (actorSpriteDescriptor(sprite) != header.descriptor(sprite))
+                throw std::runtime_error("transient fixture descriptor differs from original assets");
+        }
+        fixture::writeHeader(output, header.operations);
+        size_t seeds = 0, updates = 0, constructors = 0;
+        for (uint32_t operation = 0; operation < header.operations; ++operation) {
+            const auto command = fixture::byte(input);
+            if (command == 'S') {
+                const auto state = fixture::readSeed(input);
+                bombs_.clear(); monsters_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear();
+                transientActors_.clear(); pendingActorConversions_.clear();
+                std::array<uint64_t, lezac::gameplay::ActorStorage::capacity + 1> orders{};
+                for (size_t slot = 1; slot <= state.count; ++slot) orders[slot] = nextActorOrder_++;
+                actorSlots_.restoreForFixture(state, orders);
+                for (size_t slot = 1; slot <= state.count; ++slot)
+                    transientActors_.push_back(fixture::decode(actorSlots_, orders[slot]));
+                ++seeds;
+            } else if (command == 'U') {
+                logicTick_ = fixture::word(input);
+                updateOrderedActors(0);
+                ++updates;
+            } else if (command == 'C') {
+                const fixture::Constructor constructor(input);
+                const auto& values = constructor.input;
+                spawnTransientActor(values.x, values.y, values.vy, static_cast<uint8_t>(values.sprite),
+                    values.kind, values.timer, constructor.animation);
+                ++constructors;
+            } else throw std::runtime_error("unknown transient command");
+            const auto entries = sharedActorEntries();
+            if (entries.size() != actorSlots_.count() || legacyActorAdoptions_ || legacyActorRetirements_)
+                throw std::runtime_error("transient diagnostic used legacy actor projection");
+            for (size_t slot = 1; slot <= entries.size(); ++slot) {
+                if (actorSlots_.order(slot) != entries[slot - 1].order)
+                    throw std::runtime_error("transient production order differs from physical storage");
+            }
+            fixture::writeState(output, actorSlots_.state());
+        }
+        fixture::finish(input, output);
+        std::cout << "transient_storage_original_app=ok operations=" << header.operations
+                  << " seeds=" << seeds << " updates=" << updates << " constructors=" << constructors
+                  << " legacy_adoptions=0 legacy_retirements=0 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
+    void debugMarkerStorageOriginal(const std::string& requestPath, const std::string& outputPath) {
+        namespace fixture = lezac::diagnostics::marker_storage;
+        load();
+        initSdl();
+        legacyActorSeedsEnabled_ = false;
+        std::ifstream input(requestPath, std::ios::binary);
+        std::ofstream output(outputPath, std::ios::binary);
+        if (!input || !output) throw std::runtime_error("cannot open marker protocol files");
+        const fixture::Header header(input);
+        for (uint16_t sprite = 1; sprite < header.descriptors.size(); ++sprite) {
+            if (actorSpriteDescriptor(sprite) != header.descriptor(sprite))
+                throw std::runtime_error("marker fixture descriptor differs from original assets");
+        }
+        fixture::writeHeader(output, header.operations);
+        size_t seeds = 0, updates = 0, launches = 0, portals = 0;
+        for (uint32_t operation = 0; operation < header.operations; ++operation) {
+            const auto command = fixture::byte(input);
+            if (command == 'S') {
+                const auto state = fixture::readSeed(input);
+                bombs_.clear(); monsters_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear();
+                transientActors_.clear(); pendingActorConversions_.clear();
+                std::array<uint64_t, lezac::gameplay::ActorStorage::capacity + 1> orders{};
+                for (size_t slot = 1; slot <= state.count; ++slot) orders[slot] = nextActorOrder_++;
+                actorSlots_.restoreForFixture(state, orders);
+                for (size_t slot = 1; slot <= state.count; ++slot)
+                    launchPadMarkers_.push_back(fixture::decode(actorSlots_, orders[slot]));
+                ++seeds;
+            } else if (command == 'U') {
+                logicTick_ = fixture::word(input);
+                updateOrderedActors(0);
+                ++updates;
+            } else if (command == 'L' || command == 'P') {
+                const fixture::Position position(input);
+                if (command == 'L') { spawnLaunchPadMarker(position.x, position.y); ++launches; }
+                else { spawnPortalMarker(position.x, position.y); ++portals; }
+            } else throw std::runtime_error("unknown marker command");
+            const auto entries = sharedActorEntries();
+            if (entries.size() != actorSlots_.count() || legacyActorAdoptions_ || legacyActorRetirements_)
+                throw std::runtime_error("marker diagnostic used legacy actor projection");
+            for (size_t slot = 1; slot <= entries.size(); ++slot) {
+                if (actorSlots_.order(slot) != entries[slot - 1].order)
+                    throw std::runtime_error("marker production order differs from physical storage");
+            }
+            fixture::writeState(output, actorSlots_.state());
+        }
+        fixture::finish(input, output);
+        std::cout << "marker_storage_original_app=ok operations=" << header.operations
+                  << " seeds=" << seeds << " updates=" << updates << " launches=" << launches << " portals=" << portals
+                  << " legacy_adoptions=0 legacy_retirements=0 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
+    void debugProductionActorLifecycle() {
+        load();
+        initSdl();
+        legacyActorSeedsEnabled_ = false;
+        const ActorAnimation backup{43, 43, 46, 2, 2, 2, -1};
+        auto require = [](bool condition, const char* message) {
+            if (!condition) throw std::runtime_error(message);
+        };
+        auto checkBindings = [&] {
+            const auto entries = sharedActorEntries();
+            require(entries.size() == actorSlots_.count(), "production lifecycle count mismatch");
+            for (size_t index = 0; index < entries.size(); ++index)
+                require(actorSlots_.order(index + 1) == entries[index].order, "production lifecycle order mismatch");
+            require(legacyActorAdoptions_ == 0 && legacyActorRetirements_ == 0,
+                "production lifecycle used legacy seed adapter");
+        };
+        auto room = [&] {
+            resetLevel(0);
+            prepareAutoplayerMonsterFixtureLevel();
+            playerDead_ = player2Dead_ = true;
+            logicTick_ = 101;
+        };
+        using Descriptor = lezac::gameplay::ActorSlots::Descriptor;
+        auto expectedDescriptor = [](const SpriteBank& bank, uint16_t sprite) {
+            uint16_t offset = 0;
+            for (size_t index = 0; index + 1 < sprite; ++index)
+                offset = static_cast<uint16_t>(offset + bank.sprites.at(index).pixels.size());
+            const auto& image = bank.sprites.at(sprite - 1);
+            return Descriptor{static_cast<uint8_t>(image.width), static_cast<uint8_t>(image.height),
+                static_cast<uint8_t>(offset), static_cast<uint8_t>(offset >> 8)};
+        };
+        size_t descriptorChecks = 0;
+        auto checkPhysicalDescriptor = [&](uint64_t order, uint16_t sprite, const Descriptor& expected) {
+            const size_t slot = actorSlots_.find(order);
+            require(slot != 0, "descriptor probe has no physical actor");
+            const auto& raw = actorSlots_.state().actors[slot];
+            const auto& visual = actorSlots_.state().visuals.at(raw[1]);
+            require(std::equal(expected.begin(), expected.end(), visual.begin() + 4),
+                "active sprite bank physical descriptor mismatch");
+            require(raw[20] == (sprite == 31 ? 0 : static_cast<uint8_t>(16 - expected[1])),
+                "active sprite bank physical hotspot mismatch");
+            ++descriptorChecks;
+        };
+        auto checkBank = [&](const SpriteBank& bank, const Descriptor& sprite40, const Descriptor& sprite91) {
+            require(bank.sprites.size() == 91 && expectedDescriptor(bank, 40) == sprite40 &&
+                expectedDescriptor(bank, 91) == sprite91, "shipped sprite bank probe changed");
+            for (uint16_t sprite = 1; sprite <= bank.sprites.size(); ++sprite) {
+                require(actorSpriteDescriptor(sprite) == expectedDescriptor(bank, sprite),
+                    "active sprite bank descriptor lookup mismatch");
+                ++descriptorChecks;
+            }
+            for (size_t row = 0; row < 2; ++row) {
+                const auto expected = expectedDescriptor(bank, 1);
+                require(std::equal(expected.begin(), expected.end(), actorSlots_.state().visuals[row].begin() + 4),
+                    "active sprite bank player descriptor mismatch");
+                ++descriptorChecks;
+            }
+            for (const uint16_t sprite : {uint16_t{31}, uint16_t{40}, uint16_t{91}}) {
+                const uint64_t order = allocateActor({0x0a, 20, 5, sprite, 0, 0, 184, 100});
+                checkPhysicalDescriptor(order, sprite, expectedDescriptor(bank, sprite));
+                retireActor(order);
+            }
+        };
+        room();
+        checkBank(sprites_, {16, 16, 0, 39}, {12, 10, 153, 77});
+        room();
+        auto seeded = actorSlots_.state();
+        const auto bytes = backup.packed();
+        std::copy(bytes.begin(), bytes.end(), seeded.actors[2].begin() + 29);
+        actorSlots_.restoreForFixture(seeded, {});
+        auto* first = spawnTransientActor(184, 100, 0, 69, 0x0a, 1);
+        require(first != nullptr, "production lifecycle first allocation failed");
+        const uint64_t firstOrder = first->actorOrder;
+        auto* second = spawnTransientActor(184, 100, 0, 69, 0x0a, 20);
+        require(second && second->animationBackup.packed() == bytes, "constructor lost inactive backup");
+        const uint64_t secondOrder = second->actorOrder;
+        const auto retainedTail = actorSlots_.state().actors[2];
+        updateOrderedActors(0);
+        require(actorSlots_.count() == 1 && !actorSlots_.find(firstOrder) && actorSlots_.order(1) == secondOrder,
+            "stable production retirement failed");
+        require(actorSlots_.state().actors[2] == retainedTail, "retirement cleared inactive tail");
+        auto* reused = spawnTransientActor(184, 100, 0, 69, 0x0a, 20, {9, 6, 9, 0, 0, 3, 1});
+        require(reused && reused->animationBackup.packed() == bytes, "reallocation lost copied tail backup");
+        updateTransientActor(*reused);
+        require(reused->animation.packed() == bytes && reused->spriteIndex == 42,
+            "production mode3 did not restore inherited backup");
+        checkBindings();
+        while (actorSlots_.count() < 30)
+            require(spawnTransientActor(184, 100, 0, 69, 0x0a, 60) != nullptr, "capacity fill failed");
+        const auto full = actorSlots_.state();
+        const uint64_t nextAtFull = nextActorOrder_;
+        require(spawnTransientActor(184, 100, 0, 69, 0x0a, 60) == nullptr && nextActorOrder_ == nextAtFull,
+            "failed constructor consumed identity");
+        require(actorSlots_.state().actors == full.actors && actorSlots_.state().visuals == full.visuals,
+            "failed constructor changed physical payload");
+        checkBindings();
+        room();
+        auto* resetActor = spawnTransientActor(184, 100, 0, 69, 0x0a, 20);
+        require(resetActor && resetActor->animationBackup.packed() == bytes, "level reset cleared retained backup");
+        checkBindings();
+
+        room();
+        player_.x = 40; player_.y = 16;
+        tileRef(5, 4) = kLaunchPadTile;
+        require(activateLaunchPad(player_, true, 16) && launchPadMarkers_.size() == 1,
+            "launch marker constructor was not reached");
+        checkBindings();
+        launchPadMarkers_.front().timer = 1;
+        updateLaunchPadMarkers();
+        require(actorSlots_.count() == 0, "launch marker did not retire physical slot");
+        tileRef(5, 4) = 0x45; wordRef(5, 4) = 0x8009;
+        level_.portals = {{9, 88, 80, 0}};
+        int portalX = 40, portalY = 16;
+        require(activatePortal(portalX, portalY, true) && launchPadMarkers_.size() == 1 && portalX == 88,
+            "portal marker constructor was not reached");
+        checkBindings();
+        launchPadMarkers_.front().timer = 1;
+        updateLaunchPadMarkers();
+        checkBindings();
+
+        room();
+        spawnBonusDrop(184, 100, BonusType::Present);
+        require(bonusDrops_.size() == 1 && actorSlots_.count() == 1, "reward constructor was not reached");
+        require(actorSlots_.actor(bonusDrops_.front().actorOrder)[0] == 0x13,
+            "reward constructor did not retain original kind19");
+        bonusDrops_.front().timer = 1;
+        updateBonusDrops();
+        require(bonusDrops_.empty() && transientActors_.size() == 1 && actorSlots_.count() == 1,
+            "constructed reward expiry lost physical slot");
+        checkBindings();
+
+        room();
+        player_.x = 184; player_.y = 100;
+        bombInventory_.selected = BombType::Small;
+        bombInventory_.counts[static_cast<size_t>(bombTypeIndex(BombType::Small))] = 1;
+        placeBombAt(player_, bombInventory_, 1);
+        require(bombs_.size() == 1 && actorSlots_.count() == 1, "bomb constructor was not reached");
+        const uint64_t bombOrder = bombs_.front().actorOrder;
+        const auto bombBackup = actorSlots_.animationBackup(bombOrder).packed();
+        bombs_.front().timer = 1; bombs_.front().moving = false;
+        while (actorSlots_.count() < 30) spawnTransientActor(184, 100, 0, 69, 0x0a, 60);
+        const uint64_t nextAtBombConversion = nextActorOrder_;
+        updateBombs();
+        require(bombs_.empty() && actorSlots_.count() == 30 && pendingActorConversions_.empty() &&
+            nextActorOrder_ == nextAtBombConversion && transientActors_.back().actorOrder == bombOrder &&
+            transientActors_.back().animationBackup.packed() == bombBackup,
+            "full-capacity bomb conversion allocated or lost backup");
+        checkBindings();
+
+        room();
+        require(!levels_.front().monsterSpawners.empty(), "shipped spawner fixture missing");
+        auto spawner = levels_.front().monsterSpawners.front();
+        spawner.enabled = 1; spawner.x = 184; spawner.y = 100;
+        level_.monsterSpawners = {spawner};
+        SpawnerState state; state.remaining = 1; state.availableSlots = 1; state.cooldown = 1;
+        spawnerStates_ = {state};
+        updateMonsterSpawners();
+        require(monsters_.size() == 1 && actorSlots_.count() == 1 &&
+            monsters_.front().animationBackup.packed() == actorSlots_.animationBackup(monsters_.front().actorOrder).packed(),
+            "spawner constructor lost physical backup");
+        const uint64_t corpseOrder = monsters_.front().actorOrder;
+        const auto corpseBackup = actorSlots_.animationBackup(corpseOrder).packed();
+        while (actorSlots_.count() < 30) spawnTransientActor(184, 100, 0, 69, 0x0a, 60);
+        enterMonsterDeath(monsters_.front());
+        monsters_.front().stateTimer = 1;
+        randomSeed_ = 0x12345678u;
+        const uint64_t nextAtCorpseConversion = nextActorOrder_;
+        updateMonsters(0, corpseOrder);
+        require(monsters_.empty() && bonusDrops_.size() == 1 && actorSlots_.count() == 30 &&
+            bonusDrops_.front().actorOrder == corpseOrder && nextActorOrder_ == nextAtCorpseConversion,
+            "full-capacity corpse conversion allocated a new slot");
+        bonusDrops_.front().timer = 1;
+        updateBonusDrops();
+        require(bonusDrops_.empty() && actorSlots_.count() == 30 &&
+            transientActors_.back().actorOrder == corpseOrder &&
+            transientActors_.back().animationBackup.packed() == corpseBackup,
+            "reward expiry lost conversion identity or backup");
+        checkBindings();
+
+        resetLevel(6);
+        require(monsters_.size() == 7 && actorSlots_.count() == 7, "boss loader count mismatch");
+        for (const auto& monster : monsters_)
+            require(monster.animationBackup.packed() == actorSlots_.animationBackup(monster.actorOrder).packed(),
+                "boss loader lost copied backup");
+        checkBindings();
+        for (const auto& monster : monsters_)
+            checkPhysicalDescriptor(monster.actorOrder, static_cast<uint16_t>(monster.animFrame + 1),
+                expectedDescriptor(altSprites_, static_cast<uint16_t>(monster.animFrame + 1)));
+        checkBank(altSprites_, {48, 20, 0, 39}, {12, 10, 211, 81});
+        for (size_t row = 0; row < 2; ++row) {
+            const auto expected = expectedDescriptor(altSprites_, 1);
+            require(std::equal(expected.begin(), expected.end(), actorSlots_.state().visuals[row].begin() + 4),
+                "level7 reset selected wrong player descriptor");
+        }
+        for (const uint16_t sprite : {uint16_t{0}, uint16_t{92}}) {
+            bool rejected = false;
+            try { (void)actorSpriteDescriptor(sprite); }
+            catch (const std::out_of_range&) { rejected = true; }
+            require(rejected, "descriptor bounds accepted invalid active-bank index");
+        }
+        room();
+        checkBank(sprites_, {16, 16, 0, 39}, {12, 10, 153, 77});
+        checkBindings();
+        std::cout << "production_actor_lifecycle=ok capacity=30 stable_retirement=1 inactive_backup_inheritance=1 "
+                     "mode3_restore=1 reset_retains_backup=1 full_capacity_conversions=2 constructors=7 "
+                     "production_app=1 legacy_adoptions=0 legacy_retirements=0 seeded=1 natural_route=0 "
+                     "full_raw_record_owner=0 whole_game_claim=0 descriptor_banks=2 descriptor_checks="
+                  << descriptorChecks << " descriptor_reset=1 descriptor_bounds=2\n";
+    }
+
+    void debugCorpseRewardAnimationMode() {
+        load();
+        initSdl();
+        for (const uint8_t mode : std::array<uint8_t, 4>{{0, 1, 2, 3}}) {
+            resetLevel(0);
+            prepareAutoplayerMonsterFixtureLevel();
+            logicTick_ = 101;
+            randomSeed_ = 0x12345678u;
+            ActiveMonster monster;
+            monster.x = 336;
+            monster.y = 124;
+            monster.kind = 0x0c;
+            monster.behavior = 2;
+            monster.hotspotY = 6;
+            monster.animCursor = 8;
+            monster.animStart = 5;
+            monster.animEnd = 8;
+            monster.animTick = 0;
+            monster.animDelay = 0;
+            monster.animMode = mode;
+            monster.animStep = 1;
+            monster.actorOrder = 1;
+            lezac::core::TurboRandom expected(randomSeed_);
+            const auto roll = expected.range(0, 100);
+            const auto soundCursor = static_cast<uint16_t>(0xea74 + expected.range(0, 20));
+            std::array<std::array<int16_t, 2>, 2> particleVelocities{};
+            for (auto& velocity : particleVelocities) {
+                velocity[0] = static_cast<int16_t>(expected.range(0, 600) - 300);
+                velocity[1] = static_cast<int16_t>(expected.range(0, 600) - 300);
+            }
+            if (roll < 40) throw std::runtime_error("corpse animation probe seed produced no reward");
+            clearSoundLatch();
+            finishMonsterDeathReward(monster);
+            if (bonusDrops_.size() != 1 || randomSeed_ != expected.seed()) {
+                throw std::runtime_error("corpse animation probe changed reward or RNG");
+            }
+            if (roll != 59 || bonusDrops_.front().type != BonusType::Present) {
+                throw std::runtime_error("corpse reward selection draw changed");
+            }
+            const auto latch = sound_.latch();
+            if (soundCursor != 0xea7f || !latch.active || latch.latchedOffset != soundCursor ||
+                latch.currentSelector != 4) {
+                throw std::runtime_error("corpse reward sound draw ordering changed");
+            }
+            const std::array<std::array<int16_t, 2>, 2> pinnedVelocities{{{{216, -56}}, {{-211, 99}}}};
+            if (particleVelocities != pinnedVelocities || transientActors_.size() != particleVelocities.size()) {
+                throw std::runtime_error("corpse reward particle fixture changed");
+            }
+            for (size_t particle = 0; particle < particleVelocities.size(); ++particle) {
+                const auto& actual = transientActors_[particle];
+                if (actual.kind != 0x0b || actual.vx8 != particleVelocities[particle][0] ||
+                    actual.vy8 != particleVelocities[particle][1]) {
+                    throw std::runtime_error("corpse reward particle draw ordering changed");
+                }
+            }
+            const std::array<uint8_t, 7> animation{{9, 6, 9, 0, 0, 0, 1}};
+            if (bonusDrops_.front().animation.packed() != animation) {
+                throw std::runtime_error("corpse reward animation mode was not disabled");
+            }
+        }
+        std::cout << "corpse_reward_animation_mode_original=ok cases=4 mode_disabled=1 production_conversion=1 seeded=1 natural_route=0 whole_game_parity=0 rng_observables=6\n";
     }
 
     void debugTransientActorLimits() {
@@ -26203,6 +26613,11 @@ private:
     uint8_t weaponSwitchHoldTicks2_ = 0;
     uint32_t logicTick_ = 0;
     uint64_t nextActorOrder_ = 1;
+    lezac::gameplay::ActorSlots actorSlots_;
+    bool legacyActorSeedsEnabled_ = false;
+    size_t legacyActorAdoptions_ = 0;
+    size_t legacyActorRetirements_ = 0;
+    std::vector<uint64_t> pendingActorConversions_;
     bool orderedActorPass_ = false;
     uint32_t governedRunDeadlineMs_ = 0;
     uint32_t governedRunStartMs_ = 0;
@@ -26315,6 +26730,8 @@ private:
         transientActors_.clear();
         cameraShakeTicks_ = cameraShakeOffset_ = 0;
         nextActorOrder_ = 1;
+        pendingActorConversions_.clear();
+        actorSlots_.resetForLevel(actorSpriteDescriptor(1));
         explosionEffects_.clear();
         flameRecords_.clear();
         debrisQueue_.clear();
@@ -26925,31 +27342,54 @@ private:
         requestLaunchPadSound();
         // 1000:691F..6950 launches and requests sound before the shared
         // constructor can reject the cosmetic marker at its 30-slot limit.
-        if (sharedActorCount() < 30) {
-            LaunchPadMarker marker;
-            marker.x = static_cast<int>(player.x) + 4;
-            marker.y = localY + 13;
-            marker.actorOrder = claimActorOrder();
-            launchPadMarkers_.push_back(marker);
-        }
+        spawnLaunchPadMarker(static_cast<int>(player.x), localY);
         return true;
     }
 
+    void spawnLaunchPadMarker(int playerX, int localY) {
+        LaunchPadMarker marker;
+        marker.x = static_cast<int16_t>(playerX + 4);
+        marker.y = static_cast<int16_t>(localY + 13);
+        marker.actorOrder = allocateActor({marker.kind, marker.timer, marker.mode, marker.frame,
+            marker.velocityX8, marker.velocityY8, static_cast<int16_t>(marker.x), static_cast<int16_t>(marker.y)});
+        if (!marker.actorOrder) return;
+        // 1000:695F clears only mode; the other active/backup bytes survive reuse.
+        actorSlots_.disableAnimation(marker.actorOrder);
+        marker.animation = actorSlots_.activeAnimation(marker.actorOrder);
+        launchPadMarkers_.push_back(marker);
+    }
+
+    void spawnPortalMarker(int x, int y) {
+        LaunchPadMarker marker;
+        marker.x = static_cast<int16_t>(x);
+        marker.y = static_cast<int16_t>(y);
+        marker.velocityY8 = 0;
+        marker.timer = kPortalMarkerTimer;
+        marker.frame = kPortalMarkerFirstFrame;
+        marker.animation = ActorAnimation::initialize(kPortalMarkerFirstFrame,
+            kPortalMarkerLastFrame, kPortalMarkerDelay, 1);
+        marker.actorOrder = allocateActor({marker.kind, marker.timer, marker.mode, marker.frame,
+            marker.velocityX8, marker.velocityY8, static_cast<int16_t>(marker.x), static_cast<int16_t>(marker.y)});
+        if (!marker.actorOrder) return;
+        actorSlots_.setActiveAnimation(marker.actorOrder, marker.animation);
+        launchPadMarkers_.push_back(marker);
+    }
+
     void updateLaunchPadMarkers(uint64_t onlyOrder = 0) {
+        adoptUnorderedActors();
         for (LaunchPadMarker& marker : launchPadMarkers_) {
             if (onlyOrder && marker.actorOrder != onlyOrder) continue;
-            if (marker.animation.advance(marker.animation)) marker.frame = marker.animation.current;
-            if ((logicTick_ & 1u) != 0 && marker.timer > 0) {
-                --marker.timer;
-            }
-            if (marker.timer == 0) continue;
-            integrateAxis8_8(marker.x, marker.fracX, marker.velocityX8);
-            integrateAxis8_8(marker.y, marker.fracY, marker.velocityY8);
+            const bool advanced = lezac::gameplay::advanceLaunchPadMarker(marker,
+                actorSlots_.animationBackup(marker.actorOrder), logicTick_);
+            const auto descriptor = advanced ? actorSpriteDescriptor(marker.frame) : lezac::gameplay::ActorSlots::Descriptor{};
+            actorSlots_.writeMarker(marker.actorOrder, marker, advanced, descriptor);
         }
+        for (const auto& marker : launchPadMarkers_)
+            if ((!onlyOrder || marker.actorOrder == onlyOrder) && marker.timer == 0) retireActor(marker.actorOrder);
         launchPadMarkers_.erase(
             std::remove_if(launchPadMarkers_.begin(), launchPadMarkers_.end(),
-                           [](const LaunchPadMarker& marker) {
-                               return marker.timer == 0;
+                           [onlyOrder](const LaunchPadMarker& marker) {
+                               return (!onlyOrder || marker.actorOrder == onlyOrder) && marker.timer == 0;
                            }),
             launchPadMarkers_.end());
     }
@@ -27334,10 +27774,27 @@ private:
         return entry.order;
     }
 
+    lezac::gameplay::ActorSlots::Descriptor actorSpriteDescriptor(uint16_t sprite) const {
+        const auto& bank = levelIndex_ == 6 ? altSprites_ : sprites_;
+        if (sprite == 0 || sprite > bank.sprites.size()) {
+            if (legacyActorSeedsEnabled_) return {};
+            throw std::out_of_range("actor constructor sprite descriptor");
+        }
+        uint16_t offset = 0;
+        for (size_t index = 0; index + 1 < sprite; ++index) {
+            const auto& previous = bank.sprites[index];
+            offset = static_cast<uint16_t>(offset + previous.width * previous.height);
+        }
+        const auto& image = bank.sprites[sprite - 1];
+        return {static_cast<uint8_t>(image.width), static_cast<uint8_t>(image.height),
+                static_cast<uint8_t>(offset), static_cast<uint8_t>(offset >> 8)};
+    }
+
     void adoptUnorderedActors() {
-        // Directly seeded diagnostics predate shared ordering. Real producers
-        // claim an order at construction; explicit original replays seed it.
-        const auto entries = sharedActorEntries();
+        // This adapter exists only for older explicitly seeded diagnostics.
+        // Interactive play never reconciles physical slots from typed vectors.
+        if (!legacyActorSeedsEnabled_) return;
+        auto entries = sharedActorEntries();
         for (const auto& entry : entries) nextActorOrder_ = std::max(nextActorOrder_, entry.order + 1);
         for (const auto& entry : entries) {
             if (entry.order) continue;
@@ -27350,11 +27807,87 @@ private:
                 case SharedActorKind::Reward: bonusDrops_[entry.index].actorOrder = order; break;
             }
         }
+        entries = sharedActorEntries();
+        for (size_t slot = actorSlots_.count(); slot > 0; --slot) {
+            const uint64_t order = actorSlots_.order(slot);
+            const bool pending = std::find(pendingActorConversions_.begin(), pendingActorConversions_.end(), order) != pendingActorConversions_.end();
+            const bool present = std::any_of(entries.begin(), entries.end(), [order](const SharedActorEntry& entry) { return entry.order == order; });
+            if (!present && !pending) { actorSlots_.retire(order); ++legacyActorRetirements_; }
+        }
+        uint64_t previous = 0;
+        for (const auto& entry : entries) {
+            if (entry.order == previous) throw std::runtime_error("duplicate diagnostic actor identity");
+            previous = entry.order;
+            lezac::gameplay::ActorSlots::Construction input{};
+            ActorAnimation backup{0, 0, 0, 0, 0, 0, 0};
+            bool typedBackup = false;
+            switch (entry.kind) {
+                case SharedActorKind::Effect: {
+                    const auto& actor = transientActors_[entry.index];
+                    input = {actor.kind, actor.timer, 5, static_cast<uint16_t>(actor.spriteIndex + 1), actor.vx8, actor.vy8,
+                        static_cast<int16_t>(actor.x), static_cast<int16_t>(actor.y)};
+                    backup = actor.animationBackup; typedBackup = true; break;
+                }
+                case SharedActorKind::Marker: {
+                    const auto& marker = launchPadMarkers_[entry.index];
+                    input = {marker.kind, marker.timer, marker.mode, marker.frame, marker.velocityX8, marker.velocityY8,
+                        static_cast<int16_t>(marker.x), static_cast<int16_t>(marker.y)}; break;
+                }
+                case SharedActorKind::Bomb: {
+                    const auto& bomb = bombs_[entry.index]; const auto profile = bombProfile(bomb.type);
+                    input = {profile.actorKind, static_cast<uint8_t>((bomb.timer + 1) / 2), 2,
+                        static_cast<uint16_t>(profile.spriteBase + 1), bomb.vx8, bomb.vy8,
+                        static_cast<int16_t>(bomb.pixelX), static_cast<int16_t>(bomb.pixelY)}; break;
+                }
+                case SharedActorKind::Monster: {
+                    const auto& actor = monsters_[entry.index];
+                    input = {actor.kind, static_cast<uint8_t>(actor.stateTimer), actor.behavior,
+                        static_cast<uint16_t>(actor.animFrame + 1), actor.vx8, actor.vy8,
+                        static_cast<int16_t>(actor.x), static_cast<int16_t>(actor.y + actor.hotspotY)};
+                    backup = actor.animationBackup; typedBackup = true; break;
+                }
+                case SharedActorKind::Reward: {
+                    const auto& drop = bonusDrops_[entry.index];
+                    input = {static_cast<uint8_t>(static_cast<uint8_t>(drop.type) + 0x13), drop.timer, 2,
+                        static_cast<uint16_t>(bonusSpriteIndex(drop.type) + 1), drop.vx8, drop.vy8,
+                        static_cast<int16_t>(drop.x), static_cast<int16_t>(drop.y)}; break;
+                }
+            }
+            if (!actorSlots_.find(entry.order)) {
+                if (!actorSlots_.append(entry.order, input, actorSpriteDescriptor(input.sprite)))
+                    throw std::runtime_error("diagnostic actor seed exceeds physical capacity");
+                ++legacyActorAdoptions_;
+            }
+            if (typedBackup && actorSlots_.animationBackup(entry.order).packed() != backup.packed()) {
+                actorSlots_.setAnimationBackup(entry.order, backup);
+                ++legacyActorAdoptions_;
+            }
+        }
     }
 
     uint64_t claimActorOrder() {
+        if (!legacyActorSeedsEnabled_) throw std::runtime_error("unallocated production actor identity");
         adoptUnorderedActors();
         return nextActorOrder_++;
+    }
+
+    uint64_t allocateActor(const lezac::gameplay::ActorSlots::Construction& input) {
+        adoptUnorderedActors();
+        const uint64_t order = nextActorOrder_;
+        const auto descriptor = actorSlots_.count() == 30 ? lezac::gameplay::ActorSlots::Descriptor{} : actorSpriteDescriptor(input.sprite);
+        if (!actorSlots_.append(order, input, descriptor)) return 0;
+        ++nextActorOrder_;
+        return order;
+    }
+
+    void retireActor(uint64_t order) {
+        if (!actorSlots_.retire(order)) throw std::runtime_error("retiring unbound production actor");
+    }
+
+    ActorAnimation conversionBackup(uint64_t order, ActorAnimation legacy = {0, 0, 0, 0, 0, 0, 0}) const {
+        if (actorSlots_.find(order)) return actorSlots_.animationBackup(order);
+        if (legacyActorSeedsEnabled_) return legacy;
+        throw std::runtime_error("converting unbound production actor");
     }
 
     void updateOrderedActors(float dt) {
@@ -27375,7 +27908,10 @@ private:
             switch (entry.kind) {
                 case SharedActorKind::Effect: {
                     updateTransientActor(transientActors_.at(entry.index));
-                    if (!transientActors_[entry.index].timer) transientActors_.erase(transientActors_.begin() + static_cast<std::ptrdiff_t>(entry.index));
+                    if (!transientActors_[entry.index].timer) {
+                        retireActor(entry.order);
+                        transientActors_.erase(transientActors_.begin() + static_cast<std::ptrdiff_t>(entry.index));
+                    }
                     break;
                 }
                 case SharedActorKind::Marker: updateLaunchPadMarkers(entry.order); break;
@@ -27386,11 +27922,9 @@ private:
         }
     }
 
-    size_t sharedActorCount() const {
-        const auto liveMonsters = std::count_if(monsters_.begin(), monsters_.end(),
-            [](const ActiveMonster& monster) { return monster.alive; });
-        return static_cast<size_t>(liveMonsters) + bombs_.size() + bonusDrops_.size() +
-               launchPadMarkers_.size() + transientActors_.size();
+    size_t sharedActorCount() {
+        adoptUnorderedActors();
+        return actorSlots_.count();
     }
 
     void updateCameraShake() {
@@ -27409,7 +27943,6 @@ private:
                              uint8_t kind, uint8_t timer,
                              ActorAnimation animation = {0, 0, 0, 0, 0, 0, 1}) {
         // 1000:2F9F has one 30-slot pool for non-player actors.
-        if (sharedActorCount() >= 30) return nullptr;
         TransientActor actor;
         actor.x = x;
         actor.y = y;
@@ -27417,27 +27950,31 @@ private:
         actor.kind = kind;
         actor.timer = timer;
         actor.spriteIndex = static_cast<uint8_t>(sprite - 1);
-        actor.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(actor.spriteIndex).height);
         actor.animation = animation;
-        actor.actorOrder = claimActorOrder();
+        actor.actorOrder = allocateActor({kind, timer, 5, sprite, 0, vy8,
+            static_cast<int16_t>(x), static_cast<int16_t>(y)});
+        if (!actor.actorOrder) return nullptr;
+        actor.hotspotY = actorSlots_.actor(actor.actorOrder)[20];
+        actor.animationBackup = actorSlots_.animationBackup(actor.actorOrder);
+        actorSlots_.writeTransient(actor.actorOrder, actor, false, {});
         transientActors_.push_back(actor);
         return &transientActors_.back();
     }
 
     void updateTransientActor(TransientActor& actor) {
-        if (actor.animation.advance(actor.animationBackup)) {
-            actor.spriteIndex = static_cast<uint8_t>(actor.animation.current - 1);
+        const bool advanced = lezac::gameplay::advanceTransientActor(actor, logicTick_);
+        if (!actorSlots_.find(actor.actorOrder)) {
+            if (legacyActorSeedsEnabled_) return;
+            throw std::runtime_error("updating unbound production transient");
         }
-        // 1000:65A2..65D7 bypasses collision/gravity and deletes before
-        // integration when the byte reaches zero, not on animation wrap.
-        actor.timer = static_cast<uint8_t>(actor.timer - (logicTick_ & 1u));
-        if (actor.timer == 0) return;
-        integrateAxis8_8(actor.y, actor.fracY, actor.vy8);
-        integrateAxis8_8(actor.x, actor.fracX, actor.vx8);
+        actorSlots_.writeTransient(actor.actorOrder, actor, advanced,
+            advanced ? actorSpriteDescriptor(static_cast<uint16_t>(actor.spriteIndex) + 1) : lezac::gameplay::ActorSlots::Descriptor{});
     }
 
     void updateTransientActors() {
+        adoptUnorderedActors();
         for (auto& actor : transientActors_) updateTransientActor(actor);
+        for (const auto& actor : transientActors_) if (actor.timer == 0) retireActor(actor.actorOrder);
         transientActors_.erase(std::remove_if(transientActors_.begin(), transientActors_.end(),
             [](const TransientActor& actor) { return actor.timer == 0; }), transientActors_.end());
     }
@@ -27521,18 +28058,7 @@ private:
             x = portal.x;
             y = portal.y;
             requestPortalTeleportSound();
-            if (sharedActorCount() < 30) {
-                LaunchPadMarker marker;
-                marker.x = x;
-                marker.y = y;
-                marker.velocityY8 = 0;
-                marker.timer = kPortalMarkerTimer;
-                marker.frame = kPortalMarkerFirstFrame;
-                marker.animation = ActorAnimation::initialize(kPortalMarkerFirstFrame,
-                    kPortalMarkerLastFrame, kPortalMarkerDelay, 1);
-                marker.actorOrder = claimActorOrder();
-                launchPadMarkers_.push_back(marker);
-            }
+            spawnPortalMarker(x, y);
             return true;
         }
         return false;
@@ -28023,7 +28549,12 @@ private:
                 actor.linkC = record[0x10];
                 actor.hp = 255;
             }
-            actor.actorOrder = claimActorOrder();
+            actor.actorOrder = allocateActor({actor.kind, record[2], actor.behavior, entrySprite,
+                static_cast<int16_t>(record[6] | (record[7] << 8)),
+                static_cast<int16_t>(record[8] | (record[9] << 8)),
+                static_cast<int16_t>(actor.x), static_cast<int16_t>(actor.y)});
+            if (!actor.actorOrder) throw std::runtime_error("boss loader exceeds physical actor capacity");
+            actorSlots_.setAnimationBackup(actor.actorOrder, actor.animationBackup);
             actor.bossVisualOrder = firstBossVisualOrder + entryOrder;
             monsters_.push_back(actor);
         }
@@ -28337,7 +28868,11 @@ private:
             // member (capture: 2/2 spawns show 44).
             monster.animTick = monster.animDelay;
             initializeMonsterMotion(monster);
-            monster.actorOrder = claimActorOrder();
+            monster.actorOrder = allocateActor({monster.kind, static_cast<uint8_t>(monster.stateTimer), monster.behavior,
+                static_cast<uint16_t>(monster.animFrame + 1), monster.vx8, monster.vy8,
+                static_cast<int16_t>(monster.x), static_cast<int16_t>(monster.y + monster.hotspotY)});
+            if (!monster.actorOrder) throw std::runtime_error("spawner allocation disagrees with capacity");
+            monster.animationBackup = actorSlots_.animationBackup(monster.actorOrder);
             monsters_.push_back(monster);
             --state.remaining;
             --state.availableSlots;
@@ -28358,9 +28893,13 @@ private:
     }
 
     void updateMonsters(float dt, uint64_t onlyOrder = 0) {
+        adoptUnorderedActors();
         for (ActiveMonster& monster : monsters_) {
             if (onlyOrder && monster.actorOrder != onlyOrder) continue;
             if (!monster.alive) continue;
+            // 1000:6078..615A precedes behavior dispatch, including corpses.
+            const bool animationAdvanced = lezac::gameplay::advanceMonsterAnimation(monster);
+            if (debugMonsterAnimationObserver_) debugMonsterAnimationObserver_(monster, animationAdvanced);
             if (monster.behavior == 2) {
                 if (monster.bossDebris) {
                     updateTimedActorMotion(monster.x, monster.y, monster.vx8, monster.vy8,
@@ -28392,16 +28931,13 @@ private:
                     if (monster.deathRewardPending) {
                         finishMonsterDeathReward(monster);
                         monster.deathRewardPending = false;
-                    }
+                    } else retireActor(monster.actorOrder);
                     releaseMonsterSlot(monster);
                 }
                 continue;
             }
             const int damageColumn = (monster.x + 4) >> 3;
             const int damageRow = monster.y >> 3;
-            const bool animationAdvanced = lezac::gameplay::advanceMonsterAnimation(monster);
-            if (debugMonsterAnimationObserver_) debugMonsterAnimationObserver_(monster, animationAdvanced);
-
             // Rank 5: the player-contact test runs BEFORE the tile scan and
             // the motion update (contact at 1000:63C6..63F0, scan from
             // 1000:655B), i.e. from the PRE-motion position. monster.y is the
@@ -29041,16 +29577,18 @@ private:
         // First update is on the frame after construction. Encode the
         // odd-frame byte countdown as remaining game ticks.
         int timer = profile.fuseTicks - static_cast<int>((logicTick_ + 1) & 1u);
-        const uint64_t actorOrder = claimActorOrder();
-        bombs_.push_back({tx, ty, timer, inventory.selected, profile.fuseTicks, owner});
-        Bomb& bomb = bombs_.back();
-        bomb.actorOrder = actorOrder;
+        Bomb bomb{tx, ty, timer, inventory.selected, profile.fuseTicks, owner};
         bomb.pixelX = static_cast<int>(player.x);
         bomb.pixelY = static_cast<int>(player.y);
         // 6C2B..6C41 wraps the multiply/subtraction before signed division.
         bomb.vx8 = clampConstructedActorVelocity8(static_cast<int16_t>(3 * player.vx8) / 2);
         bomb.vy8 = clampConstructedActorVelocity8(static_cast<int16_t>(player.vy8 - 500));
         bomb.moving = true;
+        bomb.actorOrder = allocateActor({profile.actorKind, static_cast<uint8_t>(profile.fuseTicks / 2), 2,
+            static_cast<uint16_t>(profile.spriteBase + 1), bomb.vx8, bomb.vy8,
+            static_cast<int16_t>(bomb.pixelX), static_cast<int16_t>(bomb.pixelY)});
+        if (!bomb.actorOrder) throw std::runtime_error("bomb allocation disagrees with capacity");
+        bombs_.push_back(bomb);
         requestBombPlaceSound();
         --inventory.counts[static_cast<size_t>(bombTypeIndex(inventory.selected))];
         inventory.hudDirty = 1;
@@ -29113,11 +29651,15 @@ private:
     }
 
     void updateBombs(uint64_t onlyOrder = 0) {
+        adoptUnorderedActors();
         std::vector<Bomb> expired;
         for (Bomb& b : bombs_) {
             if (onlyOrder && b.actorOrder != onlyOrder) continue;
             updateBombMotion(b);
-            if (--b.timer <= 0) expired.push_back(b);
+            if (--b.timer <= 0) {
+                expired.push_back(b);
+                pendingActorConversions_.push_back(b.actorOrder);
+            }
         }
         bombs_.erase(std::remove_if(bombs_.begin(), bombs_.end(),
                                     [onlyOrder](const Bomb& b) { return b.timer <= 0 && (!onlyOrder || b.actorOrder == onlyOrder); }),
@@ -29126,6 +29668,9 @@ private:
         for (const Bomb& b : expired) {
             if (levelResetGeneration_ != generation) break;
             explode(b);
+            const auto pending = std::find(pendingActorConversions_.begin(), pendingActorConversions_.end(), b.actorOrder);
+            if (pending == pendingActorConversions_.end()) throw std::runtime_error("missing bomb conversion reservation");
+            pendingActorConversions_.erase(pending);
         }
     }
 
@@ -29484,6 +30029,7 @@ private:
         fade.animation = ActorAnimation::initialize(69, 79, 2, 1);
         fade.actorOrder = bomb.actorOrder;
         fade.bossVisualOrder = bomb.bossVisualOrder;
+        fade.animationBackup = conversionBackup(bomb.actorOrder);
         transientActors_.push_back(fade);
         spawnExpiryParticles(bomb.pixelX, bomb.pixelY, bombTypeIndex(bomb.type) + 2);
     }
@@ -29597,12 +30143,15 @@ private:
     }
 
     void spawnBonusDrop(float x, float y, BonusType type) {
+        if (sharedActorCount() >= 30) return;
         BonusDrop drop;
         drop.x = x;
         drop.y = y;
         drop.type = type;
         drop.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(bonusSpriteIndex(type)).height);
-        drop.actorOrder = claimActorOrder();
+        drop.actorOrder = allocateActor({static_cast<uint8_t>(static_cast<uint8_t>(type) + 0x13), drop.timer, 2,
+            static_cast<uint16_t>(bonusSpriteIndex(type) + 1), 0, 0, static_cast<int16_t>(x), static_cast<int16_t>(y)});
+        if (!drop.actorOrder) throw std::runtime_error("reward allocation disagrees with capacity");
         bonusDrops_.push_back(drop);
     }
 
@@ -29636,11 +30185,11 @@ private:
             reward.vy8 = static_cast<int16_t>(monster.vy8 - 200);
             reward.fracX = monster.fracX;
             reward.fracY = monster.fracY;
-            // 1000:760D changes the descriptor/kind without reinitializing +16h..1Ch.
+            // The conversion preserves cursor/counters, but 1000:76E6 clears mode.
             reward.animation = {static_cast<uint8_t>(monster.animCursor + 1),
                 static_cast<uint8_t>(monster.animStart + 1), static_cast<uint8_t>(monster.animEnd + 1),
                 static_cast<uint8_t>(monster.animTick), static_cast<uint8_t>(monster.animDelay),
-                static_cast<uint8_t>(monster.animMode), static_cast<int8_t>(monster.animStep)};
+                0, static_cast<int8_t>(monster.animStep)};
             bonusDrops_.push_back(reward);
         } else {
             // 1000:760D converts the existing corpse in place, even at full
@@ -29655,6 +30204,7 @@ private:
             fade.spriteIndex = 68;
             fade.animation = ActorAnimation::initialize(69, 79, 2, 1);
             fade.actorOrder = monster.actorOrder;
+            fade.animationBackup = conversionBackup(monster.actorOrder, monster.animationBackup);
             transientActors_.push_back(fade);
         }
 
@@ -29677,6 +30227,7 @@ private:
     }
 
     void updateBonusDrops(size_t initialDrops = std::numeric_limits<size_t>::max(), uint64_t onlyOrder = 0) {
+        adoptUnorderedActors();
         initialDrops = std::min(initialDrops, bonusDrops_.size());
         for (size_t i = 0; i < initialDrops && i < bonusDrops_.size(); ++i) {
             BonusDrop& drop = bonusDrops_[i];
@@ -29720,6 +30271,7 @@ private:
                 marker.actorOrder = drop.actorOrder;
                 marker.animation = drop.animation;
                 marker.animation.mode = 0;
+                marker.animationBackup = conversionBackup(drop.actorOrder);
                 transientActors_.push_back(marker);
                 drop.collected = true;
                 continue;
@@ -29745,6 +30297,7 @@ private:
                 fade.spriteIndex = 73;
                 fade.animation = ActorAnimation::initialize(74, 79, 2, 1);
                 fade.actorOrder = moving.actorOrder;
+                fade.animationBackup = conversionBackup(moving.actorOrder);
                 transientActors_.push_back(fade);
             }
         }
@@ -30383,6 +30936,12 @@ private:
 int lezac::app::runApplication(int argc, char** argv) {
     try {
         App app;
+        // Direct seeded records in historical diagnostics are not constructors.
+        // The lifecycle regression below explicitly disables this adapter.
+        if (argc > 1 && (std::string(argv[1]).rfind("--debug-", 0) == 0 ||
+            std::string(argv[1]).rfind("--replay-", 0) == 0 ||
+            std::string(argv[1]) == "--capture-frame-sequence" || std::string(argv[1]) == "--smoke-controls"))
+            app.enableLegacyActorSeeds();
         if (argc > 1 && (std::string(argv[1]) == "--replay-level1" ||
                          std::string(argv[1]) == "--replay-level1-scout")) {
             const bool scout = std::string(argv[1]) == "--replay-level1-scout";
@@ -30665,6 +31224,18 @@ int lezac::app::runApplication(int argc, char** argv) {
             app.debugOriginalState2AnimationAdvance();
             return 0;
         }
+        if (argc == 4 && std::string(argv[1]) == "--debug-transient-storage-original") {
+            app.debugTransientStorageOriginal(argv[2], argv[3]);
+            return 0;
+        }
+        if (argc == 4 && std::string(argv[1]) == "--debug-marker-storage-original") {
+            app.debugMarkerStorageOriginal(argv[2], argv[3]);
+            return 0;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--debug-production-actor-lifecycle") {
+            app.debugProductionActorLifecycle();
+            return 0;
+        }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-transient-animation-backup") {
             app.debugOriginalTransientAnimationBackup();
             return 0;
@@ -30874,6 +31445,10 @@ int lezac::app::runApplication(int argc, char** argv) {
             app.debugTransientActorLimits();
             return 0;
         }
+        if (argc == 2 && std::string(argv[1]) == "--debug-original-corpse-reward-animation-mode") {
+            app.debugCorpseRewardAnimationMode();
+            return 0;
+        }
         if (argc > 2 && std::string(argv[1]) == "--debug-pickup-landing-original") {
             app.debugPickupLandingOriginal(argv[2]);
             return 0;
@@ -30884,6 +31459,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-monster-animation-original") {
             app.debugMonsterAnimationOriginal(argv[2]);
+            return 0;
+        }
+        if (argc == 3 && std::string(argv[1]) == "--debug-corpse-animation-original") {
+            app.debugCorpseAnimationOriginal(argv[2]);
             return 0;
         }
         if (argc == 3 && std::string(argv[1]) == "--debug-natural-bomb-visual-original") {

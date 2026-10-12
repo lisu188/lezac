@@ -1,0 +1,50 @@
+{
+  "bounded-validation-source.py": {
+    "bytes": 3485,
+    "sha256": "bf1124908695b9f8574d4e675b7f5d1392e507d7f79703a3585bc454e01faeee"
+  },
+  "bounded-validation.json": {
+    "bytes": 2046,
+    "sha256": "93913e6bce238cd3305fd83af7577fbc98484772f9c688c00077cb32c462a6ed"
+  },
+  "compiled-mutants-source.py": {
+    "bytes": 6336,
+    "sha256": "f073070af5152a435b18fef8cfedf9726d8a44f2c7e5729be294268917276ace"
+  },
+  "compiled-mutants.json": {
+    "bytes": 17976,
+    "sha256": "64d15dc24e3ff4b321dac465dd3d40ec7ecda54d506a64a519210ce43b0d0fff"
+  },
+  "delivery-validation-source.py": {
+    "bytes": 6242,
+    "sha256": "386fd6842c8c10c0455d262ed5f52ac18c15a9bf3d55472c1fa8505935067ce9"
+  },
+  "delivery-validation.json": {
+    "bytes": 9458,
+    "sha256": "226a11009961b393ec1e580e5c4abb3b3b676a9c357e16fd30679ce09694aea2"
+  },
+  "native-producer.py": {
+    "bytes": 16873,
+    "sha256": "dda8c3dfcf628e0c543c529c3452b266550e5fddce0f1545f453576ee4248434"
+  },
+  "native-validation.json": {
+    "bytes": 2347,
+    "sha256": "1058f48c359f6f5b6fc9b8a12029aa02669ab40eced43aa844f43bc187c81d6f"
+  },
+  "native-validator.py": {
+    "bytes": 17610,
+    "sha256": "5b7348a4137feb335a0ce2c7e70a56725ccf7fcd7a30a09627edd3b3e7bd4a27"
+  },
+  "original.json.gz": {
+    "compressed_bytes": 258649,
+    "compressed_sha256": "64819f14476c062ea354e4152419e8a8a70d538a5ac7ae693a9c57740ae3fa63",
+    "raw_bytes": 3464840,
+    "raw_sha256": "d7902c5253e46e698c0f258939d0c95a477ee9ba5902663fa74cf3dde65a2464"
+  },
+  "repeat.json.gz": {
+    "compressed_bytes": 258649,
+    "compressed_sha256": "d43efd4532cceaed263417868486c32d0b980e9ac08aa504e0047b5b7e7d02e4",
+    "raw_bytes": 3464840,
+    "raw_sha256": "90e10f7562eb8701d541491956e03c5b0f361247c7c09c07a540499ce2fe7d43"
+  }
+}

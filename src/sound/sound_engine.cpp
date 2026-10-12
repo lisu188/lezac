@@ -135,6 +135,7 @@ size_t SoundEngine::soundIndexForOffsetFallback(uint16_t offset, uint8_t selecto
 }
 
 bool SoundEngine::latchSoundRequest(uint16_t cursor, uint8_t selector) {
+    if (countRequestAttempts_) ++requestAttemptCount_;
     requestCursor_ = cursor;
     requestSelector_ = selector;
     // Original byte DEC followed by CMP/JGE compares signed byte values.

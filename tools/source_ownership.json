@@ -93,7 +93,9 @@
         "src/gameplay/collapse_seed.hpp",
         "src/gameplay/frame_controls.hpp",
         "src/gameplay/falling_fragment.hpp",
-        "src/gameplay/jolly_cloud_rain.hpp"
+        "src/gameplay/jolly_cloud_rain.hpp",
+        "src/gameplay/monster_damage.hpp",
+        "src/gameplay/monster_spawners.hpp"
       ]
     },
     "app": {

@@ -187,6 +187,20 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "governed_loop=ok cadence=1 rollover=1 cap_boundaries=4 stop_boundaries=3 quit_boundaries=2 exceptions=2 stats_reset=1")
 
+    add_executable(lezac_sound_shared_cursor_test tests/sound/sound_shared_cursor_test.cpp
+        src/sound/sound_engine.cpp src/resources/binary.cpp)
+    target_include_directories(lezac_sound_shared_cursor_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME sound_shared_cursor COMMAND lezac_sound_shared_cursor_test)
+    set_tests_properties(sound_shared_cursor PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^sound_shared_cursor=ok priority_cases=131072 scratch_writes=131072 rejected_requests_counted=1 default_counting=0 opt_in_bounded=1 original_runtime_claim=0")
+    add_executable(lezac_timed_seed_isolation_test tests/gameplay/timed_seed_isolation_test.cpp)
+    target_include_directories(lezac_timed_seed_isolation_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME timed_seed_isolation
+        COMMAND lezac_timed_seed_isolation_test ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/timed_actor_writeback_original.bin)
+    set_tests_properties(timed_seed_isolation PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^timed_seed_isolation=ok cases=1184 corpse_cases=592 raw_timer_boundaries=1 production_storage=1 full_app=0")
     add_executable(lezac_clocked_sound_test tests/sound/clocked_sound_test.cpp
         src/sound/sound_engine.cpp)
     target_link_libraries(lezac_clocked_sound_test PRIVATE lezac_resources)
@@ -263,6 +277,9 @@ if(BUILD_TESTING)
     target_include_directories(lezac_marker_storage_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_executable(lezac_reward_storage_probe tests/gameplay/reward_storage_probe.cpp)
     target_include_directories(lezac_reward_storage_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_executable(lezac_corpse_storage_probe tests/gameplay/corpse_storage_probe.cpp
+        src/sound/sound_engine.cpp src/resources/binary.cpp)
+    target_include_directories(lezac_corpse_storage_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME actor_slots_binding_contract COMMAND lezac_actor_slots_test)
     set_tests_properties(actor_slots_binding_contract PROPERTIES
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"
@@ -527,6 +544,35 @@ if(BUILD_TESTING)
         add_test(NAME reward_storage_tools_contract
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_reward_storage_checker.py -v)
         set_tests_properties(reward_storage_tools_contract PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
+        foreach(corpse_target IN ITEMS helper app)
+            if(corpse_target STREQUAL "app")
+                set(corpse_exe $<TARGET_FILE:lezac_cpp>)
+                set(corpse_app_flag --production-app)
+            else()
+                set(corpse_exe $<TARGET_FILE:lezac_corpse_storage_probe>)
+                set(corpse_app_flag)
+            endif()
+            add_test(NAME corpse_storage_${corpse_target}_original
+                COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_corpse_storage_original.py
+                    --exe ${corpse_exe} ${corpse_app_flag}
+                    --out ${CMAKE_CURRENT_BINARY_DIR}/corpse-storage-checks)
+            set_tests_properties(corpse_storage_${corpse_target}_original PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 60
+                PASS_REGULAR_EXPRESSION "^corpse_storage_original=ok operations=3252 compared_bytes=5180436")
+            add_test(NAME corpse_storage_${corpse_target}_protocol
+                COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_corpse_storage_protocol.py
+                    --exe ${corpse_exe} ${corpse_app_flag}
+                    --out ${CMAKE_CURRENT_BINARY_DIR}/corpse-storage-checks)
+            set_tests_properties(corpse_storage_${corpse_target}_protocol PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 60
+                PASS_REGULAR_EXPRESSION "^corpse_storage_protocol=ok rejected=36")
+        endforeach()
+        add_test(NAME corpse_storage_tools_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_corpse_storage_checker.py -v)
+        set_tests_properties(corpse_storage_tools_contract PROPERTIES
             ENVIRONMENT "SDL_AUDIODRIVER=dummy" TIMEOUT 30)
         add_test(NAME actor_storage_core_original
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_storage_core.py
@@ -3650,8 +3696,9 @@ if(BUILD_TESTING)
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-death-sound)
     set_tests_properties(monster_death_sound PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION
-            "^monster_death_sound=ok cursor=0x003d priority=12 direct_sweep=0 state=2 death_timer_initialized=50 reward_pending=1 reward_spawned=0 pumped=1 ghidra=1000:5c9e latch=1000:165a")
+            "^monster_death_sound=ok cursor=0x003d priority=12 direct_sweep=0 state=2 death_timer_initialized=50 reward_pending=1 reward_spawned=0 pumped=1 ghidra=1000:5c9e latch=1000:165a generic_corpse_request=0 boss_chain_request=1")
 
     add_test(NAME bomb_object_sound
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-object-sound)
@@ -5207,7 +5254,7 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION
-            "^monster_tile_damage=ok cases=1312 production_updates=1312 kinds=1..8 impact=552 fatal=96 post_motion_only=96 health_byte=36 position_velocity_fraction_rng_health_animation_descriptor=1 seeded_original=1 natural_route_claim=0 visual_claim=0")
+            "^monster_tile_damage=ok cases=1312 production_updates=1312 kinds=1..8 impact=552 fatal=96 post_motion_only=96 health_byte=36 position_velocity_fraction_rng_health_animation_descriptor=1 seeded_original=1 natural_route_claim=0 visual_claim=0 tile_sound_request=0 latch_profiles=3 scratch_aliases=3 request_attempts=0")
 
     add_test(NAME monster_tile_damage_fixture
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_tile_damage_fixture.py)
@@ -5241,6 +5288,64 @@ if(BUILD_TESTING)
     set_tests_properties(monster_tile_damage_capture_self_check PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "monster_tile_damage_self_check=ok cases=1312 kinds=1..8 glyphs=8 footprint_masks=16 profiles=4 live=0")
+
+    add_executable(spawner_storage_test tests/spawner_storage_test.cpp)
+    target_link_libraries(spawner_storage_test PRIVATE lezac_resources)
+    add_test(NAME spawner_storage COMMAND spawner_storage_test)
+    set_tests_properties(spawner_storage PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^spawner_storage=ok roundtrips=7680 releases=2304 ticks=24576 invalid_sources=10")
+
+    add_executable(monster_object_consume_test tests/monster_object_consume_test.cpp)
+    target_include_directories(monster_object_consume_test PRIVATE src)
+    add_test(NAME monster_object_consume_original COMMAND monster_object_consume_test
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_object_consume_original.bin)
+    set_tests_properties(monster_object_consume_original PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^monster_object_consume_original=ok cases=6400 glyphs=256 word_boundaries=5 above_boundaries=5 cursor_wrap=1")
+
+    add_test(NAME monster_object_branch_original COMMAND lezac_cpp --debug-monster-object-branch-original
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_object_branch_original.bin)
+    set_tests_properties(monster_object_branch_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^monster_object_branch_original=ok cases=1024 compared_bytes=18432 production_app=1 first_seeder_gate=0 sound_requests_checked=1 seeded=1 natural_route=0 whole_game_claim=0")
+
+    add_test(NAME fatal_entry_checker
+        COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_fatal_entry_checker.py)
+    set_tests_properties(fatal_entry_checker PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+
+    add_test(NAME fatal_entry_fixture
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_fatal_entry_original.py)
+    set_tests_properties(fatal_entry_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^fatal_entry_fixture=ok cases=1152 operations=3456 state_bytes=1864")
+
+    add_test(NAME fatal_entry_original
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_fatal_entry_original.py
+                --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/fatal-entry-app)
+    set_tests_properties(fatal_entry_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^fatal_entry_original=ok operations=3456 compared_bytes=6441984 production_app=1 masks=0 seeded=1 natural_route=0 whole_game_claim=0")
+
+    add_test(NAME spawner_construction_fixture
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_spawner_construction_storage.py)
+    set_tests_properties(spawner_construction_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^spawner_construction_fixture=ok cases=1620 bytes=6055944")
+
+    add_test(NAME spawner_construction_storage_original
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_spawner_construction_storage.py
+                --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(spawner_construction_storage_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 180
+        PASS_REGULAR_EXPRESSION "^spawner_construction_storage=ok cases=1620 successful=720 physical_storage_bytes=2551500 physical_spawner_bytes=437400 rng_and_roll_bytes=8100 sound_requests=0 legacy_adoptions=0 legacy_retirements=0 production_app=1 raw_spawner_bank=1 seeded=1 natural_route=0 whole_game_claim=0")
 
     add_test(NAME shipped_monster_profiles_original
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-shipped-monster-profiles

@@ -20,7 +20,7 @@ def source_contract(source):
         'damageLaneData_[0x0a07] = history[2]; }')
     if diagnostic.count(ingest) != 1:
         raise ValueError('history input routing differs')
-    if diagnostic.index(ingest) > diagnostic.index(compact('if (fractureStorage) take(fractureStateBytes);')):
+    if diagnostic.index(ingest) > diagnostic.index(compact('if (fractureStorage && !collapseLaneHistory) take(fractureStateBytes);')):
         raise ValueError('history input not consumed before expected bytes')
     cli = compact('if (argc > 3 && std::string(argv[1]) == "--debug-original-damage-lane-history") {'
         'app.debugOriginalDebrisUpdate(argv[2], argv[3], true, false, false, true, true, true); return 0; }')

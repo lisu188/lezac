@@ -19251,12 +19251,16 @@ public:
     void debugOriginalDebrisUpdate(const std::string& inputPath, const std::string& outputPath,
                                   bool collapseUpdate = false, bool actorCreation = false,
                                   bool retirementStorage = false, bool fractureStorage = false,
-                                  bool physicalDebrisUpdate = false, bool laneHistory = false) {
+                                  bool physicalDebrisUpdate = false, bool laneHistory = false,
+                                  bool collapseLaneHistory = false) {
         namespace storage = lezac::diagnostics::transient_storage;
         const bool physicalStorage = retirementStorage || fractureStorage;
         if (actorCreation && !collapseUpdate) throw std::runtime_error("actor probe requires collapse update");
         if (physicalStorage && (!collapseUpdate || actorCreation || (retirementStorage && fractureStorage))) {
             throw std::runtime_error("retirement storage requires a collapse-only update");
+        }
+        if (collapseLaneHistory && (!fractureStorage || !laneHistory || physicalDebrisUpdate)) {
+            throw std::runtime_error("collapse lane history requires an input-only collapse update");
         }
         load();
         if (fractureStorage) {
@@ -19278,8 +19282,10 @@ public:
         const auto header = take(physicalStorage ? 16 : 12);
         const bool completeFracturePools = fractureStorage &&
             (std::string(header.begin(), header.begin() + 8) == "LZFC0001" ||
-             (laneHistory && std::string(header.begin(), header.begin() + 8) == "LZDH0001"));
-        if (laneHistory && !physicalDebrisUpdate) throw std::runtime_error("lane history requires physical debris update");
+             (laneHistory && std::string(header.begin(), header.begin() + 8) ==
+                (collapseLaneHistory ? "LZCI0001" : "LZDH0001")));
+        if (laneHistory && !physicalDebrisUpdate && !collapseLaneHistory)
+            throw std::runtime_error("lane history requires physical debris update");
         if (physicalDebrisUpdate && !completeFracturePools) {
             throw std::runtime_error("physical debris update requires complete fracture pools");
         }
@@ -19287,7 +19293,7 @@ public:
         const size_t physicalCollapseRecords = completeFracturePools ? 251 : 5;
         const size_t fractureStateBytes = completeFracturePools ? (laneHistory ? 26724 : 26721) : 7664;
         if (std::string(header.begin(), header.begin() + 8) !=
-            (fractureStorage ? (completeFracturePools ? (laneHistory ? "LZDH0001" : "LZFC0001") : "LZFR0001") : (retirementStorage ? "LZRT0001" : (actorCreation ? "LZCA0001" :
+            (fractureStorage ? (completeFracturePools ? (laneHistory ? (collapseLaneHistory ? "LZCI0001" : "LZDH0001") : "LZFC0001") : "LZFR0001") : (retirementStorage ? "LZRT0001" : (actorCreation ? "LZCA0001" :
                 (collapseUpdate ? "LZCU0001" : "LZDU0001"))))) {
             throw std::runtime_error("invalid debris update input header");
         }
@@ -19296,8 +19302,8 @@ public:
         if (retirementStorage && (cases != 176 || le32(header, 12) != 12060)) {
             throw std::runtime_error("invalid retirement storage fixture dimensions");
         }
-        if (fractureStorage && (cases != (completeFracturePools ? (laneHistory ? 112 : 96) : 288) ||
-                               le32(header, 12) != (completeFracturePools ? (laneHistory ? 53454 : 53448) : 15334))) {
+        if (fractureStorage && (cases != (completeFracturePools ? (laneHistory && !collapseLaneHistory ? 112 : 96) : 288) ||
+                               le32(header, 12) != (completeFracturePools ? (collapseLaneHistory ? 26730 : laneHistory ? 53454 : 53448) : 15334))) {
             throw std::runtime_error("invalid fracture storage fixture dimensions");
         }
         auto appendWord = [](std::vector<uint8_t>& bytes, uint16_t value) {
@@ -19305,7 +19311,7 @@ public:
             bytes.push_back(static_cast<uint8_t>(value >> 8));
         };
         if (physicalStorage) {
-            const std::string magic = fractureStorage ? (completeFracturePools ? (laneHistory ? "LZDO0001" : "LZFP0001") : "LZFO0001") : "LZRO0001";
+            const std::string magic = fractureStorage ? (completeFracturePools ? (laneHistory ? (collapseLaneHistory ? "LZCO0001" : "LZDO0001") : "LZFP0001") : "LZFO0001") : "LZRO0001";
             std::vector<uint8_t> outputHeader(magic.begin(), magic.end());
             appendWord(outputHeader, static_cast<uint16_t>(cases));
             appendWord(outputHeader, 0);
@@ -19456,15 +19462,15 @@ public:
                     transientActors_.push_back(actor);
                 }
             }
-            // Expected fixture bytes are skipped, never installed as application state.
             if (laneHistory) {
                 const auto history = take(3);
                 damageLaneData_[0x661e] = history[0];
                 damageLaneData_[0x0a06] = history[1];
                 damageLaneData_[0x0a07] = history[2];
             }
+            // The input-only collapse history mode never receives expected state.
             if (retirementStorage) take(6027);
-            if (fractureStorage) take(fractureStateBytes);
+            if (fractureStorage && !collapseLaneHistory) take(fractureStateBytes);
             if (physicalDebrisUpdate || !collapseUpdate) updateDebrisRecords();
             else if (collapseUpdate) updateCollapseRecords();
             if (retirementStorage && (!transientActors_.empty() || !debrisQueue_.empty())) {
@@ -19533,7 +19539,7 @@ public:
         output.flush();
         if (!output) throw std::runtime_error("cannot flush debris update output");
         if (fractureStorage) {
-            std::cout << (laneHistory ? "damage_lane_history_app=ok cases=" : physicalDebrisUpdate ? "debris_contact_pools_app=ok cases=" :
+            std::cout << (collapseLaneHistory ? "collapse_lane_history_app=ok cases=" : laneHistory ? "damage_lane_history_app=ok cases=" : physicalDebrisUpdate ? "debris_contact_pools_app=ok cases=" :
                           (completeFracturePools ? "fracture_capacity_app=ok cases=" : "fracture_retirement_app=ok cases=")) << cases
                       << " compared_bytes=" << cases * fractureStateBytes
                       << " retained_debris=" << physicalDebrisRecords << " retained_collapse=" << physicalCollapseRecords
@@ -30847,8 +30853,7 @@ private:
             flameRecords_, sound_, tileSeederResult_, lanes);
     }
 
-    lezac::gameplay::DamageLaneSeed seedDamageLaneContact(uint16_t cell) {
-        uint8_t seededClass = 0;
+    lezac::gameplay::DamageLaneSeed seedDamageLaneContact(uint16_t cell, uint8_t& seededClass) {
         queueTileDamage(cell % level_.width, cell / level_.width, 0, 0, true, &seededClass);
         if (tileSeederResult_ == 0) return lezac::gameplay::DamageLaneSeed::Failed;
         return seededClass ? lezac::gameplay::DamageLaneSeed::Debris : lezac::gameplay::DamageLaneSeed::Collapse;
@@ -30862,8 +30867,9 @@ private:
         auto memory = damageLaneMemory({&vx, &subX, &vy, &subY});
         lezac::gameplay::writeDamageLaneWord(memory, 0x2078, 1);
         lezac::gameplay::writeDamageLaneWord(memory, 0x659a, static_cast<uint16_t>(target * 2));
+        uint8_t seededClass = 0;
         lezac::gameplay::blendDamageLaneBytes(memory, reverse ? 0x78d4 : 0x78d2, 1, reverse,
-            [&](uint16_t cell) { return seedDamageLaneContact(cell); });
+            [&](uint16_t cell) { return seedDamageLaneContact(cell, seededClass); });
     }
 
     void explode(const Bomb& bomb) {
@@ -31394,8 +31400,10 @@ private:
                 static_cast<uint16_t>(contacts[index].cell * 2));
         }
         // The collapse caller passes SS:BP-0B / SS:BP-0C, not a DS address.
+        // The helper's SS seed-class local survives every contact in this call.
+        uint8_t seededClass = 0;
         const auto phase = lezac::gameplay::blendDamageLaneValue(memory, static_cast<uint8_t>(velocity),
-            ownWeight, reverse, [&](uint16_t cell) { return seedDamageLaneContact(cell); });
+            ownWeight, reverse, [&](uint16_t cell) { return seedDamageLaneContact(cell, seededClass); });
         if (phase) velocity = lezac::gameplay::damageLaneSignedByte(*phase);
     }
 
@@ -31439,11 +31447,14 @@ private:
             };
             auto scan = [&](int delta, bool collectContacts = false) {
                 Scan result;
+                // 4D3C/4E48 own the scratch phase also read by damage helpers.
+                damageLaneData_[0x661e] = 0;
                 for (int cell : cells()) {
                     const int target = cell + delta;
                     const uint16_t word = mapWord(target);
                     if (mapTile(target) == 0 || word == record.flaggedWord) continue;
                     result.blocked = true;
+                    damageLaneData_[0x661e] = 1;
                     result.firstColumn = std::min(result.firstColumn, target % width);
                     result.lastColumn = std::max(result.lastColumn, target % width);
                     if (collectContacts && word != 0 && std::none_of(result.contacts.begin(), result.contacts.end(),
@@ -32316,6 +32327,11 @@ int lezac::app::runApplication(int argc, char** argv) {
         if (argc > 3 && std::string(argv[1]) == "--debug-original-damage-lane-history") {
             app.debugOriginalDebrisUpdate(argv[2], argv[3],
                 true, false, false, true, true, true);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-lane-history") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3],
+                true, false, false, true, false, true, true);
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-actors") {

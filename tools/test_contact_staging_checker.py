@@ -56,8 +56,11 @@ def source_contract(source):
     impact = compact(body(source, 'blendDebrisImpactLane'))
     stage = compact('writeContactWordGuardAlias(0, word);')
     gate = compact('lezac::gameplay::blendDamageLaneBytes(memory, reverse ? 0x78d4 : 0x78d2, 1, reverse,')
-    callback = compact('[&](uint16_t cell) { return seedDamageLaneContact(cell); }')
-    if impact.count(stage) != 1 or impact.count(gate) != 1 or impact.count(callback) != 1 or impact.index(stage) > impact.index(gate):
+    lifetime = compact('uint8_t seededClass = 0;')
+    callback = compact('[&](uint16_t cell) { return seedDamageLaneContact(cell, seededClass); }')
+    if (impact.count(stage) != 1 or impact.count(gate) != 1 or impact.count(callback) != 1
+            or impact.count(lifetime) != 1 or impact.index(stage) > impact.index(lifetime)
+            or impact.index(lifetime) > impact.index(gate)):
         raise ValueError('single-target staging is not before seeder admission')
 
 
@@ -151,6 +154,14 @@ class ContactTests(unittest.TestCase):
                          ('writeContactWordGuardAlias(0, word);', '')):
             with self.assertRaises(ValueError):
                 source_contract(source.replace(old, new, 1))
+        impact = body(source, 'blendDebrisImpactLane')
+        for old, new in (('uint8_t seededClass = 0;', ''),
+                         ('seedDamageLaneContact(cell, seededClass)', 'seedDamageLaneContact(cell)'),
+                         ('seedDamageLaneContact(cell, seededClass)',
+                          'seededClass = 0; return seedDamageLaneContact(cell, seededClass)')):
+            self.assertEqual(impact.count(old), 1)
+            with self.subTest(seed_class_mutation=old), self.assertRaises(ValueError):
+                source_contract(source.replace(impact, impact.replace(old, new, 1), 1))
 
     def invoke(self, root, spec, offset=None, bad_marker=False):
         expected = spec.output_magic + struct.pack('<II', spec.cases, spec.state_bytes) + bytes(spec.state_bytes * 2)

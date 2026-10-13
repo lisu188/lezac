@@ -5512,10 +5512,12 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_startup_map_memory.py)
     add_test(NAME startup_map_checker COMMAND ${Python3_EXECUTABLE} -S -B
         ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_startup_map_memory.py --self-check)
+    add_test(NAME startup_map_rerun COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_startup_map_rerun.py)
     add_test(NAME startup_map_original COMMAND ${Python3_EXECUTABLE} -S -B
         ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_startup_map_memory.py --exe $<TARGET_FILE:lezac_cpp>
         --out ${CMAKE_CURRENT_BINARY_DIR}/startup_map_original_out)
-    set_tests_properties(map_allocation_state_unit startup_map_fixture startup_map_checker startup_map_original
+    set_tests_properties(map_allocation_state_unit startup_map_fixture startup_map_checker startup_map_rerun startup_map_original
         PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1" TIMEOUT 180)
     set_tests_properties(startup_map_original PROPERTIES

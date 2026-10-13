@@ -9,6 +9,7 @@ from pathlib import Path
 import struct
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / 'tests/fixtures/startup_map_original'
@@ -121,8 +122,8 @@ def self_check(metadata, packed, windows):
 
 
 def replay(exe, out, windows):
-    require(not out.exists(), 'startup map output already exists')
-    out.mkdir(parents=True)
+    out.mkdir(parents=True, exist_ok=True)
+    out = Path(tempfile.mkdtemp(prefix='run-', dir=out))
     env = dict(os.environ, SDL_AUDIODRIVER='dummy', SDL_VIDEODRIVER='dummy', PYTHONDONTWRITEBYTECODE='1',
                LEZAC_LOAD_ORIGINAL_ASSETS='1', LEZAC_LOAD_JSON_ASSETS='0')
     results = []

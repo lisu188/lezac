@@ -5435,6 +5435,18 @@ if(BUILD_TESTING)
     set_tests_properties(wrapped_debris_capture_adapter PROPERTIES
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
 
+    add_test(NAME wrapped_debris_fixture COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_wrapped_debris.py)
+    add_test(NAME wrapped_debris_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_wrapped_debris.py --self-check)
+    add_test(NAME wrapped_debris_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_wrapped_debris.py --exe $<TARGET_FILE:lezac_cpp>
+        --out ${CMAKE_CURRENT_BINARY_DIR}/wrapped-debris-app)
+    set_tests_properties(wrapped_debris_fixture wrapped_debris_checker wrapped_debris_original PROPERTIES
+        TIMEOUT 180 ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(wrapped_debris_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^wrapped_debris_original=ok scenes=2 compared_bytes=315592 masks=0 production_app=1 natural_route=0 whole_game_claim=0")
+
     add_executable(lezac_collapse_removal_test tests/gameplay/collapse_removal_test.cpp)
     target_include_directories(lezac_collapse_removal_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME collapse_removal_unit COMMAND lezac_collapse_removal_test)

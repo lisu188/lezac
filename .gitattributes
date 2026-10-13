@@ -121,3 +121,6 @@ tests/gameplay/collapse_removal_original.bin.gz -text
 tests/gameplay/outside_map_seeding_original.json -text
 tests/gameplay/outside_map_seeding_original.bin.gz -text
 tests/gameplay/outside_map_seeding_events.json.gz -text
+tests/gameplay/wrapped_debris_original.json -text
+tests/gameplay/wrapped_debris_original.bin.gz -text
+tests/gameplay/wrapped_debris_events.json.gz -text

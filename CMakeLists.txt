@@ -4875,7 +4875,7 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION "^original_collapse_contract=ok source_mutants=8 initializer_mutants=8 compiled_cpp=0")
 
     add_test(NAME original_debris_update
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_update.py
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_dispatch.py
                 --exe $<TARGET_FILE:lezac_cpp>)
     set_tests_properties(original_debris_update PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -4883,7 +4883,7 @@ if(BUILD_TESTING)
         TIMEOUT 120
         PASS_REGULAR_EXPRESSION "^original_debris_update=ok cases=1061 native_crosschecks=18 output_mutants=1 natural_gameplay=0 sound_claim=0")
     add_test(NAME original_debris_update_contract
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_update.py --self-check)
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_dispatch.py --self-check)
     set_tests_properties(original_debris_update_contract PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^original_debris_contract=ok source_mutants=6 compiled_cpp=0")
@@ -4947,6 +4947,51 @@ if(BUILD_TESTING)
     set_tests_properties(collapse_support_history_fixture collapse_support_history_checker collapse_support_history_original
         PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
     set_tests_properties(collapse_support_history_original PROPERTIES TIMEOUT 120)
+    add_test(NAME collapse_continuity_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_continuity.py)
+    add_test(NAME collapse_continuity_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_continuity.py --self-check)
+    add_test(NAME collapse_continuity_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_continuity.py
+                --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-continuity-app)
+    set_tests_properties(collapse_continuity_fixture collapse_continuity_checker collapse_continuity_original
+        PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(collapse_continuity_original PROPERTIES TIMEOUT 240)
+    add_test(NAME collapse_continuous_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_continuous.py)
+    add_test(NAME collapse_continuous_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_continuous.py --self-check)
+    add_test(NAME collapse_continuous_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_continuous.py
+                --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-continuous-app)
+    set_tests_properties(collapse_continuous_fixture collapse_continuous_checker collapse_continuous_original
+        PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(collapse_continuous_original PROPERTIES TIMEOUT 240)
+    foreach(mode continuity continuous)
+        add_test(NAME collapse_contact_${mode}_fixture
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_${mode}.py
+                    --profile contact-continuity)
+        add_test(NAME collapse_contact_${mode}_checker
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_${mode}.py
+                    --profile contact-continuity --self-check)
+        add_test(NAME collapse_contact_${mode}_original
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_${mode}.py
+                    --profile contact-continuity --exe $<TARGET_FILE:lezac_cpp>
+                    --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-contact-${mode}-app)
+        set_tests_properties(collapse_contact_${mode}_fixture collapse_contact_${mode}_checker collapse_contact_${mode}_original
+            PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+        set_tests_properties(collapse_contact_${mode}_original PROPERTIES TIMEOUT 240)
+    endforeach()
+    add_test(NAME physics_dispatch_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_physics_dispatch.py)
+    add_test(NAME physics_dispatch_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_physics_dispatch.py --self-check)
+    add_test(NAME physics_dispatch_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_physics_dispatch.py
+                --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/physics-dispatch-app)
+    set_tests_properties(physics_dispatch_fixture physics_dispatch_checker physics_dispatch_original
+        PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(physics_dispatch_original PROPERTIES TIMEOUT 240)
     add_test(NAME collapse_support_transport_contract
         COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_support_transport.py
                 --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-support-transport)
@@ -6616,6 +6661,12 @@ if(BUILD_TESTING)
         set_tests_properties(review_history_repair_contracts PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 30 LABELS "review;regression;source-contract")
+        add_test(NAME collapse_capture_failure_retention
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_collapse_capture_failure.py)
+        set_tests_properties(collapse_capture_failure_retention PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+            TIMEOUT 30 LABELS "review;regression;capture;evidence-retention")
         add_test(NAME level1_handoff_guard
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_handoff.py guard)
         set_tests_properties(level1_handoff_guard PROPERTIES

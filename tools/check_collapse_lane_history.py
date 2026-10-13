@@ -30,6 +30,18 @@ PROFILES = {
         metadata_sha256='a822125d99a78815dc4e7f1c831c01423858132285d3352d1002ce3332e59844',
         producer='capture_original_collapse_support_history.py',
         groups={'centered': 24, 'left-edge': 24, 'right-edge': 24, 'none': 24}),
+    'continuity': dict(schema='lezac.collapse-continuity.v1',
+        fixture=ROOT / 'tests/gameplay/collapse_continuity_original.bin.gz',
+        metadata=ROOT / 'tests/gameplay/collapse_continuity_original.json',
+        metadata_sha256='91e5e17404251bcef67f8f07f82aad73299ce06d1e4aa259e794705ae0ed940d',
+        producer='capture_original_collapse_continuity.py', cases=768,
+        groups={'active_update': 712, 'empty_queue_skip': 56}),
+    'contact-continuity': dict(schema='lezac.collapse-contact-continuity.v1',
+        fixture=ROOT / 'tests/gameplay/collapse_contact_continuity_original.bin.gz',
+        metadata=ROOT / 'tests/gameplay/collapse_contact_continuity_original.json',
+        metadata_sha256='cb1ed75c0f6e6c2dcb629dec769c131fd3ce16c5879940f4a2cb3e85e2d4a40e',
+        producer='capture_original_collapse_contact_continuity_legacy.py', cases=768,
+        groups={'active_update': 768}),
 }
 
 
@@ -46,14 +58,27 @@ def profile(data):
 
 def validate_metadata(data):
     name, spec = profile(data)
-    required = dict(schema=spec['schema'], passed=True, cases=CASES, groups=spec['groups'],
+    required = dict(schema=spec['schema'], passed=True, cases=spec.get('cases', CASES), groups=spec['groups'],
         input_bytes=INPUT, state_bytes=STATE, observer_neutrality_memory_bytes=1024**2,
-        observer_neutrality_registers=14, poison_variants_per_case=3, stack_poison_address=0x8fed2,
-        observable_stack_poison_independence=True, original_calls_stubbed=False,
+        observer_neutrality_registers=14, original_calls_stubbed=False,
         original_instructions_patched=False, hardware_io_permitted=False, full_collapse_update=True,
         actual_app_executed=False, seeded=True, natural_route=False,
         first_seed_stack_history_generally_proven=False, original_fidelity_claim=False,
         whole_game_complete=False)
+    if name in ('continuity', 'contact-continuity'):
+        required.update(initial_scenes=96, boundaries_per_scene=8,
+            continuous_original_image=True, serialized_state_sufficient_for_observed_sequence=True,
+            original_caller_empty_queue_gate='1000:8060-806A', original_caller_gate_hex='833e8020007603e898d0',
+            continuous_app_execution_proven=False, masks=0)
+        if name == 'continuity':
+            required['initial_calls_match_support_fixture'] = True
+        else:
+            required.update(initial_calls_match_lane_fixture=True, initial_live_collapse_records=2,
+                initial_scene_groups={'debris': 36, 'collapse': 12, 'alternating': 36, 'collapse-group': 12},
+                original_visits={'0x15102': 768, '0x1370e': 1269, '0x1566c': 18, '0x1557b': 102})
+    else:
+        required.update(poison_variants_per_case=3, stack_poison_address=0x8fed2,
+                        observable_stack_poison_independence=True)
     if name == 'support':
         required.update(widths=[2, 3, 6, 7], heights=[1, 3], horizontal_velocities=[-15, 0, 15],
             initial_live_collapse_records=1, final_phases={'0': 68, '1': 28},
@@ -79,8 +104,12 @@ def metadata(name='lane'):
                       (ROOT / 'tools/capture_original_contact_staging.py', 'staging_sha256'),
                       (ROOT / 'tools/capture_original_fracture_retirement.py', 'reader_sha256'),
                       (ROOT / 'tools' / spec['producer'], 'producer_sha256')]
-    if name == 'support':
+    if name in ('support', 'continuity', 'contact-continuity'):
         pins.append((ROOT / 'tools/capture_original_collapse_lane_history.py', 'capture_helper_sha256'))
+    if name == 'continuity':
+        pins.append((ROOT / 'tests/gameplay/collapse_support_history_original.bin.gz', 'support_fixture_sha256'))
+    if name == 'contact-continuity':
+        pins.append((ROOT / 'tests/gameplay/collapse_lane_history_original.bin.gz', 'lane_fixture_sha256'))
     for path, key in pins:
         if sha(path.read_bytes()) != data[key]:
             raise ValueError('collapse history original source pin differs: ' + path.name)
@@ -153,8 +182,15 @@ def compare(actual, expected):
                      ' actual=' + str(actual[offset]) + ' original=' + str(expected[offset]))
 
 
-def run_probe(exe, out, data):
-    incoming, expected = decode(data)
+def run_probe(exe, out, data, streams=None, continuous=False):
+    if continuous and (streams is None or profile(data)[0] not in ('continuity', 'contact-continuity')):
+        raise ValueError('continuous probe requires original continuity input streams')
+    incoming, expected = decode(data) if streams is None else streams
+    scenes = 12 if continuous else CASES
+    if (len(incoming) != 16 + scenes * INPUT or len(expected) != 16 + CASES * STATE
+            or struct.unpack_from('<8sII', incoming) != (b'LZCI0001', scenes, INPUT)
+            or struct.unpack_from('<8sII', expected) != (b'LZCO0001', CASES, STATE)):
+        raise ValueError('collapse history batch dimensions differ')
     retained_root = out
     retained_root.mkdir(parents=True, exist_ok=True)
     out = Path(tempfile.mkdtemp(prefix='attempt-', dir=retained_root))
@@ -163,13 +199,16 @@ def run_probe(exe, out, data):
         input_sha256=sha(incoming), input_bytes=len(incoming), expected_sha256=sha(expected),
         expected_bytes=len(expected), original_metadata_sha256=profile(data)[1]['metadata_sha256'],
         fixture_profile=profile(data)[0])
+    if continuous:
+        report.update(initial_scenes=12, boundaries_per_scene=8, continuous_collapse_updates=True)
     for name, raw in (('input.bin.gz', incoming), ('expected.bin.gz', expected)):
         (out / name).write_bytes(gzip.compress(raw, mtime=0))
     with tempfile.TemporaryDirectory(prefix='lezac-collapse-history-input-') as input_dir, \
             tempfile.TemporaryDirectory(prefix='lezac-collapse-history-actual-') as actual_dir:
         input_path, actual_path = Path(input_dir) / 'input.bin', Path(actual_dir) / 'actual.bin'
         input_path.write_bytes(incoming)
-        command = [str(exe.resolve()), '--debug-original-collapse-lane-history', str(input_path), str(actual_path)]
+        mode = '--debug-original-collapse-continuous' if continuous else '--debug-original-collapse-lane-history'
+        command = [str(exe.resolve()), mode, str(input_path), str(actual_path)]
         report['command'] = command
         result = None
         try:
@@ -180,6 +219,9 @@ def run_probe(exe, out, data):
             wanted = ('collapse_lane_history_app=ok cases=96 compared_bytes=2565504 retained_debris=1402 '
                       'retained_collapse=251 actor_bank_bytes=1575 sound_bytes=7 history_bytes=3 '
                       'production_app=1 seeded=1 natural_route=0 whole_game_claim=0')
+            if continuous:
+                wanted = wanted.replace('collapse_lane_history_app=ok cases=96',
+                    'collapse_continuous_app=ok scenes=12 steps=8 cases=96')
             if result.returncode != 0 or result.stderr or result.stdout.strip().decode() != wanted:
                 raise ValueError('collapse history production diagnostic failed')
             if actual_path.stat().st_size >= RESERVE:
@@ -289,7 +331,7 @@ def main():
     mode.add_argument('--exe', type=Path)
     mode.add_argument('--self-check', action='store_true')
     parser.add_argument('--out', type=Path)
-    parser.add_argument('--profile', choices=tuple(PROFILES), default='lane')
+    parser.add_argument('--profile', choices=('lane', 'support'), default='lane')
     args = parser.parse_args()
     if bool(args.exe) != bool(args.out):
         parser.error('--out is required only with --exe')

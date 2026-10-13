@@ -91,6 +91,8 @@
         "src/gameplay/actor_models.hpp",
         "src/gameplay/actor_storage.hpp",
         "src/gameplay/actor_slots.hpp",
+        "src/gameplay/collapse_rectangle.hpp",
+        "src/gameplay/collapse_removal.hpp",
         "src/gameplay/collapse_seed.hpp",
         "src/gameplay/frame_controls.hpp",
         "src/gameplay/falling_fragment.hpp",
@@ -100,6 +102,7 @@
         "src/gameplay/retained_record_queue.hpp",
         "src/gameplay/damage_lane_bytes.hpp",
         "src/gameplay/damage_lane_memory.hpp",
+        "src/gameplay/map_plane_memory.hpp",
         "src/gameplay/fracture_records.hpp",
         "src/gameplay/initial_damage_data.hpp"
       ]

@@ -15,6 +15,18 @@ CASES = {
     'collapse_support_history_original': (120, 'check_collapse_lane_history.py',
         'collapse_support_history_original=ok cases=96 production_app=1 input_only=1 masks=0 natural_route=0 whole_game_claim=0',
         ('--profile', 'support')),
+    'collapse_continuity_original': (240, 'check_collapse_continuity.py',
+        'collapse_continuity_original=ok batches=8 cases=768 production_app=1 input_only=1 masks=0 natural_route=0 whole_game_claim=0', ()),
+    'collapse_continuous_original': (240, 'check_collapse_continuous.py',
+        'collapse_continuous_original=ok batches=8 scenes=96 steps=8 cases=768 production_app=1 input_only=1 masks=0 natural_route=0 whole_game_claim=0', ()),
+    'collapse_contact_continuity_original': (240, 'check_collapse_continuity.py',
+        'collapse_continuity_original=ok batches=8 cases=768 production_app=1 input_only=1 masks=0 natural_route=0 whole_game_claim=0',
+        ('--profile', 'contact-continuity')),
+    'collapse_contact_continuous_original': (240, 'check_collapse_continuous.py',
+        'collapse_continuous_original=ok batches=8 scenes=96 steps=8 cases=768 production_app=1 input_only=1 masks=0 natural_route=0 whole_game_claim=0',
+        ('--profile', 'contact-continuity')),
+    'physics_dispatch_original': (240, 'check_physics_dispatch.py',
+        'physics_dispatch_original=ok batches=8 scenes=32 steps=16 cases=512 production_app=1 input_only=1 masks=0 natural_route=0 whole_game_claim=0', ()),
 }
 ENV = dict(os.environ, SDL_AUDIODRIVER='dummy', SDL_VIDEODRIVER='dummy', PYTHONDONTWRITEBYTECODE='1')
 
@@ -61,7 +73,7 @@ def main():
 
     try:
         raw = run('registration', ['ctest', '--test-dir', str(args.ctest_dir.resolve()), '--show-only=json-v1',
-                                  '-R', '^collapse_(seed|lane|support)_history_original$'])
+                                  '-R', '^(collapse_((seed|lane|support)_history|(contact_)?continu(ity|ous))|physics_dispatch)_original$'])
         rows = json.loads(raw)['tests']
         validate(rows)
         mutants = 0

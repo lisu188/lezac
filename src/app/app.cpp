@@ -14,6 +14,9 @@
 #include "gameplay/jolly_cloud_rain.hpp"
 #include "gameplay/retained_record_queue.hpp"
 #include "gameplay/damage_lane_memory.hpp"
+#include "gameplay/map_plane_memory.hpp"
+#include "gameplay/collapse_rectangle.hpp"
+#include "gameplay/collapse_removal.hpp"
 #include "gameplay/initial_damage_data.hpp"
 #include "gameplay/monster_damage.hpp"
 #include "gameplay/monster_spawners.hpp"
@@ -19252,7 +19255,8 @@ public:
                                   bool collapseUpdate = false, bool actorCreation = false,
                                   bool retirementStorage = false, bool fractureStorage = false,
                                   bool physicalDebrisUpdate = false, bool laneHistory = false,
-                                  bool collapseLaneHistory = false) {
+                                  bool collapseLaneHistory = false, bool continuousCollapse = false,
+                                  bool physicsDispatch = false, bool collapseMapBoundary = false) {
         namespace storage = lezac::diagnostics::transient_storage;
         const bool physicalStorage = retirementStorage || fractureStorage;
         if (actorCreation && !collapseUpdate) throw std::runtime_error("actor probe requires collapse update");
@@ -19262,6 +19266,14 @@ public:
         if (collapseLaneHistory && (!fractureStorage || !laneHistory || physicalDebrisUpdate)) {
             throw std::runtime_error("collapse lane history requires an input-only collapse update");
         }
+        if (continuousCollapse && !collapseLaneHistory) {
+            throw std::runtime_error("continuous collapse requires an input-only collapse history");
+        }
+        if (physicsDispatch && (!collapseLaneHistory || continuousCollapse)) {
+            throw std::runtime_error("physics dispatch requires its own input-only history mode");
+        }
+        if (collapseMapBoundary && !physicsDispatch)
+            throw std::runtime_error("collapse map boundary requires the coupled dispatcher");
         load();
         if (fractureStorage) {
             initSdl();
@@ -19281,7 +19293,8 @@ public:
         };
         const auto header = take(physicalStorage ? 16 : 12);
         const bool completeFracturePools = fractureStorage &&
-            (std::string(header.begin(), header.begin() + 8) == "LZFC0001" ||
+            ((collapseMapBoundary && std::string(header.begin(), header.begin() + 8) == "LZCM0001") ||
+             std::string(header.begin(), header.begin() + 8) == "LZFC0001" ||
              (laneHistory && std::string(header.begin(), header.begin() + 8) ==
                 (collapseLaneHistory ? "LZCI0001" : "LZDH0001")));
         if (laneHistory && !physicalDebrisUpdate && !collapseLaneHistory)
@@ -19293,7 +19306,7 @@ public:
         const size_t physicalCollapseRecords = completeFracturePools ? 251 : 5;
         const size_t fractureStateBytes = completeFracturePools ? (laneHistory ? 26724 : 26721) : 7664;
         if (std::string(header.begin(), header.begin() + 8) !=
-            (fractureStorage ? (completeFracturePools ? (laneHistory ? (collapseLaneHistory ? "LZCI0001" : "LZDH0001") : "LZFC0001") : "LZFR0001") : (retirementStorage ? "LZRT0001" : (actorCreation ? "LZCA0001" :
+            (collapseMapBoundary ? "LZCM0001" : fractureStorage ? (completeFracturePools ? (laneHistory ? (collapseLaneHistory ? "LZCI0001" : "LZDH0001") : "LZFC0001") : "LZFR0001") : (retirementStorage ? "LZRT0001" : (actorCreation ? "LZCA0001" :
                 (collapseUpdate ? "LZCU0001" : "LZDU0001"))))) {
             throw std::runtime_error("invalid debris update input header");
         }
@@ -19302,7 +19315,9 @@ public:
         if (retirementStorage && (cases != 176 || le32(header, 12) != 12060)) {
             throw std::runtime_error("invalid retirement storage fixture dimensions");
         }
-        if (fractureStorage && (cases != (completeFracturePools ? (laneHistory && !collapseLaneHistory ? 112 : 96) : 288) ||
+        if (collapseMapBoundary && (cases > 32 || le32(header, 12) != 157806))
+            throw std::runtime_error("invalid collapse map boundary dimensions");
+        if (fractureStorage && !collapseMapBoundary && (cases != (completeFracturePools ? (laneHistory && !collapseLaneHistory ? 112 : (physicsDispatch ? 4 : (continuousCollapse ? 12 : 96))) : 288) ||
                                le32(header, 12) != (completeFracturePools ? (collapseLaneHistory ? 26730 : laneHistory ? 53454 : 53448) : 15334))) {
             throw std::runtime_error("invalid fracture storage fixture dimensions");
         }
@@ -19311,12 +19326,13 @@ public:
             bytes.push_back(static_cast<uint8_t>(value >> 8));
         };
         if (physicalStorage) {
-            const std::string magic = fractureStorage ? (completeFracturePools ? (laneHistory ? (collapseLaneHistory ? "LZCO0001" : "LZDO0001") : "LZFP0001") : "LZFO0001") : "LZRO0001";
+            const std::string magic = collapseMapBoundary ? "LZCN0001" : fractureStorage ? (completeFracturePools ? (laneHistory ? (collapseLaneHistory ? "LZCO0001" : "LZDO0001") : "LZFP0001") : "LZFO0001") : "LZRO0001";
             std::vector<uint8_t> outputHeader(magic.begin(), magic.end());
-            appendWord(outputHeader, static_cast<uint16_t>(cases));
+            if (collapseMapBoundary) appendWord(outputHeader, 0);
+            else appendWord(outputHeader, static_cast<uint16_t>(physicsDispatch ? cases * 16 : continuousCollapse ? cases * 8 : cases));
             appendWord(outputHeader, 0);
             appendWord(outputHeader, static_cast<uint16_t>(fractureStorage ? fractureStateBytes : 6027));
-            appendWord(outputHeader, 0);
+            appendWord(outputHeader, collapseMapBoundary ? 2 : 0);
             output.write(reinterpret_cast<const char*>(outputHeader.data()),
                          static_cast<std::streamsize>(outputHeader.size()));
         }
@@ -19351,7 +19367,16 @@ public:
             appendWord(bytes, static_cast<uint16_t>(pixelOffset));
             return bytes;
         };
+        uint32_t boundaryCount = 0;
         for (uint32_t index = 0; index < cases; ++index) {
+            uint8_t mapLayout = 0, boundarySteps = 0;
+            if (collapseMapBoundary) {
+                const auto configuration = take(4);
+                mapLayout = configuration[0];
+                boundarySteps = configuration[1];
+                if (mapLayout > 1 || boundarySteps < 1 || boundarySteps > 2 || le16(configuration, 2))
+                    throw std::runtime_error("invalid collapse map boundary configuration");
+            }
             const auto parameters = take(collapseUpdate ? 18 : 14);
             const int width = le16(parameters, 0), height = le16(parameters, 2);
             const size_t cells = static_cast<size_t>(width) * height;
@@ -19361,7 +19386,8 @@ public:
                 throw std::runtime_error("invalid debris update dimensions or live counts");
             }
             if (physicalStorage && (width != 60 || height != 33 || (!completeFracturePools && debrisCount != 0) ||
-                                    collapseCount == 0 || collapseCount > (completeFracturePools ? 250 : (fractureStorage ? 2 : 3)))) {
+                                    (!collapseLaneHistory && collapseCount == 0) ||
+                                    collapseCount > (completeFracturePools ? 250 : (fractureStorage ? 2 : 3)))) {
                 throw std::runtime_error("unsupported retirement storage input");
             }
             resetLevel(0);
@@ -19373,6 +19399,7 @@ public:
             const auto words = take(2 * cells);
             level_.wordLayer.resize(cells);
             for (size_t cell = 0; cell < cells; ++cell) level_.wordLayer[cell] = le16(words, 2 * cell);
+            mapPlaneMemory_.restoreSeparatedPlanesForFixture();
             debrisQueue_.clear();
             collapseQueue_.clear();
             logicTick_ = le16(parameters, 4);
@@ -19468,76 +19495,137 @@ public:
                 damageLaneData_[0x0a06] = history[1];
                 damageLaneData_[0x0a07] = history[2];
             }
+            if (collapseMapBoundary) {
+                const auto planes = take(131072);
+                if (!std::equal(level_.tiles.begin(), level_.tiles.end(), planes.begin()))
+                    throw std::runtime_error("collapse map tile seed mismatch");
+                for (size_t cell = 0; cell < cells; ++cell)
+                    if (level_.wordLayer[cell] != le16(planes, 65536 + 2 * cell))
+                        throw std::runtime_error("collapse map word seed mismatch");
+                if (mapLayout) {
+                    if (!std::equal(planes.begin() + 2000, planes.begin() + 65536, planes.begin() + 65536))
+                        throw std::runtime_error("inconsistent shared map plane seed");
+                    mapPlaneMemory_.beginLevel({}, {}, cells);
+                }
+                mapPlaneMemory_.seedPlanesForFixture(planes);
+            }
             // The input-only collapse history mode never receives expected state.
             if (retirementStorage) take(6027);
             if (fractureStorage && !collapseLaneHistory) take(fractureStateBytes);
-            if (physicalDebrisUpdate || !collapseUpdate) updateDebrisRecords();
-            else if (collapseUpdate) updateCollapseRecords();
-            if (retirementStorage && (!transientActors_.empty() || !debrisQueue_.empty())) {
-                throw std::runtime_error("retirement fixture unexpectedly created actors or debris");
-            }
-            std::vector<uint8_t> result;
-            appendWord(result, static_cast<uint16_t>(randomSeed_));
-            appendWord(result, static_cast<uint16_t>(randomSeed_ >> 16));
-            appendWord(result, static_cast<uint16_t>(debrisQueue_.size()));
-            appendWord(result, static_cast<uint16_t>(collapseQueue_.size()));
-            if (collapseUpdate) {
-                appendWord(result, static_cast<uint16_t>(destroyed_));
-                appendWord(result, nextCollapseFragmentWord_);
-            }
-            result.insert(result.end(), level_.tiles.begin(), level_.tiles.end());
-            for (uint16_t word : level_.wordLayer) appendWord(result, word);
-            for (size_t slot = 0; slot < (fractureStorage ? physicalDebrisRecords : debrisQueue_.size()); ++slot) {
-                const auto& record = debrisQueue_.retainedSlot(slot);
-                appendWord(result, static_cast<uint16_t>(record.tileIndex));
-                appendWord(result, record.flaggedWord);
-                result.insert(result.end(), {static_cast<uint8_t>(record.velocityX),
-                    static_cast<uint8_t>(record.velocityY), static_cast<uint8_t>(record.subX),
-                    static_cast<uint8_t>(record.subY), record.restTicks, record.lookup, record.aux});
-            }
-            for (size_t slot = 0; slot < (physicalStorage ? physicalCollapseRecords : collapseQueue_.size()); ++slot) {
-                const auto& record = collapseQueue_.retainedSlot(slot);
-                appendWord(result, record.startOffsetBytes);
-                appendWord(result, record.endOffsetBytes);
-                appendWord(result, record.flaggedWord);
-                result.insert(result.end(), {record.forwardPhase, record.reversePhase,
-                    static_cast<uint8_t>(record.subX), static_cast<uint8_t>(record.subY)});
-                appendWord(result, record.argMagnitude);
-                result.insert(result.end(), {record.flags, record.restTicks, record.affectedBytes});
-            }
-            if (actorCreation) {
-                appendWord(result, static_cast<uint16_t>(transientActors_.size()));
-                for (size_t actorIndex = 0; actorIndex < transientActors_.size(); ++actorIndex) {
-                    const auto actorBytes = collapseActorBytes(transientActors_[actorIndex], actorIndex);
-                    result.insert(result.end(), actorBytes.begin(), actorBytes.end());
+            const uint16_t initialTick = static_cast<uint16_t>(logicTick_);
+            const uint32_t steps = physicsDispatch ? 16 : continuousCollapse ? 8 : 1;
+            for (uint32_t step = 0; step < steps; ++step) {
+                if (collapseMapBoundary && step == boundarySteps) break;
+                logicTick_ = static_cast<uint16_t>(initialTick + step);
+                if (physicsDispatch) {
+                    if (!debrisQueue_.empty()) updateDebrisRecords();
+                    if (!collapseQueue_.empty()) updateCollapseRecords();
+                } else if (!continuousCollapse || !collapseQueue_.empty()) {
+                    if (physicalDebrisUpdate || !collapseUpdate) updateDebrisRecords();
+                    else if (collapseUpdate) updateCollapseRecords();
                 }
-            }
-            output.write(reinterpret_cast<const char*>(result.data()), static_cast<std::streamsize>(result.size()));
-            if (fractureStorage) {
-                const auto entries = sharedActorEntries();
-                if (entries.size() != actorSlots_.count() || legacyActorAdoptions_ || legacyActorRetirements_)
-                    throw std::runtime_error("fracture diagnostic used legacy actor projection");
-                for (size_t slot = 1; slot <= entries.size(); ++slot)
-                    if (actorSlots_.order(slot) != entries[slot - 1].order)
-                        throw std::runtime_error("fracture actor physical order mismatch");
-                storage::writeState(output, actorSlots_.state());
-                storage::write(output, sound_.requestCursor(), 2);
-                storage::write(output, sound_.requestSelector(), 1);
-                const auto latch = sound_.latch();
-                storage::write(output, latch.currentSelector, 1);
-                storage::write(output, latch.latchedOffset, 2);
-                storage::write(output, latch.active, 1);
-                if (laneHistory) {
-                    storage::write(output, damageLaneData_[0x661e], 1);
-                    storage::write(output, damageLaneData_[0x0a06], 1);
-                    storage::write(output, damageLaneData_[0x0a07], 1);
+                if (retirementStorage && (!transientActors_.empty() || !debrisQueue_.empty())) {
+                    throw std::runtime_error("retirement fixture unexpectedly created actors or debris");
                 }
+                std::vector<uint8_t> result;
+                appendWord(result, static_cast<uint16_t>(randomSeed_));
+                appendWord(result, static_cast<uint16_t>(randomSeed_ >> 16));
+                appendWord(result, static_cast<uint16_t>(debrisQueue_.size()));
+                appendWord(result, static_cast<uint16_t>(collapseQueue_.size()));
+                if (collapseUpdate) {
+                    appendWord(result, static_cast<uint16_t>(destroyed_));
+                    appendWord(result, nextCollapseFragmentWord_);
+                }
+                result.insert(result.end(), level_.tiles.begin(), level_.tiles.end());
+                for (uint16_t word : level_.wordLayer) appendWord(result, word);
+                for (size_t slot = 0; slot < (fractureStorage ? physicalDebrisRecords : debrisQueue_.size()); ++slot) {
+                    const auto& record = debrisQueue_.retainedSlot(slot);
+                    appendWord(result, static_cast<uint16_t>(record.tileIndex));
+                    appendWord(result, record.flaggedWord);
+                    result.insert(result.end(), {static_cast<uint8_t>(record.velocityX),
+                        static_cast<uint8_t>(record.velocityY), static_cast<uint8_t>(record.subX),
+                        static_cast<uint8_t>(record.subY), record.restTicks, record.lookup, record.aux});
+                }
+                for (size_t slot = 0; slot < (physicalStorage ? physicalCollapseRecords : collapseQueue_.size()); ++slot) {
+                    const auto& record = collapseQueue_.retainedSlot(slot);
+                    appendWord(result, record.startOffsetBytes);
+                    appendWord(result, record.endOffsetBytes);
+                    appendWord(result, record.flaggedWord);
+                    result.insert(result.end(), {record.forwardPhase, record.reversePhase,
+                        static_cast<uint8_t>(record.subX), static_cast<uint8_t>(record.subY)});
+                    appendWord(result, record.argMagnitude);
+                    result.insert(result.end(), {record.flags, record.restTicks, record.affectedBytes});
+                }
+                if (actorCreation) {
+                    appendWord(result, static_cast<uint16_t>(transientActors_.size()));
+                    for (size_t actorIndex = 0; actorIndex < transientActors_.size(); ++actorIndex) {
+                        const auto actorBytes = collapseActorBytes(transientActors_[actorIndex], actorIndex);
+                        result.insert(result.end(), actorBytes.begin(), actorBytes.end());
+                    }
+                }
+                output.write(reinterpret_cast<const char*>(result.data()), static_cast<std::streamsize>(result.size()));
+                if (fractureStorage) {
+                    const auto entries = sharedActorEntries();
+                    if (entries.size() != actorSlots_.count() || legacyActorAdoptions_ || legacyActorRetirements_)
+                        throw std::runtime_error("fracture diagnostic used legacy actor projection");
+                    for (size_t slot = 1; slot <= entries.size(); ++slot)
+                        if (actorSlots_.order(slot) != entries[slot - 1].order)
+                            throw std::runtime_error("fracture actor physical order mismatch");
+                    storage::writeState(output, actorSlots_.state());
+                    storage::write(output, sound_.requestCursor(), 2);
+                    storage::write(output, sound_.requestSelector(), 1);
+                    const auto latch = sound_.latch();
+                    storage::write(output, latch.currentSelector, 1);
+                    storage::write(output, latch.latchedOffset, 2);
+                    storage::write(output, latch.active, 1);
+                    if (laneHistory) {
+                        storage::write(output, damageLaneData_[0x661e], 1);
+                        storage::write(output, damageLaneData_[0x0a06], 1);
+                        storage::write(output, damageLaneData_[0x0a07], 1);
+                    }
+                }
+                if (collapseMapBoundary) {
+                    std::vector<uint8_t> planes;
+                    planes.reserve(131072);
+                    for (int cell = 0; cell < 65536; ++cell)
+                        planes.push_back(mapPlaneMemory_.readObject(cell, level_.tiles, level_.wordLayer));
+                    for (int cell = 0; cell < 32768; ++cell)
+                        appendWord(planes, mapPlaneMemory_.readWord(cell, level_.tiles, level_.wordLayer));
+                    output.write(reinterpret_cast<const char*>(planes.data()), static_cast<std::streamsize>(planes.size()));
+                    ++boundaryCount;
+                }
+                if (!output) throw std::runtime_error("cannot write debris update output");
             }
-            if (!output) throw std::runtime_error("cannot write debris update output");
         }
         if (input.peek() != std::char_traits<char>::eof()) throw std::runtime_error("trailing debris update input");
+        if (collapseMapBoundary) {
+            output.seekp(8);
+            storage::write(output, boundaryCount, 4);
+        }
         output.flush();
         if (!output) throw std::runtime_error("cannot flush debris update output");
+        if (collapseMapBoundary) {
+            std::cout << "collapse_map_app=ok scenes=" << cases << " boundaries=" << boundaryCount
+                      << " compared_bytes=" << boundaryCount * 157796
+                      << " map_plane_bytes=131072 masks=0 production_app=1 seeded=1 natural_route=0 whole_game_claim=0\n";
+            return;
+        }
+        if (physicsDispatch) {
+            std::cout << "physics_dispatch_app=ok scenes=" << cases
+                      << " steps=16 cases=" << cases * 16
+                      << " compared_bytes=" << cases * 16 * fractureStateBytes
+                      << " retained_debris=1402 retained_collapse=251 actor_bank_bytes=1575 sound_bytes=7 history_bytes=3"
+                      << " production_app=1 seeded=1 natural_route=0 whole_game_claim=0\n";
+            return;
+        }
+        if (continuousCollapse) {
+            std::cout << "collapse_continuous_app=ok scenes=" << cases
+                      << " steps=8 cases=" << cases * 8
+                      << " compared_bytes=" << cases * 8 * fractureStateBytes
+                      << " retained_debris=1402 retained_collapse=251 actor_bank_bytes=1575 sound_bytes=7 history_bytes=3"
+                      << " production_app=1 seeded=1 natural_route=0 whole_game_claim=0\n";
+            return;
+        }
         if (fractureStorage) {
             std::cout << (collapseLaneHistory ? "collapse_lane_history_app=ok cases=" : laneHistory ? "damage_lane_history_app=ok cases=" : physicalDebrisUpdate ? "debris_contact_pools_app=ok cases=" :
                           (completeFracturePools ? "fracture_capacity_app=ok cases=" : "fracture_retirement_app=ok cases=")) << cases
@@ -27307,6 +27395,7 @@ private:
     lezac::gameplay::RetainedRecordQueue<DebrisRecord> debrisQueue_;
     lezac::gameplay::RetainedRecordQueue<CollapseRecord> collapseQueue_;
     std::array<uint8_t, 65536> damageLaneData_ = lezac::gameplay::initialDamageLaneData();
+    lezac::gameplay::MapPlaneMemory mapPlaneMemory_;
     uint16_t nextCollapseFragmentWord_ = 0;
     uint8_t bonusRainTicks_ = 0;
     std::vector<uint32_t>& fb_ = canvas_.pixels();
@@ -27452,13 +27541,18 @@ private:
         }
     }
 
-    void resetLevel(int index) {
+    void resetLevel(int index, bool replaceMapAllocation = true) {
         levelFlow_.restoreIntro({});
         levelFlow_.restoreOutro({});
         ++levelResetGeneration_;
         // FreeMem leaves the previous map's rounded size in its alignment gap.
         // The word plane is freed first, so both frees retract the heap top.
         levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
+        if (replaceMapAllocation) {
+            const auto& next = levels_[levelIndex_];
+            mapPlaneMemory_.beginLevel(level_.tiles, level_.wordLayer,
+                                      static_cast<size_t>(next.width) * next.height);
+        }
         level_ = levels_[levelIndex_];
         presentation_.beginLevel(static_cast<size_t>(level_.width) * level_.height);
         player_ = {};
@@ -27574,6 +27668,9 @@ private:
         bombInventory_.selected = bombInventory2_.selected = BombType::Small;
         if (levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("level_init");
         levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
+        const auto& next = levels_[levelIndex_];
+        mapPlaneMemory_.beginLevel(level_.tiles, level_.wordLayer,
+                                  static_cast<size_t>(next.width) * next.height);
         level_ = levels_[levelIndex_];
         // 1000:0E34/0E90 read both compressed planes into DS:C498, the
         // background buffer. Decoder 082D:0000 continues through its retained
@@ -27607,7 +27704,7 @@ private:
         const auto counts1 = bombInventory_.counts, counts2 = bombInventory2_.counts;
         const int carriedEnergy1 = energy_, carriedEnergy2 = energy2_;
         Level decodedLevel = std::move(level_);
-        resetLevel(index);
+        resetLevel(index, false);
         level_ = std::move(decodedLevel);
         bombInventory_.counts = counts1;
         bombInventory2_.counts = counts2;
@@ -30752,9 +30849,17 @@ private:
     void queueTileDamage(int tx, int ty, uint8_t forwardPhase = 0, uint8_t reversePhase = 0,
                          bool preserveCollapseGlyphs = true, uint8_t* seededClass = nullptr) {
         if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return;
-        size_t start = static_cast<size_t>(ty) * level_.width + tx;
+        const size_t start = static_cast<size_t>(ty) * level_.width + tx;
         if (start >= level_.wordLayer.size()) return;
-        uint16_t word = level_.wordLayer[start];
+        queuePhysicalTileDamage(static_cast<uint16_t>(start), forwardPhase,
+                                reversePhase, preserveCollapseGlyphs, seededClass);
+    }
+
+    void queuePhysicalTileDamage(uint16_t cell, uint8_t forwardPhase = 0, uint8_t reversePhase = 0,
+                                 bool preserveCollapseGlyphs = true, uint8_t* seededClass = nullptr) {
+        if (level_.width <= 0) return;
+        const uint16_t start = static_cast<uint16_t>(static_cast<uint16_t>(cell * 2u) >> 1);
+        const uint16_t word = mapPlaneMemory_.readWord(start, level_.tiles, level_.wordLayer);
         if (word == 0 || (word & kDamagedWordBit) != 0) return;
         if (seededClass) *seededClass = static_cast<uint8_t>(word >= kDeferredThreshold);
 
@@ -30766,13 +30871,26 @@ private:
             // call here was unfaithful). Cap check 3753: refuse once slot
             // index base + record count reaches 0x640.
             tileSeederResult_ = static_cast<uint8_t>(
-                lezac::gameplay::seedFallingFragment(level_, debrisQueue_, start, forwardPhase, reversePhase));
+                lezac::gameplay::seedFallingFragmentPhysical(debrisQueue_, cell, forwardPhase, reversePhase,
+                    [&](size_t rawCell) {
+                        return mapPlaneMemory_.readWord(static_cast<int>(rawCell), level_.tiles, level_.wordLayer);
+                    },
+                    [&](size_t rawCell) {
+                        return mapPlaneMemory_.readObject(static_cast<int>(rawCell), level_.tiles, level_.wordLayer);
+                    },
+                    [&](size_t rawCell, uint16_t flaggedWord) {
+                        mapPlaneMemory_.writeWord(static_cast<int>(rawCell), flaggedWord, level_.tiles, level_.wordLayer);
+                    }));
             return;
         }
 
         tileSeederResult_ = 0;
         if (collapseQueue_.size() >= kCollapseCapacity) return;
-        auto geometry = lezac::gameplay::seedCollapseWordGroup(level_.wordLayer, level_.width, start);
+        auto geometry = lezac::gameplay::seedCollapseWordGroupPhysical(level_.width, start,
+            [&](uint16_t physicalCell) { return mapPlaneMemory_.readWord(physicalCell, level_.tiles, level_.wordLayer); },
+            [&](uint16_t physicalCell, uint16_t flaggedWord) {
+                mapPlaneMemory_.writeWord(physicalCell, flaggedWord, level_.tiles, level_.wordLayer);
+            });
         for (size_t index : geometry.cells) {
             int x = static_cast<int>(index % static_cast<size_t>(level_.width));
             int y = static_cast<int>(index / static_cast<size_t>(level_.width));
@@ -30780,8 +30898,8 @@ private:
         }
         if (!geometry.cells.empty() && collapseQueue_.size() < kCollapseCapacity) {
             CollapseRecord record;
-            record.x = tx;
-            record.y = ty;
+            record.x = start % level_.width;
+            record.y = start / level_.width;
             record.startOffsetBytes = geometry.firstOffsetBytes;
             record.endOffsetBytes = geometry.lastOffsetBytes;
             record.word = word;
@@ -30854,7 +30972,7 @@ private:
     }
 
     lezac::gameplay::DamageLaneSeed seedDamageLaneContact(uint16_t cell, uint8_t& seededClass) {
-        queueTileDamage(cell % level_.width, cell / level_.width, 0, 0, true, &seededClass);
+        queuePhysicalTileDamage(cell, 0, 0, true, &seededClass);
         if (tileSeederResult_ == 0) return lezac::gameplay::DamageLaneSeed::Failed;
         return seededClass ? lezac::gameplay::DamageLaneSeed::Debris : lezac::gameplay::DamageLaneSeed::Collapse;
     }
@@ -31170,31 +31288,18 @@ private:
         if (debrisQueue_.empty()) return;
         const int width = level_.width;
         if (width <= 0 || level_.tiles.empty()) return;
-        const int cellCount = static_cast<int>(level_.tiles.size());
-        // The original never indexes outside the map (levels ship with solid
-        // borders); the port clamps instead: out-of-range object bytes read as
-        // solid (blocking moves and supporting fragments), out-of-range words
-        // read 0, and out-of-range writes are dropped.
+        // Preserve segment wrapping and live word-plane aliases past the map.
         auto objectByteAt = [&](int index) -> uint8_t {
-            return index >= 0 && index < cellCount
-                       ? level_.tiles[static_cast<size_t>(index)]
-                       : uint8_t{0x01};
+            return mapPlaneMemory_.readObject(index, level_.tiles, level_.wordLayer);
         };
         auto setObjectByte = [&](int index, uint8_t value) {
-            if (index >= 0 && index < cellCount) {
-                level_.tiles[static_cast<size_t>(index)] = value;
-            }
+            mapPlaneMemory_.writeObject(index, value, level_.tiles, level_.wordLayer);
         };
         auto wordCellAt = [&](int index) -> uint16_t {
-            return index >= 0 &&
-                           static_cast<size_t>(index) < level_.wordLayer.size()
-                       ? level_.wordLayer[static_cast<size_t>(index)]
-                       : uint16_t{0};
+            return mapPlaneMemory_.readWord(index, level_.tiles, level_.wordLayer);
         };
         auto setWordCell = [&](int index, uint16_t value) {
-            if (index >= 0 && static_cast<size_t>(index) < level_.wordLayer.size()) {
-                level_.wordLayer[static_cast<size_t>(index)] = value;
-            }
+            mapPlaneMemory_.writeWord(index, value, level_.tiles, level_.wordLayer);
         };
 
         // Ascending slot order with the bound re-read live every iteration
@@ -31251,8 +31356,8 @@ private:
                 debrisQueue_.erase(debrisQueue_.begin() +
                                    static_cast<std::ptrdiff_t>(i));  // 4A39 -> 458D
                 const int above = pos - width;
-                if (above >= 0 && wordCellAt(above) > 0) {           // 4A5B
-                    queueTileDamage(above % width, above / width);   // 4A72 -> 370E
+                if (wordCellAt(above) > 0) {                        // 4A5B
+                    queuePhysicalTileDamage(static_cast<uint16_t>(above));  // 4A72 -> 370E
                 }
                 continue;
             }
@@ -31312,7 +31417,7 @@ private:
 
             // Move 4B35..4CB5.
             if (delta != 0) {
-                const int dest = pos + delta;
+                const int dest = static_cast<uint16_t>(pos + delta);
                 if (objectByteAt(dest) == 0) {
                     // Free move 4B61..4C1D: the fragment is materialized at
                     // the destination in BOTH planes and erased from the
@@ -31331,9 +31436,9 @@ private:
                     if (delta != -width) {
                         const int above = pos - width;
                         const uint16_t aboveWord = wordCellAt(above);
-                        if (above >= 0 && aboveWord > 0 &&
+                        if (aboveWord > 0 &&
                             aboveWord < kDamagedWordBit) {  // 4BE4..4BF5
-                            queueTileDamage(above % width, above / width);  // 4C08
+                            queuePhysicalTileDamage(static_cast<uint16_t>(above));  // 4C08
                             // Set even when the seeder is at capacity (no
                             // DS:79C8 check at 4C0B..4C19). queueTileDamage
                             // may reallocate the queue, so re-index.
@@ -31417,32 +31522,35 @@ private:
             std::vector<DamageContact> contacts;
         };
         auto mapWord = [&](int cell) -> uint16_t {
-            return cell >= 0 && static_cast<size_t>(cell) < level_.wordLayer.size() ?
-                level_.wordLayer[static_cast<size_t>(cell)] : 0;
+            return mapPlaneMemory_.readWord(cell, level_.tiles, level_.wordLayer);
         };
         auto mapTile = [&](int cell) -> uint8_t {
-            return cell >= 0 && static_cast<size_t>(cell) < level_.tiles.size() ?
-                level_.tiles[static_cast<size_t>(cell)] : 1;
+            return mapPlaneMemory_.readObject(cell, level_.tiles, level_.wordLayer);
+        };
+        auto setMapWord = [&](int cell, uint16_t value) {
+            mapPlaneMemory_.writeWord(cell, value, level_.tiles, level_.wordLayer);
+        };
+        auto setMapTile = [&](int cell, uint8_t value) {
+            mapPlaneMemory_.writeObject(cell, value, level_.tiles, level_.wordLayer);
         };
         // 1000:5102 visits the records newest-first. Cascades appended during
         // this pass start moving on the following tick.
         for (size_t remaining = collapseQueue_.size(); remaining > 0; --remaining) {
             const size_t slot = remaining - 1;
             CollapseRecord record = collapseQueue_[slot];
-            int first = record.startOffsetBytes / 2;
-            int last = record.endOffsetBytes / 2;
+            lezac::gameplay::CollapseRectangle rectangle(record.startOffsetBytes, record.endOffsetBytes,
+                                                        static_cast<uint16_t>(width));
+            const auto& first = rectangle.first;
+            const auto& last = rectangle.last;
             int vx = static_cast<int8_t>(record.forwardPhase);
             int vy = static_cast<int8_t>(record.reversePhase);
             const int incomingX = vx, incomingY = vy;
             bool moved = false;
             auto cells = [&] {
                 std::vector<int> result;
-                for (int y = first / width; y <= last / width; ++y) {
-                    for (int x = first % width; x <= last % width; ++x) {
-                        const int cell = y * width + x;
-                        if (mapWord(cell) == record.flaggedWord) result.push_back(cell);
-                    }
-                }
+                rectangle.visit(0, [&](uint16_t cell) {
+                    if (mapWord(cell) == record.flaggedWord) result.push_back(cell);
+                });
                 return result;
             };
             auto scan = [&](int delta, bool collectContacts = false) {
@@ -31450,7 +31558,7 @@ private:
                 // 4D3C/4E48 own the scratch phase also read by damage helpers.
                 damageLaneData_[0x661e] = 0;
                 for (int cell : cells()) {
-                    const int target = cell + delta;
+                    const uint16_t target = static_cast<uint16_t>(cell + delta);
                     const uint16_t word = mapWord(target);
                     if (mapTile(target) == 0 || word == record.flaggedWord) continue;
                     result.blocked = true;
@@ -31460,7 +31568,7 @@ private:
                     if (collectContacts && word != 0 && std::none_of(result.contacts.begin(), result.contacts.end(),
                         [&](const DamageContact& contact) { return contact.word == word; })) {
                         writeContactWordGuardAlias(result.contacts.size(), word);  // 1000:4ECD
-                        result.contacts.push_back({target, word});
+                        result.contacts.push_back({static_cast<uint16_t>(target * 2u) / 2, word});
                     }
                 }
                 return result;
@@ -31468,7 +31576,7 @@ private:
             auto seedAbove = [&] {
                 for (const auto& contact : scan(-width, true).contacts) {
                     if (contact.word < kDamagedWordBit) {
-                        queueTileDamage(contact.cell % width, contact.cell / width, 0, 1, true);
+                        queuePhysicalTileDamage(contact.cell, 0, 1, true);
                     }
                 }
             };
@@ -31476,17 +31584,17 @@ private:
                 Scan result = scan(delta, true);
                 moved = false;
                 if (result.blocked) return result;
-                auto source = cells();
-                if (delta > 0) std::reverse(source.begin(), source.end());
-                for (int cell : source) {
-                    const int target = cell + delta;
-                    level_.wordLayer[static_cast<size_t>(target)] = mapWord(cell);
-                    level_.wordLayer[static_cast<size_t>(cell)] = 0;
-                    level_.tiles[static_cast<size_t>(target)] = mapTile(cell);
-                    level_.tiles[static_cast<size_t>(cell)] = 0;
-                }
-                first += delta;
-                last += delta;
+                rectangle.visit(delta, [&](uint16_t cell) {
+                    const uint16_t word = mapWord(cell);
+                    if (word != record.flaggedWord) return;
+                    const uint16_t target = static_cast<uint16_t>(cell + delta);
+                    setMapWord(target, word);
+                    setMapWord(cell, 0);
+                    const uint8_t tile = mapTile(cell);
+                    setMapTile(cell, 0);  // 4F9D exchanges the source before the destination write.
+                    setMapTile(target, tile);
+                });
+                rectangle.translate(delta);
                 moved = true;
                 return result;
             };
@@ -31528,9 +31636,10 @@ private:
                 moved = true;
                 record.flags &= 0xfc;
             } else {
-                const int left = first % width, right = last % width;
-                const int halfWidth = (right - left) / 2;
-                const int centerLeft = left + halfWidth, centerRight = right - halfWidth;
+                const int left = first % width, right = rectangle.topRight % width;
+                const int halfWidth = static_cast<uint16_t>(right - left) >> 1;
+                const int centerLeft = static_cast<uint16_t>(left + halfWidth);
+                const int centerRight = static_cast<uint16_t>(right - halfWidth);
                 if (std::abs(vy) < 10 && std::abs(vx) < 30) {
                     if (support.firstColumn > centerLeft && (record.flags & 2) == 0) {
                         if (!scan(-1).blocked) { vx = -15; record.flags |= 1; }
@@ -31557,17 +31666,17 @@ private:
             if (fracture) {
                 requestSoundOffset(0xea74, 3);
                 for (int cell : cells()) {
-                    level_.wordLayer[static_cast<size_t>(cell)] = nextCollapseFragmentWord_++;
-                    level_.tiles[static_cast<size_t>(cell)] = static_cast<uint8_t>(0x47 + (logicTick_ & 2));
+                    setMapWord(cell, nextCollapseFragmentWord_++);
+                    setMapTile(cell, static_cast<uint8_t>(0x47 + (logicTick_ & 2)));
                     ++destroyed_;
                     sound_.writeSharedCursor(static_cast<uint16_t>(cell));  // 1000:501F
                     const auto x = static_cast<uint8_t>(incomingX + randomRangeValue(0, 20) - 10);
                     const auto y = static_cast<uint8_t>(incomingY - randomRangeValue(0, 40));
-                    queueTileDamage(cell % width, cell / width, x, y, true);
+                    queuePhysicalTileDamage(static_cast<uint16_t>(cell), x, y, true);
                 }
                 // 1000:558C selects a cell backward from the bottom-right.
-                const int actorCell = last - randomRangeValue(0,
-                    static_cast<uint16_t>(last % width - first % width + 1));
+                const uint16_t actorCell = lezac::gameplay::collapseActorCell(
+                    static_cast<uint16_t>(last * 2u), randomRangeValue(0, rectangle.columns()));
                 spawnTransientActor((actorCell % width) * 8, (actorCell / width) * 8,
                                     0, 74, 0x0b, 8, ActorAnimation::initialize(74, 79, 2, 1));
             }
@@ -31583,8 +31692,16 @@ private:
                 collapseQueue_[slot] = record;
             }
             if (fracture || record.restTicks == 95) {
-                for (int cell : cells()) level_.wordLayer[static_cast<size_t>(cell)] &= ~kDamagedWordBit;
                 collapseQueue_.erase(collapseQueue_.begin() + static_cast<std::ptrdiff_t>(slot));
+                // Fracture leaves top-right in cells; timer retirement doubles it at 5660.
+                lezac::gameplay::visitCollapseRemovalWords(static_cast<uint16_t>(first * 2u),
+                    fracture ? rectangle.topRight : static_cast<uint16_t>(rectangle.topRight * 2u),
+                    static_cast<uint16_t>(last * 2u), static_cast<uint16_t>(width), [&](uint16_t cell) {
+                        const uint16_t word = mapWord(cell);
+                        if (word == record.flaggedWord) {
+                            setMapWord(cell, static_cast<uint16_t>(word & ~kDamagedWordBit));
+                        }
+                    });
                 continue;
             }
         }
@@ -32332,6 +32449,21 @@ int lezac::app::runApplication(int argc, char** argv) {
         if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-lane-history") {
             app.debugOriginalDebrisUpdate(argv[2], argv[3],
                 true, false, false, true, false, true, true);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-continuous") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3],
+                true, false, false, true, false, true, true, true);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-physics-dispatch") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3],
+                true, false, false, true, false, true, true, false, true);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-map") {
+            app.debugOriginalDebrisUpdate(argv[2], argv[3],
+                true, false, false, true, false, true, true, false, true, true);
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-original-collapse-actors") {

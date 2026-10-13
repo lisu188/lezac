@@ -4875,7 +4875,7 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION "^original_collapse_contract=ok source_mutants=8 initializer_mutants=8 compiled_cpp=0")
 
     add_test(NAME original_debris_update
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_update.py
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_dispatch.py
                 --exe $<TARGET_FILE:lezac_cpp>)
     set_tests_properties(original_debris_update PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -4883,7 +4883,7 @@ if(BUILD_TESTING)
         TIMEOUT 120
         PASS_REGULAR_EXPRESSION "^original_debris_update=ok cases=1061 native_crosschecks=18 output_mutants=1 natural_gameplay=0 sound_claim=0")
     add_test(NAME original_debris_update_contract
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_update.py --self-check)
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_dispatch.py --self-check)
     set_tests_properties(original_debris_update_contract PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^original_debris_contract=ok source_mutants=6 compiled_cpp=0")
@@ -4947,6 +4947,51 @@ if(BUILD_TESTING)
     set_tests_properties(collapse_support_history_fixture collapse_support_history_checker collapse_support_history_original
         PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
     set_tests_properties(collapse_support_history_original PROPERTIES TIMEOUT 120)
+    add_test(NAME collapse_continuity_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_continuity.py)
+    add_test(NAME collapse_continuity_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_continuity.py --self-check)
+    add_test(NAME collapse_continuity_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_continuity.py
+                --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-continuity-app)
+    set_tests_properties(collapse_continuity_fixture collapse_continuity_checker collapse_continuity_original
+        PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(collapse_continuity_original PROPERTIES TIMEOUT 240)
+    add_test(NAME collapse_continuous_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_continuous.py)
+    add_test(NAME collapse_continuous_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_continuous.py --self-check)
+    add_test(NAME collapse_continuous_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_continuous.py
+                --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-continuous-app)
+    set_tests_properties(collapse_continuous_fixture collapse_continuous_checker collapse_continuous_original
+        PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(collapse_continuous_original PROPERTIES TIMEOUT 240)
+    foreach(mode continuity continuous)
+        add_test(NAME collapse_contact_${mode}_fixture
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_${mode}.py
+                    --profile contact-continuity)
+        add_test(NAME collapse_contact_${mode}_checker
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_${mode}.py
+                    --profile contact-continuity --self-check)
+        add_test(NAME collapse_contact_${mode}_original
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_${mode}.py
+                    --profile contact-continuity --exe $<TARGET_FILE:lezac_cpp>
+                    --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-contact-${mode}-app)
+        set_tests_properties(collapse_contact_${mode}_fixture collapse_contact_${mode}_checker collapse_contact_${mode}_original
+            PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+        set_tests_properties(collapse_contact_${mode}_original PROPERTIES TIMEOUT 240)
+    endforeach()
+    add_test(NAME physics_dispatch_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_physics_dispatch.py)
+    add_test(NAME physics_dispatch_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_physics_dispatch.py --self-check)
+    add_test(NAME physics_dispatch_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_physics_dispatch.py
+                --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/physics-dispatch-app)
+    set_tests_properties(physics_dispatch_fixture physics_dispatch_checker physics_dispatch_original
+        PROPERTIES ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(physics_dispatch_original PROPERTIES TIMEOUT 240)
     add_test(NAME collapse_support_transport_contract
         COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_support_transport.py
                 --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-support-transport)
@@ -5379,6 +5424,101 @@ if(BUILD_TESTING)
     set_tests_properties(falling_fragment_seed PROPERTIES
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^falling_fragment_seed=ok queues=2 cases=48 retained_candidate=1 capacity_boundary=1 flagged_rejection=1")
+
+    add_executable(lezac_falling_fragment_physical_test tests/gameplay/falling_fragment_physical_test.cpp)
+    target_include_directories(lezac_falling_fragment_physical_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME falling_fragment_physical COMMAND lezac_falling_fragment_physical_test)
+    set_tests_properties(falling_fragment_physical PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy")
+    add_test(NAME wrapped_debris_capture_adapter COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_wrapped_debris.py --self-check)
+    set_tests_properties(wrapped_debris_capture_adapter PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+
+    add_test(NAME wrapped_debris_fixture COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_wrapped_debris.py)
+    add_test(NAME wrapped_debris_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_wrapped_debris.py --self-check)
+    add_test(NAME wrapped_debris_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_wrapped_debris.py --exe $<TARGET_FILE:lezac_cpp>
+        --out ${CMAKE_CURRENT_BINARY_DIR}/wrapped-debris-app)
+    set_tests_properties(wrapped_debris_fixture wrapped_debris_checker wrapped_debris_original PROPERTIES
+        TIMEOUT 180 ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(wrapped_debris_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^wrapped_debris_original=ok scenes=2 compared_bytes=315592 masks=0 production_app=1 natural_route=0 whole_game_claim=0")
+
+    add_executable(lezac_collapse_removal_test tests/gameplay/collapse_removal_test.cpp)
+    target_include_directories(lezac_collapse_removal_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME collapse_removal_unit COMMAND lezac_collapse_removal_test)
+    add_test(NAME collapse_removal_fixture COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_removal.py)
+    add_test(NAME collapse_removal_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_removal.py --self-check)
+    add_test(NAME collapse_removal_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_removal.py --exe $<TARGET_FILE:lezac_cpp>
+        --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-removal-app)
+    set_tests_properties(collapse_removal_unit collapse_removal_fixture collapse_removal_checker collapse_removal_original
+        PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1" TIMEOUT 180)
+    set_tests_properties(collapse_removal_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "^collapse_removal_unit=ok signed_endpoints=1 mixed_units=1 actor_wrap=1 fixed_columns=1 unclamped_cycle=1")
+    set_tests_properties(collapse_removal_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^collapse_removal_original=ok scenes=7 compared_bytes=1104572 masks=0 production_app=1 natural_route=0 whole_game_claim=0")
+
+    add_executable(lezac_physical_collapse_seed_test tests/gameplay/physical_collapse_seed_test.cpp)
+    target_include_directories(lezac_physical_collapse_seed_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME collapse_physical_seed_unit COMMAND lezac_physical_collapse_seed_test)
+    add_test(NAME collapse_physical_seed_fixture COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_outside_map_seeding.py)
+    add_test(NAME collapse_physical_seed_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_outside_map_seeding.py --self-check)
+    add_test(NAME collapse_physical_seed_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_outside_map_seeding.py --exe $<TARGET_FILE:lezac_cpp>
+        --out ${CMAKE_CURRENT_BINARY_DIR}/physical-seed-app)
+    set_tests_properties(collapse_physical_seed_unit collapse_physical_seed_fixture collapse_physical_seed_checker
+        collapse_physical_seed_original PROPERTIES TIMEOUT 180
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(collapse_physical_seed_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "^physical_collapse_seed=ok layouts=2 wrapped=1 crossing=1 logical_adapter=1")
+    set_tests_properties(collapse_physical_seed_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^collapse_physical_seed_original=ok scenes=12 compared_bytes=1893552 masks=0 production_app=1 natural_route=0 whole_game_claim=0")
+
+    add_executable(lezac_collapse_rectangle_test tests/gameplay/collapse_rectangle_test.cpp)
+    target_include_directories(lezac_collapse_rectangle_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME collapse_rectangle_unit COMMAND lezac_collapse_rectangle_test)
+    add_test(NAME collapse_map_fixture COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_map.py)
+    add_test(NAME collapse_map_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_map.py --self-check)
+    add_test(NAME collapse_map_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_map.py --exe $<TARGET_FILE:lezac_cpp>
+        --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-map-app)
+    set_tests_properties(collapse_rectangle_unit collapse_map_fixture collapse_map_checker collapse_map_original
+        PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1" TIMEOUT 180)
+    set_tests_properties(collapse_rectangle_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "^collapse_rectangle_unit=ok fixed_dimensions=1 directional_order=1 word_cursor_wrap=1 zero_count_loop=1")
+    set_tests_properties(collapse_map_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^collapse_map_original=ok scenes=19 boundaries=34 compared_bytes=5365064 masks=0 production_app=1 natural_route=0 whole_game_claim=0")
+
+    add_executable(lezac_map_plane_memory_test tests/gameplay/map_plane_memory_test.cpp)
+    target_include_directories(lezac_map_plane_memory_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME map_plane_memory_unit COMMAND lezac_map_plane_memory_test)
+    add_test(NAME map_plane_memory_fixture COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_map_plane_memory.py)
+    add_test(NAME map_plane_memory_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_map_plane_memory.py --self-check)
+    add_test(NAME map_plane_memory_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_map_plane_memory.py --exe $<TARGET_FILE:lezac_map_plane_memory_test>)
+    set_tests_properties(map_plane_memory_unit map_plane_memory_fixture map_plane_memory_checker
+        map_plane_memory_original PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        TIMEOUT 60)
+    set_tests_properties(map_plane_memory_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "^map_plane_memory_unit=ok object_wrap=1 word_wrap=1 live_alias=1 retained_heap=1 fixture_isolation=1")
+    set_tests_properties(map_plane_memory_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^map_plane_memory_original=ok scenes=12 events=168 compared_bytes=1573100 masks=0 production_accessor=1 production_app=0 natural_route=0 whole_game_claim=0")
+
     add_executable(lezac_damage_lane_bytes_test tests/gameplay/damage_lane_bytes_test.cpp)
     target_include_directories(lezac_damage_lane_bytes_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME damage_lane_bytes_unit COMMAND lezac_damage_lane_bytes_test)
@@ -6616,6 +6756,12 @@ if(BUILD_TESTING)
         set_tests_properties(review_history_repair_contracts PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 30 LABELS "review;regression;source-contract")
+        add_test(NAME collapse_capture_failure_retention
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_collapse_capture_failure.py)
+        set_tests_properties(collapse_capture_failure_retention PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+            TIMEOUT 30 LABELS "review;regression;capture;evidence-retention")
         add_test(NAME level1_handoff_guard
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/level1_handoff.py guard)
         set_tests_properties(level1_handoff_guard PROPERTIES

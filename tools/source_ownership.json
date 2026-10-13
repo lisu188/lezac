@@ -91,6 +91,8 @@
         "src/gameplay/actor_models.hpp",
         "src/gameplay/actor_storage.hpp",
         "src/gameplay/actor_slots.hpp",
+        "src/gameplay/collapse_rectangle.hpp",
+        "src/gameplay/collapse_removal.hpp",
         "src/gameplay/collapse_seed.hpp",
         "src/gameplay/frame_controls.hpp",
         "src/gameplay/falling_fragment.hpp",

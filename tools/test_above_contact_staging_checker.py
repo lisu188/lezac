@@ -15,7 +15,7 @@ ABOVE_STATEMENTS = (
     'if (dy > 0 && (record.flags & 0x80) == 0)',
     'record.flags |= 0x80;',
     'if (contact.word < kDamagedWordBit)',
-    'queueTileDamage(contact.cell % width, contact.cell / width, 0, 1, true);')
+    'queuePhysicalTileDamage(contact.cell, 0, 1, true);')
 
 
 def above_source_contract(source):
@@ -85,7 +85,7 @@ class AboveContactTests(unittest.TestCase):
                 ('dy > 0 && (record.flags & 0x80) == 0', 'dy > 0'),
                 ('record.flags |= 0x80;', 'record.flags &= 0x7f;'),
                 ('contact.word < kDamagedWordBit', 'contact.word <= kDamagedWordBit'),
-                ('contact.cell / width, 0, 1, true', 'contact.cell / width, 0, 0, true'),
+                ('queuePhysicalTileDamage(contact.cell, 0, 1, true)', 'queuePhysicalTileDamage(contact.cell, 0, 0, true)'),
                 ('scan(-width, true)', 'scan(-width)')):
             self.assertIn(old, original)
             with self.assertRaises(ValueError):

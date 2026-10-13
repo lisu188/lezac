@@ -38,7 +38,7 @@ CONTRACT = {
         'const auto& sprite = sprites_.sprites.at(actor.spriteIndex);',
         'appendWord(bytes, static_cast<uint16_t>(pixelOffset));'),
     'updateCollapseRecords': (
-        'const int actorCell = last - randomRangeValue(0, static_cast<uint16_t>(last % width - first % width + 1));',
+        'const uint16_t actorCell = lezac::gameplay::collapseActorCell(static_cast<uint16_t>(last * 2u), randomRangeValue(0, rectangle.columns()));',
         'spawnTransientActor((actorCell % width) * 8, (actorCell / width) * 8, 0, 74, 0x0b, 8, ActorAnimation::initialize(74, 79, 2, 1));'),
     'spawnTransientActor': (
         'actor.actorOrder = allocateActor({kind, timer, 5, sprite, 0, vy8, static_cast<int16_t>(x), static_cast<int16_t>(y)});',

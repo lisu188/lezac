@@ -20,21 +20,32 @@ struct DebrisRecord {
     uint8_t aux = 0;           // +A u8: bit 7 = cascade spawned by this move
 };
 
+template <typename Records, typename ReadWord, typename ReadObject, typename WriteWord>
+inline bool seedFallingFragmentPhysical(Records& records, size_t cell,
+                                        uint8_t velocityX, uint8_t velocityY,
+                                        ReadWord readWord, ReadObject readObject, WriteWord writeWord) {
+    const uint16_t word = readWord(cell);
+    if (word < 0x4000 || (word & 0x8000) != 0 || 199 + records.size() >= 1600) return false;
+    // 1000:374C..37F4 leaves the object byte intact, including on saturation.
+    const auto flaggedWord = static_cast<uint16_t>(word | 0x8000);
+    writeWord(cell, flaggedWord);
+    DebrisRecord record;
+    record.tileIndex = static_cast<int>(cell);
+    record.flaggedWord = flaggedWord;
+    record.velocityX = static_cast<int8_t>(velocityX);
+    record.velocityY = static_cast<int8_t>(velocityY);
+    record.lookup = readObject(cell);
+    records.push_back(record);
+    return true;
+}
+
 template <typename Records>
 inline bool seedFallingFragment(resources::Level& level, Records& records,
                                 size_t cell, uint8_t velocityX, uint8_t velocityY) {
-    auto& word = level.wordLayer.at(cell);
-    if (word < 0x4000 || (word & 0x8000) != 0 || 199 + records.size() >= 1600) return false;
-    // 1000:374C..37F4 leaves the object byte intact, including on saturation.
-    word = static_cast<uint16_t>(word | 0x8000);
-    DebrisRecord record;
-    record.tileIndex = static_cast<int>(cell);
-    record.flaggedWord = word;
-    record.velocityX = static_cast<int8_t>(velocityX);
-    record.velocityY = static_cast<int8_t>(velocityY);
-    record.lookup = level.tiles.at(cell);
-    records.push_back(record);
-    return true;
+    return seedFallingFragmentPhysical(records, cell, velocityX, velocityY,
+        [&](size_t address) { return level.wordLayer.at(address); },
+        [&](size_t address) { return level.tiles.at(address); },
+        [&](size_t address, uint16_t word) { level.wordLayer.at(address) = word; });
 }
 
 }

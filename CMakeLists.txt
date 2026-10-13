@@ -5529,9 +5529,12 @@ if(BUILD_TESTING)
     add_test(NAME level_rle_tail_checker COMMAND ${Python3_EXECUTABLE} -S -B
         ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_level_rle_tail.py --self-check)
     add_test(NAME level_rle_tail_original COMMAND ${Python3_EXECUTABLE} -S -B
-        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_level_rle_tail.py --exe $<TARGET_FILE:lezac_level_rle_tail_test>)
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_level_rle_tail.py --exe $<TARGET_FILE:lezac_level_rle_tail_test>
+        --out ${CMAKE_CURRENT_BINARY_DIR}/level-rle-tail-app)
+    add_test(NAME level_rle_tail_retention COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_level_rle_tail_retention.py)
     set_tests_properties(level_rle_tail_unit level_rle_tail_fixture level_rle_tail_checker
-        level_rle_tail_original PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        level_rle_tail_original level_rle_tail_retention PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1" TIMEOUT 60)
     set_tests_properties(level_rle_tail_unit PROPERTIES
         PASS_REGULAR_EXPRESSION "^level_rle_tail_unit=ok inclusive_runs=1 exact_tail=1 alias_order=1 retained_heap=1")

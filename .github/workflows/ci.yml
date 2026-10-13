@@ -48,6 +48,21 @@ jobs:
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
         run: cmake --build build --parallel
+      - name: Level decoder and startup map regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+          SDL_VIDEODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(level_rle_tail_(unit|fixture|checker|original|retention)|map_allocation_state_unit|startup_map_(fixture|checker|original)|clocked_sound_routing_mutations)$'
+      - name: Preserve level decoder and startup map diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: map-lifecycle-${{ runner.os }}
+          path: |
+            build/level-rle-tail-app/
+            build/startup_map_original_out/
+            build/Testing/Temporary/LastTest.log
+          if-no-files-found: error
       - name: Independent timed-writeback fixture regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -596,6 +611,21 @@ jobs:
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
         run: cmake --build build --parallel
+      - name: Level decoder and startup map regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+          SDL_VIDEODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(level_rle_tail_(unit|fixture|checker|original|retention)|map_allocation_state_unit|startup_map_(fixture|checker|original)|clocked_sound_routing_mutations)$'
+      - name: Preserve level decoder and startup map diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: map-lifecycle-${{ runner.os }}
+          path: |
+            build/level-rle-tail-app/
+            build/startup_map_original_out/
+            build/Testing/Temporary/LastTest.log
+          if-no-files-found: error
       - name: Independent timed-writeback fixture regressions
         env:
           SDL_VIDEODRIVER: dummy

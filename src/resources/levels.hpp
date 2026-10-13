@@ -68,6 +68,12 @@ struct Level {
     int startingDestructibleTiles = 0;
 };
 
+struct DecodedLevelPlane {
+    std::vector<uint8_t> bytes;
+    std::vector<uint8_t> tail;
+};
+
+DecodedLevelPlane decodeLevelRle3WithTail(const std::vector<uint8_t>& encoded, size_t targetSize);
 std::vector<uint8_t> decodeLevelRle3(const std::vector<uint8_t>& encoded, size_t targetSize);
 MonsterSpawner parseMonsterSpawner(const std::array<uint8_t, 30>& rec);
 std::array<uint8_t, 30> packMonsterSpawner(const MonsterSpawner& spawner);

@@ -100,6 +100,7 @@
         "src/gameplay/retained_record_queue.hpp",
         "src/gameplay/damage_lane_bytes.hpp",
         "src/gameplay/damage_lane_memory.hpp",
+        "src/gameplay/map_plane_memory.hpp",
         "src/gameplay/fracture_records.hpp",
         "src/gameplay/initial_damage_data.hpp"
       ]

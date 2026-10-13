@@ -15,6 +15,18 @@ from intro_frame import intro
 from test_bios_menu_input_xdotool import acquire_window
 
 
+def prepare_output(requested):
+    if requested is None:
+        return Path(tempfile.mkdtemp(prefix="lezac-buffered-menu-"))
+    output = requested.resolve()
+    try:
+        output.mkdir(parents=True, exist_ok=False)
+    except FileExistsError:
+        # Retain prior and partial observations when CTest repeats this helper.
+        return Path(tempfile.mkdtemp(prefix="run-", dir=output))
+    return output
+
+
 def observe(exe, output, choice, held, expected):
     from PIL import Image, ImageGrab
     output.mkdir(parents=True, exist_ok=False)
@@ -86,6 +98,10 @@ def observe(exe, output, choice, held, expected):
                 return image if image.tobytes() in (expected[name][len(HEADER):] for name in
                     ("italian-line0-step02", "italian-line0-step06", "italian-line0-step30")) else None
 
+            def full_menu():
+                image = frame()
+                return image if image.tobytes() == expected["italian-full"][len(HEADER):] else None
+
             capture("natural-menu-typing", wait(natural_text))
             if held:
                 key("keydown", str(choice))
@@ -125,9 +141,15 @@ def observe(exe, output, choice, held, expected):
                 result["gameplay_sample"] = wait(lambda: samples()[-1] if samples() else None, timeout=6)
                 capture("fresh-intro-ack-gameplay", wait(gameplay_frame, timeout=3))
             key("key", "Escape")
-            for _ in range(3):
+            time.sleep(.15)
+            capture("game-over-before-acknowledgement")
+            key("key", "Return")
+            for _ in range(2):
                 time.sleep(.15)
                 key("key", "Escape")
+            capture("returned-main-menu", wait(full_menu, 3))
+            time.sleep(.15)
+            key("key", "Escape")
             require(child.wait(timeout=5) == 0, "interactive app did not exit cleanly")
             result["status"] = "observed"
         except Exception as error:
@@ -154,11 +176,11 @@ def main():
     args = parser.parse_args()
     require(bool(os.environ.get("DISPLAY")), "private Xvfb display required")
     _, expected = load_fixture()
-    output = args.out.resolve() if args.out else Path(tempfile.mkdtemp(prefix="lezac-buffered-menu-"))
+    output = prepare_output(args.out)
     results = [observe(args.exe.resolve(), output / name, choice, held, expected)
                for name, choice, held in (("held-one", 1, True), ("held-two", 2, True), ("fresh-intro", 1, False))]
-    (output / "result.json").write_text(json.dumps(dict(status="observed", cases=results), indent=2) + "\n")
-    print("buffered_menu_live=ok held_choices=2 consumed_intro_skip=1 modifiers_ignored=1 gameplay_observed=3 audio=dummy gameplay_seeded=0 whole_game_parity=0")
+    (output / "result.json").write_text(json.dumps(dict(status="observed", output=str(output), cases=results), indent=2) + "\n")
+    print("buffered_menu_live=ok held_choices=2 consumed_intro_skip=1 modifiers_ignored=1 gameplay_observed=3 audio=dummy gameplay_seeded=0 whole_game_parity=0 output=" + str(output))
 
 
 if __name__ == "__main__":

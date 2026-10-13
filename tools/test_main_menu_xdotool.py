@@ -203,6 +203,8 @@ def main():
                 time.sleep(.15)
                 key("Escape")
                 time.sleep(.12)
+                key("Return")  # Acknowledge Game Over before the menu fade and typing.
+                time.sleep(.12)
                 key("Escape")
                 time.sleep(.12)
                 key("Escape")

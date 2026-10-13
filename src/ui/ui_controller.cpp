@@ -104,7 +104,7 @@ void UiController::onKey(Key key, bool& running, int levelIndex, int playerCount
         else if (key == Key::S) state_.showBackground = !state_.showBackground;
         else if (key == Key::L) state_.italian = !state_.italian;
     } else if (key == Key::P) state_.paused = !state_.paused;
-    else if (key == Key::Escape) { state_.paused = false; state_.menu = true; state_.page = MenuPage::Main; }
+    else if (key == Key::Escape) { state_.paused = false; actions.abortRun(); }
     else if (key == Key::F5) { state_.paused = false; actions.beginLevel(levelIndex); }
     else if (key == Key::PageUp) { state_.paused = false; actions.beginLevel(levelIndex + 1); }
     else if (key == Key::PageDown) { state_.paused = false; actions.beginLevel(levelIndex - 1); }

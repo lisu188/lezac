@@ -13,6 +13,8 @@ namespace lezac::gameplay {
 // This retains map heap bytes; it does not emulate other Pascal allocations.
 class MapPlaneMemory {
 public:
+    bool hasLevelAllocation() const { return allocated_; }
+
     void beginLevel(const std::vector<uint8_t>& oldTiles,
                     const std::vector<uint16_t>& oldWords, size_t newCellCount) {
         if (newCellCount == 0 || newCellCount > 16384) {
@@ -73,6 +75,22 @@ public:
         const size_t address = wordBase_ + static_cast<uint16_t>(static_cast<uint16_t>(cell) * 2u);
         writeByte(address, static_cast<uint8_t>(value), tiles, words);
         writeByte(address + 1, static_cast<uint8_t>(value >> 8), tiles, words);
+    }
+
+    void retainObjectDecoderTail(const std::vector<uint8_t>& tail,
+                                 std::vector<uint8_t>& tiles, std::vector<uint16_t>& words) {
+        if (tail.size() > 16) throw std::runtime_error("invalid object decoder tail");
+        for (size_t i = 0; i < tail.size(); ++i) {
+            writeByte(objectBase + static_cast<uint16_t>(tiles.size() + i), tail[i], tiles, words);
+        }
+    }
+
+    void retainWordDecoderTail(const std::vector<uint8_t>& tail,
+                               std::vector<uint8_t>& tiles, std::vector<uint16_t>& words) {
+        if (tail.size() > 16) throw std::runtime_error("invalid word decoder tail");
+        for (size_t i = 0; i < tail.size(); ++i) {
+            writeByte(wordBase_ + static_cast<uint16_t>(2 * words.size() + i), tail[i], tiles, words);
+        }
     }
 
 private:

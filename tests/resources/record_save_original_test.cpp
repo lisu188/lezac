@@ -8,6 +8,38 @@
 #include <string>
 #include <vector>
 
+namespace {
+std::filesystem::path createRunDirectory(const std::filesystem::path& root) {
+    std::filesystem::create_directories(root);
+    for (std::uint64_t attempt = 0;; ++attempt) {
+        const auto candidate = root / ("run-" + std::to_string(attempt));
+        if (std::filesystem::create_directory(candidate)) return candidate;
+    }
+}
+
+void checkExistingFieldLayout() {
+    struct LegacyRecord {
+        uint32_t score = 0;
+        uint8_t level = 0;
+        std::string name;
+        std::string encodedName;
+    };
+    const LegacyRecord legacy;
+    const lezac::resources::Record current;
+    const auto offsets = [](const auto& record) {
+        const auto* base = reinterpret_cast<const char*>(&record);
+        return std::array<std::ptrdiff_t, 4>{{
+            reinterpret_cast<const char*>(&record.score) - base,
+            reinterpret_cast<const char*>(&record.level) - base,
+            reinterpret_cast<const char*>(&record.name) - base,
+            reinterpret_cast<const char*>(&record.encodedName) - base}};
+    };
+    if (sizeof(legacy) != sizeof(current) || alignof(LegacyRecord) != alignof(decltype(current)) ||
+        offsets(legacy) != offsets(current))
+        throw std::runtime_error("record field layout changed on this toolchain");
+}
+}
+
 int main(int argc, char** argv) {
     using namespace lezac::resources;
     try {
@@ -15,8 +47,8 @@ int main(int argc, char** argv) {
         const auto expected = readFile(argv[1]);
         if (expected.size() != 92 || expected.front() != 7 || expected[5] != 8)
             throw std::runtime_error("original record-save fixture shape changed");
-        const std::filesystem::path output(argv[2]);
-        std::filesystem::create_directories(output);
+        checkExistingFieldLayout();
+        const auto output = createRunDirectory(argv[2]);
         for (const uint8_t level : std::array<uint8_t, 5>{{1, 0, 7, 8, 255}}) {
             std::vector<Record> records{makeRecord(100, level, "a")};
             for (size_t i = 0; i < 6; ++i) records.push_back(makeRecord(0, 8, "zero"));
@@ -36,7 +68,8 @@ int main(int argc, char** argv) {
             saveRecords(json, records);
             const auto reloaded = loadRecords(json);
             if (reloaded.size() != 7 || reloaded.front().level != level ||
-                reloaded.front().score != 100 || reloaded.front().encodedName != "a:::::::")
+                reloaded.front().score != 100 || reloaded.front().encodedName != "a:::::::" ||
+                reloaded.front().nameLength != 8)
                 throw std::runtime_error("JSON level metadata or record contents changed");
         }
         std::cout << "record_save_original=ok cases=5 compared_bytes=460 differences=0"

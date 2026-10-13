@@ -482,6 +482,16 @@ if(BUILD_TESTING)
             ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
             TIMEOUT 180
             PASS_REGULAR_EXPRESSION "^end_screen_repeat=ok invocations=2 original_frames=4 compared_pixels=256000 first_evidence_unchanged=1")
+        add_test(NAME record_save_repeat COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_record_save_repeat.py
+            --exe $<TARGET_FILE:lezac_record_save_original_test>
+            --fixture ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/record_save_original.dat
+            --out ${CMAKE_CURRENT_BINARY_DIR}/record-save-repeat)
+        set_tests_properties(record_save_repeat PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+            TIMEOUT 180
+            PASS_REGULAR_EXPRESSION "^record_save_repeat=ok invocations=2 binary_cases=10 compared_bytes=920 first_evidence_unchanged=1")
         add_test(NAME buffered_menu_output_tools_contract
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_buffered_menu_output.py -v)
         set_tests_properties(buffered_menu_output_tools_contract PROPERTIES

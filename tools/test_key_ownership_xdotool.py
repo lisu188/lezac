@@ -28,6 +28,7 @@ def main():
         with (path / "process.log").open("w") as log:
             child = subprocess.Popen([str(args.exe.resolve()), "--debug-key-ownership-live", str(path)],
                                      cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT)
+            captures = []
             try:
                 def wait_for(predicate):
                     deadline = time.monotonic() + 10
@@ -75,7 +76,6 @@ def main():
                 cases = [("p1_left", ("z",), (-1, 0)), ("p1_right", ("x",), (1, 0)),
                          ("p2_left", ("Left",), (0, -1)), ("p2_right", ("Right",), (0, 1)),
                          ("opposed", ("z", "Right"), (-1, 1))]
-                captures = []
                 for name, held, directions in cases:
                     hold((), 12)
                     rows = hold(held)
@@ -97,16 +97,10 @@ def main():
                     captures.append((f"p{player}_jump", rows[-1]["file"]))
                     print(f"key_ownership_live_case=ok name=p{player}_jump ticks={len(rows)}", flush=True)
                 subprocess.run(["xdotool", "keyup", *KEYS], check=True, env=env)
-                # Return to the menu, skip its fade and text, then use a fresh exit key.
-                subprocess.run(["xdotool", "key", "--delay", "100", "Escape", "Escape", "Escape", "Escape"], check=True, env=env)
+                # Acknowledge Game Over, skip the menu fade/text, then use a fresh exit key.
+                subprocess.run(["xdotool", "key", "--delay", "100", "Escape", "Return", "Escape", "Escape", "Escape"], check=True, env=env)
                 if child.wait(timeout=10) != 0:
                     raise RuntimeError((path / "process.log").read_text())
-                if args.out:
-                    for name, file in captures:
-                        shutil.copyfile(path / file, args.out / f"{name}.ppm")
-                    for file in ("live.txt", "process.log"):
-                        shutil.copyfile(path / file, args.out / file)
-                print("key_ownership_live=ok cases=7 physical_keys=1 production_update=1 moving_players=2 inspected_frames=7 audio=dummy")
             finally:
                 subprocess.run(["xdotool", "keyup", *KEYS], check=False, env=env)
                 if child.poll() is None:
@@ -116,6 +110,13 @@ def main():
                     except subprocess.TimeoutExpired:
                         child.kill()
                         child.wait(timeout=5)
+                if args.out:
+                    for name, file in captures:
+                        shutil.copyfile(path / file, args.out / f"{name}.ppm")
+                    for file in ("live.txt", "process.log"):
+                        if (path / file).exists():
+                            shutil.copyfile(path / file, args.out / file)
+            print("key_ownership_live=ok cases=7 physical_keys=1 production_update=1 moving_players=2 inspected_frames=7 audio=dummy")
 
 
 if __name__ == "__main__":

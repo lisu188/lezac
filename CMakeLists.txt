@@ -1,8 +1,8 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.20)
 
 project(lezac_cpp LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -13,6 +13,7 @@ add_library(lezac_core STATIC
     src/core/progress.cpp
 )
 target_include_directories(lezac_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_compile_features(lezac_core PUBLIC cxx_std_23)
 
 add_library(lezac_resources STATIC
     src/resources/asset_catalog.cpp
@@ -69,6 +70,7 @@ target_link_libraries(lezac_ui_diagnostics PUBLIC lezac_ui)
 
 add_library(lezac_app_loop STATIC src/app/governed_loop.cpp)
 target_include_directories(lezac_app_loop PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_compile_features(lezac_app_loop PUBLIC cxx_std_23)
 
 add_executable(lezac_cpp src/main.cpp src/app/app.cpp src/app/sdl_runtime.cpp src/app/input_mapper.cpp
     src/diagnostics/frame_inspector.cpp)
@@ -180,6 +182,16 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_cpp23_contract_test tests/core/cpp23_contract_test.cpp)
+    add_test(NAME cpp23_standard_contract COMMAND lezac_cpp23_contract_test)
+    add_executable(lezac_sdl_display_ownership_test
+        tests/rendering/sdl_display_ownership_test.cpp src/rendering/sdl_display.cpp)
+    target_include_directories(lezac_sdl_display_ownership_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/rendering/sdl_stub ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME sdl_display_ownership COMMAND lezac_sdl_display_ownership_test)
+    set_tests_properties(cpp23_standard_contract sdl_display_ownership PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy")
+
     add_executable(lezac_governed_loop_test tests/app/governed_loop_test.cpp)
     target_link_libraries(lezac_governed_loop_test PRIVATE lezac_app_loop)
     add_test(NAME governed_loop_unit COMMAND lezac_governed_loop_test)

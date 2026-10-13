@@ -614,7 +614,12 @@ if(BUILD_TESTING)
         add_test(NAME flame_contact_word_contract
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_flame_contact_word.py --self-check)
         set_tests_properties(flame_contact_word_contract PROPERTIES
-            PASS_REGULAR_EXPRESSION "flame_contact_word_contract=ok source_mutants=7 compiled_cpp=0 natural_gameplay=0")
+            PASS_REGULAR_EXPRESSION "flame_contact_word_contract=ok source_mutants=25 compiled_cpp=0 natural_gameplay=0")
+        add_test(NAME flame_seeded_cursor_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_flame_seeded_cursor_contract.py -v)
+        set_tests_properties(flame_seeded_cursor_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
         add_test(NAME level_exporter_counts
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_level_exporter_counts.py)
         set_tests_properties(level_exporter_counts PROPERTIES
@@ -4899,7 +4904,7 @@ if(BUILD_TESTING)
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contacts_original.py --self-check)
     set_tests_properties(collapse_contacts_contract PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        PASS_REGULAR_EXPRESSION "^collapse_contacts_contract=ok source_mutants=10 compiled_cpp=0 natural_gameplay=0")
+        PASS_REGULAR_EXPRESSION "^collapse_contacts_contract=ok source_mutants=22 compiled_cpp=0 natural_gameplay=0")
     add_test(NAME collapse_contacts_failure_retention
         COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contact_failure_retention.py)
     set_tests_properties(collapse_contacts_failure_retention PROPERTIES
@@ -5317,8 +5322,52 @@ if(BUILD_TESTING)
     set_tests_properties(falling_fragment_seed PROPERTIES
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^falling_fragment_seed=ok queues=2 cases=48 retained_candidate=1 capacity_boundary=1 flagged_rejection=1")
+    add_executable(lezac_damage_lane_bytes_test tests/gameplay/damage_lane_bytes_test.cpp)
+    target_include_directories(lezac_damage_lane_bytes_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME damage_lane_bytes_unit COMMAND lezac_damage_lane_bytes_test)
+    add_test(NAME damage_lane_bytes_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_damage_lane_bytes_checker.py -v)
+    add_test(NAME damage_lane_bytes_fixture COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_damage_lane_bytes.py)
+    add_test(NAME damage_lane_bytes_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_damage_lane_bytes.py --exe $<TARGET_FILE:lezac_damage_lane_bytes_test>
+        --out ${CMAKE_CURRENT_BINARY_DIR}/damage-lane-bytes-app)
+    set_tests_properties(damage_lane_bytes_unit damage_lane_bytes_checker damage_lane_bytes_fixture
+        damage_lane_bytes_original PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(damage_lane_bytes_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "^damage_lane_bytes_unit=ok wrap=1 seeder_branches=6 stale_seed_phase=1 division_by_zero=1")
+    set_tests_properties(damage_lane_bytes_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^damage_lane_bytes_original=ok cases=176 compared_bytes=11534336 masks=0 production_app=0 seeded=0 whole_game_claim=0")
 
     add_executable(lezac_retained_record_queue_test tests/gameplay/retained_record_queue_test.cpp)
+    add_executable(lezac_damage_lane_memory_test tests/gameplay/damage_lane_memory_test.cpp)
+    add_test(NAME damage_lane_history_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_damage_lane_history_checker.py -v)
+    add_test(NAME damage_lane_history_fixture COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_damage_lane_history.py)
+    add_test(NAME damage_lane_history_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_damage_lane_history.py --exe $<TARGET_FILE:lezac_cpp>
+        --out ${CMAKE_CURRENT_BINARY_DIR}/damage-lane-history-app)
+    set_tests_properties(damage_lane_history_checker damage_lane_history_fixture damage_lane_history_original PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(damage_lane_history_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^damage_lane_history_original=ok cases=112 compared_bytes=2993088 production_app=1 masks=0 prior_phase=1 low_data=2 seeded=1 natural_route=0 whole_game_claim=0")
+    target_include_directories(lezac_damage_lane_memory_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME damage_lane_memory_unit COMMAND lezac_damage_lane_memory_test)
+    add_test(NAME damage_lane_memory_initial_data COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/generate_initial_damage_data.py)
+    add_test(NAME damage_lane_memory_initial_data_checker COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_initial_damage_data.py -v)
+    add_test(NAME damage_lane_memory_original COMMAND ${Python3_EXECUTABLE} -S -B
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_damage_lane_bytes.py --exe $<TARGET_FILE:lezac_damage_lane_memory_test>
+        --out ${CMAKE_CURRENT_BINARY_DIR}/damage-lane-memory-app)
+    set_tests_properties(damage_lane_memory_unit damage_lane_memory_initial_data damage_lane_memory_initial_data_checker damage_lane_memory_original PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    set_tests_properties(damage_lane_memory_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "^damage_lane_memory_unit=ok typed_banks=3 shared_cursor=1 low_data_history=1 caller_alias=1 stack_value=1")
+    set_tests_properties(damage_lane_memory_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "^damage_lane_bytes_original=ok cases=176 compared_bytes=11534336 masks=0 production_app=0 seeded=0 whole_game_claim=0")
     target_include_directories(lezac_retained_record_queue_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME retained_record_queue COMMAND lezac_retained_record_queue_test)
     set_tests_properties(retained_record_queue PROPERTIES
@@ -5444,6 +5493,26 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
         TIMEOUT 90
         PASS_REGULAR_EXPRESSION "^above_contact_staging_original=ok cases=96 compared_bytes=2565216 production_app=1 masks=0 guard_bytes=11 seed_above=1 seeded=1 natural_route=0 whole_game_claim=0")
+
+    add_test(NAME debris_contact_pools_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_debris_contact_pools_checker.py -v)
+    set_tests_properties(debris_contact_pools_checker PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    add_test(NAME debris_contact_pools_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debris_contact_pools.py)
+    set_tests_properties(debris_contact_pools_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        PASS_REGULAR_EXPRESSION "^debris_contact_pools_fixture=ok cases=96 state_bytes=26721 direct_impacts=1")
+    add_test(NAME debris_contact_pools_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debris_contact_pools.py
+            --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/debris-contact-pools-app)
+    set_tests_properties(debris_contact_pools_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        TIMEOUT 90
+        PASS_REGULAR_EXPRESSION "^debris_contact_pools_original=ok cases=96 compared_bytes=2565216 production_app=1 masks=0 direct_impacts=1 seeded=1 natural_route=0 whole_game_claim=0")
 
     add_test(NAME multicell_seeder_fixture
         COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_multicell_seeder.py)

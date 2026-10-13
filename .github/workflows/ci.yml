@@ -85,13 +85,16 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ./build/lezac_end_screen_test tests/fixtures build/end-screen-focused
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(end_screen_original|end_screen_repeat)$'
       - name: Preserve Game Over frames
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: end-screen-linux-focused
-          path: build/end-screen-focused/
+          path: |
+            build/end-screen-original/
+            build/end-screen-repeat/
+            build/Testing/Temporary/LastTest.log
           if-no-files-found: error
       - name: Natural Escape and new-game regressions
         env:
@@ -700,13 +703,16 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ./build/lezac_end_screen_test.exe tests/fixtures build/end-screen-focused
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(end_screen_original|end_screen_repeat)$'
       - name: Preserve Game Over frames
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: end-screen-windows-focused
-          path: build/end-screen-focused/
+          path: |
+            build/end-screen-original/
+            build/end-screen-repeat/
+            build/Testing/Temporary/LastTest.log
           if-no-files-found: error
       - name: Natural Escape and new-game regressions
         env:

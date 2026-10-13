@@ -465,6 +465,15 @@ if(BUILD_TESTING)
     target_include_directories(lezac_flame_contact_word_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
     if(Python3_Interpreter_FOUND)
+        add_test(NAME end_screen_repeat COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_end_screen_repeat.py
+            --exe $<TARGET_FILE:lezac_end_screen_test> --fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures
+            --out ${CMAKE_CURRENT_BINARY_DIR}/end-screen-repeat)
+        set_tests_properties(end_screen_repeat PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+            TIMEOUT 180
+            PASS_REGULAR_EXPRESSION "^end_screen_repeat=ok invocations=2 original_frames=4 compared_pixels=256000 first_evidence_unchanged=1")
         add_test(NAME buffered_menu_output_tools_contract
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_buffered_menu_output.py -v)
         set_tests_properties(buffered_menu_output_tools_contract PROPERTIES

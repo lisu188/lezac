@@ -1,5 +1,6 @@
 #include "rendering/game_renderer.hpp"
 #include "ui/level_flow.hpp"
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -10,6 +11,14 @@ using namespace lezac;
 namespace {
 void require(bool condition, const char* message) {
     if (!condition) throw std::runtime_error(message);
+}
+
+std::filesystem::path createRunDirectory(const std::filesystem::path& root) {
+    std::filesystem::create_directories(root);
+    for (std::uint64_t attempt = 0;; ++attempt) {
+        const auto candidate = root / ("run-" + std::to_string(attempt));
+        if (std::filesystem::create_directory(candidate)) return candidate;
+    }
 }
 
 void checkModels() {
@@ -83,9 +92,7 @@ int main(int argc, char** argv) {
                        {117, 77, 69}, {130, 81, 77}, {142, 81, 85}}}},
             {17, 57, {{{32, 0, 40}, {48, 12, 48}, {65, 24, 60}, {81, 36, 69},
                        {97, 48, 81}, {113, 60, 89}, {130, 73, 101}}}}}};
-        const std::filesystem::path out(argv[2]);
-        require(!std::filesystem::exists(out), "output directory already exists");
-        std::filesystem::create_directories(out);
+        const auto out = createRunDirectory(argv[2]);
         for (size_t i = 0; i < patterns.size(); ++i) {
             renderer.drawMenu({ui::MenuPage::GameOver, true, records, 0, 0, 0, name, 1,
                                {{0, 0}}, 63, static_cast<size_t>(-1), patterns[i]});

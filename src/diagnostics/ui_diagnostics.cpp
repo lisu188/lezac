@@ -314,7 +314,7 @@ void UiDiagnostics::debugEndFlowStaticModel() {
     requireBytes(0x1c4b,
                  "83 bb f2 fe 00 7f 0f 7d 03 e9 98 00 83 bb f0 "
                  "fe 00 77 03 e9 8e 00",
-                 "end-flow zero-score skip");
+                 "end-flow nonpositive-score display skip");
     requireBytes(0x1cf8, "9a 0f 03 4a 08 a2 58 20",
                  "end-flow key wait");
     requireBytes(0x1d00, "c7 46 fc 01 00 eb 03 ff 46 fc",
@@ -346,7 +346,7 @@ void UiDiagnostics::debugEndFlowStaticModel() {
               << " record_cutoff=0x1b52/0x1b54"
               << " record_stride=13"
               << " record_entry_call=" << hex4(recordEntryTarget)
-              << " strict_cutoff=1"
+              << " signed_cutoff=1 inclusive_cutoff=1 acknowledgement_before_records=1"
               << " player_order=1,2\n";
 }
 }

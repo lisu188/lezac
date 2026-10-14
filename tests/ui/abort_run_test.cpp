@@ -19,6 +19,7 @@ int main() {
             for (bool qualifies : {false, true}) {
                 UiController ui;
                 RecordStore records;
+                records.replaceRecords(std::vector<lezac::resources::Record>(7, lezac::resources::makeRecord(1, 1, "old")));
                 std::vector<std::string> events;
                 uint32_t score = qualifies ? 100 : 0, score2 = qualifies ? 200 : 0;
                 UiActions actions;
@@ -41,10 +42,11 @@ int main() {
                 require(running && ui.snapshot().menu && !ui.snapshot().paused &&
                         ui.snapshot().lastEndReason == EndReason::GameOver,
                         "gameplay Escape did not end the run");
-                require(events == (qualifies ? std::vector<std::string>{"abort", "end", "prompt"} :
-                                               std::vector<std::string>{"abort", "end"}),
+                require(events == std::vector<std::string>{"abort", "end"} &&
+                        ui.snapshot().page == MenuPage::GameOver && !records.hasPendingRecord(),
                         "abort callbacks ran out of order or cleared scores");
                 if (qualifies) {
+                    ui.onKey(Key::One, running, 4, players, records, actions, 100);
                     require(ui.snapshot().page == MenuPage::NameEntry && records.pending().score == 100 &&
                             records.pending().level == 5 && records.pending().player == 1,
                             "abort lost current score, level or first-player record");
@@ -55,7 +57,7 @@ int main() {
                             "name entry Escape changed first-player pending state");
                     // Explicit fixture teardown is not an original-game key action.
                     ui.cancelPendingRecord(records, actions);
-                    if (players == 2) {
+                    {
                         require(records.pending().score == 200 && records.pending().player == 2 &&
                                 records.pending().level == 5, "abort lost second-player record");
                         const auto beforeSecondEscape = events;
@@ -65,16 +67,15 @@ int main() {
                                 "name entry Escape changed second-player pending state");
                         ui.cancelPendingRecord(records, actions);
                     }
-                    require(ui.snapshot().page == MenuPage::Records && score == 0 && score2 == 0,
+                    require(ui.snapshot().page == MenuPage::Main && score == 0 && score2 == 0,
                             "record fixture teardown did not finish existing end flow");
-                    ui.onKey(Key::Escape, running, 4, players, records, actions, 103);
                 } else {
                     require(ui.snapshot().page == MenuPage::GameOver, "zero-score abort skipped Game Over");
                     const auto before = events;
                     ui.onKey(Key::One, running, 4, players, records, actions, 101);
-                    require(events == before && ui.snapshot().page == MenuPage::GameOver,
-                            "new-game key bypassed Game Over acknowledgement");
-                    ui.onKey(Key::Return, running, 4, players, records, actions, 102);
+                    require(events.size() == before.size() + 1 && events.back() == "clear" &&
+                            ui.snapshot().page == MenuPage::Main,
+                            "new-game key did not acknowledge Game Over without starting a game");
                 }
                 require(running && ui.snapshot().page == MenuPage::Main, "abort flow did not return to menu");
                 ui.onKey(Key::Two, running, 4, players, records, actions, 104);

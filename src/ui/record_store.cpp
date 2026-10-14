@@ -6,6 +6,12 @@
 
 namespace lezac::ui {
 using namespace resources;
+namespace {
+bool scoreLess(uint32_t left, uint32_t right) {
+    // DOS compares the signed high word, then the unsigned low word.
+    return (left ^ 0x80000000u) < (right ^ 0x80000000u);
+}
+}
 
 void RecordStore::replaceRecords(std::vector<Record> records) { records_ = std::move(records); }
 void RecordStore::setPath(std::string path) { recordPath_ = std::move(path); }
@@ -13,32 +19,35 @@ void RecordStore::setPendingNameForFixture(std::string name) { pending_.name = s
 
 bool RecordStore::insertRecord(std::vector<Record>& records, Record record, size_t maxRecords) {
     std::vector<Record> before = records;
-    records.push_back(std::move(record));
-    std::stable_sort(records.begin(), records.end(),
-                     [](const Record& a, const Record& b) { return a.score > b.score; });
+    size_t position = std::min(records.size(), maxRecords);
+    while (position > 0 && scoreLess(records[position - 1].score, record.score)) --position;
+    // Original rank eight writes outside the table; do not corrupt host memory.
+    if (position == maxRecords) return false;
+    records.insert(records.begin() + static_cast<std::ptrdiff_t>(position), std::move(record));
     if (records.size() > maxRecords) records.resize(maxRecords);
     if (records.size() != before.size()) return true;
     for (size_t i = 0; i < records.size(); ++i) {
         if (records[i].score != before[i].score || records[i].level != before[i].level ||
-            records[i].name != before[i].name ||
+            records[i].name != before[i].name || records[i].nameLength != before[i].nameLength ||
             encodedRecordName(records[i]) != encodedRecordName(before[i])) return true;
     }
     return false;
 }
 
 bool RecordStore::scoreQualifies(uint32_t score) const {
-    return score != 0 && (records_.size() < 7 || score > records_.back().score);
+    return records_.size() < 7 || !scoreLess(score, records_[6].score);
 }
 
-void RecordStore::beginEndRun(EndReason reason, int levelIndex, int playerCount,
+void RecordStore::beginEndRun(EndReason reason, int levelIndex, int,
                              uint32_t score, uint32_t score2) {
     uint8_t finalLevel = static_cast<uint8_t>(std::clamp(levelIndex + 1, 1, 255));
     pendingRecordQueue_.clear();
-    if (score != 0) pendingRecordQueue_.push_back({score, finalLevel, 1, reason});
-    if (playerCount > 1 && score2 != 0) pendingRecordQueue_.push_back({score2, finalLevel, 2, reason});
+    clearPendingRecord();
+    pendingRecordQueue_.push_back({score, finalLevel, 1, reason});
+    pendingRecordQueue_.push_back({score2, finalLevel, 2, reason});
 }
 
-void RecordStore::clearPendingRecord() { pending_ = {}; }
+void RecordStore::clearPendingRecord() { pending_ = {}; pendingActive_ = false; }
 void RecordStore::clearQueue() { pendingRecordQueue_.clear(); }
 
 bool RecordStore::startNextPendingRecord() {
@@ -48,6 +57,7 @@ bool RecordStore::startNextPendingRecord() {
         if (!scoreQualifies(entry.score)) continue;
         static_cast<PendingRecordEntry&>(pending_) = entry;
         pending_.name.clear();
+        pendingActive_ = true;
         return true;
     }
     clearPendingRecord();
@@ -60,12 +70,12 @@ void RecordStore::appendNameCharacter(char character) {
 void RecordStore::eraseNameCharacter() { if (!pending_.name.empty()) pending_.name.pop_back(); }
 
 RecordStore::CommitResult RecordStore::finalizePendingRecord() {
-    if (pending_.score == 0) return CommitResult::NoPending;
+    if (!pendingActive_) return CommitResult::NoPending;
     Record record = makeRecord(pending_.score, pending_.level, pending_.name);
     std::vector<Record> updatedRecords = records_;
-    bool changed = insertRecord(updatedRecords, record);
+    insertRecord(updatedRecords, record);
     try {
-        if (changed) saveRecords(recordPath_, updatedRecords);
+        saveRecords(recordPath_, updatedRecords);
     } catch (const std::exception& e) {
         std::cerr << "warning: could not save records: " << e.what() << '\n';
         return CommitResult::SaveFailed;

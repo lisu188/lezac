@@ -47,6 +47,9 @@ int main() {
         ui.onKey(Key::Insert, running, 0, 2, records, actions);
         require(events.back() == "fire2", "player-two fire mapping changed");
         ui.beginEndRun(EndReason::GameOver, 2, 2, 100, 200, records, actions);
+        require(ui.snapshot().page == MenuPage::GameOver && !records.hasPendingRecord() && events.back() == "reset",
+                "name entry bypassed the end-screen acknowledgement");
+        ui.onKey(Key::One, running, 2, 2, records, actions);
         require(events[events.size() - 2] == "reset" && events.back() == "prompt",
                 "record prompt preceded reset");
         require(records.pending().player == 1 && records.pending().level == 3,

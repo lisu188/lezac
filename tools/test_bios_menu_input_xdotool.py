@@ -260,9 +260,22 @@ def observe(exe, output, scenario, expected):
                 key("keyup", "Control_L")
                 wait(lambda: not intro(frame()), 3)
                 capture("fresh-control-keypad-enter-gameplay")
-            for i in range(6):
+            if intro(frame()):
+                key("key", "Return")
+                time.sleep(.15)
+                if intro(frame()):
+                    key("key", "Return")
+                wait(lambda: not intro(frame()), 3)
+            key("key", "Escape")
+            time.sleep(.15)
+            capture("game-over-before-acknowledgement")
+            key("key", "Return")
+            for _ in range(2):
+                time.sleep(.15)
                 key("key", "Escape")
-                time.sleep(2.3 if i == 0 else .2)
+            capture("returned-main-menu", wait(full, 3))
+            time.sleep(.15)
+            key("key", "Escape")
             require(child.wait(timeout=5) == 0, "normal app did not exit cleanly")
             result["status"] = "observed"
         except Exception as error:

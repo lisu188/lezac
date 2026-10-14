@@ -1,11 +1,20 @@
 #include "ui/ui_controller.hpp"
 #include "resources/io.hpp"
+#include <cstdint>
 #include <filesystem>
 #include <iostream>
 #include <stdexcept>
 
 using namespace lezac;
 namespace {
+std::filesystem::path createRunDirectory(const std::filesystem::path& root) {
+    std::filesystem::create_directories(root);
+    for (std::uint64_t attempt = 0;; ++attempt) {
+        const auto candidate = root / ("run-" + std::to_string(attempt));
+        if (std::filesystem::create_directory(candidate)) return candidate;
+    }
+}
+
 void require(bool value, const char* message) {
     if (!value) throw std::runtime_error(message);
 }
@@ -19,6 +28,7 @@ void flow(const std::filesystem::path& fixture, const std::filesystem::path& out
           int players, ui::EndReason reason) {
     using namespace ui;
     UiController controller;
+    controller.beginMainMenu(0);
     RecordStore records;
     records.replaceRecords(resources::loadRawRecords((fixture / (mixed ? "end_run_mixed-cutoff-fixture.dat" :
         "record_entry_negative-cutoff-fixture.dat")).string()));
@@ -30,7 +40,16 @@ void flow(const std::filesystem::path& fixture, const std::filesystem::path& out
     actions.recordPromptSound = [&] { events.push_back("prompt"); };
     actions.recordCommitSound = [&] { events.push_back("commit"); };
     actions.clearScores = [&] { events.push_back("clear"); };
-    actions.prepareNewGame = [&](int) { throw std::runtime_error("acknowledgement started a new game"); };
+    bool allowNextGame = false;
+    int nextGamePlayers = 0, nextGameLevel = -1;
+    actions.prepareNewGame = [&](int count) {
+        require(allowNextGame, "acknowledgement started a new game");
+        nextGamePlayers = count;
+    };
+    actions.beginLevel = [&](int level) {
+        require(allowNextGame, "acknowledgement loaded a level");
+        nextGameLevel = level;
+    };
     actions.recordsPageSound = [&] { throw std::runtime_error("end flow entered the records browser"); };
     actions.prepareRecordsPage = actions.recordsPageSound;
     controller.beginEndRun(reason, 0, players, 0, 0, records, actions);
@@ -55,20 +74,26 @@ void flow(const std::filesystem::path& fixture, const std::filesystem::path& out
             (player == 1 ? "record_entry_after-player1-file.dat" : "record_entry_saved-original.dat"));
         require(resources::readFile(records.path()) == resources::readFile(expected.string()),
                 "actual UI/RecordStore saved bytes differ from the original");
+        std::filesystem::copy_file(records.path(), out / ("after-player-" + std::to_string(player) + ".dat"));
     }
     require(running && controller.snapshot().page == MenuPage::Main && !records.hasPendingRecord(),
             "last record did not return directly to Main");
     require(events == std::vector<std::string>{"end", "background", "prompt", "commit",
             "background", "prompt", "commit", "clear"}, "original end-run callback order changed");
+    const auto progress = controller.mainMenuProgress(0);
+    allowNextGame = true;
+    controller.onKey(Key::One, running, 0, players, records, actions);
+    require(progress.waitingForKey && progress.fade == 63 && progress.steps == mainMenuStepCount(true) &&
+            !controller.snapshot().menu && nextGamePlayers == 1 && nextGameLevel == 0,
+            "last record restarted title or consumed the next game choice");
 }
 }
 
 int main(int argc, char** argv) {
     try {
         require(argc == 3, "expected fixture and new output directories");
-        const std::filesystem::path fixture(argv[1]), out(argv[2]);
-        require(!std::filesystem::exists(out), "output directory already exists");
-        std::filesystem::create_directories(out);
+        const std::filesystem::path fixture(argv[1]);
+        const auto out = createRunDirectory(argv[2]);
         int flows = 0;
         for (int players : {1, 2}) for (auto reason : {ui::EndReason::GameOver, ui::EndReason::CompletedGame}) {
             for (bool mixed : {false, true}) {
@@ -111,6 +136,7 @@ int main(int argc, char** argv) {
         records.setPath((out / "retry.dat").string());
         require(records.finalizePendingRecord() == ui::RecordStore::CommitResult::Saved && !records.hasPendingRecord(),
                 "zero-score retry did not commit");
+        std::filesystem::copy_file(records.path(), out / "retry-zero.dat");
         require(records.finalizePendingRecord() == ui::RecordStore::CommitResult::NoPending,
                 "cleared ownership committed a second time");
         records.replaceRecords({});
@@ -125,7 +151,7 @@ int main(int argc, char** argv) {
                 !records.startNextPendingRecord(), "second score was not checked against the updated cutoff");
         std::cout << "original_end_run=ok flows=" << flows << " compared_saved_bytes=1472 signed_cases=" << signedCases
                   << " acknowledgement=1 zero_pending=1 both_slots=1 stable_ties=1 prefix_preserved=1"
-                     " final_main=1 retry=1 p2_recheck=1 rank8_memory_claim=0\n";
+                     " final_main=1 retry=1 p2_recheck=1 rank8_memory_claim=0 settled_return=1 retained_commit_bytes=1472\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

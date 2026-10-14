@@ -206,6 +206,21 @@ if(BUILD_TESTING)
     set_tests_properties(records_return_unit PROPERTIES
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^records_return=ok cases=1920 languages=2 acknowledgement_keys=40 clocks=4 prior_menu_states=3 immediate_player_choices=2 language_restart=2 whole_game_parity=0")
+    add_executable(lezac_end_run_return_test tests/ui/end_run_return_test.cpp)
+    target_link_libraries(lezac_end_run_return_test PRIVATE lezac_ui)
+    add_test(NAME end_run_return_unit COMMAND lezac_end_run_return_test)
+    set_tests_properties(end_run_return_unit PROPERTIES
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^end_run_return=ok cases=192 languages=2 clocks=4 reasons=2 configured_players=2 prior_title_states=3 acknowledgements=2 language_restart=4 whole_game_parity=0")
+    add_executable(lezac_original_end_run_test tests/ui/original_end_run_test.cpp)
+    target_link_libraries(lezac_original_end_run_test PRIVATE lezac_ui)
+    add_test(NAME original_end_run COMMAND lezac_original_end_run_test
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures"
+        "${CMAKE_CURRENT_BINARY_DIR}/original-end-run")
+    set_tests_properties(original_end_run PROPERTIES
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        # The intentional failed-save warning precedes the completion line.
+        PASS_REGULAR_EXPRESSION "original_end_run=ok flows=8 compared_saved_bytes=1472 signed_cases=49 acknowledgement=1 zero_pending=1 both_slots=1 stable_ties=1 prefix_preserved=1 final_main=1 retry=1 p2_recheck=1 rank8_memory_claim=0 settled_return=1 retained_commit_bytes=1472")
     add_executable(lezac_record_entry_page_test tests/rendering/record_entry_page_test.cpp)
     target_link_libraries(lezac_record_entry_page_test PRIVATE lezac_rendering)
     add_test(NAME record_entry_page_original COMMAND lezac_record_entry_page_test
@@ -497,6 +512,16 @@ if(BUILD_TESTING)
     target_include_directories(lezac_flame_contact_word_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
     if(Python3_Interpreter_FOUND)
+        add_test(NAME original_end_run_repeat COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_end_run_repeat.py
+            --exe $<TARGET_FILE:lezac_original_end_run_test>
+            --fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures
+            --out ${CMAKE_CURRENT_BINARY_DIR}/original-end-run-repeat)
+        set_tests_properties(original_end_run_repeat PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+            TIMEOUT 180
+            PASS_REGULAR_EXPRESSION "^original_end_run_repeat=ok invocations=2 flows=16 compared_saved_bytes=2944 first_evidence_unchanged=1")
         foreach(record_profile IN ITEMS records entry)
             if(record_profile STREQUAL "records")
                 set(record_repeat_target lezac_records_page_test)
@@ -3581,7 +3606,7 @@ if(BUILD_TESTING)
     set_tests_properties(end_flow_records_temp PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^end_flow_records=ok completion_level=2 p1_record=999997 p2_record=999998 records=7 cutoff_equal_skipped=1 p2_recheck_skipped=1")
+            "^end_flow_records=ok completion_level=2 p1_record=999997 p2_record=999998 records=7 cutoff_equal_prompted=1 rank8_memory_claim=0 p2_recheck_skipped=1")
 
     add_test(NAME end_flow_frame_flow
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -3596,7 +3621,7 @@ if(BUILD_TESTING)
     set_tests_properties(end_flow_static_model PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^end_flow_static_model=ok routine=0x1b14..0x1d42 game_over_string=0x1ae1 completed_strings=0x1aeb,0x1af9 mode_param=bp\\+4 completed_flag=0x208c player_score_ptrs=0x785a,0x7888 player_markers=0x31,0x32 key_latch=0x2058 record_cutoff=0x1b52/0x1b54 record_stride=13 record_entry_call=0x1845 strict_cutoff=1 player_order=1,2")
+            "^end_flow_static_model=ok routine=0x1b14..0x1d42 game_over_string=0x1ae1 completed_strings=0x1aeb,0x1af9 mode_param=bp\\+4 completed_flag=0x208c player_score_ptrs=0x785a,0x7888 player_markers=0x31,0x32 key_latch=0x2058 record_cutoff=0x1b52/0x1b54 record_stride=13 record_entry_call=0x1845 signed_cutoff=1 inclusive_cutoff=1 acknowledgement_before_records=1 player_order=1,2")
 
     add_test(NAME sound_render COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-render)
     set_tests_properties(sound_render PROPERTIES

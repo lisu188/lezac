@@ -51,6 +51,34 @@ end page and expect Main after committing, including sound and save-failure
 checks. The static diagnostic now correctly labels inclusive signed cutoff
 behavior instead of claiming a strict cutoff.
 
+## Settled Return Regression
+
+The incoming eight-flow test used an inactive title state. Its saved-byte
+comparisons passed even though the generic controller footer restarted an
+active title after the final record or an empty end-run acknowledgement. A new
+active-title probe reproduces both the unsettled state and the consumed next
+player choice. End-run completion now restores a settled active title and skips
+that generic restart; other page transitions and language-triggered fades keep
+their previous behavior.
+
+`end_run_return_unit` checks 192 cases across both languages, four clocks, both
+end reasons and player settings, three previous title states and two
+acknowledgement keys. The eight original-backed saved-byte flows now start with
+an active title and verify an immediate following new-game choice. Both
+intermediate table commits are retained, not just the final overwritten file.
+
+The end-run test uses exclusive per-run directories. Its permanent repeat check
+independently compares all 32 retained commit snapshots from two invocations,
+2,944 bytes, and verifies that first-run files and zero-score retry evidence
+remain unchanged. The expected save-failure diagnostic is retained separately
+from successful completion. Original fixtures are not modified by these checks.
+
+The existing no-record main-menu fixture now supplies seven positive cutoff
+rows explicitly. An empty port-extension table qualifies zero scores and was
+not a valid fixture for testing a no-prompt end return.
+Its end-acknowledgement assertion also requires the observed settled menu and
+an immediately accepted next choice, instead of expecting a restarted fade.
+
 ## Limits
 
 Original equality can request rank eight and write beyond the seven-entry

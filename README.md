@@ -66,7 +66,7 @@ Run from the repository root so the executable can find the shipped game resourc
 Run the registered CTest suite:
 
 ```sh
-env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ctest --test-dir build --output-on-failure
+env SDL_AUDIODRIVER=dummy ctest --test-dir build --output-on-failure
 ```
 
 Validate game assets and replay a deterministic scenario:

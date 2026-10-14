@@ -1,0 +1,215 @@
+{
+  "schema": "lezac-original-record-entry-v1",
+  "passed": true,
+  "original_producer_status": "failed",
+  "retained_failure_reason": "AssertionError('Retain unexpected original output without rewriting it')",
+  "original_report_sha256": "e598746b19d5dc575d241891a832575a51e6b505cfb80af4992a22abf95a6f83",
+  "producer_sha256": "521f3153a00bfb79580021088075bb62de74b861161f32aa5a206c5a8d37bc29",
+  "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "process_memory_writes": 0,
+  "code_bytes_per_sample": 43552,
+  "code_differences": 0,
+  "samples_verified": 13,
+  "burst_pngs_verified": 40,
+  "burst_distinct_pixel_hashes": 1,
+  "saved_file_count": 3,
+  "saved_bytes_verified": 276,
+  "literal_space_byte": 32,
+  "player2_prompt_in_one_player_mode": true,
+  "natural_gameplay_score": 0,
+  "record_file_fixture_seeded": true,
+  "signed_cutoff": -1,
+  "ram_atomic": false,
+  "backspace_restores_prior_frame": true,
+  "final_main_matches_initial": true,
+  "patterns": [
+    {
+      "horizontal_step": 80,
+      "vertical_step": 32,
+      "colors": [
+        [
+          52,
+          48,
+          20
+        ],
+        [
+          52,
+          48,
+          36
+        ],
+        [
+          52,
+          48,
+          52
+        ],
+        [
+          52,
+          52,
+          69
+        ],
+        [
+          52,
+          52,
+          85
+        ],
+        [
+          52,
+          56,
+          101
+        ],
+        [
+          52,
+          56,
+          117
+        ]
+      ],
+      "inferred_background_pixels": 38400,
+      "inference_is_not_rng_alignment": true
+    },
+    {
+      "horizontal_step": 77,
+      "vertical_step": 23,
+      "colors": [
+        [
+          48,
+          69,
+          0
+        ],
+        [
+          52,
+          73,
+          8
+        ],
+        [
+          60,
+          81,
+          16
+        ],
+        [
+          69,
+          89,
+          24
+        ],
+        [
+          73,
+          93,
+          36
+        ],
+        [
+          81,
+          101,
+          44
+        ],
+        [
+          89,
+          109,
+          52
+        ]
+      ],
+      "inferred_background_pixels": 38400,
+      "inference_is_not_rng_alignment": true
+    }
+  ],
+  "states": [
+    {
+      "name": "player1-empty",
+      "player": 1,
+      "entered_name": "",
+      "score": 0,
+      "rank": 1,
+      "pattern_index": 0,
+      "rgb_file": "record_entry_player1-empty.rgb",
+      "rgb_sha256": "0a61d0bd3c3727f5ffc7515f48e2aa2550b9a1ba260b2585216ecfebb0f33b49",
+      "screenshot_sha256": "55eeb8a205db2a4952b9995836067c40965e5df9739675647fdf864b779f33a6",
+      "records_file": "record_entry_negative-cutoff-fixture.dat"
+    },
+    {
+      "name": "player1-a",
+      "player": 1,
+      "entered_name": "a",
+      "score": 0,
+      "rank": 1,
+      "pattern_index": 0,
+      "rgb_file": "record_entry_player1-a.rgb",
+      "rgb_sha256": "0d67aebe49974fcce512b92892ad605ff96e677df91545f13ea053c90b226dbe",
+      "screenshot_sha256": "706104a450e84cbe0510631c05206986cbac2ddc3f4e420adead29cb323d34c7",
+      "records_file": "record_entry_negative-cutoff-fixture.dat"
+    },
+    {
+      "name": "player1-a-space",
+      "player": 1,
+      "entered_name": "a ",
+      "score": 0,
+      "rank": 1,
+      "pattern_index": 0,
+      "rgb_file": "record_entry_player1-a-space.rgb",
+      "rgb_sha256": "6bda509807a842eb0851503b8dec1ac169624e97f5029bb42dd10f1604c5d2d3",
+      "screenshot_sha256": "7c5002954594e618ca664285d82985547752c170d8061dbc2dfc9ad2e4c8aa0e",
+      "records_file": "record_entry_negative-cutoff-fixture.dat"
+    },
+    {
+      "name": "player1-a-space-b",
+      "player": 1,
+      "entered_name": "a b",
+      "score": 0,
+      "rank": 1,
+      "pattern_index": 0,
+      "rgb_file": "record_entry_player1-a-space-b.rgb",
+      "rgb_sha256": "12f3b2ebfa5a31c3db9979d1491afd90c0c7cd245ffadacedfd271bcada31d1b",
+      "screenshot_sha256": "3b0e1a6bc817b8fb883ffcc64f83c1044333f760d78b65c025c5b7ec7ec697ff",
+      "records_file": "record_entry_negative-cutoff-fixture.dat"
+    },
+    {
+      "name": "player1-after-backspace",
+      "player": 1,
+      "entered_name": "a ",
+      "score": 0,
+      "rank": 1,
+      "pattern_index": 0,
+      "rgb_file": "record_entry_player1-after-backspace.rgb",
+      "rgb_sha256": "6bda509807a842eb0851503b8dec1ac169624e97f5029bb42dd10f1604c5d2d3",
+      "screenshot_sha256": "7c5002954594e618ca664285d82985547752c170d8061dbc2dfc9ad2e4c8aa0e",
+      "records_file": "record_entry_negative-cutoff-fixture.dat"
+    },
+    {
+      "name": "player1-a-space-c",
+      "player": 1,
+      "entered_name": "a c",
+      "score": 0,
+      "rank": 1,
+      "pattern_index": 0,
+      "rgb_file": "record_entry_player1-a-space-c.rgb",
+      "rgb_sha256": "016709ea5f436291c6a6b50eeed04c89553593a98f9546870c8004ee1510428b",
+      "screenshot_sha256": "b1c1e4945709924e80729ebf10b671d6149c6cfae9a648a36d49331f09c36388",
+      "records_file": "record_entry_negative-cutoff-fixture.dat"
+    },
+    {
+      "name": "after-player1-commit",
+      "player": 2,
+      "entered_name": "",
+      "score": 0,
+      "rank": 2,
+      "pattern_index": 1,
+      "rgb_file": "record_entry_after-player1-commit.rgb",
+      "rgb_sha256": "158676fc65ace60470061aba99aa152b1adba62bb3ec7842f8f2e07cf76c8561",
+      "screenshot_sha256": "a4713b9373286d6cff390173ff5ade488bb7f5fe5ec1482e66d7ddd4c574b188",
+      "records_file": "record_entry_after-player1-file.dat"
+    },
+    {
+      "name": "player2-z",
+      "player": 2,
+      "entered_name": "z",
+      "score": 0,
+      "rank": 2,
+      "pattern_index": 1,
+      "rgb_file": "record_entry_player2-z.rgb",
+      "rgb_sha256": "ba10aa8b78eef5ee57410bb875fbe212015e6e227d5212d293178c36ac476b19",
+      "screenshot_sha256": "d139f359eadf4ff1796fca45c582c776e422c451470cf28a12a5de3b6b2cc6e5",
+      "records_file": "record_entry_after-player1-file.dat"
+    }
+  ],
+  "audio": "dummy",
+  "timing_parity": false,
+  "end_flow_complete": false,
+  "whole_game_parity": false
+}

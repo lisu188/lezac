@@ -3,7 +3,8 @@
 The DOS record file is a count byte followed by 13-byte entries: a four-byte
 score and a Pascal string[8]. The byte after the score is the padded name
 length, not a gameplay level. Names occupy eight character bytes and use
-`:` for spaces and unused slots.
+`:` for unused slots. Entered spaces remain literal ASCII `0x20`; see the
+independent [name-entry observation](record_entry_presentation.md).
 
 ## Evidence
 
@@ -70,9 +71,15 @@ stale level-nine assertion on both platforms; those logs remain retained.
 
 ## Remaining Fidelity Work
 
-Original records-page presentation is delivered separately in PR #385.
-Full name-entry presentation remains open; this codec and diagnostic repair
-does not establish the entire end-run UI contract.
+The follow-up [records-page recovery](records_page_presentation.md) separates
+`Record::nameLength` from port-only `Record::level`, decodes only the declared
+Pascal length, and preserves all eight stored bytes. The raw reader assigns
+unknown level metadata 0. Generated JSON includes `name_length`; existing JSON
+level values remain supported. Settled records-page rendering is covered by
+two complete original RGB fixtures in PR #385. The subsequent
+[name-entry presentation](record_entry_presentation.md) covers eight settled
+states, literal spaces and ignored Escape. Typing timing and the entire
+end-run UI contract remain open.
 
 Game Over typing, record-entry ordering and cutoff equality are separate
 open contracts. A zero-cutoff observation displayed rank 8 for a zero score,

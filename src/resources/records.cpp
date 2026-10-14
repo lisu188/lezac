@@ -84,9 +84,6 @@ std::vector<Record> loadRecords(const std::string& path) {
 std::string encodeRecordName(const std::string& name) {
     std::string out = name;
     out.resize(8, ':');
-    for (char& ch : out) {
-        if (ch == ' ') ch = ':';
-    }
     return out;
 }
 

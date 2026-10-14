@@ -79,6 +79,7 @@
         "src/ui/level_flow.cpp",
         "src/ui/level_flow.hpp",
         "src/ui/models.hpp",
+        "src/ui/record_adjacent_memory.hpp",
         "src/ui/record_store.cpp",
         "src/ui/record_store.hpp",
         "src/ui/ui_controller.cpp",

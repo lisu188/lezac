@@ -94,6 +94,16 @@ std::string encodedRecordName(const Record& record) {
     return encodeRecordName(record.name);
 }
 
+RecordWireBytes encodedRecordBytes(const Record& record) {
+    if (record.nameLength > 8) throw std::runtime_error("invalid record name length");
+    RecordWireBytes bytes{};
+    for (size_t i = 0; i < 4; ++i) bytes[i] = static_cast<uint8_t>(record.score >> (8 * i));
+    bytes[4] = record.nameLength;
+    const auto name = encodedRecordName(record);
+    for (size_t i = 0; i < 8; ++i) bytes[5 + i] = static_cast<uint8_t>(name[i]);
+    return bytes;
+}
+
 Record makeRecord(uint32_t score, uint8_t level, const std::string& enteredName) {
     Record record;
     record.score = score;
@@ -123,15 +133,8 @@ void saveRecords(const std::string& path, const std::vector<Record>& records) {
         }
         out.put(static_cast<char>(count));
         for (size_t i = 0; i < count; ++i) {
-            uint32_t score = records[i].score;
-            out.put(static_cast<char>(score & 0xffu));
-            out.put(static_cast<char>((score >> 8) & 0xffu));
-            out.put(static_cast<char>((score >> 16) & 0xffu));
-            out.put(static_cast<char>((score >> 24) & 0xffu));
-            std::string name = encodedRecordName(records[i]);
-            // DOS stores a Pascal string[8], not the port's JSON level metadata.
-            out.put(static_cast<char>(records[i].nameLength));
-            out.write(name.data(), static_cast<std::streamsize>(name.size()));
+            const auto bytes = encodedRecordBytes(records[i]);
+            out.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
         }
         return;
     }

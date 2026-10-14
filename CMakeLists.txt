@@ -221,6 +221,13 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         # The intentional failed-save warning precedes the completion line.
         PASS_REGULAR_EXPRESSION "original_end_run=ok flows=8 compared_saved_bytes=1472 signed_cases=49 acknowledgement=1 zero_pending=1 both_slots=1 stable_ties=1 prefix_preserved=1 final_main=1 retry=1 p2_recheck=1 rank8_memory_claim=0 settled_return=1 retained_commit_bytes=1472")
+    add_executable(lezac_record_adjacent_memory_test tests/ui/record_adjacent_memory_test.cpp)
+    target_link_libraries(lezac_record_adjacent_memory_test PRIVATE lezac_ui)
+    add_test(NAME record_adjacent_original COMMAND lezac_record_adjacent_memory_test
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures"
+        "${CMAKE_CURRENT_BINARY_DIR}/record-adjacent-original")
+    set_tests_properties(record_adjacent_original PROPERTIES
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
     add_executable(lezac_record_entry_page_test tests/rendering/record_entry_page_test.cpp)
     target_link_libraries(lezac_record_entry_page_test PRIVATE lezac_rendering)
     add_test(NAME record_entry_page_original COMMAND lezac_record_entry_page_test

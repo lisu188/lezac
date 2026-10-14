@@ -228,6 +228,14 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_BINARY_DIR}/record-adjacent-original")
     set_tests_properties(record_adjacent_original PROPERTIES
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+    add_executable(lezac_screen_clear_test tests/rendering/screen_clear_test.cpp)
+    target_link_libraries(lezac_screen_clear_test PRIVATE lezac_rendering)
+    add_test(NAME screen_clear_original COMMAND lezac_screen_clear_test
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures"
+        "${CMAKE_CURRENT_BINARY_DIR}/screen-clear-original")
+    set_tests_properties(screen_clear_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
     add_executable(lezac_record_entry_page_test tests/rendering/record_entry_page_test.cpp)
     target_link_libraries(lezac_record_entry_page_test PRIVATE lezac_rendering)
     add_test(NAME record_entry_page_original COMMAND lezac_record_entry_page_test

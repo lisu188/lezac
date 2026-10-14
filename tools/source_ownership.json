@@ -66,6 +66,7 @@
         "src/rendering/presentation_state.cpp",
         "src/rendering/presentation_state.hpp",
         "src/rendering/render_views.hpp",
+        "src/rendering/screen_clear.hpp",
         "src/rendering/sdl_display.cpp",
         "src/rendering/sdl_display.hpp",
         "src/rendering/text_renderer.cpp",

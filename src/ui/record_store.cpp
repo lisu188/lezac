@@ -18,11 +18,18 @@ void RecordStore::setPath(std::string path) { recordPath_ = std::move(path); }
 void RecordStore::setPendingNameForFixture(std::string name) { pending_.name = std::move(name); }
 
 bool RecordStore::insertRecord(std::vector<Record>& records, Record record, size_t maxRecords) {
+    return insertRecordWithAdjacent(records, std::move(record), maxRecords, nullptr);
+}
+
+bool RecordStore::insertRecordWithAdjacent(std::vector<Record>& records, Record record,
+                                         size_t maxRecords, RecordAdjacentMemory* adjacent) {
     std::vector<Record> before = records;
     size_t position = std::min(records.size(), maxRecords);
     while (position > 0 && scoreLess(records[position - 1].score, record.score)) --position;
-    // Original rank eight writes outside the table; do not corrupt host memory.
-    if (position == maxRecords) return false;
+    if (position == maxRecords) {
+        if (adjacent && maxRecords == 7) adjacent->retainRankEight(record);
+        return false;
+    }
     records.insert(records.begin() + static_cast<std::ptrdiff_t>(position), std::move(record));
     if (records.size() > maxRecords) records.resize(maxRecords);
     if (records.size() != before.size()) return true;
@@ -73,7 +80,7 @@ RecordStore::CommitResult RecordStore::finalizePendingRecord() {
     if (!pendingActive_) return CommitResult::NoPending;
     Record record = makeRecord(pending_.score, pending_.level, pending_.name);
     std::vector<Record> updatedRecords = records_;
-    insertRecord(updatedRecords, record);
+    insertRecordWithAdjacent(updatedRecords, record, 7, &adjacentMemory_);
     try {
         saveRecords(recordPath_, updatedRecords);
     } catch (const std::exception& e) {

@@ -84,10 +84,14 @@ an immediately accepted next choice, instead of expecting a restarted fade.
 Original equality can request rank eight and write beyond the seven-entry
 table. The port qualifies and presents that rank but bounds insertion to the
 table, retaining its seven entries and writing that bounded table on commit.
-The original adjacent-memory corruption is not reproduced or claimed. Short
+The instance-owned adjacent-memory model now retains the 13-byte rank-eight
+write, including the overwritten saved handler targets. Its dedicated original
+boundary test is described in `record_adjacent_memory.md`. Interrupt dispatch,
+the original stopped execution and its partial rendered frame are not yet
+reproduced or claimed. Short
 tables and JSON level metadata remain port extensions, not original contracts.
 
 Typing, physical keyboard-buffer timing, character sound requests, naturally
 aligned RNG replay, original completed-game gameplay, unsafe rank-eight memory
-effects, exact-head full CI, external review and dependency delivery remain
+dispatch/frame effects, exact-head full CI, external review and dependency delivery remain
 separate open gates. No whole-game or sound/runtime fidelity claim is made.

@@ -57,6 +57,28 @@ The component test covers both port language settings, 40 domain keys,
 short/zero names, exact raw/JSON round trips, and existing field layout.
 Original Game Over and record-save component regressions remain required.
 
+## Records Return Regression
+
+The reviewed incoming controller restarted the title fade after consuming the
+records acknowledgement. A following player choice at the same clock value was
+consumed by that fade instead of starting a game. The records transition now
+returns directly to the settled title state, without falling through the common
+title-restart footer. Other page transitions and language-triggered title fades
+are unchanged.
+
+`records_return_unit` covers 1,920 controller cases across two languages, forty
+acknowledgement keys, four clock boundaries, three prior title states and both
+immediate player choices. The acknowledgement must not execute a menu command;
+the following choice must start a game immediately. Language changes must still
+restart their existing title presentation. This is controller coverage, not an
+original capture of every key or clock combination.
+
+Both records and name-entry pixel regressions allocate exclusive per-run output
+directories. Their permanent repeat checks compare complete RGB payloads and
+retain saved records plus losslessly compressed PPMs. A successful retry must
+leave first-run evidence unchanged. No original fixture is regenerated, replaced,
+cropped or masked by these checks.
+
 ## Evidence Boundaries
 
 These are settled component frames matched to original observations, not

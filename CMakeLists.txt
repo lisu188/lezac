@@ -200,6 +200,30 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "governed_loop=ok cadence=1 rollover=1 cap_boundaries=4 stop_boundaries=3 quit_boundaries=2 exceptions=2 stats_reset=1")
 
+    add_executable(lezac_records_return_test tests/ui/records_return_test.cpp)
+    target_link_libraries(lezac_records_return_test PRIVATE lezac_ui)
+    add_test(NAME records_return_unit COMMAND lezac_records_return_test)
+    set_tests_properties(records_return_unit PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^records_return=ok cases=1920 languages=2 acknowledgement_keys=40 clocks=4 prior_menu_states=3 immediate_player_choices=2 language_restart=2 whole_game_parity=0")
+    add_executable(lezac_record_entry_page_test tests/rendering/record_entry_page_test.cpp)
+    target_link_libraries(lezac_record_entry_page_test PRIVATE lezac_rendering)
+    add_test(NAME record_entry_page_original COMMAND lezac_record_entry_page_test
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures"
+        "${CMAKE_CURRENT_BINARY_DIR}/record-entry-page-original")
+    set_tests_properties(record_entry_page_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^record_entry_page=ok original_frames=8 compared_pixels=1024000 differing_pixels=0 masks=0 literal_space=1 saved_bytes=184 escape_ignored=1 background_rng_calls=8 timing_parity=0 end_flow_parity=0")
+    add_executable(lezac_records_page_test tests/rendering/records_page_test.cpp)
+    target_link_libraries(lezac_records_page_test PRIVATE lezac_rendering)
+    add_test(NAME records_page_original COMMAND lezac_records_page_test
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures"
+        "${CMAKE_CURRENT_BINARY_DIR}/records-page-original")
+    set_tests_properties(records_page_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^records_page=ok original_frames=2 compared_pixels=256000 differing_pixels=0 masks=0 raw_roundtrips=2 input_cases=40 layout_preserved=1 timing_parity=0")
     add_executable(lezac_end_screen_test tests/rendering/end_screen_test.cpp)
     target_link_libraries(lezac_end_screen_test PRIVATE lezac_rendering)
     add_test(NAME end_screen_original COMMAND lezac_end_screen_test
@@ -286,7 +310,7 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_abort_run_test PRIVATE lezac_ui)
     add_test(NAME abort_run_unit COMMAND lezac_abort_run_test)
     set_tests_properties(abort_run_unit PROPERTIES PASS_REGULAR_EXPRESSION
-        "^abort_run=ok cases=8 pause_cleared=1 game_over=1 records=1 player_order=1,2 current_level=1 acknowledgement=1 restart=1 original_record_claim=0")
+        "^abort_run=ok cases=8 pause_cleared=1 game_over=1 records=1 player_order=1,2 current_level=1 acknowledgement=1 restart=1 name_escape_ignored=1 fixture_teardown=1 original_record_claim=0")
 
     add_executable(lezac_level_results_test tests/ui/level_results_test.cpp)
     target_link_libraries(lezac_level_results_test PRIVATE lezac_ui)
@@ -473,6 +497,27 @@ if(BUILD_TESTING)
     target_include_directories(lezac_flame_contact_word_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
     if(Python3_Interpreter_FOUND)
+        foreach(record_profile IN ITEMS records entry)
+            if(record_profile STREQUAL "records")
+                set(record_repeat_target lezac_records_page_test)
+                set(record_repeat_name records_page_repeat)
+                set(record_repeat_pixels 512000)
+            else()
+                set(record_repeat_target lezac_record_entry_page_test)
+                set(record_repeat_name record_entry_page_repeat)
+                set(record_repeat_pixels 2048000)
+            endif()
+            add_test(NAME ${record_repeat_name} COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_record_pages_repeat.py
+                --profile ${record_profile} --exe $<TARGET_FILE:${record_repeat_target}>
+                --fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures
+                --out ${CMAKE_CURRENT_BINARY_DIR}/${record_repeat_name})
+            set_tests_properties(${record_repeat_name} PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+                TIMEOUT 180
+                PASS_REGULAR_EXPRESSION "^record_pages_repeat=ok profile=${record_profile} invocations=2 compared_pixels=${record_repeat_pixels} first_evidence_unchanged=1")
+        endforeach()
         add_test(NAME end_screen_repeat COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_end_screen_repeat.py
             --exe $<TARGET_FILE:lezac_end_screen_test> --fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures
@@ -3503,7 +3548,7 @@ if(BUILD_TESTING)
     set_tests_properties(records_name_entry_temp PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^record_name_entry=ok top=999999 name=test padded=test:::: capped=ab cdefg encoded_space=ab:cdefg empty=nessuno empty_encoded=:::::::: typed_nessuno_encoded=nessuno: preserved_empty=::::::::")
+            "^record_name_entry=ok top=999999 name=test padded=test:::: capped=ab cdefg encoded_space=ab cdefg empty=nessuno empty_encoded=:::::::: typed_nessuno_encoded=nessuno: preserved_empty=::::::::")
 
     add_test(NAME records_name_entry_cursor
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-name-entry-cursor)

@@ -91,8 +91,10 @@ void UiController::onKey(Key key, bool& running, int levelIndex, int playerCount
         if (state_.page == MenuPage::NameEntry) {
             handleNameEntryKey(key, records, actions);
         } else if (state_.page == MenuPage::Records) {
-            // 1000:2160 waits for one ReadKey, then returns to the title menu.
+            // 1000:2160 consumes one ReadKey and returns to the settled title.
             state_.page = MenuPage::Main;
+            state_.mainMenu = {true, now, 0, true};
+            return;
         } else if (state_.page == MenuPage::GameOver || state_.page == MenuPage::CompletedGame) {
             if (key == Key::Escape || key == Key::Return || key == Key::KeypadEnter || key == Key::Space) {
                 actions.clearScores(); records.clearQueue(); records.clearPendingRecord();

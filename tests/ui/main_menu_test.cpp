@@ -8,6 +8,7 @@
 #include <iostream>
 #include <initializer_list>
 #include <stdexcept>
+#include <vector>
 
 namespace {
 void require(bool value, const char* message) {
@@ -253,6 +254,7 @@ int main(int argc, char** argv) {
             require(app::InputMapper::isBufferedMenuKey(key), "buffered menu key rejected");
         UiController ui;
         RecordStore records;
+        records.replaceRecords(std::vector<lezac::resources::Record>(7, lezac::resources::makeRecord(1, 1, "old")));
         int games = 0;
         bool running = true;
         UiActions actions;

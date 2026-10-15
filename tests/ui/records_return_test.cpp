@@ -82,6 +82,25 @@ int main() {
                     controller.snapshot().italian != italian && !controller.mainMenuProgress(100).waitingForKey,
                     "language change lost its existing title restart");
         }
+        for (const MenuPage endPage : {MenuPage::GameOver, MenuPage::CompletedGame}) {
+            for (const Key acknowledgement : {Key::Return, Key::Escape}) {
+                UiController controller;
+                UiState state;
+                state.page = endPage;
+                state.mainMenu = {true, 100, kMainMenuFadeDurationMs, false};
+                controller.restoreSnapshot(state);
+                RecordStore records;
+                UiActions actions;
+                actions.clearScores = [] {};
+                bool running = true;
+                controller.onKey(acknowledgement, running, 0, 1, records, actions, 100);
+                require(running && controller.snapshot().page == MenuPage::Main &&
+                        controller.mainMenuProgress(100).waitingForKey,
+                        "end-screen acknowledgement restarted title animation");
+                controller.onKey(Key::Escape, running, 0, 1, records, actions, 100);
+                require(!running, "Escape after Game Over acknowledgement did not exit");
+            }
+        }
         require(cases == 1920, "records return matrix count changed");
         std::cout << "records_return=ok cases=1920 languages=2 acknowledgement_keys=40 clocks=4"
                      " prior_menu_states=3 immediate_player_choices=2 language_restart=2 whole_game_parity=0\n";

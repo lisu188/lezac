@@ -32,17 +32,20 @@ void UiController::enterRecordsPage(const UiActions& actions, bool playSound) {
 }
 void UiController::finalizePendingRecord(RecordStore& records, const UiActions& actions) {
     const auto result = records.finalizePendingRecord();
-    if (result == RecordStore::CommitResult::NoPending) { enterRecordsPage(actions); return; }
+    if (result == RecordStore::CommitResult::NoPending) { finishEndRun(actions); return; }
     if (result == RecordStore::CommitResult::SaveFailed) { state_.page = MenuPage::NameEntry; return; }
     if (startNextPendingRecord(records, actions)) return;
-    actions.clearScores();
-    enterRecordsPage(actions);
+    finishEndRun(actions);
 }
 void UiController::cancelPendingRecord(RecordStore& records, const UiActions& actions) {
     records.clearPendingRecord();
     if (startNextPendingRecord(records, actions)) return;
+    finishEndRun(actions);
+}
+void UiController::finishEndRun(const UiActions& actions) {
     actions.clearScores();
-    enterRecordsPage(actions);
+    state_.page = MenuPage::Main;
+    state_.mainMenu = {true, state_.mainMenu.startedAt, 0, true};
 }
 void UiController::handleNameEntryKey(Key key, RecordStore& records, const UiActions& actions) {
     if (key == Key::Return || key == Key::KeypadEnter) {
@@ -59,8 +62,8 @@ void UiController::beginEndRun(EndReason reason, int levelIndex, int playerCount
     records.beginEndRun(reason, levelIndex, playerCount, score, score2);
     state_.menu = true;
     state_.lastEndReason = reason;
+    state_.page = endMenuPage(reason);
     actions.resetAfterEndRun();
-    if (!startNextPendingRecord(records, actions)) state_.page = endMenuPage(reason);
 }
 void UiController::onKey(Key key, bool& running, int levelIndex, int playerCount,
                          RecordStore& records, const UiActions& actions, uint32_t now) {
@@ -96,12 +99,7 @@ void UiController::onKey(Key key, bool& running, int levelIndex, int playerCount
             state_.mainMenu = {true, now, 0, true};
             return;
         } else if (state_.page == MenuPage::GameOver || state_.page == MenuPage::CompletedGame) {
-            if (key == Key::Escape || key == Key::Return || key == Key::KeypadEnter || key == Key::Space) {
-                actions.clearScores(); records.clearQueue(); records.clearPendingRecord();
-                state_.page = MenuPage::Main;
-                state_.mainMenu = {true, now, 0, true};
-                return;
-            }
+            if (!startNextPendingRecord(records, actions)) finishEndRun(actions);
         } else if (key == Key::Escape) {
             if (state_.page == MenuPage::Main) running = false;
             else state_.page = MenuPage::Main;
@@ -126,6 +124,10 @@ void UiController::onKey(Key key, bool& running, int levelIndex, int playerCount
     else if (key == Key::S) state_.showBackground = !state_.showBackground;
     else if (key == Key::R && playerCount == 1) actions.adjustViewWidth(-32);
     else if (key == Key::E && playerCount == 1) actions.adjustViewWidth(32);
+    if (state_.menu && state_.page == MenuPage::Main &&
+        (wasPage == MenuPage::NameEntry || wasPage == MenuPage::GameOver || wasPage == MenuPage::CompletedGame)) {
+        return;
+    }
     if (state_.mainMenu.active && state_.menu && state_.page == MenuPage::Main &&
         (!wasMenu || wasPage != MenuPage::Main || wasItalian != state_.italian)) {
         beginMainMenu(now);

@@ -28,18 +28,19 @@ void UiDiagnostics::debugRecordUpdate(const ui::RecordStore& store, const std::s
     }
     saveRecords(path, testRecords);
     auto reloaded = loadRecords(path);
+    const bool binary = !isJsonRecordPath(path);
     if (reloaded.empty() || reloaded[0].score != 999999u ||
-        reloaded[0].level != 9u || reloaded[0].name != "TEST") {
+        reloaded[0].level != (binary ? 0u : 9u) || reloaded[0].nameLength != 8 ||
+        reloaded[0].name != "TEST") {
         throw std::runtime_error("saved test record did not round-trip");
     }
-    int binary = isJsonRecordPath(path) ? 0 : 1;
     size_t rawSize = 0;
     std::string encodedName = encodeRecordName(reloaded[0].name);
     if (binary) {
         auto bytes = readFile(path);
         rawSize = bytes.size();
         if (bytes.size() != 92 || bytes[0] != 7 || le32(bytes, 1) != 999999u ||
-            bytes[5] != 9u) {
+            bytes[5] != 8u) {
             throw std::runtime_error("saved raw test record layout changed");
         }
         encodedName = std::string(bytes.begin() + 6, bytes.begin() + 14);
@@ -80,7 +81,7 @@ void UiDiagnostics::debugRecordsRawRoundtrip(const ui::RecordStore& store) {
     };
 
     uint64_t scoreSum = 0;
-    int level8Count = 0;
+    int nameLength8Count = 0;
     int decodedAgaCount = 0;
     int encodedColonPaddedCount = 0;
     int byteSum = 0;
@@ -97,19 +98,21 @@ void UiDiagnostics::debugRecordsRawRoundtrip(const ui::RecordStore& store) {
     for (size_t i = 0; i < rawCount; ++i) {
         size_t off = 1 + i * kRecordSize;
         uint32_t rawScore = le32(rawBytes, off);
-        uint8_t rawLevel = rawBytes[off + 4];
+        uint8_t rawNameLength = rawBytes[off + 4];
         std::string rawEncoded(rawBytes.begin() + static_cast<std::ptrdiff_t>(off + 5),
                                rawBytes.begin() + static_cast<std::ptrdiff_t>(off + 13));
-        std::string rawDecoded = decodeRawName(rawEncoded);
+        std::string rawDecoded = decodeRawName(rawEncoded.substr(0, rawNameLength));
 
         const std::string& recJson = jsonRecords[i];
         uint32_t jsonScore = static_cast<uint32_t>(extractInt(recJson, "score"));
         uint8_t jsonLevel = static_cast<uint8_t>(extractInt(recJson, "level"));
+        uint8_t jsonNameLength = static_cast<uint8_t>(extractInt(recJson, "name_length"));
         std::string jsonEncoded = extractString(recJson, "encoded_name");
         std::string jsonDecoded = extractString(recJson, "decoded_name");
-        if (rawScore != jsonScore || rawLevel != jsonLevel ||
+        if (rawScore != jsonScore || rawNameLength != jsonNameLength || jsonLevel != 0 ||
             rawEncoded != jsonEncoded || rawDecoded != jsonDecoded ||
-            store.records()[i].score != rawScore || store.records()[i].level != rawLevel ||
+            store.records()[i].score != rawScore || store.records()[i].level != 0 ||
+            store.records()[i].nameLength != rawNameLength ||
             store.records()[i].name != rawDecoded) {
             throw std::runtime_error("RECS.DAT raw/json record mismatch");
         }
@@ -118,13 +121,13 @@ void UiDiagnostics::debugRecordsRawRoundtrip(const ui::RecordStore& store) {
         }
         previousScore = rawScore;
         scoreSum += rawScore;
-        if (rawLevel == 8) ++level8Count;
+        if (rawNameLength == 8) ++nameLength8Count;
         if (rawDecoded == "aga") ++decodedAgaCount;
         if (rawEncoded == "aga:::::") ++encodedColonPaddedCount;
     }
     if (scoreSum != 3508890 || byteSum != 6047 ||
         weightedSum != 278918 || xorValue != 0xdd ||
-        level8Count != 7 || decodedAgaCount != 7 ||
+        nameLength8Count != 7 || decodedAgaCount != 7 ||
         encodedColonPaddedCount != 7) {
         throw std::runtime_error("RECS.DAT raw aggregate changed");
     }
@@ -135,7 +138,7 @@ void UiDiagnostics::debugRecordsRawRoundtrip(const ui::RecordStore& store) {
               << " score_sum=" << scoreSum
               << " top=" << store.records().front().score
               << " cutoff=" << store.records().back().score
-              << " level8_count=" << level8Count
+              << " name_length8_count=" << nameLength8Count
               << " decoded_aga=" << decodedAgaCount
               << " encoded_colon_padded=" << encodedColonPaddedCount
               << " byte_sum=" << byteSum

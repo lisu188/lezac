@@ -40,7 +40,8 @@ int main() {
     saveRecords(binary.path, {record});
     auto rawRecords = loadRawRecords(binary.path);
     require(rawRecords.size() == 1 && rawRecords[0].score == 0x12345678 &&
-            rawRecords[0].level == 7 && rawRecords[0].encodedName == record.encodedName);
+            rawRecords[0].level == 0 && rawRecords[0].nameLength == 8 &&
+            rawRecords[0].encodedName == record.encodedName);
     saveRecords(json.path, rawRecords);
     const auto jsonRecords = loadRecords(json.path);
     require(jsonRecords.size() == 1 && jsonRecords[0].name == record.name &&

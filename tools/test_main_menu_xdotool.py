@@ -203,11 +203,7 @@ def main():
                 time.sleep(.15)
                 key("Escape")
                 time.sleep(.12)
-                key("Return")  # Acknowledge Game Over before the menu fade and typing.
-                time.sleep(.12)
-                key("Escape")
-                time.sleep(.12)
-                key("Escape")
+                key("Return")
                 _, frame = wait_frame(["italian-full"], 3)
                 capture(name + "-game-return-menu", frame)
                 time.sleep(.15)

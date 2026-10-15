@@ -27946,7 +27946,7 @@ private:
 
     void clearSoundLatch() {
         serviceSoundClock();
-        sound_.clearSoundLatch();
+        sound_.clearSoundLatch(true);
     }
 
     void pumpSoundLatch() {

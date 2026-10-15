@@ -40,7 +40,7 @@ PROFILES = {
         fixture=ROOT / 'tests/gameplay/collapse_contact_continuity_original.bin.gz',
         metadata=ROOT / 'tests/gameplay/collapse_contact_continuity_original.json',
         metadata_sha256='cb1ed75c0f6e6c2dcb629dec769c131fd3ce16c5879940f4a2cb3e85e2d4a40e',
-        producer='capture_original_collapse_contact_continuity.py', cases=768,
+        producer='capture_original_collapse_contact_continuity_legacy.py', cases=768,
         groups={'active_update': 768}),
 }
 

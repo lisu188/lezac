@@ -46,6 +46,15 @@ int main() {
         }
         std::vector<uint16_t> logical(1980);
         require(lezac::gameplay::seedCollapseWordGroup(logical, 60, 2013).cells.empty());
+        for (const size_t seed : {size_t{32768}, size_t{65535}, size_t{65536}}) {
+            std::vector<uint16_t> wide(seed + 1);
+            const size_t alias = seed & 0x7fff;
+            wide[alias] = 0x34;
+            wide[seed] = 0x12;
+            const auto before = wide;
+            require(lezac::gameplay::seedCollapseWordGroup(wide, 60, seed).cells.empty());
+            require(wide == before);
+        }
         std::cout << "physical_collapse_seed=ok layouts=2 wrapped=1 crossing=1 logical_adapter=1\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

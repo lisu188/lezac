@@ -110,27 +110,97 @@ def self_check(raw, value):
     return rejected
 
 
+def compare_executable(value, exe, out=None):
+    if out is not None:
+        out.mkdir(parents=True, exist_ok=True)
+    evidence = Path(tempfile.mkdtemp(prefix='run-' if out else 'lezac-rle-tail-', dir=out))
+    source, target = evidence / 'input.bin', evidence / 'actual.bin'
+    report = dict(passed=False, evidence_directory=str(evidence.resolve()), executable=str(exe.resolve()),
+        fixture_sha256=FIXTURE_SHA, masks=0, natural_gameplay=False, whole_game_complete=False,
+        all_execution_silent=True, artifacts={}, artifact_errors={})
+    initial_error = None
+    stdout, stderr = b'', b''
+    result_bytes = None
+    try:
+        source.write_bytes(input_bytes(value))
+        report['executable_sha256'] = sha(exe.read_bytes())
+        env = dict(os.environ, SDL_AUDIODRIVER='dummy', SDL_VIDEODRIVER='dummy', PYTHONDONTWRITEBYTECODE='1')
+        result = subprocess.run([str(exe.resolve()), '--replay', str(source.resolve()), str(target.resolve())],
+                                capture_output=True, timeout=60, env=env)
+        stdout, stderr = result.stdout, result.stderr
+        report['exit_code'] = result.returncode
+        require(result.returncode == 0, 'compiled decoder failed: ' + stderr.decode(errors='replace'))
+        result_bytes = compare(value, target.read_bytes())
+        require(sha(exe.read_bytes()) == report['executable_sha256'], 'compiled decoder executable changed')
+        report.update(passed=True, payload_bytes=result_bytes[0], tail_bytes=result_bytes[1])
+    except BaseException as error:
+        initial_error = error
+        if isinstance(error, subprocess.TimeoutExpired):
+            stdout, stderr = error.stdout or b'', error.stderr or b''
+        report.update(error=str(error), error_type=type(error).__name__)
+        raise
+    finally:
+        def retain(name, read):
+            try:
+                raw = read()
+                (evidence / name).write_bytes(raw)
+                report['artifacts'][name] = dict(bytes=len(raw), sha256=sha(raw))
+            except BaseException as error:
+                report['artifact_errors'][name] = dict(error=str(error), error_type=type(error).__name__)
+
+        retain('stdout.txt', lambda: stdout.encode('utf-8') if isinstance(stdout, str) else stdout)
+        retain('stderr.txt', lambda: stderr.encode('utf-8') if isinstance(stderr, str) else stderr)
+        for path in (source, target):
+            try:
+                if path.exists():
+                    retain(path.name + '.gz', lambda path=path: gzip.compress(path.read_bytes(), mtime=0))
+            except BaseException as error:
+                report['artifact_errors'][path.name] = dict(error=str(error), error_type=type(error).__name__)
+        if report['artifact_errors']:
+            report['passed'] = False
+        # Remove only verified redundant copies from a successful comparison.
+        if report['passed']:
+            for path in (source, target):
+                try:
+                    require(gzip.decompress((evidence / (path.name + '.gz')).read_bytes()) == path.read_bytes(),
+                            'retained decoder bytes differ')
+                    path.unlink()
+                except BaseException as error:
+                    report['artifact_errors'][path.name] = dict(error=str(error), error_type=type(error).__name__)
+                    report['passed'] = False
+        try:
+            require(sum(path.stat().st_size for path in evidence.iterdir() if path.is_file()) < 8388608,
+                    'decoder evidence exceeds 8 MiB reserve')
+        except BaseException as error:
+            report['artifact_errors']['reserve'] = dict(error=str(error), error_type=type(error).__name__)
+            report['passed'] = False
+        try:
+            (evidence / 'report.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8', newline='\n')
+        except BaseException:
+            if initial_error is None:
+                raise
+        if initial_error is None and not report['passed']:
+            raise RuntimeError('decoder evidence retention failed: ' + str(evidence))
+    return result_bytes
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--exe', type=Path)
     parser.add_argument('--self-check', action='store_true')
+    parser.add_argument('--out', type=Path)
     args = parser.parse_args()
     require(not sys.flags.optimize, 'optimized Python is unsupported')
+    if args.out is not None and args.exe is None:
+        parser.error('--out requires --exe')
     raw = FIXTURE.read_bytes()
     value = load(raw)
     if args.self_check:
         print('level_rle_tail_checker=ok corruption_controls=' + str(self_check(raw, value)))
     elif args.exe:
-        with tempfile.TemporaryDirectory(prefix='lezac-rle-tail-') as directory:
-            source, target = Path(directory) / 'input.bin', Path(directory) / 'actual.bin'
-            source.write_bytes(input_bytes(value))
-            env = dict(os.environ, SDL_AUDIODRIVER='dummy', SDL_VIDEODRIVER='dummy', PYTHONDONTWRITEBYTECODE='1')
-            result = subprocess.run([str(args.exe.resolve()), '--replay', str(source), str(target)],
-                                    capture_output=True, timeout=60, env=env)
-            require(result.returncode == 0, 'compiled decoder failed: ' + result.stderr.decode(errors='replace'))
-            payload, tails = compare(value, target.read_bytes())
-            print('level_rle_tail_original=ok cases=22 payload_bytes=' + str(payload) +
-                  ' tail_bytes=' + str(tails) + ' masks=0 natural_gameplay=0 whole_game_claim=0')
+        payload, tails = compare_executable(value, args.exe, args.out)
+        print('level_rle_tail_original=ok cases=22 payload_bytes=' + str(payload) +
+              ' tail_bytes=' + str(tails) + ' masks=0 natural_gameplay=0 whole_game_claim=0')
     else:
         print('level_rle_tail_fixture=ok cases=22 original_code=unchanged seeded_calls=1')
 

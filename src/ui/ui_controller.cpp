@@ -99,6 +99,8 @@ void UiController::onKey(Key key, bool& running, int levelIndex, int playerCount
             if (key == Key::Escape || key == Key::Return || key == Key::KeypadEnter || key == Key::Space) {
                 actions.clearScores(); records.clearQueue(); records.clearPendingRecord();
                 state_.page = MenuPage::Main;
+                state_.mainMenu = {true, now, 0, true};
+                return;
             }
         } else if (key == Key::Escape) {
             if (state_.page == MenuPage::Main) running = false;

@@ -2,9 +2,13 @@
 
 The C++ helpers in `src/gameplay/damage_lane_bytes.hpp` recover the shared DS
 operations in original routines `1000:3A7E`, `3B18`, `3BB2`, and `3D46`.
-They are not yet integrated with App's typed queues. PR362's direct-fragment
-production mismatch therefore remains open. This is a recovery foundation,
-not a production repair or a whole-game fidelity claim.
+`DamageLaneMemory` now integrates these operations with App's live typed debris,
+collapse, and flame queues, shared sound cursor, seeder result, and caller-axis
+bytes. `blendDebrisImpactLane` uses this adapter for direct-fragment impacts;
+`blendCollapseContacts` preserves the collapse caller's separate stack-value
+contract. Unmapped bytes persist between calls so modeled low-data writes can
+affect subsequent lookups. This is a production repair of the modeled aliases,
+not a complete DOS memory model or a whole-game fidelity claim.
 
 Lookup searches newest-first. A flagged miss preserves both the shared cursor
 at `DS:2074` and the signed neighbor phase byte at `DS:661E`. Unflagged lookup
@@ -34,6 +38,19 @@ seeder evidence.
 compiled helper executable. Expected images stay in the checker, never in the
 native process. Every output DS byte is compared without normalization:
 11,534,336 bytes per host. The diagnostic never runs App, SDL, or a game loop.
+The live typed-memory probe is checked against the same original DS images;
+this helper evidence remains separate from execution of the production App.
+
+Fresh Linux package evidence at integration head
+`aaf38ea6a354fdee3021541d4834675ab2111516` separately exercises the actual App.
+All 96 direct-fragment cases and 2,565,216 state bytes match the original, closing
+the reproduced old-head PR362 failure of 150 bytes beginning with cursor `AB12`
+instead of `4EE8`. All 112 history cases and 2,993,088 state bytes also match,
+including nonzero prior phase and low-data history. Both comparisons use no
+masks, independently poison supplied expected states, and reject four malformed
+headers. The inherited App comparisons pass at that same head. These results
+do not substitute for exact-head full Linux/Windows CI and external review, or
+for fresh package validation after a follow-up push.
 
 Reproduce the original fixture with the pinned Unicorn 2.1.4 runtime:
 
@@ -47,20 +64,21 @@ env SDL_AUDIODRIVER=dummy PYTHONDONTWRITEBYTECODE=1 \
 Run the compiled recovery checks:
 
 ```sh
-cmake --build build --target lezac_damage_lane_bytes_test
-ctest --test-dir build --output-on-failure -R '^damage_lane_bytes_'
+cmake --build build --target lezac_damage_lane_bytes_test lezac_damage_lane_memory_test
+ctest --test-dir build --output-on-failure -R '^damage_lane_(bytes_|memory_)'
+ctest --test-dir build --output-on-failure -R '^(debris_contact_pools_original|damage_lane_history_original)$'
 ```
 
-## Remaining Integration
+## Remaining Validation
 
-App needs a shared byte-addressed view that forwards known aliases into the
-physical queues, sound cursor, phase scratch, and other modeled banks, and
-retains out-of-bank writes. A separate shadow buffer with no reads by affected
-subsystems is not a complete alias model. Current pure diagnostic lookups must
-remain distinct from original runtime mutations. Integration must preserve the
-original seeder behavior and rerun all affected raw App comparisons, including
-the retained both-host PR362 failures and nonzero prior-phase histories.
+The modeled App integration is complete, but each delivery head still requires
+full Linux/Windows CI, actual-App package comparisons, and a completed external
+review. Historical failing streams remain retained evidence, not current-head
+acceptance. Pure diagnostic lookups remain distinct from original runtime
+mutations. Known queue/global aliases are live references; the persistent
+unmapped byte buffer does not establish coherence with every DOS actor, asset,
+map, or stack address outside those owners.
 
-Natural routes, rendered pixels, sound-runtime parity, full DOS memory coverage,
-and whole-game completeness are not established by this fixture. The historical
-raw-prefix guard remains failed.
+Natural routes, full flame-update equivalence, rendered pixels, sound-runtime
+parity, full DOS memory coverage, and whole-game completeness are not established
+by these fixtures. The historical raw-prefix guard remains failed.

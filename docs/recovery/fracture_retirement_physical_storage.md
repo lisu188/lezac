@@ -47,3 +47,26 @@ This seeded fixture does not prove naturally reached fracture behavior,
 full-capacity debris/collapse banks, sound interrupt playback, rendered-pixel
 parity, campaign completion or whole-game fidelity. Delivery remains stacked
 on the normal-retirement fix and requires dependency integration and review.
+
+## Reviewed-Stack Cursor Repair
+
+The retained Linux and Windows failures at original PR #355 head
+`5ba965c8b4408355a40d5f3f5c217605b537c4bc` were rechecked against the pinned
+original fixture. Both complete streams differ in exactly 432 bytes across
+216 cases, exclusively at shared-cursor state offsets 7657/7658. Across the
+full 2,207,232-byte state comparison, every other byte matches without masks.
+The archived actual stream
+SHA-256 is `dbbcc0c3e71439c4456fa0820e66aef1e860c07b26c2c017c811287cf667a0e0`;
+the original stream SHA-256 is
+`7a89bfbf40eed17b11749341841da5515580f6e5c386fab0783b2066dca01311`.
+This is a verified historical compiled-App failure, not a fresh pre-fix run.
+
+The narrow repair and three regressions are brought forward from PR #357
+commit `3ab27d0e718b5dba9ab3d83a6f68bc67f3d4d7bd`, without the unrelated
+full-pool diagnostic changes from #356. Original instruction `1000:501F`
+(`89 3e 74 20`) writes the fractured cell to the shared cursor before RNG and
+the seeder. The production loop now performs that write. The regressions
+bind the original instruction, all 216 native cell cursors and source ordering
+with a missing-write control. Expected fixtures and comparison masks are
+unchanged. Fresh exact-head App output, both full platform suites, prerequisite
+delivery and external review remain independent requirements.

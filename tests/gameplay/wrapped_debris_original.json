@@ -1,0 +1,151 @@
+{
+  "passed": true,
+  "schema": "lezac.wrapped-debris-seeding.v1",
+  "scenes": [
+    {
+      "name": "debris-consume-wrap-debris",
+      "first": 40,
+      "target": 32748,
+      "target_word": 16641,
+      "debris": true,
+      "consume": true,
+      "raw_cell": 65516,
+      "raw_glyph": 39,
+      "initial_sha256": "50b45842dc41a963f5733260b92a2e564c764ebb6d68cc9a1e89907da4150bfa",
+      "state_sha256": "405a10430e5f8dba877cbb08417e1284c0da7aeddd3cce3764cc5a5ea0ff2de4",
+      "initial_ram_sha256": "3dac87376f336d102b8e700efc1336c3795a40f61db1d652c67b71d21736c916",
+      "final_ram_sha256": "01f50130422d1c5fa1811663450e8d836c6f494dbf324eda4468da70391421a5",
+      "debris_count": 1,
+      "collapse_count": 0,
+      "added_cell": 32748,
+      "added_cell_outside_logical_map": true,
+      "final_added_cell_word": 49409,
+      "map_reads": 7,
+      "map_writes": 3,
+      "visits": {
+        "0x1370e": 1
+      },
+      "seed_entries": [
+        {
+          "case": 0,
+          "stack_words": [
+            19061,
+            65258,
+            32768,
+            0,
+            0,
+            65516
+          ],
+          "ax": 65516,
+          "di": 65258,
+          "debris_bound": 199,
+          "collapse_count": 0
+        }
+      ]
+    },
+    {
+      "name": "debris-move-wrap-debris",
+      "first": 40,
+      "target": 32748,
+      "target_word": 16641,
+      "debris": true,
+      "consume": false,
+      "raw_cell": 65516,
+      "raw_glyph": 56,
+      "initial_sha256": "eda57b2d26f89f9743c1f3bc97b4bcf47053e006f8d0dcacdb0a2aac33db0f82",
+      "state_sha256": "ad5942d15187e402761a8c988d2d170a3e46a9ddc0e6692ddb87aaecacf10c75",
+      "initial_ram_sha256": "ca056422a317848da30ce4f80d8fa77bf10d8f6a3f2e1545d870cc68123b75a4",
+      "final_ram_sha256": "4c250d26f832d68fac4ca75cb1c929df3e4411c9d231c49345dfef5664944292",
+      "debris_count": 2,
+      "collapse_count": 0,
+      "added_cell": 32748,
+      "added_cell_outside_logical_map": true,
+      "final_added_cell_word": 49409,
+      "map_reads": 9,
+      "map_writes": 5,
+      "visits": {
+        "0x1370e": 1
+      },
+      "seed_entries": [
+        {
+          "case": 1,
+          "stack_words": [
+            19467,
+            65259,
+            32768,
+            0,
+            0,
+            65516
+          ],
+          "ax": 65516,
+          "di": 65259,
+          "debris_bound": 200,
+          "collapse_count": 0
+        }
+      ]
+    }
+  ],
+  "boundaries": 2,
+  "fixture_sha256": "38715d6456dc4c0cb923ab3615b7bacd18229b159b906965712fb28b99d6825a",
+  "raw_sha256": "fbf5c95fb318cf9bdc945f3bde13c573507e0b84f6b679f2988978664c99a4af",
+  "events_sha256": "d755697f023398127c8c47b6c0f12847d9a0242e1ddd4545aec3d4047a54f6bf",
+  "original_exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "producer_sha256": "8f786fb9eff2d2c9f8593bf22dd666b247b9d3577e26ea2f40996a5dcd41ff9d",
+  "base_producer_sha256": "cb430a6be7f33d8c27cb5cf3440f9dfbaebfbadf2ef7bdf5b3e76b1ac59b9439",
+  "dependencies": {
+    "capture_original_contact_staging": "f703d8bd4cd3e646c8b78ae98a78b85d15fb42d58a11f271ad06d9696c01c9d1",
+    "original_bomb_cpu": "fd3066a8b28edc5872221692a88f24d4758c8e7961cb7b91a03d9b94c16fe41c",
+    "capture_original_fracture_retirement": "50cd6bc4d44a9d805b2598d89b7c626a34c0eb5339b8350b8f8125ffa6c74c73",
+    "capture_original_physics_dispatch": "927dce949bafdf712cc953a778599a52357df6a2451eff90f93857601ff563ef"
+  },
+  "prior_fixture_sha256": "e6552d851b95d4b30d931887eee00d75beafede7a173dabf3add77504c83b1cf",
+  "observer_neutrality_memory_bytes": 1048576,
+  "observer_neutrality_registers": 14,
+  "full_ram_hash_chain": "bf172a97ef63eaf9d6d66cd2bc21c4700ad5ce24c5bc553651dc2064158af967",
+  "reads": 16,
+  "writes": 8,
+  "original_instructions_patched": false,
+  "original_calls_stubbed": false,
+  "hardware_io_permitted": false,
+  "seeded": true,
+  "natural_route": false,
+  "actual_app_executed": false,
+  "actual_app_parity_proven": false,
+  "whole_game_complete": false,
+  "all_execution_silent": true,
+  "parent_producer_sha256": "c3fc40a4aaa783c57fa7daad8114d232c6267c44ae1ab99be5028c9651ddab46",
+  "unicorn_version": "2.1.4",
+  "raw_seed_records": [
+    {
+      "case": 0,
+      "address": 119627,
+      "cell": 65516
+    },
+    {
+      "case": 1,
+      "address": 119638,
+      "cell": 65516
+    }
+  ],
+  "raw_glyph_reads": [
+    [
+      0,
+      79800,
+      327660,
+      1,
+      0,
+      39
+    ],
+    [
+      1,
+      79800,
+      327660,
+      1,
+      0,
+      56
+    ]
+  ],
+  "input_bytes": 157806,
+  "state_bytes": 157796,
+  "original_fidelity_claim": false
+}

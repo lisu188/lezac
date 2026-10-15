@@ -12,16 +12,14 @@ struct CollapseSeedGeometry {
     std::vector<std::size_t> cells;
 };
 
+namespace detail {
 // 1000:37FE..3A46 expands all matching perimeter edges simultaneously, then
 // flags matching words inside the rectangle, including disconnected islands.
 template<class ReadWord, class WriteWord>
-inline CollapseSeedGeometry seedCollapseWordGroupPhysical(int width, uint16_t seed,
-                                                          ReadWord readWord, WriteWord writeWord) {
+inline CollapseSeedGeometry seedCollapseWordGroupForKey(int width, uint16_t seed, uint16_t key,
+                                                        ReadWord readWord, WriteWord writeWord) {
     CollapseSeedGeometry result;
-    seed = static_cast<uint16_t>(static_cast<uint16_t>(seed * 2u) >> 1);
-    if (width <= 0) return result;
-    const uint16_t key = readWord(seed);
-    if (key == 0 || key >= 0x4000) return result;
+    if (width <= 0 || key == 0 || key >= 0x4000) return result;
     const uint16_t stride = static_cast<uint16_t>(2 * width);
     uint16_t topLeft = static_cast<uint16_t>(2 * seed - stride - 2);
     uint16_t topRight = static_cast<uint16_t>(2 * seed - stride);
@@ -84,11 +82,21 @@ inline CollapseSeedGeometry seedCollapseWordGroupPhysical(int width, uint16_t se
     } while (static_cast<int16_t>(last) <= static_cast<int16_t>(result.lastOffsetBytes));
     return result;
 }
+}  // namespace detail
+
+template<class ReadWord, class WriteWord>
+inline CollapseSeedGeometry seedCollapseWordGroupPhysical(int width, uint16_t seed,
+                                                          ReadWord readWord, WriteWord writeWord) {
+    if (width <= 0) return {};
+    seed = static_cast<uint16_t>(static_cast<uint16_t>(seed * 2u) >> 1);
+    return detail::seedCollapseWordGroupForKey(width, seed, readWord(seed), readWord, writeWord);
+}
 
 inline CollapseSeedGeometry seedCollapseWordGroup(std::vector<uint16_t>& words,
                                                    int width, std::size_t seed) {
     if (width <= 0 || seed >= words.size()) return {};
-    return seedCollapseWordGroupPhysical(width, static_cast<uint16_t>(seed),
+    // The logical API reads its key before the original 16-bit geometry wraps.
+    return detail::seedCollapseWordGroupForKey(width, static_cast<uint16_t>(seed), words[seed],
         [&](uint16_t cell) -> uint16_t { return cell < words.size() ? words[cell] : 0; },
         [&](uint16_t cell, uint16_t word) { words[cell] = word; });
 }

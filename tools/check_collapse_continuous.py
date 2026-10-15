@@ -126,6 +126,8 @@ def self_check(data, source):
             top = json.loads((bundle / 'result.json').read_bytes())
             if top['passed'] != (mode == 'ok') or not top['continuous_collapse_updates']:
                 raise ValueError('continuous probe result scope differs')
+            if top['continuous_app_execution_proven'] is not (mode == 'ok'):
+                raise ValueError('continuous proof flag does not match completed execution')
             if len(calls) != (8 if mode == 'ok' else 4) or len(top['completed_batches']) != (8 if mode == 'ok' else 3):
                 raise ValueError('continuous probe partial progress differs')
             for index, actual in enumerate(calls):

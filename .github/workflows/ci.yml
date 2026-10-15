@@ -28,6 +28,10 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: python3 -S -B tools/test_review_history_repairs.py -v
+      - name: Buffered menu output retention regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python3 -S -B tools/test_buffered_menu_output.py -v
       - name: Raw lane-word classification regressions
         env:
           SDL_AUDIODRIVER: dummy
@@ -48,17 +52,49 @@ jobs:
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
         run: cmake --build build --parallel
+      - name: Level decoder and startup map regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+          SDL_VIDEODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(level_rle_tail_(unit|fixture|checker|original|retention)|map_allocation_state_unit|startup_map_(fixture|checker|original|rerun)|clocked_sound_routing_mutations)$'
+      - name: Preserve level decoder and startup map diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: map-lifecycle-${{ runner.os }}
+          path: |
+            build/level-rle-tail-app/
+            build/startup_map_original_out/
+            build/Testing/Temporary/LastTest.log
+          if-no-files-found: error
+      - name: Independent timed-writeback fixture regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(timed_seed_isolation|timed_writeback_original|timed_writeback_replay_guard)$'
+      - name: Preserve timed-writeback fixture diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: timed-writeback-linux-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
       - name: Original Game Over pixel regressions
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ./build/lezac_end_screen_test tests/fixtures build/end-screen-focused
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(end_screen_original|end_screen_repeat)$'
       - name: Preserve Game Over frames
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: end-screen-linux-focused
-          path: build/end-screen-focused/
+          path: |
+            build/end-screen-original/
+            build/end-screen-repeat/
+            build/Testing/Temporary/LastTest.log
           if-no-files-found: error
       - name: Natural Escape and new-game regressions
         env:
@@ -80,7 +116,9 @@ jobs:
       - name: Live keyboard end-run regressions
         env:
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^(bios_menu_input|buffered_menu_repeat|main_menu|key_ownership)_live_xvfb$'
+        run: |
+          ctest --test-dir build --verbose --output-on-failure -R '^(bios_menu_input|buffered_menu_repeat|main_menu|key_ownership)_live_xvfb$'
+          ctest --test-dir build --verbose --output-on-failure -R '^buffered_menu_repeat_live_xvfb$'
       - name: Preserve live keyboard end-run diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -109,6 +147,18 @@ jobs:
             build/collapse-removal-app/
             build/physical-seed-app/
             build/Testing/Temporary/LastTest.log
+          if-no-files-found: error
+      - name: Wrapped debris raw-cell regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^wrapped_debris_(fixture|checker|original)$'
+      - name: Preserve wrapped debris diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wrapped-debris-${{ runner.os }}
+          path: build/wrapped-debris-app/
           if-no-files-found: error
       - name: Generic corpse and boss sound ownership regressions
         env:
@@ -157,7 +207,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original|monster_object_seeder_(checker|fixture|original)|retained_record_queue|seeder_capacity_(checker|fixture|original)|multicell_seeder_(checker|fixture|original)|collapse_retirement_(checker|fixture|original)|fracture_retirement_(checker|fixture|original)|fracture_capacity_(checker|fixture|original)|collapse_contact_pools_(fixture|original)|contact_staging_(checker|fixture|original)|above_contact_staging_(checker|fixture|original)|debris_contact_pools_(checker|fixture|original))$'
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original|monster_object_seeder_(checker|fixture|original)|retained_record_queue|falling_fragment_seed|seeder_capacity_(checker|fixture|original)|multicell_seeder_(checker|fixture|original)|collapse_retirement_(checker|fixture|original)|fracture_retirement_(checker|fixture|original)|fracture_capacity_(checker|fixture|original)|collapse_contact_pools_(fixture|original)|contact_staging_(checker|fixture|original)|above_contact_staging_(checker|fixture|original)|debris_contact_pools_(checker|fixture|original))$'
       - name: Preserve complete fatal-entry diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -187,20 +237,6 @@ jobs:
             build/above-contact-staging-input-*/fixture.bin.gz
             build/debris-contact-pools-app/
             build/debris-contact-pools-input-*/fixture.bin.gz
-          if-no-files-found: error
-      - name: Independent timed-writeback fixture regressions
-        env:
-          SDL_VIDEODRIVER: dummy
-          SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^(timed_seed_isolation|timed_writeback_original|timed_writeback_replay_guard)$'
-      - name: Preserve timed-writeback fixture diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: timed-writeback-linux-focused
-          path: |
-            build/Testing/Temporary/LastTest.log
-            build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
       - name: Complete corpse physical storage regressions
         env:
@@ -266,13 +302,15 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^(actor_slots_binding_contract|production_actor_lifecycle_app)$'
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(actor_slots_binding_contract|production_actor_lifecycle_app|actor_descriptor_bank_(old_bank_mutant|tools_contract))$'
       - name: Preserve production actor lifecycle diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: production-actor-lifecycle-linux-focused
           path: |
+            build/actor-descriptor-bank-checks/
+            build/actor-descriptor-bank-mutant/app.json
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
@@ -292,6 +330,21 @@ jobs:
             build/corpse-animation-mutant-checks/
             build/corpse-animation-skip/app.json
           if-no-files-found: error
+      - name: JollyCloud production regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^(jolly_cloud_.*|bonus_rewards|debris_collapse_order)$'
+      - name: Preserve focused JollyCloud comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jolly-cloud-linux-focused
+          path: |
+            build/jolly-cloud-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
       - name: In-place corpse conversion regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -323,13 +376,15 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --output-on-failure -R '^corpse_reward_animation_mode_original$'
+        run: ctest --test-dir build --output-on-failure -R '^corpse_reward_animation_(mode_original|rng_mutants|tools_contract)$'
       - name: Preserve focused corpse reward animation diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: corpse-reward-animation-linux-focused
           path: |
+            build/corpse-reward-rng-checks/
+            build/corpse-reward-rng-mutant/app.json
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
@@ -435,7 +490,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --output-on-failure -R '^flame_contact_word(_contract)?$'
+        run: ctest --test-dir build --output-on-failure -R '^(flame_contact_word(_contract)?|flame_seeded_cursor_contract)$'
       - name: Original sound interrupt regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -499,6 +554,7 @@ jobs:
         with:
           name: recovery-diagnostics-linux-final
           path: |
+            build/jolly-cloud-checks/
             build/actor-identity-live-binding/
             build/actor-storage-checks/
             build/debris-update-failures/
@@ -590,6 +646,10 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: python3 -S -B tools/test_review_history_repairs.py -v
+      - name: Buffered menu output retention regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python3 -S -B tools/test_buffered_menu_output.py -v
       - name: Raw lane-word classification regressions
         env:
           SDL_AUDIODRIVER: dummy
@@ -610,17 +670,49 @@ jobs:
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
         run: cmake --build build --parallel
+      - name: Level decoder and startup map regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+          SDL_VIDEODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(level_rle_tail_(unit|fixture|checker|original|retention)|map_allocation_state_unit|startup_map_(fixture|checker|original|rerun)|clocked_sound_routing_mutations)$'
+      - name: Preserve level decoder and startup map diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: map-lifecycle-${{ runner.os }}
+          path: |
+            build/level-rle-tail-app/
+            build/startup_map_original_out/
+            build/Testing/Temporary/LastTest.log
+          if-no-files-found: error
+      - name: Independent timed-writeback fixture regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(timed_seed_isolation|timed_writeback_original|timed_writeback_replay_guard)$'
+      - name: Preserve timed-writeback fixture diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: timed-writeback-windows-focused
+          path: |
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
       - name: Original Game Over pixel regressions
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ./build/lezac_end_screen_test.exe tests/fixtures build/end-screen-focused
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(end_screen_original|end_screen_repeat)$'
       - name: Preserve Game Over frames
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: end-screen-windows-focused
-          path: build/end-screen-focused/
+          path: |
+            build/end-screen-original/
+            build/end-screen-repeat/
+            build/Testing/Temporary/LastTest.log
           if-no-files-found: error
       - name: Natural Escape and new-game regressions
         env:
@@ -654,6 +746,18 @@ jobs:
             build/collapse-removal-app/
             build/physical-seed-app/
             build/Testing/Temporary/LastTest.log
+          if-no-files-found: error
+      - name: Wrapped debris raw-cell regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^wrapped_debris_(fixture|checker|original)$'
+      - name: Preserve wrapped debris diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wrapped-debris-${{ runner.os }}
+          path: build/wrapped-debris-app/
           if-no-files-found: error
       - name: Generic corpse and boss sound ownership regressions
         env:
@@ -702,7 +806,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original|monster_object_seeder_(checker|fixture|original)|retained_record_queue|seeder_capacity_(checker|fixture|original)|multicell_seeder_(checker|fixture|original)|collapse_retirement_(checker|fixture|original)|fracture_retirement_(checker|fixture|original)|fracture_capacity_(checker|fixture|original)|collapse_contact_pools_(fixture|original)|contact_staging_(checker|fixture|original)|above_contact_staging_(checker|fixture|original)|debris_contact_pools_(checker|fixture|original))$'
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original|monster_object_seeder_(checker|fixture|original)|retained_record_queue|falling_fragment_seed|seeder_capacity_(checker|fixture|original)|multicell_seeder_(checker|fixture|original)|collapse_retirement_(checker|fixture|original)|fracture_retirement_(checker|fixture|original)|fracture_capacity_(checker|fixture|original)|collapse_contact_pools_(fixture|original)|contact_staging_(checker|fixture|original)|above_contact_staging_(checker|fixture|original)|debris_contact_pools_(checker|fixture|original))$'
       - name: Preserve complete fatal-entry diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -732,20 +836,6 @@ jobs:
             build/above-contact-staging-input-*/fixture.bin.gz
             build/debris-contact-pools-app/
             build/debris-contact-pools-input-*/fixture.bin.gz
-          if-no-files-found: error
-      - name: Independent timed-writeback fixture regressions
-        env:
-          SDL_VIDEODRIVER: dummy
-          SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^(timed_seed_isolation|timed_writeback_original|timed_writeback_replay_guard)$'
-      - name: Preserve timed-writeback fixture diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: timed-writeback-windows-focused
-          path: |
-            build/Testing/Temporary/LastTest.log
-            build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
       - name: Complete corpse physical storage regressions
         env:
@@ -811,13 +901,15 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --verbose --output-on-failure -R '^(actor_slots_binding_contract|production_actor_lifecycle_app)$'
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(actor_slots_binding_contract|production_actor_lifecycle_app|actor_descriptor_bank_(old_bank_mutant|tools_contract))$'
       - name: Preserve production actor lifecycle diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: production-actor-lifecycle-windows-focused
           path: |
+            build/actor-descriptor-bank-checks/
+            build/actor-descriptor-bank-mutant/app.json
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
@@ -837,6 +929,21 @@ jobs:
             build/corpse-animation-mutant-checks/
             build/corpse-animation-skip/app.json
           if-no-files-found: error
+      - name: JollyCloud production regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure -R '^(jolly_cloud_.*|bonus_rewards|debris_collapse_order)$'
+      - name: Preserve focused JollyCloud comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jolly-cloud-windows-focused
+          path: |
+            build/jolly-cloud-checks/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: ignore
       - name: In-place corpse conversion regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -868,13 +975,15 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --output-on-failure -R '^corpse_reward_animation_mode_original$'
+        run: ctest --test-dir build --output-on-failure -R '^corpse_reward_animation_(mode_original|rng_mutants|tools_contract)$'
       - name: Preserve focused corpse reward animation diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: corpse-reward-animation-windows-focused
           path: |
+            build/corpse-reward-rng-checks/
+            build/corpse-reward-rng-mutant/app.json
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
@@ -980,7 +1089,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
-        run: ctest --test-dir build --output-on-failure -R '^flame_contact_word(_contract)?$'
+        run: ctest --test-dir build --output-on-failure -R '^(flame_contact_word(_contract)?|flame_seeded_cursor_contract)$'
       - name: Original sound interrupt regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -1044,6 +1153,7 @@ jobs:
         with:
           name: recovery-diagnostics-windows-final
           path: |
+            build/jolly-cloud-checks/
             build/actor-identity-live-binding/
             build/actor-storage-checks/
             build/debris-update-failures/

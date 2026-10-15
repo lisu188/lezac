@@ -1363,11 +1363,16 @@ across these address notes, the C++ request sites, and the CTest scenario names.
   then writes `DS:2074 = 0x0008`, `DS:799f = 5`, and calls `1000:165a`.
   The C++ `collectBonusDrop` path mirrors that with
   `requestSoundCursor(kBonusPickupSoundCursor, kBonusPickupSoundPriority)`.
-- The monster death/reward helper around `1000:5bd0..5cad` writes death-state
+- The boss-death chain starting at `1000:5bcc` writes death-state
   actor fields, pushes score value `0x03e8`, then writes
   `DS:2074 = 0x003d`, `DS:799f = 12`, and calls `1000:165a` at
-  `1000:5c9e..5ca9`. The C++ `enterMonsterDeath` path mirrors this with
-  `requestMonsterDeathSound` after spawning the reward and death flash.
+  `1000:5c9e..5ca9`. The C++ `bossDeathChain` path mirrors this with
+  `requestMonsterDeathSound`. This cue belongs to boss death only.
+- The generic tile-damage corpse conversion at `1000:74bb..7517` is silent.
+  The C++ `enterMonsterDeath` path does not request sound. Independent seeded
+  original-instruction executions and the generic/boss production regressions
+  are documented in `docs/recovery/generic_corpse_sound_20261009.md`; they do
+  not establish natural-route or rendered-audio parity.
 - The per-player damage pass around `1000:7f34..804e` calls the actor update
   routine at `1000:6053`, subtracts accumulated damage from the live player
   energy byte, and when the damage counter is nonzero writes

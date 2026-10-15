@@ -74,3 +74,27 @@ This fix does not establish arbitrary Pascal heap-fragmentation parity,
 natural reload/campaign history, a gameplay consequence of the extra bytes,
 frame/pixel parity, sound-runtime parity, or whole-game completion. The broad
 completion flags in `port_completion_status.md` remain unchanged.
+
+## C++23 Integration And Failure Evidence
+
+The current integration retains the original decoder and startup-allocation
+changes on the C++23 foundation. Original producers and fixtures are unchanged;
+logical payload APIs, retained backing ownership and original write order remain
+explicitly covered. The physical map is allocated when play is selected, not
+while preparing the title menu. Full App startup memory comparison remains a
+separate test from the compiled decoder comparison.
+
+Local review reproduced a checker defect: a failed compiled comparison removed
+its input and partial output when `TemporaryDirectory` closed. The checker now
+reserves a unique evidence directory, retains input/output and stdout/stderr,
+and records hashes, exit status and failures. Secondary retention errors cannot
+replace the initial native error. A successful comparison cannot pass if its
+required evidence was not retained. Only verified redundant raw copies from
+successful comparisons are removed.
+
+The optional `--out` argument places those run directories under the CMake
+artifact root. Repeated calls never overwrite an earlier run. Focused stdlib
+tests exercise success, malformed output, native failures, timeouts, launch
+errors, retention errors, repeat ownership, executable identity and silent,
+input-only invocation. These injected controls are not original execution or
+new App runtime proof. Fresh exact-head native CI and review remain merge gates.

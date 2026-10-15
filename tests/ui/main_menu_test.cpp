@@ -288,8 +288,9 @@ int main(int argc, char** argv) {
         require(ui.snapshot().menu && ui.snapshot().page == MenuPage::GameOver,
                 "game Escape skipped Game Over");
         ui.onKey(Key::Return, running, 0, 1, records, actions, 401);
-        require(ui.snapshot().page == MenuPage::Main && ui.mainMenuProgress(401).fade == 0,
-                "Game Over acknowledgement did not redraw menu");
+        require(ui.snapshot().page == MenuPage::Main && ui.mainMenuProgress(401).fade == 63 &&
+                ui.mainMenuProgress(401).waitingForKey,
+                "Game Over acknowledgement did not return to settled menu");
         ui.beginMainMenu(UINT32_MAX - 20);
         require(ui.mainMenuProgress(1).fade == 1, "menu clock rollover");
         ui.beginMainMenu(0);

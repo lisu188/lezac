@@ -9,7 +9,7 @@ preserving recovered behavior and its evidence.
 
 | Area | Classes and responsibilities |
 |---|---|
-| Application | `App` composes subsystems; `SdlRuntime` manages SDL lifetime and `InputMapper` translates input. |
+| Application | `App` composes subsystems; `SdlRuntime` manages SDL lifetime, `InputMapper` translates input, and `GovernedLoop` owns tick cadence and statistics through injected callbacks. |
 | Resources | `AssetCatalog` owns immutable assets; format-specific codecs preserve binary and JSON behavior. |
 | Sound | `SoundEngine` owns synthesis and the priority latch; `SdlAudioOutput` owns queued device output. |
 | Rendering | `GameRenderer`, `Canvas`, text and HUD helpers compose frames; `PresentationState` owns runtime palette/backdrop data; `SdlDisplay` owns display handles. |
@@ -22,6 +22,14 @@ entity inheritance, ECS, a deferred event bus or a universal mutable context.
 One application-owned `TurboRandom` is borrowed by all existing consumers,
 including backdrop generation and intro/outro effects; preserve its consumption
 order and reset sites. Injected clocks preserve existing sampling boundaries.
+
+`GovernedLoop` is independently compiled and has no SDL, gameplay or diagnostic
+dependency. The live application and bounded cadence observation use the same
+instance. Event processing still services the independent sound clock; each tick
+still presents through `App::tickAndPresent` before the interactive observer.
+The extraction preserves unsigned clock rollover, catch-up truncation, and the
+already-entered iteration's ticks and final delay after a quit event. This is
+source modularization, not a new original-timing or visual-fidelity claim.
 
 `LevelWorld` owns mutable tiles/words, objectives, portals/triggers and collision.
 `PlayerRoster` owns both players and shared reentry state. `ActorSystem` retains

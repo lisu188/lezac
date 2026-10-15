@@ -94,21 +94,25 @@
         "src/gameplay/collapse_rectangle.hpp",
         "src/gameplay/collapse_removal.hpp",
         "src/gameplay/collapse_seed.hpp",
+        "src/gameplay/frame_controls.hpp",
+        "src/gameplay/falling_fragment.hpp",
+        "src/gameplay/jolly_cloud_rain.hpp",
+        "src/gameplay/monster_damage.hpp",
+        "src/gameplay/monster_spawners.hpp",
+        "src/gameplay/retained_record_queue.hpp",
         "src/gameplay/damage_lane_bytes.hpp",
         "src/gameplay/damage_lane_memory.hpp",
         "src/gameplay/map_plane_memory.hpp",
         "src/gameplay/fracture_records.hpp",
-        "src/gameplay/frame_controls.hpp",
-        "src/gameplay/initial_damage_data.hpp",
-        "src/gameplay/monster_damage.hpp",
-        "src/gameplay/monster_spawners.hpp",
-        "src/gameplay/retained_record_queue.hpp"
+        "src/gameplay/initial_damage_data.hpp"
       ]
     },
     "app": {
       "runtime": [
         "src/app/app.cpp",
         "src/app/app.hpp",
+        "src/app/governed_loop.cpp",
+        "src/app/governed_loop.hpp",
         "src/app/input_mapper.cpp",
         "src/app/input_mapper.hpp",
         "src/app/sdl_runtime.cpp",
@@ -126,6 +130,7 @@
         "src/diagnostics/level1_trace.hpp",
         "src/diagnostics/marker_storage_fixture.hpp",
         "src/diagnostics/monster_animation_fixture.hpp",
+        "src/diagnostics/jolly_cloud_probe.hpp",
         "src/diagnostics/reward_storage_fixture.hpp",
         "src/diagnostics/transient_storage_fixture.hpp",
         "src/diagnostics/frame_inspector.cpp",

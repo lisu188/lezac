@@ -1,5 +1,6 @@
 #include "diagnostics/frame_inspector.hpp"
 #include "diagnostics/monster_animation_fixture.hpp"
+#include "diagnostics/jolly_cloud_probe.hpp"
 #include "diagnostics/transient_storage_fixture.hpp"
 #include "diagnostics/marker_storage_fixture.hpp"
 #include "diagnostics/reward_storage_fixture.hpp"
@@ -9,6 +10,8 @@
 #include "gameplay/actor_models.hpp"
 #include "gameplay/actor_slots.hpp"
 #include "gameplay/collapse_seed.hpp"
+#include "gameplay/falling_fragment.hpp"
+#include "gameplay/jolly_cloud_rain.hpp"
 #include "gameplay/retained_record_queue.hpp"
 #include "gameplay/damage_lane_memory.hpp"
 #include "gameplay/map_plane_memory.hpp"
@@ -22,6 +25,7 @@
 #include <SDL.h>
 #include "app/sdl_runtime.hpp"
 #include "app/startup_clock.hpp"
+#include "app/governed_loop.hpp"
 #include "rendering/canvas.hpp"
 #include "rendering/color.hpp"
 #include "rendering/text_renderer.hpp"
@@ -327,13 +331,13 @@ constexpr int kMonsterDeathVisibleTicks = 49;
 // The 24.2..25.2 band below is what the DOSBox capture MEASURED, which sits
 // slightly above the byte-derived band -- host timing overhead is the likely
 // reason -- so the two are kept distinct rather than conflated.
-constexpr double kGovernedTickMs = 40.8;
+using lezac::app::kGovernedTickMs;
 // Events are polled far more often than ticks so that key presses (handled
 // edge-wise in processEvents/onKey) stay responsive between updates.
-constexpr uint32_t kEventPollDelayMs = 4;
+using lezac::app::kEventPollDelayMs;
 // Upper bound on ticks simulated in one pass after a stall, so a suspended
 // window cannot fast-forward the level on resume.
-constexpr int kMaxCatchUpTicks = 5;
+using lezac::app::kMaxCatchUpTicks;
 // Acceptance band for the measured interactive tick rate: the original's
 // governed 24.2..25.2 fps, widened by nothing â€” a loop paced any other way
 // (the previous 16 ms/60 fps pacing, for instance) falls outside it.
@@ -867,43 +871,16 @@ public:
     // stop() reports true; returns the number of ticks issued.
     template <typename StopFn>
     long pumpGovernedLoop(bool& running, StopFn stop) {
-        uint32_t last = SDL_GetTicks();
-        uint32_t lastTickAt = last;
-        double tickAccumulatorMs = 0.0;
-        long ticks = 0;
-        governedDroppedTicks_ = 0;
-        governedMaxTickGapMs_ = 0;
-        while (running && !stop()) {
-            processEvents(running);
-            uint32_t now = SDL_GetTicks();
-            tickAccumulatorMs += static_cast<double>(now - last);
-            last = now;
-            const double cap = kGovernedTickMs * kMaxCatchUpTicks;
-            if (tickAccumulatorMs > cap) {
-                // Time beyond the catch-up cap is discarded, which silently
-                // loses gameplay ticks; count them so a diagnostic can say so
-                // instead of reporting a healthy average.
-                governedDroppedTicks_ +=
-                    static_cast<long>((tickAccumulatorMs - cap) / kGovernedTickMs);
-                tickAccumulatorMs = cap;
-            }
-            bool ticked = false;
-            while (tickAccumulatorMs >= kGovernedTickMs) {
-                tickAccumulatorMs -= kGovernedTickMs;
-                tickAndPresent(static_cast<float>(kGovernedTickMs / 1000.0));
+        return governedLoop_.pump(running, {
+            [this](bool& active) { processEvents(active); },
+            [this](float dt) {
+                tickAndPresent(dt);
                 if (debugInteractiveTickObserver_) debugInteractiveTickObserver_();
-                ++ticks;
-                ticked = true;
-            }
-            if (ticked) {
-                const uint32_t gap = now - lastTickAt;
-                lastTickAt = now;
-                governedMaxTickGapMs_ = std::max(governedMaxTickGapMs_,
-                                                 static_cast<long>(gap));
-            }
-            SDL_Delay(kEventPollDelayMs);
-        }
-        return ticks;
+            },
+            [&stop] { return stop(); },
+            [] { return SDL_GetTicks(); },
+            [](uint32_t ms) { SDL_Delay(ms); }
+        });
     }
 
     // The interactive session itself. run() is nothing but this with no
@@ -997,15 +974,15 @@ public:
         // playing nothing like the original. Bound the worst gap between
         // ticks, and refuse to report a healthy rate while ticks were being
         // dropped at the catch-up clamp.
-        if (governedMaxTickGapMs_ > kGovernedMaxTickGapMs) {
+        if (governedLoop_.stats().maxTickGapMs > kGovernedMaxTickGapMs) {
             throw std::runtime_error(
                 "worst gap between gameplay ticks was " +
-                std::to_string(governedMaxTickGapMs_) +
+                std::to_string(governedLoop_.stats().maxTickGapMs) +
                 " ms; the loop is delivering ticks in bursts");
         }
-        if (governedDroppedTicks_ != 0) {
+        if (governedLoop_.stats().droppedTicks != 0) {
             throw std::runtime_error(
-                std::to_string(governedDroppedTicks_) +
+                std::to_string(governedLoop_.stats().droppedTicks) +
                 " gameplay ticks were dropped at the catch-up clamp");
         }
         // Derived wall-clock durations for the per-tick subsystems whose
@@ -1024,8 +1001,8 @@ public:
                   << " ticks=" << ticks
                   << " measured_ticks_per_second=" << ticksPerSecond
                   << " logic_ticks_match=1"
-                  << " max_tick_gap_ms=" << governedMaxTickGapMs_
-                  << " dropped_ticks=" << governedDroppedTicks_
+                  << " max_tick_gap_ms=" << governedLoop_.stats().maxTickGapMs
+                  << " dropped_ticks=" << governedLoop_.stats().droppedTicks
                   << " drives_run_loop=1"
                   << " small_fuse_s=" << fuseSeconds
                   << " debris_rest_retire_s=" << debrisRestRetirementSeconds
@@ -8034,6 +8011,109 @@ public:
         std::cout << "super_bomb_footprint_tiles=" << tiles.size() << '\n';
     }
 
+    void debugJollyCloudProbe() {
+        lezac::diagnostics::runJollyCloudProbe(std::cin, std::cout, [&](auto& state, bool initial) {
+            if (initial) {
+                level_ = std::move(state.level);
+                debrisQueue_ = {};
+                for (const auto& record : state.records) debrisQueue_.push_back(record);
+                bonusRainTicks_ = state.remaining;
+                nextCollapseFragmentWord_ = state.nextWord;
+                randomSeed_ = state.seed;
+                monsters_.clear();
+                bombs_.clear();
+                bonusDrops_.clear();
+                launchPadMarkers_.clear();
+                transientActors_.assign(30, {});
+                for (size_t i = 0; i < transientActors_.size(); ++i) transientActors_[i].actorOrder = i + 1;
+                nextActorOrder_ = 31;
+                return;
+            }
+            updateBonusRain();
+            if (sharedActorCount() != 30 || nextActorOrder_ != 31 || !bonusDrops_.empty())
+                throw std::runtime_error("map rain changed shared actor allocation");
+            state.level = level_;
+            state.records.assign(debrisQueue_.begin(), debrisQueue_.end());
+            state.remaining = bonusRainTicks_;
+            state.nextWord = nextCollapseFragmentWord_;
+            state.seed = randomSeed_;
+        });
+    }
+
+    void debugJollyCloudLifecycle() {
+        load();
+        resetLevel(0);
+        playerCount_ = 2;
+        const uint32_t seed = randomSeed_;
+        const auto actors = sharedActorCount();
+        const auto beforeScores = std::array<uint32_t, 2>{{score_, score2_}};
+        bonusRainTicks_ = 9;
+        pendingBonuses_ = {{4, 4}};
+        applyPendingBonus(player_, energy_, bombInventory_, 1);
+        applyPendingBonus(player2_, energy2_, bombInventory2_, 2);
+        if (bonusRainTicks_ != 46 || randomSeed_ != seed || sharedActorCount() != actors ||
+            score_ != beforeScores[0] + 2000 || score2_ != beforeScores[1] + 2000)
+            throw std::runtime_error("two-player cloud grants did not rearm one shared timer");
+        resetLevel(0);
+        if (bonusRainTicks_ != 0) throw std::runtime_error("level reset retained map rain");
+        bonusRainTicks_ = 46;
+        auto expectHeld = [&] {
+            const auto beforeSeed = randomSeed_;
+            const auto beforeTiles = level_.tiles;
+            updateWithControls({}, 1.0f / 60.0f);
+            if (bonusRainTicks_ != 46 || randomSeed_ != beforeSeed || level_.tiles != beforeTiles)
+                throw std::runtime_error("non-gameplay frame advanced map rain");
+        };
+        ui_.setMenu(true);
+        expectHeld();
+        ui_.setMenu(false);
+        ui_.setPaused(true);
+        expectHeld();
+        ui_.setPaused(false);
+        levelFlow_.setIntroActiveForFixture(true);
+        expectHeld();
+        levelFlow_.setIntroActiveForFixture(false);
+        auto outro = levelFlow_.outro();
+        outro.active = true;
+        levelFlow_.restoreOutro(outro);
+        // Results may consume their own RNG; only the rain countdown/map must hold.
+        const auto beforeResultsTiles = level_.tiles;
+        updateWithControls({}, 1.0f / 60.0f);
+        if (bonusRainTicks_ != 46 || level_.tiles != beforeResultsTiles)
+            throw std::runtime_error("results frame advanced map rain");
+
+        resetLevel(0);
+        ui_.setMenu(false);
+        playerCount_ = 1;
+        spawnerStates_.clear();
+        monsters_.clear();
+        for (int cell = level_.width; cell < 2 * level_.width; ++cell) level_.tiles[cell] = 0;
+        bonusRainTicks_ = 1;
+        nextCollapseFragmentWord_ = 0x4000;
+        randomSeed_ = 0x12345678;
+        bool presentedBeforeRain = false, actorsBeforeRain = false;
+        gameplayPresentation_ = [&] { presentedBeforeRain = bonusRainTicks_ == 1 && debrisQueue_.empty(); };
+        debugActorPassObserver_ = [&] { actorsBeforeRain = bonusRainTicks_ == 1 && debrisQueue_.empty(); };
+        updateWithControls({}, 1.0f / 60.0f);
+        gameplayPresentation_ = {};
+        debugActorPassObserver_ = {};
+        if (!presentedBeforeRain || !actorsBeforeRain || bonusRainTicks_ != 0 || debrisQueue_.size() != 1)
+            throw std::runtime_error("final rain attempt missed the production frame phase");
+        const auto& record = debrisQueue_.front();
+        if (record.tileIndex < level_.width || record.tileIndex >= 2 * level_.width ||
+            record.velocityX != 0 || record.velocityY != 0 || record.subX != 0 || record.subY != 0)
+            throw std::runtime_error("new rain fragment moved in its creation frame");
+        const auto stoppedSeed = randomSeed_;
+        updateBonusRain();
+        if (randomSeed_ != stoppedSeed || debrisQueue_.size() != 1)
+            throw std::runtime_error("zero countdown consumed RNG or created another fragment");
+        updateWithControls({}, 1.0f / 60.0f);
+        if (debrisQueue_.size() != 1 || (debrisQueue_.front().velocityY == 0 && debrisQueue_.front().subY == 0))
+            throw std::runtime_error("rain fragment did not join the next frame's debris pass");
+        std::cout << "jolly_cloud_lifecycle=ok shared_rearm=1 reset=1 held_states=4 final_attempt=1"
+                     " production_frame=1 deferred_movement=1 zero_rng=1 natural_pickup=0 whole_game_claim=0\n";
+    }
+
     void debugBonuses() {
         load();
         resetLevel(0);
@@ -8080,13 +8160,12 @@ public:
 
         score_ = 0;
         bonusDrops_.clear();
+        const uint32_t rainSeed = randomSeed_;
+        const size_t rainActors = sharedActorCount();
         expectScore(BonusType::JollyCloud, 2000);
-        if (bonusDrops_.size() != 4 ||
-            bonusDrops_[0].type != BonusType::Present ||
-            bonusDrops_[1].type != BonusType::BigDiamond ||
-            bonusDrops_[2].type != BonusType::Present ||
-            bonusDrops_[3].type != BonusType::BigDiamond) {
-            throw std::runtime_error("jolly cloud did not spawn bonus rain");
+        if (!bonusDrops_.empty() || bonusRainTicks_ != 46 || randomSeed_ != rainSeed ||
+            sharedActorCount() != rainActors) {
+            throw std::runtime_error("jolly cloud grant did not arm the deferred map producer");
         }
 
         bonusDrops_.clear();
@@ -8099,10 +8178,8 @@ public:
         bonusDrops_.shrink_to_fit();
         updateBonusDrops();
         applyPendingBonus(player_, energy_, bombInventory_, 1);
-        if (bonusDrops_.size() != 4 ||
-            std::any_of(bonusDrops_.begin(), bonusDrops_.end(),
-                        [](const BonusDrop& drop) { return drop.collected; })) {
-            throw std::runtime_error("jolly cloud collection corrupted bonus drops");
+        if (!bonusDrops_.empty() || bonusRainTicks_ != 46) {
+            throw std::runtime_error("jolly cloud collection did not defer map rain");
         }
 
         playerCount_ = 2;
@@ -25233,6 +25310,49 @@ public:
             playerDead_ = player2Dead_ = true;
             logicTick_ = 101;
         };
+        using Descriptor = lezac::gameplay::ActorSlots::Descriptor;
+        auto expectedDescriptor = [](const SpriteBank& bank, uint16_t sprite) {
+            uint16_t offset = 0;
+            for (size_t index = 0; index + 1 < sprite; ++index)
+                offset = static_cast<uint16_t>(offset + bank.sprites.at(index).pixels.size());
+            const auto& image = bank.sprites.at(sprite - 1);
+            return Descriptor{static_cast<uint8_t>(image.width), static_cast<uint8_t>(image.height),
+                static_cast<uint8_t>(offset), static_cast<uint8_t>(offset >> 8)};
+        };
+        size_t descriptorChecks = 0;
+        auto checkPhysicalDescriptor = [&](uint64_t order, uint16_t sprite, const Descriptor& expected) {
+            const size_t slot = actorSlots_.find(order);
+            require(slot != 0, "descriptor probe has no physical actor");
+            const auto& raw = actorSlots_.state().actors[slot];
+            const auto& visual = actorSlots_.state().visuals.at(raw[1]);
+            require(std::equal(expected.begin(), expected.end(), visual.begin() + 4),
+                "active sprite bank physical descriptor mismatch");
+            require(raw[20] == (sprite == 31 ? 0 : static_cast<uint8_t>(16 - expected[1])),
+                "active sprite bank physical hotspot mismatch");
+            ++descriptorChecks;
+        };
+        auto checkBank = [&](const SpriteBank& bank, const Descriptor& sprite40, const Descriptor& sprite91) {
+            require(bank.sprites.size() == 91 && expectedDescriptor(bank, 40) == sprite40 &&
+                expectedDescriptor(bank, 91) == sprite91, "shipped sprite bank probe changed");
+            for (uint16_t sprite = 1; sprite <= bank.sprites.size(); ++sprite) {
+                require(actorSpriteDescriptor(sprite) == expectedDescriptor(bank, sprite),
+                    "active sprite bank descriptor lookup mismatch");
+                ++descriptorChecks;
+            }
+            for (size_t row = 0; row < 2; ++row) {
+                const auto expected = expectedDescriptor(bank, 1);
+                require(std::equal(expected.begin(), expected.end(), actorSlots_.state().visuals[row].begin() + 4),
+                    "active sprite bank player descriptor mismatch");
+                ++descriptorChecks;
+            }
+            for (const uint16_t sprite : {uint16_t{31}, uint16_t{40}, uint16_t{91}}) {
+                const uint64_t order = allocateActor({0x0a, 20, 5, sprite, 0, 0, 184, 100});
+                checkPhysicalDescriptor(order, sprite, expectedDescriptor(bank, sprite));
+                retireActor(order);
+            }
+        };
+        room();
+        checkBank(sprites_, {16, 16, 0, 39}, {12, 10, 153, 77});
         room();
         auto seeded = actorSlots_.state();
         const auto bytes = backup.packed();
@@ -25361,10 +25481,29 @@ public:
             require(monster.animationBackup.packed() == actorSlots_.animationBackup(monster.actorOrder).packed(),
                 "boss loader lost copied backup");
         checkBindings();
+        for (const auto& monster : monsters_)
+            checkPhysicalDescriptor(monster.actorOrder, static_cast<uint16_t>(monster.animFrame + 1),
+                expectedDescriptor(altSprites_, static_cast<uint16_t>(monster.animFrame + 1)));
+        checkBank(altSprites_, {48, 20, 0, 39}, {12, 10, 211, 81});
+        for (size_t row = 0; row < 2; ++row) {
+            const auto expected = expectedDescriptor(altSprites_, 1);
+            require(std::equal(expected.begin(), expected.end(), actorSlots_.state().visuals[row].begin() + 4),
+                "level7 reset selected wrong player descriptor");
+        }
+        for (const uint16_t sprite : {uint16_t{0}, uint16_t{92}}) {
+            bool rejected = false;
+            try { (void)actorSpriteDescriptor(sprite); }
+            catch (const std::out_of_range&) { rejected = true; }
+            require(rejected, "descriptor bounds accepted invalid active-bank index");
+        }
+        room();
+        checkBank(sprites_, {16, 16, 0, 39}, {12, 10, 153, 77});
+        checkBindings();
         std::cout << "production_actor_lifecycle=ok capacity=30 stable_retirement=1 inactive_backup_inheritance=1 "
                      "mode3_restore=1 reset_retains_backup=1 full_capacity_conversions=2 constructors=7 "
                      "production_app=1 legacy_adoptions=0 legacy_retirements=0 seeded=1 natural_route=0 "
-                     "physical_fixture_seeds=1 full_raw_record_owner=0 whole_game_claim=0\n";
+                     "physical_fixture_seeds=1 full_raw_record_owner=0 whole_game_claim=0 descriptor_banks=2 descriptor_checks="
+                  << descriptorChecks << " descriptor_reset=1 descriptor_bounds=2\n";
     }
 
     void debugMonsterObjectBranchOriginal(const std::string& fixturePath) {
@@ -25841,19 +25980,43 @@ public:
             if (!monster.actorOrder) throw std::runtime_error("corpse animation probe allocation failed");
             lezac::core::TurboRandom expected(randomSeed_);
             const auto roll = expected.range(0, 100);
-            expected.range(0, 20);
-            for (int draw = 0; draw < 4; ++draw) expected.range(0, 600);
+            const auto soundCursor = static_cast<uint16_t>(0xea74 + expected.range(0, 20));
+            std::array<std::array<int16_t, 2>, 2> particleVelocities{};
+            for (auto& velocity : particleVelocities) {
+                velocity[0] = static_cast<int16_t>(expected.range(0, 600) - 300);
+                velocity[1] = static_cast<int16_t>(expected.range(0, 600) - 300);
+            }
             if (roll < 40) throw std::runtime_error("corpse animation probe seed produced no reward");
+            clearSoundLatch();
             finishMonsterDeathReward(monster);
             if (bonusDrops_.size() != 1 || randomSeed_ != expected.seed()) {
                 throw std::runtime_error("corpse animation probe changed reward or RNG");
+            }
+            if (roll != 59 || bonusDrops_.front().type != BonusType::Present) {
+                throw std::runtime_error("corpse reward selection draw changed");
+            }
+            const auto latch = sound_.latch();
+            if (soundCursor != 0xea7f || !latch.active || latch.latchedOffset != soundCursor ||
+                latch.currentSelector != 4) {
+                throw std::runtime_error("corpse reward sound draw ordering changed");
+            }
+            const std::array<std::array<int16_t, 2>, 2> pinnedVelocities{{{{216, -56}}, {{-211, 99}}}};
+            if (particleVelocities != pinnedVelocities || transientActors_.size() != particleVelocities.size()) {
+                throw std::runtime_error("corpse reward particle fixture changed");
+            }
+            for (size_t particle = 0; particle < particleVelocities.size(); ++particle) {
+                const auto& actual = transientActors_[particle];
+                if (actual.kind != 0x0b || actual.vx8 != particleVelocities[particle][0] ||
+                    actual.vy8 != particleVelocities[particle][1]) {
+                    throw std::runtime_error("corpse reward particle draw ordering changed");
+                }
             }
             const std::array<uint8_t, 7> animation{{9, 6, 9, 0, 0, 0, 1}};
             if (bonusDrops_.front().animation.packed() != animation) {
                 throw std::runtime_error("corpse reward animation mode was not disabled");
             }
         }
-        std::cout << "corpse_reward_animation_mode_original=ok cases=4 mode_disabled=1 production_conversion=1 seeded=1 natural_route=0 whole_game_parity=0\n";
+        std::cout << "corpse_reward_animation_mode_original=ok cases=4 mode_disabled=1 production_conversion=1 seeded=1 natural_route=0 whole_game_parity=0 rng_observables=6\n";
     }
 
     void debugTransientActorLimits() {
@@ -27355,6 +27518,7 @@ private:
     std::array<uint8_t, 65536> damageLaneData_ = lezac::gameplay::initialDamageLaneData();
     lezac::gameplay::MapPlaneMemory mapPlaneMemory_;
     uint16_t nextCollapseFragmentWord_ = 0;
+    uint8_t bonusRainTicks_ = 0;
     std::vector<uint32_t>& fb_ = canvas_.pixels();
     int gameplayViewWidth_ = kScreenW;
     int collected_ = 0;
@@ -27412,8 +27576,7 @@ private:
     uint32_t governedRunStartMs_ = 0;
     uint32_t governedRunStartLogicTick_ = 0;
     long governedRunTicks_ = 0;
-    long governedDroppedTicks_ = 0;
-    long governedMaxTickGapMs_ = 0;
+    lezac::app::GovernedLoop governedLoop_;
     uint32_t randomSeed_ = 0x1234abcd;
     uint8_t corpseRewardRoll_ = 0;
     uint32_t score_ = 0;
@@ -27534,6 +27697,7 @@ private:
         collapseQueue_.clear();
         ui_.setPaused(false);
         nextCollapseFragmentWord_ = level_.fieldA;
+        bonusRainTicks_ = 0;
         collected_ = 0;
         destroyed_ = 0;
         presentation_.resetHudForLevel();
@@ -28118,6 +28282,7 @@ private:
         updateHudScores();
         updateFlashes();
         updateCameraShake();
+        updateBonusRain();
         presentation_.advanceHudPalette();
         presentation_.updateRedPalette(static_cast<uint16_t>(logicTick_));
         updateLevelCompletion();
@@ -28585,16 +28750,17 @@ private:
     }
 
     lezac::gameplay::ActorSlots::Descriptor actorSpriteDescriptor(uint16_t sprite) const {
-        if (sprite == 0 || sprite > sprites_.sprites.size()) {
+        const auto& bank = levelIndex_ == 6 ? altSprites_ : sprites_;
+        if (sprite == 0 || sprite > bank.sprites.size()) {
             if (legacyActorSeedsEnabled_) return {};
             throw std::out_of_range("actor constructor sprite descriptor");
         }
         uint16_t offset = 0;
         for (size_t index = 0; index + 1 < sprite; ++index) {
-            const auto& previous = sprites_.sprites[index];
+            const auto& previous = bank.sprites[index];
             offset = static_cast<uint16_t>(offset + previous.width * previous.height);
         }
-        const auto& image = sprites_.sprites[sprite - 1];
+        const auto& image = bank.sprites[sprite - 1];
         return {static_cast<uint8_t>(image.width), static_cast<uint8_t>(image.height),
                 static_cast<uint8_t>(offset), static_cast<uint8_t>(offset >> 8)};
     }
@@ -30845,21 +31011,17 @@ private:
             // move (CONFIRMED by the L2 capture; the earlier markDamagedTile
             // call here was unfaithful). Cap check 3753: refuse once slot
             // index base + record count reaches 0x640.
-            uint8_t lookup = mapPlaneMemory_.readObject(start, level_.tiles, level_.wordLayer);
-            uint16_t flaggedWord = static_cast<uint16_t>(word | kDamagedWordBit);
-            // The word is flagged (3770/3780) only after the cap check passes
-            // (3753 jumps straight to the failure return when full).
-            if (kDebrisRecordIndexBase + debrisQueue_.size() < kDebrisCapacity) {
-                mapPlaneMemory_.writeWord(start, flaggedWord, level_.tiles, level_.wordLayer);
-                DebrisRecord record;
-                record.tileIndex = static_cast<int>(start);
-                record.flaggedWord = flaggedWord;
-                record.velocityX = static_cast<int8_t>(forwardPhase);
-                record.velocityY = static_cast<int8_t>(reversePhase);
-                record.lookup = lookup;
-                debrisQueue_.push_back(record);
-                tileSeederResult_ = 1;
-            } else tileSeederResult_ = 0;
+            tileSeederResult_ = static_cast<uint8_t>(
+                lezac::gameplay::seedFallingFragmentPhysical(debrisQueue_, cell, forwardPhase, reversePhase,
+                    [&](size_t rawCell) {
+                        return mapPlaneMemory_.readWord(static_cast<int>(rawCell), level_.tiles, level_.wordLayer);
+                    },
+                    [&](size_t rawCell) {
+                        return mapPlaneMemory_.readObject(static_cast<int>(rawCell), level_.tiles, level_.wordLayer);
+                    },
+                    [&](size_t rawCell, uint16_t flaggedWord) {
+                        mapPlaneMemory_.writeWord(static_cast<int>(rawCell), flaggedWord, level_.tiles, level_.wordLayer);
+                    }));
             return;
         }
 
@@ -31201,7 +31363,7 @@ private:
         requestSoundCursor(kBonusPickupSoundCursor, kBonusPickupSoundPriority);
     }
 
-    void applyBonus(BonusType type, const Player& collector, int& energy,
+    void applyBonus(BonusType type, const Player&, int& energy,
                     BombInventory& inventory, uint8_t playerIndex = 1) {
         switch (type) {
             case BonusType::Present:
@@ -31217,7 +31379,7 @@ private:
                 break;
             case BonusType::JollyCloud:
                 addScore(playerIndex, 2000);
-                spawnBonusRain(collector);
+                bonusRainTicks_ = lezac::gameplay::kJollyCloudRainTicks;
                 break;
             case BonusType::YellowBombBox:
                 addScore(playerIndex, 3000);
@@ -31248,13 +31410,13 @@ private:
         inventory.hudDirty = 1;
     }
 
-    void spawnBonusRain(const Player& collector) {
-        for (int i = 0; i < 4; ++i) {
-            spawnBonusDrop(std::clamp(collector.x - 24.0f + i * 16.0f, 0.0f,
-                                     std::max(16.0f, level_.width * 8.0f - 16.0f)),
-                           std::max(16.0f, collector.y - 48.0f - i * 4.0f),
-                           i % 2 == 0 ? BonusType::Present : BonusType::BigDiamond);
-        }
+    void updateBonusRain() {
+        lezac::core::TurboRandom random(randomSeed_);
+        const auto cell = lezac::gameplay::advanceJollyCloudRain(
+            bonusRainTicks_, level_, nextCollapseFragmentWord_, random);
+        randomSeed_ = random.seed();
+        if (cell) queueTileDamage(static_cast<int>(*cell % level_.width),
+                                  static_cast<int>(*cell / level_.width));
     }
 
     // Falling-debris mover: port of 1000:45FA loop 2 (492F..4D37), transcribed
@@ -31911,6 +32073,14 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bombs") {
             app.debugBombs();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-jolly-cloud-probe") {
+            app.debugJollyCloudProbe();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-jolly-cloud-lifecycle") {
+            app.debugJollyCloudLifecycle();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bonuses") {

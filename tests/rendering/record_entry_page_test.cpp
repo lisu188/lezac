@@ -2,6 +2,7 @@
 #include "resources/io.hpp"
 #include "ui/level_flow.hpp"
 #include "ui/ui_controller.hpp"
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -10,6 +11,14 @@
 using namespace lezac;
 
 namespace {
+std::filesystem::path createRunDirectory(const std::filesystem::path& root) {
+    std::filesystem::create_directories(root);
+    for (std::uint64_t attempt = 0;; ++attempt) {
+        const auto candidate = root / ("run-" + std::to_string(attempt));
+        if (std::filesystem::create_directory(candidate)) return candidate;
+    }
+}
+
 void require(bool condition, const char* message) {
     if (!condition) throw std::runtime_error(message);
 }
@@ -97,9 +106,8 @@ void checkObservedSaveBytes(const std::filesystem::path& fixture, const std::fil
 int main(int argc, char** argv) {
     try {
         require(argc == 3, "expected fixture and output directories");
-        const std::filesystem::path fixture(argv[1]), out(argv[2]);
-        require(!std::filesystem::exists(out), "output directory already exists");
-        std::filesystem::create_directories(out);
+        const std::filesystem::path fixture(argv[1]);
+        const auto out = createRunDirectory(argv[2]);
         checkEditing(out);
         checkObservedSaveBytes(fixture, out);
         const auto assets = resources::AssetCatalog::load(resources::AssetFormat::Original);

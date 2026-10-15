@@ -359,3 +359,27 @@ Linux/Windows App comparison, full required CI and current-head external review
 remain pending. These seeded phase sequences do not include earlier actor/player
 passes or later clock/presentation work and do not establish full game ticks,
 natural campaign reachability, visual/audio fidelity or whole-game completion.
+
+## Reviewed Continuity Integration
+
+The reviewed integration preserves the original PR371-375 fixture and metadata
+bytes and all gameplay updater bodies. Historical exact-head comparisons above
+remain historical evidence; they are not results for this integration tree.
+
+The top-level continuous-App proof flag becomes true only after all eight
+production batches pass. Independent restored-boundary execution and every
+partial or failed continuous attempt retain a false flag. Both transitions have
+mocked-child regressions; actual-App comparison remains a separate gate.
+
+The active multi-record producer retains failure artifacts independently. A
+failed RAM reader, state serializer, register reader, or artifact write cannot
+replace the original exception or stop retention for the other executors.
+Its report records the disposition of each attempted artifact. Regressions
+exercise all three executors and reproduce the original cleanup failure.
+
+The byte-identical historical producer is retained as
+`capture_original_collapse_contact_continuity_legacy.py`, and the unchanged
+golden metadata pins that historical file. The active producer has only
+failure-path changes; a new successful capture reports its own current source
+hash. No fresh original execution is claimed by these cleanup tests, and
+the golden metadata is not rewritten to imply otherwise.

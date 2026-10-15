@@ -17,6 +17,28 @@ LANE_SHA = '2c162aedce2a54977e623e0de37fdadb7f3f73aff028fccf8e6ca5aea9821492'
 HELPER_SHA = '99ee5aaa4624c6cc71cf7828d800f00e68af61df386b7de82741864933d03e2e'
 
 
+def retain_failure(out, executors, tracked, serialize, report, incoming=None):
+    artifacts = report.setdefault('failure_artifacts', {})
+
+    def retain(name, read, compressed=True):
+        try:
+            raw = read()
+            payload = gzip.compress(raw, mtime=0) if compressed else raw
+            (out / name).write_bytes(payload)
+            artifacts[name] = dict(passed=True, bytes=len(payload), sha256=sha(payload))
+        except BaseException as error:
+            # Cleanup must preserve the initial error and continue with other artifacts.
+            artifacts[name] = dict(passed=False, error=str(error), error_type=type(error).__name__)
+
+    if incoming is not None:
+        retain('failure-input.bin.gz', lambda: incoming)
+    for label, executor in executors:
+        retain('failure-' + label + '-ram.bin.gz', lambda: bytes(executor.cpu.mem_read(0, 1024**2)))
+        retain('failure-' + label + '-state.bin.gz', lambda: serialize(executor))
+        retain('failure-' + label + '-registers.json', lambda: (json.dumps(
+            [executor.cpu.reg_read(register) for register in tracked], indent=2) + '\n').encode(), False)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[1])
@@ -156,14 +178,8 @@ def main():
     except BaseException as error:
         report.update(error=str(error), error_type=type(error).__name__)
         report.update(completed_boundaries=len(observations), original_visits=dict(visits))
-        if 'incoming' in locals():
-            (out / 'failure-input.bin.gz').write_bytes(gzip.compress(incoming, mtime=0))
-        for label, executor in (('observed', observed), ('neutral', neutral), ('fresh', fresh)):
-            ram = bytes(executor.cpu.mem_read(0, 1024**2))
-            (out / ('failure-' + label + '-ram.bin.gz')).write_bytes(gzip.compress(ram, mtime=0))
-            (out / ('failure-' + label + '-state.bin.gz')).write_bytes(gzip.compress(output(executor), mtime=0))
-            (out / ('failure-' + label + '-registers.json')).write_text(json.dumps(
-                [executor.cpu.reg_read(register) for register in tracked], indent=2) + '\n')
+        retain_failure(out, (('observed', observed), ('neutral', neutral), ('fresh', fresh)),
+                       tracked, output, report, locals().get('incoming'))
         raise
     finally:
         (out / 'collapse_contact_continuity_original.json').write_text(json.dumps(report, indent=2) + '\n')

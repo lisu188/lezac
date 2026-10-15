@@ -3,6 +3,7 @@
 #include "ui/level_flow.hpp"
 #include "ui/ui_controller.hpp"
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -12,6 +13,14 @@
 using namespace lezac;
 
 namespace {
+std::filesystem::path createRunDirectory(const std::filesystem::path& root) {
+    std::filesystem::create_directories(root);
+    for (std::uint64_t attempt = 0;; ++attempt) {
+        const auto candidate = root / ("run-" + std::to_string(attempt));
+        if (std::filesystem::create_directory(candidate)) return candidate;
+    }
+}
+
 struct PreviousRecordLayout {
     uint32_t score;
     uint8_t level;
@@ -70,6 +79,9 @@ void checkInput() {
         require(running && controller.snapshot().menu && controller.snapshot().page == MenuPage::Main &&
                 controller.snapshot().mainMenu.startedAt == 100001 && controller.snapshot().italian &&
                 entries == 1 && sounds == 1 && draws == 8, "records acknowledgement dispatched a menu command");
+        const auto progress = controller.mainMenuProgress(100001);
+        require(progress.waitingForKey && progress.fade == 63 &&
+                progress.steps == mainMenuStepCount(true), "records return restarted title presentation");
     }
     UiController controller;
     RecordStore records;
@@ -113,9 +125,8 @@ int main(int argc, char** argv) {
     try {
         require(argc == 3, "expected fixture and output directories");
         checkInput();
-        const std::filesystem::path fixture(argv[1]), out(argv[2]);
-        require(!std::filesystem::exists(out), "output directory already exists");
-        std::filesystem::create_directories(out);
+        const std::filesystem::path fixture(argv[1]);
+        const auto out = createRunDirectory(argv[2]);
         const auto assets = resources::AssetCatalog::load(resources::AssetFormat::Original);
         rendering::PresentationState presentation;
         presentation.setPalette(assets.backgroundPalette());

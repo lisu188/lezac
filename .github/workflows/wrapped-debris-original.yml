@@ -1,0 +1,49 @@
+name: Wrapped debris original capture
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/wrapped-debris-original.yml'
+      - 'tools/requirements-unicorn-linux.txt'
+      - 'tools/capture_original_wrapped_debris.py'
+      - 'src/gameplay/falling_fragment.hpp'
+      - 'src/app/app.cpp'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wrapped-debris-original-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  original:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SDL_AUDIODRIVER: dummy
+      SDL_VIDEODRIVER: dummy
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check runner disk reserve
+        run: python3 -c "import shutil; d=shutil.disk_usage('.'); assert d.free/d.total > 0.1"
+      - name: Install hash-pinned original CPU emulator on the runner
+        run: >-
+          python3 -m pip install --disable-pip-version-check --no-cache-dir
+          --only-binary=:all: --require-hashes --no-deps
+          --target "$RUNNER_TEMP/lezac-unicorn" -r tools/requirements-unicorn-linux.txt
+      - name: Check producer adaptation
+        run: python3 -S -B tools/capture_original_wrapped_debris.py --self-check
+      - name: Capture unmodified original raw-cell behavior
+        run: >-
+          python3 -S -B tools/capture_original_wrapped_debris.py
+          --unicorn-path "$RUNNER_TEMP/lezac-unicorn" --out build/wrapped-debris-original
+      - name: Preserve original states and observer evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wrapped-debris-original-linux
+          path: build/wrapped-debris-original/
+          if-no-files-found: error

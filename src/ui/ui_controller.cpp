@@ -45,6 +45,7 @@ void UiController::cancelPendingRecord(RecordStore& records, const UiActions& ac
 void UiController::finishEndRun(const UiActions& actions) {
     actions.clearScores();
     state_.page = MenuPage::Main;
+    state_.mainMenu = {true, state_.mainMenu.startedAt, 0, true};
 }
 void UiController::handleNameEntryKey(Key key, RecordStore& records, const UiActions& actions) {
     if (key == Key::Return || key == Key::KeypadEnter) {
@@ -93,8 +94,10 @@ void UiController::onKey(Key key, bool& running, int levelIndex, int playerCount
         if (state_.page == MenuPage::NameEntry) {
             handleNameEntryKey(key, records, actions);
         } else if (state_.page == MenuPage::Records) {
-            // 1000:2160 waits for one ReadKey, then returns to the title menu.
+            // 1000:2160 consumes one ReadKey and returns to the settled title.
             state_.page = MenuPage::Main;
+            state_.mainMenu = {true, now, 0, true};
+            return;
         } else if (state_.page == MenuPage::GameOver || state_.page == MenuPage::CompletedGame) {
             if (!startNextPendingRecord(records, actions)) finishEndRun(actions);
         } else if (key == Key::Escape) {
@@ -121,6 +124,10 @@ void UiController::onKey(Key key, bool& running, int levelIndex, int playerCount
     else if (key == Key::S) state_.showBackground = !state_.showBackground;
     else if (key == Key::R && playerCount == 1) actions.adjustViewWidth(-32);
     else if (key == Key::E && playerCount == 1) actions.adjustViewWidth(32);
+    if (state_.menu && state_.page == MenuPage::Main &&
+        (wasPage == MenuPage::NameEntry || wasPage == MenuPage::GameOver || wasPage == MenuPage::CompletedGame)) {
+        return;
+    }
     if (state_.mainMenu.active && state_.menu && state_.page == MenuPage::Main &&
         (!wasMenu || wasPage != MenuPage::Main || wasItalian != state_.italian)) {
         beginMainMenu(now);

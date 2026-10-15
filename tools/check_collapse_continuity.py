@@ -98,7 +98,7 @@ def run_probe(exe, root, data, streams=None, continuous=False):
             report['completed_batches'].append(dict(index=index, path=str(result.resolve()),
                 input_sha256=child['input_sha256'], expected_sha256=child['expected_sha256'],
                 actual_sha256=child['actual_sha256'], command=child['command'], github_sha=child['github_sha']))
-        report['passed'] = True
+        report.update(passed=True, continuous_app_execution_proven=continuous)
     except BaseException as error:
         report.update(error=str(error), error_type=type(error).__name__)
         raise
@@ -195,6 +195,8 @@ def self_check(data, source):
             result = json.loads((bundle / 'result.json').read_bytes())
             if result['passed'] != (mode == 'ok') or len(calls) != (8 if mode == 'ok' else 4):
                 raise ValueError('continuity failure batch tracking differs')
+            if result['continuous_app_execution_proven'] is not False:
+                raise ValueError('independently restored boundaries claimed continuous App execution')
             for index, written in enumerate(calls):
                 child, = (bundle / ('batch-' + str(index))).glob('attempt-*')
                 for name, wanted in (('input.bin.gz', streams[index][0]),

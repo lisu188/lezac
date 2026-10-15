@@ -19,10 +19,13 @@ CONTRACT = (
     'auto memory = damageLaneMemory({&vx, &subX, &vy, &subY});',
     'const bool debris = flagged ? (word & 0x7fff) >= kDeferredThreshold : seededClass != 0;',
     'if (flagged || tileSeederResult_ != 0) {',
+    'if (flagged) {',
     'lezac::gameplay::lookupDamageLaneBytes(memory, false);',
     'incomingX = memory.read(0x661e);',
     'lezac::gameplay::lookupDamageLaneBytes(memory, true);',
     'incomingY = memory.read(0x661e);',
+    '} else sound_.writeSharedCursor(static_cast<uint16_t>(debris ?\n'
+    '                            kDebrisRecordIndexBase + debrisQueue_.size() : collapseQueue_.size()));',
     'const uint16_t cursor = sound_.requestCursor();',
     'const uint8_t weight = debris ? 1 : memory.read(static_cast<uint16_t>(0x661f + 15u * cursor));',
     'const uint8_t mass = memory.read(static_cast<uint16_t>(0x78d5 + slot));',

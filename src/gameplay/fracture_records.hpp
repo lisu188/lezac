@@ -1,16 +1,10 @@
 #pragma once
 
+#include "gameplay/falling_fragment.hpp"
+
 #include <cstdint>
 
 namespace lezac::gameplay {
-
-// Original eleven-byte fragment bank, starting at DS:292B (slot 200).
-struct DebrisRecord {
-    int tileIndex = 0;
-    uint16_t flaggedWord = 0;
-    int8_t velocityX = 0, velocityY = 0, subX = 0, subY = 0;
-    uint8_t restTicks = 0, lookup = 0, aux = 0;
-};
 
 // Original fifteen-byte collapse bank, starting at DS:6620 (slot 1).
 struct CollapseRecord {

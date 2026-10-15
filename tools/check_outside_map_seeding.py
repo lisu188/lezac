@@ -22,8 +22,8 @@ PINS = {
 PHYSICAL = (
     'const uint16_t start = static_cast<uint16_t>(static_cast<uint16_t>(cell * 2u) >> 1);',
     'const uint16_t word = mapPlaneMemory_.readWord(start, level_.tiles, level_.wordLayer);',
-    'uint8_t lookup = mapPlaneMemory_.readObject(start, level_.tiles, level_.wordLayer);',
-    'mapPlaneMemory_.writeWord(start, flaggedWord, level_.tiles, level_.wordLayer);',
+    'lezac::gameplay::seedFallingFragmentPhysical(debrisQueue_, cell, forwardPhase, reversePhase,',
+    'return mapPlaneMemory_.readObject(static_cast<int>(rawCell), level_.tiles, level_.wordLayer);',
     'auto geometry = lezac::gameplay::seedCollapseWordGroupPhysical(level_.width, start,',
     'return mapPlaneMemory_.readWord(physicalCell, level_.tiles, level_.wordLayer);',
     'mapPlaneMemory_.writeWord(physicalCell, flaggedWord, level_.tiles, level_.wordLayer);',

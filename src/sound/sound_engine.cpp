@@ -288,8 +288,9 @@ std::vector<int16_t> SoundEngine::renderClockedTail(uint64_t sampleCount) {
     return renderClockedSamples(static_cast<size_t>(sampleCount));
 }
 
-void SoundEngine::clearSoundLatch() {
+void SoundEngine::clearSoundLatch(bool silenceSpeaker) {
     soundLatch_ = {};
+    if (silenceSpeaker) speaker_.enabled = false;
 }
 
 bool SoundEngine::playCompatibilitySound(size_t hookSlot) {

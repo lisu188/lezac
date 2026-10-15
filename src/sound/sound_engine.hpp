@@ -66,7 +66,7 @@ public:
     // the number of active interrupt transitions actually visited.
     uint64_t skipClockedSamples(uint64_t sampleCount);
     std::vector<int16_t> renderClockedTail(uint64_t sampleCount);
-    void clearSoundLatch();
+    void clearSoundLatch(bool silenceSpeaker = false);
     bool playCompatibilitySound(size_t hookSlot);
     std::vector<int16_t> pumpSoundLatch();
     std::vector<int16_t> playSound(size_t index, bool outputEnabled);

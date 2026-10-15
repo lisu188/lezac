@@ -227,6 +227,16 @@ int main(int argc, char** argv) {
                 !longestSweep.speakerState().enabled, "maximum sweep catch-up work was not bounded");
         expectedClock(longestSweep, maximumHostGap);
 
+        SoundEngine resetDuringTone(ignoredBank);
+        require(resetDuringTone.requestSoundCursor(0xea7e, 5), "reset setup rejected sound");
+        through(resetDuringTone, 1);
+        require(resetDuringTone.latch().active && resetDuringTone.speakerState().enabled,
+                "reset setup did not program a tone");
+        resetDuringTone.clearSoundLatch(true);
+        require(!resetDuringTone.latch().active && !resetDuringTone.speakerState().enabled,
+                "explicit reset retained a programmed speaker");
+        require(silent(through(resetDuringTone, 2)), "explicit reset left audible samples");
+
         SoundEngine heldWhole(ignoredBank), heldPieces(ignoredBank);
         heldWhole.requestSoundCursor(0, 5);
         heldPieces.requestSoundCursor(0, 5);

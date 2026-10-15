@@ -1,0 +1,109 @@
+{
+  "schema": "lezac-settled-game-over-original-v1",
+  "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "original_capture_report_sha256": "7ae99141afa9e21b4312e102cee8dc41785412b961395345f59807434b60dbd5",
+  "original_capture_producer_sha256": "0184c012ff9fa5003ee7777e3faffea7ec252e795bb24d82b757065827b4039f",
+  "dimensions": [
+    320,
+    200
+  ],
+  "masks": 0,
+  "whole_game_parity": false,
+  "timing_parity": false,
+  "observations": [
+    {
+      "capture_sha256": "191201c5694d0a2523051c18a1de5ec024e5a66b218baa8f31ed468de69aa989",
+      "horizontal_step": 49,
+      "vertical_step": 60,
+      "colors": [
+        [
+          69,
+          73,
+          36
+        ],
+        [
+          81,
+          73,
+          44
+        ],
+        [
+          93,
+          73,
+          52
+        ],
+        [
+          105,
+          77,
+          60
+        ],
+        [
+          117,
+          77,
+          69
+        ],
+        [
+          130,
+          81,
+          77
+        ],
+        [
+          142,
+          81,
+          85
+        ]
+      ],
+      "rgb_file": "end_screen_1.rgb",
+      "rgb_sha256": "990b08c354e4e84f4df0177121fee93f7bbf0c6952f4c6326129fd1375d10050",
+      "first_row_candidates": 1,
+      "background_pixels_checked": 53440,
+      "capture_label": "game-over-after-escape-1"
+    },
+    {
+      "capture_sha256": "b7f0e2f4445e8a8ec3a46c602e9fd27bcee563a5d33a64c88eaec9c10a98aa82",
+      "horizontal_step": 17,
+      "vertical_step": 57,
+      "colors": [
+        [
+          32,
+          0,
+          40
+        ],
+        [
+          48,
+          12,
+          48
+        ],
+        [
+          65,
+          24,
+          60
+        ],
+        [
+          81,
+          36,
+          69
+        ],
+        [
+          97,
+          48,
+          81
+        ],
+        [
+          113,
+          60,
+          89
+        ],
+        [
+          130,
+          73,
+          101
+        ]
+      ],
+      "rgb_file": "end_screen_2.rgb",
+      "rgb_sha256": "cd7695c7e7c76cc87d255f0aec50ab44d170283f9550a1c7ac5d56a34e9e4946",
+      "first_row_candidates": 1,
+      "background_pixels_checked": 53440,
+      "capture_label": "game-over-after-escape-2"
+    }
+  ]
+}

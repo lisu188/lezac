@@ -65,6 +65,7 @@ target_compile_options(lezac_rendering PRIVATE ${SDL2_CFLAGS_OTHER})
 add_library(lezac_ui STATIC src/ui/record_store.cpp src/ui/ui_controller.cpp src/ui/level_flow.cpp)
 target_include_directories(lezac_ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(lezac_ui PUBLIC lezac_resources)
+target_link_libraries(lezac_rendering PUBLIC lezac_ui)
 add_library(lezac_ui_diagnostics STATIC src/diagnostics/ui_diagnostics.cpp)
 target_link_libraries(lezac_ui_diagnostics PUBLIC lezac_ui)
 
@@ -198,6 +199,16 @@ if(BUILD_TESTING)
     set_tests_properties(governed_loop_unit PROPERTIES
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "governed_loop=ok cadence=1 rollover=1 cap_boundaries=4 stop_boundaries=3 quit_boundaries=2 exceptions=2 stats_reset=1")
+
+    add_executable(lezac_end_screen_test tests/rendering/end_screen_test.cpp)
+    target_link_libraries(lezac_end_screen_test PRIVATE lezac_rendering)
+    add_test(NAME end_screen_original COMMAND lezac_end_screen_test
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures"
+        "${CMAKE_CURRENT_BINARY_DIR}/end-screen-original")
+    set_tests_properties(end_screen_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^end_screen=ok original_frames=2 compared_pixels=128000 differing_pixels=0 masks=0 score_cases=8 rng_calls=8 timing_parity=0")
 
     add_executable(lezac_sound_shared_cursor_test tests/sound/sound_shared_cursor_test.cpp
         src/sound/sound_engine.cpp src/resources/binary.cpp)
@@ -455,6 +466,15 @@ if(BUILD_TESTING)
     target_include_directories(lezac_flame_contact_word_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
     if(Python3_Interpreter_FOUND)
+        add_test(NAME end_screen_repeat COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_end_screen_repeat.py
+            --exe $<TARGET_FILE:lezac_end_screen_test> --fixtures ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures
+            --out ${CMAKE_CURRENT_BINARY_DIR}/end-screen-repeat)
+        set_tests_properties(end_screen_repeat PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+            TIMEOUT 180
+            PASS_REGULAR_EXPRESSION "^end_screen_repeat=ok invocations=2 original_frames=4 compared_pixels=256000 first_evidence_unchanged=1")
         add_test(NAME buffered_menu_output_tools_contract
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_buffered_menu_output.py -v)
         set_tests_properties(buffered_menu_output_tools_contract PROPERTIES

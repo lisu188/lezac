@@ -1,6 +1,8 @@
 *.sh text eol=lf
 *.py text eol=lf
 *.route text eol=lf
+tests/fixtures/end_screen_*.rgb binary
+tests/fixtures/end_screen_original.json -text
 .gitattributes text eol=lf
 tests/fixtures/transient_storage/** -text
 docs/recovery/evidence/transient_storage_20261009/** -text

@@ -6,6 +6,22 @@
 namespace lezac::ui {
 using resources::vga6To8;
 
+std::vector<OutroLine> LevelFlow::gameOverLines(bool italian, const std::array<uint32_t, 2>& scores) {
+    std::vector<OutroLine> lines{
+        {"GAME OVER", 11, 31, 25, 77, -1},
+        {italian ? "PUNTEGGIO FINALE" : "FINAL SCORE", 11, 244, 25, 97, -1}};
+    int y = 121;
+    for (size_t p = 0; p < scores.size(); ++p) {
+        // 1C4B treats the stored score as a signed long and omits nonpositive values.
+        if (scores[p] == 0 || scores[p] >= 0x80000000u) continue;
+        lines.push_back({(italian ? std::string("GIOCATORE") : std::string("PLAYER")) +
+                             std::to_string(p + 1) + ": " + std::to_string(scores[p]),
+                         9, 244, 25, y, static_cast<int>(p)});
+        y += 11;
+    }
+    return lines;
+}
+
 LevelIntroPattern LevelFlow::makeLevelIntroPattern(const std::function<int(int, int)>& randomInclusive) {
     LevelIntroPattern pattern;
     pattern.horizontalStep = randomInclusive(1, 80);

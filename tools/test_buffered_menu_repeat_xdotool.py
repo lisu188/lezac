@@ -144,9 +144,6 @@ def observe(exe, output, choice, held, expected):
             time.sleep(.15)
             capture("game-over-before-acknowledgement")
             key("key", "Return")
-            for _ in range(2):
-                time.sleep(.15)
-                key("key", "Escape")
             capture("returned-main-menu", wait(full_menu, 3))
             time.sleep(.15)
             key("key", "Escape")

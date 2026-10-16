@@ -225,6 +225,12 @@ if(BUILD_TESTING)
     set_tests_properties(crt_delay_original PROPERTIES
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "crt_delay_original=ok cases=17 snapshots=758 replay_modes=2 original_dispatches=13273201 natural_clock=0")
+    add_executable(lezac_frame_pacing_test tests/core/frame_pacing_test.cpp)
+    target_link_libraries(lezac_frame_pacing_test PRIVATE lezac_resources)
+    add_test(NAME frame_pacing_original COMMAND lezac_frame_pacing_test
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/frame_pacing")
+    set_tests_properties(frame_pacing_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "frame_pacing_original=ok counter_inputs=65536 elapsed_inputs=65536 feedback_cases=240 natural_frames=294 measurements=8 live_clock_integrated=0")
     add_executable(lezac_cpp23_contract_test tests/core/cpp23_contract_test.cpp)
     add_test(NAME cpp23_standard_contract COMMAND lezac_cpp23_contract_test)
     add_executable(lezac_sdl_display_ownership_test
@@ -625,6 +631,11 @@ if(BUILD_TESTING)
             ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
         set_tests_properties(pattern_fill_original PROPERTIES
             PASS_REGULAR_EXPRESSION "^pattern_fill_original=ok invocations=2 original_frames=6 verified_rgb_bytes=1152000 cursor_cases=6 first_evidence_unchanged=1 actual_app_fixture=1 natural_timing_claim=0")
+        add_test(NAME frame_pacing_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_original_frame_pacing.py -v)
+        set_tests_properties(frame_pacing_fixture_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
     endif()
 
     add_executable(lezac_jolly_cloud_rain_test tests/gameplay/jolly_cloud_rain_test.cpp)

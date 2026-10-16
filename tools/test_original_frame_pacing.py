@@ -4,7 +4,11 @@ import csv
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
+import tempfile
 import unittest
 
 from analyze_original_frame_pacing import analyze
@@ -93,6 +97,41 @@ class OriginalFramePacingTests(unittest.TestCase):
         changed['dosbox_environment']['SDL_AUDIODRIVER'] = 'alsa'
         with self.assertRaises(ValueError):
             analyze(raw, changed)
+
+    def test_read_only_guest_recipe_fields(self):
+        raw = (FIXTURE / 'r2.csv').read_bytes()
+        recipe = json.loads((FIXTURE / 'r2-recipe.json').read_text())
+        fields = [('host_probe_guest_register_writes', [1, -1, False, '0']),
+                  ('host_probe_guest_memory_writes', [1, -1, False, '0']),
+                  ('original_executable_changed', [True, 0, 'false']),
+                  ('process_memory_opened_read_only', [False, 1, 'true'])]
+        for key, values in fields:
+            for value in values:
+                with self.subTest(key=key, value=value), self.assertRaisesRegex(ValueError, 'Read-only'):
+                    analyze(raw, dict(recipe, **{key: value}))
+            missing = dict(recipe)
+            del missing[key]
+            with self.subTest(missing=key), self.assertRaisesRegex(ValueError, 'Read-only'):
+                analyze(raw, missing)
+
+    def test_cli_rejects_mutated_guest_without_publishing_report(self):
+        recipe = json.loads((FIXTURE / 'r2-recipe.json').read_text())
+        with tempfile.TemporaryDirectory(prefix='lezac-pacing-recipe-') as temporary:
+            folder = Path(temporary)
+            bad_recipe = folder / 'recipe.json'
+            output = folder / 'report.json'
+            bad_recipe.write_text(json.dumps(dict(recipe, host_probe_guest_memory_writes=1)))
+            command = [sys.executable, '-S', '-B', str(ROOT / 'tools/analyze_original_frame_pacing.py'),
+                       str(FIXTURE / 'r2.csv'), '--recipe', str(bad_recipe), '--out', str(output)]
+            environment = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
+            result = subprocess.run(command, capture_output=True, text=True, env=environment, timeout=15)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Read-only guest provenance differs', result.stderr)
+            self.assertFalse(output.exists())
+            output.write_bytes(b'preserved existing report\n')
+            result = subprocess.run(command, capture_output=True, text=True, env=environment, timeout=15)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(output.read_bytes(), b'preserved existing report\n')
 
 
 if __name__ == '__main__':

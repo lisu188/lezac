@@ -78,3 +78,14 @@ the CRT work-clock model, DOS quantization, IRQ ordering and all per-frame work,
 then original-backed input/frame-stream comparisons. Audio behavior, corrupted
 rank-eight handler execution, full campaign/boss completion and owner visual
 acceptance remain separate unfinished obligations.
+
+## Review Disposition
+
+Review of `62052768b4` found that standalone analysis ignored four contradictory
+read-only provenance fields. All four counterexamples were reproduced against
+that exact source: each accepted an explicitly mutated or non-read-only recipe
+and labeled 144 frames as natural input. The analyzer now requires integer-zero
+host guest-register/memory write counts, an unchanged executable and read-only
+process-memory access. Missing fields and wrong types are also rejected. Eighteen
+focused controls cover those fields; the CLI must publish no report on failure
+and preserve an existing report. The original capture fixtures are unchanged.

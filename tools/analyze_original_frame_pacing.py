@@ -38,6 +38,11 @@ def analyze(raw, recipe):
             recipe['process_pauses'] == 0 and recipe['record_file_fixture_seeded'] is False and
             recipe['clock_rng_or_heap_seeded'] is False and recipe['gameplay_state_seeded'] is False and
             recipe['canonical_assets_unchanged'] is True, 'Capture changed original state')
+    require(all(type(recipe.get(key)) is int and recipe[key] == 0 for key in
+                ('host_probe_guest_register_writes', 'host_probe_guest_memory_writes')) and
+            recipe.get('original_executable_changed') is False and
+            recipe.get('process_memory_opened_read_only') is True,
+            'Read-only guest provenance differs')
     require(len(recipe['samples']) == 5 and all(sample['code_bytes_verified'] == 43552 and
             sample['code_differences'] == 0 for sample in recipe['samples']), 'Original code verification differs')
     require(recipe['host_commands'] and all(command['exit_code'] == 0 for command in recipe['host_commands']), 'Input command failed')

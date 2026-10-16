@@ -198,6 +198,11 @@ if(BUILD_TESTING)
     add_executable(lezac_frame_clock_test tests/core/frame_clock_test.cpp)
     add_executable(lezac_pacing_device_clock_test tests/core/pacing_device_clock_test.cpp)
     add_executable(lezac_crt_keyboard_test tests/core/crt_keyboard_test.cpp)
+    add_executable(lezac_game_keyboard_test tests/core/game_keyboard_test.cpp)
+    target_link_libraries(lezac_game_keyboard_test PRIVATE lezac_core)
+    add_test(NAME game_keyboard_unit COMMAND lezac_game_keyboard_test)
+    set_tests_properties(game_keyboard_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "game_keyboard_unit=ok cases=10 timer_boundaries=445 masked_boundaries=26")
     target_link_libraries(lezac_crt_keyboard_test PRIVATE lezac_core)
     add_test(NAME crt_keyboard_unit COMMAND lezac_crt_keyboard_test)
     set_tests_properties(crt_keyboard_unit PROPERTIES
@@ -651,6 +656,15 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "crt_keyboard_pending_oracle=ok cases=510 pending_inputs=255")
         add_test(NAME crt_keyboard_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_crt_keyboard_fixture.py)
+        add_test(NAME game_keyboard_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_game_keyboard_fixture.py
+            --cpu ${CMAKE_CURRENT_BINARY_DIR}/game-keyboard-cpu.bin)
+        set_tests_properties(game_keyboard_fixture_contract PROPERTIES FIXTURES_SETUP game_keyboard_corpus)
+        add_test(NAME game_keyboard_original COMMAND lezac_game_keyboard_test --original ${CMAKE_CURRENT_BINARY_DIR}/game-keyboard-cpu.bin)
+        set_tests_properties(game_keyboard_original PROPERTIES FIXTURES_REQUIRED game_keyboard_corpus
+            PASS_REGULAR_EXPRESSION "game_keyboard_original=ok cases=3 comparisons=260 reads=6")
+        add_test(NAME game_keyboard_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_game_keyboard_fixture.py)
         add_test(NAME frame_display_instructions COMMAND lezac_frame_display_test --instructions
             ${CMAKE_CURRENT_BINARY_DIR}/frame-display-instructions.bin)
         set_tests_properties(frame_display_instructions PROPERTIES FIXTURES_REQUIRED frame_display_corpus

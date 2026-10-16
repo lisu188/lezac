@@ -7789,6 +7789,66 @@ public:
                      " interrupt_dispatch_claim=0 frame_timing_claim=0 whole_game_parity=0\n";
     }
 
+    void debugPatternBackgroundFill(const std::string& fixture, const std::string& outputRoot) {
+        load();
+        initSdl();
+        const auto bytes = readFile(fixture);
+        const auto cases = lezac::resources::extractObjectArray(std::string(bytes.begin(), bytes.end()), "cases");
+        if (cases.size() != 3) throw std::runtime_error("expected three original pattern checkpoints");
+        const std::filesystem::path root(outputRoot);
+        std::filesystem::create_directories(root);
+        std::filesystem::path out;
+        for (uint64_t attempt = 0;; ++attempt) {
+            out = root / ("run-" + std::to_string(attempt));
+            if (std::filesystem::create_directory(out)) break;
+        }
+        for (const auto& item : cases) {
+            const auto name = lezac::resources::extractString(item, "name");
+            if (name.empty() || name.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_") !=
+                    std::string::npos) throw std::runtime_error("unsafe pattern checkpoint name");
+            LevelIntroPattern pattern;
+            pattern.horizontalStep = lezac::resources::extractInt(item, "horizontal_step");
+            pattern.verticalStep = lezac::resources::extractInt(item, "vertical_step");
+            const auto colors = lezac::resources::extractObjectArray(item, "colors");
+            if (colors.size() != pattern.colors.size()) throw std::runtime_error("invalid pattern palette");
+            for (size_t i = 0; i < colors.size(); ++i) {
+                const int r = lezac::resources::extractInt(colors[i], "r", -1);
+                const int g = lezac::resources::extractInt(colors[i], "g", -1);
+                const int b = lezac::resources::extractInt(colors[i], "b", -1);
+                if (r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255)
+                    throw std::runtime_error("invalid pattern channel");
+                pattern.colors[i] = {static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b)};
+            }
+            const int destination = lezac::resources::extractInt(item, "destination_offset", -1);
+            const int rawDestination = lezac::resources::extractInt(item, "ram_cursor_destination", -1);
+            if (destination < 0 || destination > 64000 || rawDestination < 0 || rawDestination >= 64000)
+                throw std::runtime_error("invalid pattern destination");
+            canvas_.clear(0xff000000u);
+            gameRenderer_.beginPatternBackground(pattern);
+            gameRenderer_.advancePatternBackground(static_cast<size_t>(destination / 3));
+            gameRenderer_.advancePatternBackground(static_cast<size_t>(destination - destination / 3));
+            frameInspector_.inspectRenderedFrame("pattern-fill-" + name);
+            writeArgbPpm((out / (name + ".ppm")).string(), fb_, kScreenW, kScreenH);
+            gameRenderer_.beginPatternBackground(pattern);
+            gameRenderer_.advancePatternBackground(static_cast<size_t>(rawDestination));
+            const auto stageName = lezac::resources::extractString(item, "ram_phase_stage");
+            using Stage = lezac::rendering::PatternFillStage;
+            const auto stage = stageName == "Horizontal" ? Stage::Horizontal :
+                stageName == "Vertical" ? Stage::Vertical : Stage::Write;
+            if (stageName != "Horizontal" && stageName != "Vertical" && stageName != "Write")
+                throw std::runtime_error("invalid pattern phase stage");
+            for (int steps = 0; steps < 2 && gameRenderer_.patternBackgroundCursor().stage != stage; ++steps)
+                gameRenderer_.advancePatternBackgroundStages(1);
+            const auto cursor = gameRenderer_.patternBackgroundCursor();
+            if (cursor.destinationOffset != rawDestination || cursor.stage != stage ||
+                cursor.fraction != lezac::resources::extractInt(item, "ram_cursor_fraction", -999) ||
+                cursor.phase != lezac::resources::extractInt(item, "ram_cursor_phase", -1))
+                throw std::runtime_error("App pattern cursor differs from original in-flight state");
+        }
+        std::cout << "pattern_background_app=ok frames=3 original_cursor_cases=3 actual_app_fixture=1"
+                     " natural_timing_claim=0 whole_game_parity=0\n";
+    }
+
     void debugEndFlowRecords(const std::string& path) {
         load();
         recordStore_.setPath(path);
@@ -32124,6 +32184,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 3 && std::string(argv[1]) == "--debug-record-adjacent-memory") {
             app.debugRecordAdjacentMemory(argv[2], argv[3]);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-pattern-background-fill") {
+            app.debugPatternBackgroundFill(argv[2], argv[3]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-end-flow-records") {

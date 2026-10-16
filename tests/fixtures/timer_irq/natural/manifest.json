@@ -1,0 +1,33 @@
+{
+  "schema": "lezac-natural-timer-frozen-v1",
+  "files": [
+    {
+      "name": "r4.csv.gz",
+      "bytes": 17016,
+      "sha256": "b4065654f792f88d564135cf09d5dd11b42d43114ff0bc91f099c27f715b6e97"
+    },
+    {
+      "name": "r4-recipe.json",
+      "bytes": 15957,
+      "sha256": "ba94bb2fcf2b14989b278c6976857bc6a66d5759339deb49cdf7bfe7847c8613"
+    },
+    {
+      "name": "r5.csv.gz",
+      "bytes": 22736,
+      "sha256": "55dc3fcd8a8b65b8688a68b0bbbebb18b7fb785f042b0bd32540170316df292b"
+    },
+    {
+      "name": "r5-recipe.json",
+      "bytes": 17455,
+      "sha256": "d5fe23c09b5ee3bed2398f5a732aa600554dfcf8688ed82e5edf8404e7088b50"
+    }
+  ],
+  "gameplay_state_seeded": false,
+  "device_inputs_observed": true,
+  "irq_body_replayed": true,
+  "hardware_delivery_replayed": false,
+  "scheduler_replayed": false,
+  "synchronized_frame_parity": false,
+  "whole_game_parity": false,
+  "raw_ram_or_png_published": false
+}

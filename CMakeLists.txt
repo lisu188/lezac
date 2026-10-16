@@ -34,6 +34,7 @@ target_link_libraries(lezac_resources PUBLIC lezac_core)
 
 add_library(lezac_sound STATIC
     src/sound/sound_engine.cpp
+    src/sound/sound_interrupt_runtime.cpp
     src/sound/sdl_audio_output.cpp
 )
 target_include_directories(lezac_sound PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src ${SDL2_INCLUDE_DIRS})
@@ -189,6 +190,16 @@ if(BUILD_TESTING)
     add_test(NAME dos_time_unit COMMAND lezac_dos_time_test)
     set_tests_properties(dos_time_unit PROPERTIES
         PASS_REGULAR_EXPRESSION "dos_time_unit=ok")
+    add_executable(lezac_timer_irq_test tests/core/timer_irq_test.cpp)
+    target_link_libraries(lezac_timer_irq_test PRIVATE lezac_core)
+    add_executable(lezac_timer_irq_natural_test tests/core/timer_irq_natural_test.cpp)
+    target_link_libraries(lezac_timer_irq_natural_test PRIVATE lezac_core)
+    add_executable(lezac_sound_interrupt_runtime_test tests/sound/sound_interrupt_runtime_test.cpp
+        src/sound/sound_engine.cpp src/sound/sound_interrupt_runtime.cpp)
+    target_link_libraries(lezac_sound_interrupt_runtime_test PRIVATE lezac_resources)
+    add_test(NAME sound_interrupt_runtime COMMAND lezac_sound_interrupt_runtime_test ${CMAKE_CURRENT_SOURCE_DIR}/PROEFS.SON)
+    set_tests_properties(sound_interrupt_runtime PROPERTIES
+        PASS_REGULAR_EXPRESSION "sound_interrupt_runtime=ok cases=13858")
     add_executable(lezac_startup_timing_test tests/core/startup_timing_test.cpp)
     target_link_libraries(lezac_startup_timing_test PRIVATE lezac_resources)
     add_test(NAME startup_timing_original COMMAND lezac_startup_timing_test
@@ -291,7 +302,7 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION "^end_screen=ok original_frames=2 compared_pixels=128000 differing_pixels=0 masks=0 score_cases=8 rng_calls=8 timing_parity=0")
 
     add_executable(lezac_sound_shared_cursor_test tests/sound/sound_shared_cursor_test.cpp
-        src/sound/sound_engine.cpp src/resources/binary.cpp)
+        src/sound/sound_engine.cpp src/sound/sound_interrupt_runtime.cpp src/resources/binary.cpp)
     target_include_directories(lezac_sound_shared_cursor_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME sound_shared_cursor COMMAND lezac_sound_shared_cursor_test)
     set_tests_properties(sound_shared_cursor PROPERTIES
@@ -305,7 +316,7 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^timed_seed_isolation=ok cases=1184 corpse_cases=592 raw_timer_boundaries=1 production_storage=1 full_app=0")
     add_executable(lezac_clocked_sound_test tests/sound/clocked_sound_test.cpp
-        src/sound/sound_engine.cpp)
+        src/sound/sound_engine.cpp src/sound/sound_interrupt_runtime.cpp)
     target_link_libraries(lezac_clocked_sound_test PRIVATE lezac_resources)
     add_test(NAME clocked_sound
         COMMAND lezac_clocked_sound_test ${CMAKE_CURRENT_SOURCE_DIR}/PROEFS.SON)
@@ -339,13 +350,13 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "clocked_sound_live=ok state=${clock_state} .*deadline_service=1 elapsed_ms=[0-9]+ advanced_samples=[0-9]+ advanced_interrupts=[0-9]+ stalled_deadline=1")
     endforeach()
     add_executable(lezac_sound_pitch_test tests/sound/sound_pitch_test.cpp
-        src/sound/sound_engine.cpp src/resources/binary.cpp)
+        src/sound/sound_engine.cpp src/sound/sound_interrupt_runtime.cpp src/resources/binary.cpp)
     target_include_directories(lezac_sound_pitch_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME sound_pitch COMMAND lezac_sound_pitch_test)
     set_tests_properties(sound_pitch PROPERTIES PASS_REGULAR_EXPRESSION
         "sound_pitch=ok frequencies=65536 pcm_cases=10 ignored_command_states=3 cursor_playback=1 direct_sweep=1 original_runtime_claim=0")
     add_executable(lezac_sound_interrupt_test tests/sound/sound_interrupt_test.cpp
-        src/sound/sound_engine.cpp)
+        src/sound/sound_engine.cpp src/sound/sound_interrupt_runtime.cpp)
     target_link_libraries(lezac_sound_interrupt_test PRIVATE lezac_resources)
     add_test(NAME sound_interrupt
         COMMAND lezac_sound_interrupt_test ${CMAKE_CURRENT_SOURCE_DIR}/PROEFS.SON)
@@ -387,7 +398,7 @@ if(BUILD_TESTING)
     add_executable(lezac_reward_storage_probe tests/gameplay/reward_storage_probe.cpp)
     target_include_directories(lezac_reward_storage_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_executable(lezac_corpse_storage_probe tests/gameplay/corpse_storage_probe.cpp
-        src/sound/sound_engine.cpp src/resources/binary.cpp)
+        src/sound/sound_engine.cpp src/sound/sound_interrupt_runtime.cpp src/resources/binary.cpp)
     target_include_directories(lezac_corpse_storage_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME actor_slots_binding_contract COMMAND lezac_actor_slots_test)
     set_tests_properties(actor_slots_binding_contract PROPERTIES
@@ -545,6 +556,26 @@ if(BUILD_TESTING)
             ${CMAKE_CURRENT_BINARY_DIR}/dos-time-projection.bin)
         set_tests_properties(dos_time_original PROPERTIES FIXTURES_REQUIRED dos_time_corpus
             PASS_REGULAR_EXPRESSION "dos_time_original=ok windows=20 comparisons=13040")
+        add_test(NAME timer_irq_natural_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_timer_irq_natural_fixture.py
+                --projection ${CMAKE_CURRENT_BINARY_DIR}/timer-irq-natural-projection.bin)
+        set_tests_properties(timer_irq_natural_fixture_contract PROPERTIES FIXTURES_SETUP timer_irq_natural_corpus)
+        add_test(NAME timer_irq_natural COMMAND lezac_timer_irq_natural_test
+            ${CMAKE_CURRENT_BINARY_DIR}/timer-irq-natural-projection.bin)
+        set_tests_properties(timer_irq_natural PROPERTIES FIXTURES_REQUIRED timer_irq_natural_corpus
+            PASS_REGULAR_EXPRESSION "timer_irq_natural=ok comparisons=2868")
+        add_test(NAME timer_irq_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_timer_irq_fixture.py
+                --projection ${CMAKE_CURRENT_BINARY_DIR}/timer-irq-projection.bin)
+        set_tests_properties(timer_irq_fixture_contract PROPERTIES FIXTURES_SETUP timer_irq_corpus)
+        add_test(NAME timer_irq_fixture_rejections
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_timer_irq_fixture.py)
+        add_test(NAME timer_irq_capture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_timer_irq_capture.py)
+        add_test(NAME timer_irq_original COMMAND lezac_timer_irq_test
+            ${CMAKE_CURRENT_BINARY_DIR}/timer-irq-projection.bin ${CMAKE_CURRENT_SOURCE_DIR}/PROEFS.SON)
+        set_tests_properties(timer_irq_original PROPERTIES FIXTURES_REQUIRED timer_irq_corpus
+            PASS_REGULAR_EXPRESSION "timer_irq_original=ok cases=164 comparisons=21090")
         add_test(NAME startup_timing_fixture_contract
             COMMAND ${Python3_EXECUTABLE} -S -B
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_startup_timing_fixture.py)
@@ -808,7 +839,7 @@ if(BUILD_TESTING)
         add_test(NAME clocked_sound_routing
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_clocked_sound_routing.py)
         set_tests_properties(clocked_sound_routing PROPERTIES PASS_REGULAR_EXPRESSION
-            "clocked_sound_routing=ok live_paths=2 request_paths=4 mutations=12 native_timing_claim=0")
+            "clocked_sound_routing=ok live_paths=2 request_paths=4 mutations=15 native_timing_claim=0")
         add_test(NAME clocked_sound_routing_mutations
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_clocked_sound_routing.py)
         set_tests_properties(clocked_sound_routing_mutations PROPERTIES

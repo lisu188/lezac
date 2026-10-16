@@ -12,7 +12,7 @@ import sys
 import tempfile
 import unittest
 
-from analyze_original_work_clock import analyze, COLUMNS, read_rows, validate_capture_recipe
+from analyze_original_work_clock import analyze, CAPTURE_HASHES, COLUMNS, read_rows, validate_capture_recipe
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / 'tests/fixtures/original_work_clock'
@@ -144,6 +144,130 @@ class WorkClockTests(unittest.TestCase):
                 capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(output.read_bytes(), retained)
+
+    def test_full_original_producer_reports(self):
+        pins = dict(r3='15492f9157ad8d58c1ede604b47d767e82ca2640143e8e2a57e387a4f3aab8b4',
+                    r4='df5f0afa3efc27aad15e6a03040b8b23fadb272047c6243476bb23245d5d33db')
+        for run, pin in pins.items():
+            raw = (FIXTURES / (run + '-full-recipe.json')).read_bytes()
+            self.assertEqual(sha(raw), pin)
+            recipe = json.loads(raw)
+            legacy = json.loads((FIXTURES / (run + '-recipe.json')).read_text())
+            self.assertEqual({key: recipe[key] for key in CAPTURE_HASHES}, CAPTURE_HASHES)
+            self.assertEqual(analyze(FIXTURES / (run + '.csv.gz'), recipe),
+                             analyze(FIXTURES / (run + '.csv.gz'), legacy))
+
+    def test_provenance_mutations_rejected(self):
+        _, trace = read_rows(FIXTURES / 'r3.csv.gz')
+        for suffix in ('-recipe.json', '-full-recipe.json'):
+            original = json.loads((FIXTURES / ('r3' + suffix)).read_text())
+            controls = []
+            for key in CAPTURE_HASHES:
+                for value in ('0' * 64, None, False, 0, original[key].upper()):
+                    controls.append(dict(original, **{key: value}))
+                changed = dict(original)
+                del changed[key]
+                controls.append(changed)
+            for name in original['assets']:
+                for key, value in (('bytes', 0), ('bytes', True), ('sha256', '0' * 64)):
+                    changed = copy.deepcopy(original)
+                    changed['assets'][name][key] = value
+                    controls.append(changed)
+                changed = copy.deepcopy(original)
+                del changed['assets'][name]
+                controls.append(changed)
+            for value in (None, False, {}, dict(original['assets'], unknown={})):
+                controls.append(dict(original, assets=value))
+            fields = ['process_memory_writes', 'process_pauses', 'gameplay_state_seeded',
+                'clock_rng_or_heap_seeded', 'record_file_fixture_seeded', 'child_exit_code',
+                'canonical_assets_unchanged', 'audio', 'fixture_scores']
+            fields += [key for key in ('schema', 'passed', 'host_instrumented',
+                'host_probe_guest_register_writes', 'host_probe_guest_memory_writes',
+                'original_executable_changed', 'natural_wall_clock_fidelity_claim',
+                'injected_instructions', 'configured_players', 'process_memory_opened_read_only',
+                'cpu_memory_frame_atomic', 'complete_frame_sequence_claim', 'whole_game_complete',
+                'trace_end_marker', 'private_xvfb_autorepeat_disabled', 'trace_clock', 'trace_dispatch')
+                if key in original]
+            for key in fields:
+                expected = original[key]
+                bad = not expected if type(expected) is bool else 'contradiction'
+                for value in (bad, None, 0 if type(expected) is bool else False):
+                    controls.append(dict(original, **{key: value}))
+                changed = dict(original)
+                del changed[key]
+                controls.append(changed)
+            for index, changed in enumerate(controls):
+                with self.subTest(suffix=suffix, control=index), self.assertRaises(ValueError):
+                    validate_capture_recipe(changed, trace)
+
+    def test_full_report_command_and_profile_controls(self):
+        original = json.loads((FIXTURES / 'r3-full-recipe.json').read_text())
+        _, trace = read_rows(FIXTURES / 'r3.csv.gz')
+        controls = []
+        for index in range(len(original['host_commands'])):
+            changed = copy.deepcopy(original)
+            del changed['host_commands'][index]
+            controls.append(changed)
+        for index in (2, 5, 8, 11, 14, 17, 20):
+            changed = copy.deepcopy(original)
+            changed['host_commands'][index]['stdout'] = 'bogus'
+            controls.append(changed)
+        for key, value in (('dosbox_config', original['dosbox_config'].replace('sbtype=none', 'sbtype=sb16')),
+                           ('dosbox_config', original['dosbox_config'] + '\n[extra]\nx=y\n'),
+                           ('capture_argv', ['/tmp/evil']), ('child_pid', True)):
+            controls.append(dict(original, **{key: value}))
+        for key, value in (('monotonic_before', float('nan')), ('monotonic_after', float('inf')),
+                           ('exit_code', False)):
+            changed = copy.deepcopy(original)
+            changed['host_commands'][4][key] = value
+            controls.append(changed)
+        changed = copy.deepcopy(original)
+        changed['host_commands'].append(dict(changed['host_commands'][-1], command=['xdotool', 'key', 'Left']))
+        controls.append(changed)
+        changed = copy.deepcopy(original)
+        changed['dosbox_environment']['SDL_AUDIODRIVER'] = 'alsa'
+        controls.append(changed)
+        changed = copy.deepcopy(original)
+        changed['samples'][0]['code_differences'] = 1
+        controls.append(changed)
+        changed = copy.deepcopy(original)
+        changed['events'][0]['monotonic_after'] = 0
+        controls.append(changed)
+        for key, value in (('unrecognized_claim', True), ('code_segment', original['code_segment'] + 1),
+                           ('data_segment', 0), ('ram_base', False)):
+            controls.append(dict(original, **{key: value}))
+        for index, changed in enumerate(controls):
+            with self.subTest(control=index), self.assertRaises(ValueError):
+                validate_capture_recipe(changed, trace)
+
+    def test_full_report_relocated_sources(self):
+        recipe = json.loads((FIXTURES / 'r3-full-recipe.json').read_text())
+        _, trace = read_rows(FIXTURES / 'r3.csv.gz')
+        recipe['capture_argv'][0] = '/workspace/project with spaces/tools/original_work_probe/capture.py'
+        recipe['capture_argv'][5] = '/workspace/project with spaces'
+        recipe['capture_argv'][7] = '/opt/observer/dosbox'
+        recipe['dosbox_argv'][0] = '/opt/observer/dosbox'
+        validate_capture_recipe(recipe, trace)
+
+    def test_provenance_cli_failure_preserves_reports(self):
+        original = json.loads((FIXTURES / 'r3-recipe.json').read_text())
+        controls = [(key, '0' * 64) for key in CAPTURE_HASHES]
+        controls += [('assets', {}), ('process_memory_writes', 1)]
+        with tempfile.TemporaryDirectory(prefix='lezac-work-provenance-cli-') as temporary:
+            folder = Path(temporary)
+            recipe, output = folder / 'recipe.json', folder / 'report.json'
+            command = [sys.executable, '-S', '-B', str(ROOT / 'tools/analyze_original_work_clock.py'),
+                       str(FIXTURES / 'r3.csv.gz'), str(output), '--recipe', str(recipe)]
+            for key, value in controls:
+                recipe.write_text(json.dumps(dict(original, **{key: value})))
+                result = subprocess.run(command, capture_output=True, text=True, timeout=15)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(output.exists())
+                output.write_bytes(b'retained provenance report\n')
+                result = subprocess.run(command, capture_output=True, text=True, timeout=15)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(output.read_bytes(), b'retained provenance report\n')
+                output.unlink()
 
     def test_raw_and_compressed_profiles_match(self):
         with tempfile.TemporaryDirectory(prefix='lezac-work-clock-') as directory:

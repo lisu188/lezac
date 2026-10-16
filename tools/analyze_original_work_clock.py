@@ -1,12 +1,30 @@
 """Validate instrumented normal-core traces without treating dispatches as cycles."""
 import argparse
 import collections
+import configparser
 import csv
 import gzip
 import hashlib
 import io
 import json
-from pathlib import Path
+import math
+from pathlib import Path, PurePosixPath
+
+from original_capture_contract import ASSET_PINS, validate_geometry
+
+CAPTURE_HASHES = dict(
+    producer_sha256='3dbd83ac74c7409273f53bbacf1556b0491931801ece26e9e250164d8467a30b',
+    dosbox_sha256='4d8eaba9db5e3f733b49c35f191eff98f1f5730035f7374c5c703693a080c8ac',
+    executable_sha256='7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec')
+LEGACY_RECIPE_PINS = {
+    '1b23903d54c66604cb20854d8b563793c47e0a81aa6e6204b9be21fdc58dcbfa',
+    '23b8534774ce23c94992d8fde68aa9d7db51b8323360b80b0bf2aa038ef2e252',
+}
+CAPTURE_CONFIG = dict(sdl=dict(fullscreen='false', output='surface'),
+    render=dict(frameskip='0', aspect='false', scaler='none'),
+    cpu=dict(core='normal', cycles='fixed 6000'), mixer=dict(nosound='true'),
+    speaker=dict(pcspeaker='false'), sblaster=dict(sbtype='none'),
+    midi=dict(mpu401='none', mididevice='none'))
 
 COLUMNS = ('kind,page,dispatch,clock,exclusive_dispatch,exclusive_clock,pic_ticks,'
            'cs,ip,ss,sp,bp,frame_valid,index,fraction,phase,destination,h,v,'
@@ -68,13 +86,143 @@ def read_rows(path):
 def delta(begin, end, key='exclusive_dispatch'):
     return end[key] - begin[key]
 
+
+def validate_provenance(recipe):
+    require(all(type(recipe.get(key)) is str and recipe[key] == value
+                for key, value in CAPTURE_HASHES.items()), 'Capture host, producer or executable differs')
+    assets = recipe.get('assets')
+    require(type(assets) is dict and set(assets) == set(ASSET_PINS), 'Capture asset domain differs')
+    require(all(type(assets[name]) is dict and set(assets[name]) == {'bytes', 'sha256'} and
+        type(assets[name]['bytes']) is int and assets[name]['bytes'] == size and
+        type(assets[name]['sha256']) is str and assets[name]['sha256'] == pin
+        for name, (size, pin) in ASSET_PINS.items()), 'Canonical capture asset differs')
+    common = dict(process_memory_writes=0, process_pauses=0, gameplay_state_seeded=False,
+                  clock_rng_or_heap_seeded=False, record_file_fixture_seeded=True,
+                  child_exit_code=0, canonical_assets_unchanged=True, audio='dummy')
+    require(all(type(recipe.get(key)) is type(value) and recipe[key] == value
+                for key, value in common.items()), 'Read-only capture contract differs')
+    require(type(recipe.get('fixture_scores')) is list and
+            all(type(value) is int for value in recipe['fixture_scores']) and
+            recipe['fixture_scores'] == [0, 0, 0, 0, 0, 0, -1], 'Record fixture contract differs')
+    config = configparser.ConfigParser()
+    try:
+        require(type(recipe.get('dosbox_config')) is str, 'Capture profile differs')
+        config.read_string(recipe['dosbox_config'])
+        require(not config.defaults() and {section: dict(config[section]) for section in config.sections()} ==
+                CAPTURE_CONFIG, 'Capture profile differs')
+    except configparser.Error as error:
+        raise ValueError('Capture profile differs') from error
+    try:
+        identity = hashlib.sha256(json.dumps(recipe, sort_keys=True, separators=(',', ':'),
+                                            allow_nan=False).encode()).hexdigest()
+    except (ValueError, TypeError) as error:
+        raise ValueError('Capture recipe is not canonical JSON') from error
+    # Historical compact recipes omit fields. Only their exact pinned values are accepted.
+    if identity in LEGACY_RECIPE_PINS:
+        return
+    scope = dict(schema='lezac-instrumented-work-clock-v1', passed=True, host_instrumented=True,
+        host_probe_guest_register_writes=0, host_probe_guest_memory_writes=0,
+        original_executable_changed=False, natural_wall_clock_fidelity_claim=False,
+        injected_instructions=0, configured_players=1, process_memory_opened_read_only=True,
+        cpu_memory_frame_atomic=False, complete_frame_sequence_claim=False, whole_game_complete=False,
+        trace_end_marker=True, private_xvfb_autorepeat_disabled=True,
+        trace_clock='normal-core fixed-cycle budget, sampled before decode',
+        trace_dispatch='normal-core iterations; REP may charge multiple cycles per iteration')
+    require(all(type(recipe.get(key)) is type(value) and recipe[key] == value
+                for key, value in scope.items()), 'Complete capture provenance differs')
+    expected_fields = set(common) | set(scope) | set(CAPTURE_HASHES) | {
+        'assets', 'capture_argv', 'child_pid', 'code_segment', 'data_segment', 'dosbox_argv',
+        'dosbox_config', 'dosbox_cwd', 'dosbox_environment', 'environment_is_complete', 'events',
+        'fixture_scores', 'host_commands', 'input_injection_failures', 'private_display_autorepeat_command',
+        'ram_base', 'run', 'samples', 'status', 'trace_bytes', 'trace_sha256'}
+    require(set(recipe) == expected_fields, 'Complete capture field domain differs')
+    require(type(recipe['code_segment']) is int and 16 < recipe['code_segment'] < 65535 and
+        type(recipe['data_segment']) is int and recipe['data_segment'] == recipe['code_segment'] + 0xaa2 and
+        type(recipe['ram_base']) is int and recipe['ram_base'] >= 0, 'Capture module identity differs')
+    autorepeat = recipe.get('private_display_autorepeat_command')
+    require(type(autorepeat) is dict and autorepeat.get('command') == ['xset', 'r', 'off'] and
+            type(autorepeat.get('exit_code')) is int and autorepeat['exit_code'] == 0,
+            'Capture autorepeat contract differs')
+    samples = recipe.get('samples')
+    require(type(samples) is list and all(type(sample) is dict and
+        type(sample.get('code_bytes_verified')) is int and sample['code_bytes_verified'] == 43552 and
+        type(sample.get('code_differences')) is int and sample['code_differences'] == 0 and
+        sample.get('ram_rgb_cpu_atomic') is False for sample in samples), 'Original code or checkpoint scope differs')
+    validate_full_capture_commands(recipe)
+
+
+def validate_full_capture_commands(recipe):
+    def absolute_path(value):
+        require(type(value) is str and value.startswith('/') and not value.startswith('//') and
+            str(PurePosixPath(value)) == value and '..' not in PurePosixPath(value).parts and
+            all(character.isprintable() for character in value), 'Capture launch path differs')
+        return PurePosixPath(value)
+
+    root = absolute_path(recipe.get('dosbox_cwd'))
+    require(root.is_relative_to('/dev/shm') and root != PurePosixPath('/dev/shm'), 'Capture escaped RAM')
+    capture = recipe.get('capture_argv')
+    require(type(capture) is list and len(capture) == 10 and all(type(value) is str for value in capture),
+            'Capture producer command differs')
+    repo, host = absolute_path(capture[5]), absolute_path(capture[7])
+    run = recipe.get('run')
+    require(type(run) is str and run.isalnum() and bool(host.name) and capture == [
+        str(repo / 'tools/original_work_probe/capture.py'), '--inside-xvfb', '--run', run,
+        '--repo', str(repo), '--dosbox', str(host), '--out', str(root)], 'Capture producer command differs')
+    require(type(recipe.get('dosbox_argv')) is list and recipe['dosbox_argv'] == [str(host),
+        '-conf', str(root / 'dosbox.conf'), '-c', 'mount c ' + str(root / 'run'),
+        '-c', 'c:', '-c', 'LEZAC.EXE'], 'Unexpected DOSBox command')
+    commands = recipe.get('host_commands')
+    require(type(commands) is list and len(commands) == 22 and all(type(command) is dict and
+        type(command.get('exit_code')) is int and command['exit_code'] == 0 for command in commands),
+        'Capture host command sequence differs')
+    pid, output = recipe.get('child_pid'), commands[0].get('stdout')
+    require(type(pid) is int and pid > 0 and type(output) is str and output.splitlines(),
+            'Capture input target differs')
+    window = output.splitlines()[-1]
+    require(window.isascii() and window.isdecimal() and int(window) > 0, 'Capture input target differs')
+    focus = ['xdotool', 'windowfocus', window]
+    geometry = ['xdotool', 'getwindowgeometry', '--shell', window]
+    expected = [['xdotool', 'search', '--pid', str(pid), '--name', 'DOSBox'], focus, geometry]
+    for key in ('1', 'Return', 'Escape', '1', 'q', 'Return'):
+        expected.extend([focus, ['xdotool', 'key', '--clearmodifiers', key], geometry])
+    expected.append(['xdotool', 'key', '--clearmodifiers', 'ctrl+F9'])
+    require([command.get('command') for command in commands] == expected, 'Capture host command sequence differs')
+
+    def interval(item):
+        require(type(item) is dict, 'Capture command timing differs')
+        values = [item.get('monotonic_before'), item.get('monotonic_after')]
+        require(all(type(value) in (int, float) and math.isfinite(value) for value in values) and
+                0 <= values[0] <= values[1], 'Capture command timing differs')
+        return values
+
+    times = [interval(command) for command in commands]
+    require(all(first[1] <= second[0] for first, second in zip(times, times[1:])), 'Capture command timing differs')
+    events, samples = recipe.get('events'), recipe['samples']
+    require(type(events) is list and len(events) == 6 and len(samples) == 7, 'Capture checkpoint count differs')
+    for index, event in enumerate(events):
+        before, after = interval(event)
+        require(before <= times[3 + index * 3][0] <= times[4 + index * 3][1] <= after,
+                'Capture input event binding differs')
+    for index, sample in enumerate(samples):
+        command_index = 2 + index * 3
+        validate_geometry(commands[command_index].get('stdout'), window)
+        before, after = interval(sample)
+        require(before <= times[command_index][0] <= times[command_index][1] <= after,
+                'Capture sample binding differs')
+
+
 def validate_capture_recipe(recipe, trace_raw):
+    require(type(recipe) is dict, 'Capture recipe is not an object')
     require(recipe.get('environment_is_complete') is True, 'Incomplete capture environment')
+    validate_provenance(recipe)
     environment = recipe.get('dosbox_environment', {})
+    require(type(environment) is dict and all(type(value) is str and value for value in environment.values()),
+            'Invalid capture environment')
     require(set(environment) == {'PATH', 'HOME', 'TMPDIR', 'LANG', 'LC_ALL', 'DISPLAY',
         'XAUTHORITY', 'SDL_VIDEODRIVER', 'SDL_AUDIODRIVER', 'LEZAC_WORK_TRACE'}, 'Unexpected environment keys')
     root = recipe.get('dosbox_cwd', '')
-    require(root.startswith('/dev/shm/') and '..' not in Path(root).parts, 'Capture escaped RAM')
+    require(type(root) is str and root.startswith('/dev/shm/') and '..' not in PurePosixPath(root).parts,
+            'Capture escaped RAM')
     require(environment['PATH'] == '/usr/bin:/bin' and environment['HOME'] == root + '/home'
             and environment['TMPDIR'] == root + '/tmp' and environment['LANG'] == environment['LC_ALL'] == 'C.UTF-8'
             and environment['SDL_VIDEODRIVER'] == 'x11' and environment['SDL_AUDIODRIVER'] == 'dummy'
@@ -106,6 +254,9 @@ def validate_capture_recipe(recipe, trace_raw):
     require(recipe.get('trace_bytes') == len(trace_raw)
             and recipe.get('trace_sha256') == hashlib.sha256(trace_raw).hexdigest(),
             'Recipe does not match analyzed trace')
+    if recipe.get('schema') == 'lezac-instrumented-work-clock-v1':
+        first = next(csv.DictReader(io.StringIO(trace_raw.decode('ascii'))))
+        require(int(first['cs']) == recipe['code_segment'], 'Trace module differs from capture')
 
 def analyze(path, recipe=None):
     rows, raw = read_rows(path)

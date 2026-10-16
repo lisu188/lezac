@@ -32,6 +32,21 @@ producer hashes, canonical assets, silent configuration, input events and trace
 binding are unchanged. Positive recipe-relocation tests are analyzer controls,
 not newly captured original-game evidence.
 
+The first integration review also reproduced acceptance of altered host,
+producer, executable, asset and guest-write claims by the CPU-work analyzer.
+Those five counterexamples are now rejected before a recipe is marked verified.
+The two original compact r3/r4 recipes remain immutable under canonical JSON
+fingerprints; their missing fields are not fabricated. New complete producer
+reports must satisfy the pinned hashes, all fourteen canonical assets, typed
+read-only and scope flags, silent profile, source/launch relationships, private
+display geometry, command/event/sample binding, and the trace module identity.
+
+The retained full r3/r4 producer reports are included as independently pinned
+metadata fixtures. They were recovered from the existing observations, not
+newly acquired runs, and contain no raw RAM or image payloads. Existing trace
+and compact-fixture bytes are unchanged. CLI rejection controls check both
+failure without publication and preservation of existing reports.
+
 ## CI Headroom
 
 The second Windows attempt for #395 completed every recorded step successfully,

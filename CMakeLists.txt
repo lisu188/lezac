@@ -185,6 +185,10 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_pic_work_clock_test tests/core/pic_work_clock_test.cpp)
+    target_link_libraries(lezac_pic_work_clock_test PRIVATE lezac_core)
+    add_test(NAME pic_work_clock_unit COMMAND lezac_pic_work_clock_test)
+    set_tests_properties(pic_work_clock_unit PROPERTIES PASS_REGULAR_EXPRESSION "pic_work_clock_unit=ok")
     add_executable(lezac_interruptible_dos_time_test tests/core/interruptible_dos_time_test.cpp)
     target_link_libraries(lezac_interruptible_dos_time_test PRIVATE lezac_core)
     add_test(NAME interruptible_dos_time_unit COMMAND lezac_interruptible_dos_time_test)
@@ -559,6 +563,20 @@ if(BUILD_TESTING)
         set_tests_properties(original_interrupt_trace_contract PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+        add_test(NAME pic_work_clock_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pic_work_clock_fixture.py
+                --cpu-projection ${CMAKE_CURRENT_BINARY_DIR}/pic-dos-time-projection.bin
+                --clock-projection ${CMAKE_CURRENT_BINARY_DIR}/pic-work-clock-projection.bin)
+        set_tests_properties(pic_work_clock_fixture_contract PROPERTIES FIXTURES_SETUP pic_work_clock_corpus)
+        add_test(NAME pic_dos_time_original COMMAND lezac_interruptible_dos_time_test
+            ${CMAKE_CURRENT_BINARY_DIR}/pic-dos-time-projection.bin
+            ${CMAKE_CURRENT_BINARY_DIR}/pic-work-clock-projection.bin)
+        set_tests_properties(pic_dos_time_original PROPERTIES FIXTURES_REQUIRED pic_work_clock_corpus
+            PASS_REGULAR_EXPRESSION "coupled_clock=1 predicted_irqs=2 later_cpu_flags_injected=0 whole_game_clock_claim=0")
+        add_test(NAME pic_clock_input_route_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_pic_clock_input_route.py)
+        add_test(NAME pic_work_clock_fixture_rejections
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_pic_work_clock_fixture.py)
         add_test(NAME interruptible_dos_time_fixture_contract
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_interruptible_dos_time_fixture.py
                 --projection ${CMAKE_CURRENT_BINARY_DIR}/interruptible-dos-time-projection.bin)

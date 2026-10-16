@@ -4,6 +4,7 @@
 tools/original_interrupt_probe/** text eol=lf
 tests/fixtures/interrupt_dispatch/** -text
 tests/fixtures/startup_timing/** -text
+tests/fixtures/crt_delay/** -text
 tests/fixtures/end_screen_*.rgb binary
 tests/fixtures/end_screen_original.json -text
 tests/fixtures/records_page_*.rgb binary

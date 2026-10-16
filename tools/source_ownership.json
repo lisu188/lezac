@@ -4,6 +4,7 @@
     "core": {
       "runtime": [
         "src/core/constants.hpp",
+        "src/core/crt_delay.hpp",
         "src/core/fixed_point.hpp",
         "src/core/hud.hpp",
         "src/core/progress.cpp",

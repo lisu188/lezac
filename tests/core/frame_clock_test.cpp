@@ -1,5 +1,6 @@
 #include "core/interruptible_dos_time.hpp"
 #include "core/interruptible_frame_clock.hpp"
+#include "core/frame_pacing_calculation.hpp"
 #include "core/pic_work_clock.hpp"
 
 #include <algorithm>
@@ -12,6 +13,7 @@
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -111,9 +113,9 @@ struct Expected {
     DosGetTimeRegisters registers;
     uint32_t mask, ticks, pspStack, io;
     uint8_t motor, drive;
-    std::vector<uint8_t> stack, globals, frameGlobals;
+    std::vector<uint8_t> stack, globals, frameGlobals, displayGlobals;
 };
-Expected state(Reader& reader, unsigned stackLength) {
+Expected state(Reader& reader, unsigned stackLength, bool display = false) {
     DosGetTimeRegisters r;
     r.ax = reader.word(); r.bx = reader.word(); r.cx = reader.word(); r.dx = reader.word();
     r.si = reader.word(); r.di = reader.word(); r.bp = reader.word(); r.cs = reader.word();
@@ -122,7 +124,8 @@ Expected state(Reader& reader, unsigned stackLength) {
     const auto mask = reader.number(4), ticks = reader.number(4), pspStack = reader.number(4);
     const auto motor = static_cast<uint8_t>(reader.number(1)), drive = static_cast<uint8_t>(reader.number(1));
     const auto io = reader.number(4);
-    return {r, mask, ticks, pspStack, io, motor, drive, reader.take(stackLength), reader.take(10), reader.take(11)};
+    return {r, mask, ticks, pspStack, io, motor, drive, reader.take(stackLength), reader.take(10), reader.take(11),
+        display ? reader.take(5) : std::vector<uint8_t>{}};
 }
 void seedGlobals(Memory& memory, uint16_t data, const std::vector<uint8_t>& globals, bool legacy) {
     if (legacy) { memory.seed(data, 0x79c4, {0}, true); return; }
@@ -193,8 +196,11 @@ void compareClock(const PicWorkClock& operation, const PicWorkClockSnapshot& exp
             actual.queue[i].kind == expected.queue[i].kind && actual.queue[i].value == expected.queue[i].value,
             context + " coupled queue event differs");
 }
+template<class Operation = InterruptibleFrameClockOperation>
 std::size_t original(Reader reader, const ClockCases& clocks = {}) {
-    require(reader.take(8) == std::vector<uint8_t>({'L','Z','F','C','L','K','0','1'}), "projection version differs");
+    constexpr bool ThroughDisplay = std::is_same_v<Operation, FramePacingCalculationOperation>;
+    require(reader.take(8) == (ThroughDisplay ? std::vector<uint8_t>({'L','Z','F','D','S','P','0','1'}) :
+        std::vector<uint8_t>({'L','Z','F','C','L','K','0','1'})), "projection version differs");
     const auto count = reader.number(4);
     require(count > 0 && count <= 256, "case domain differs");
     require(clocks.empty() || clocks.size() == count, "CPU/clock case count differs");
@@ -212,7 +218,7 @@ std::size_t original(Reader reader, const ClockCases& clocks = {}) {
         for (unsigned i = 0; i < irqCount; ++i) deliveries.push_back(reader.number(4));
         const auto bank = reader.take(bankLength);
         std::vector<Expected> states;
-        for (unsigned i = 0; i < stateCount; ++i) states.push_back(state(reader, stackLength));
+        for (unsigned i = 0; i < stateCount; ++i) states.push_back(state(reader, stackLength, ThroughDisplay));
         std::vector<Io> io;
         for (unsigned i = 0; i < ioCount; ++i) {
             const bool output = reader.number(1) != 0; const auto port = reader.word();
@@ -238,7 +244,11 @@ std::size_t original(Reader reader, const ClockCases& clocks = {}) {
             const auto data = static_cast<uint16_t>(game + 0xaa2);
             memory.seed(data, 0x2074, {states[0].frameGlobals.begin(), states[0].frameGlobals.begin() + 2}, true);
             memory.seed(data, 0x79a4, {states[0].frameGlobals.begin() + 2, states[0].frameGlobals.end()}, true);
-            InterruptibleFrameClockOperation operation(states[0].registers, base, psp, game, 0x200000);
+            if constexpr (ThroughDisplay) {
+                memory.seed(data, 0x78c6, {states[0].displayGlobals.begin(), states[0].displayGlobals.begin() + 4});
+                memory.seed(data, 0x79b5, {states[0].displayGlobals[4]}, true);
+            }
+            Operation operation(states[0].registers, base, psp, game, 0x200000);
             const auto bus = memory.bus(clock ? &*clock : nullptr);
             for (unsigned step = 0; step < stateCount; ++step) {
                 if (!clock && std::find(deliveries.begin(), deliveries.end(), step) != deliveries.end())
@@ -268,6 +278,9 @@ std::size_t original(Reader reader, const ClockCases& clocks = {}) {
                 for (unsigned i = 0; i < 11; ++i)
                     require(memory.read(data, static_cast<uint16_t>(i < 2 ? 0x2074 + i : 0x79a4 + i - 2), 1) ==
                             expected.frameGlobals[i], context + " foreground clock memory differs");
+                if constexpr (ThroughDisplay) for (unsigned i = 0; i < 5; ++i)
+                    require(memory.read(data, static_cast<uint16_t>(i < 4 ? 0x78c6 + i : 0x79b5), 1) ==
+                        expected.displayGlobals[i], context + " display calculation memory differs");
                 ++comparisons;
                 const auto before = operation.snapshot();
                 require(operation.advance(0, bus) == 0 && operation.snapshot() == before, "zero budget changed state");
@@ -296,20 +309,33 @@ std::size_t original(Reader reader, const ClockCases& clocks = {}) {
                     }
                 }
                 if (restore) {
-                    operation = InterruptibleFrameClockOperation(operation.snapshot());
+                    operation = Operation(operation.snapshot());
                     if (clock) *clock = PicWorkClock(clock->snapshot());
                 }
             }
             require(operation.returned() && operation.advance(1, bus) == 0 && memory.io == ioCount, "terminal state differs");
-            require(operation.snapshot().dos.dos.dispatchedInstructions == 325 &&
-                operation.snapshot().frame && operation.snapshot().frame->dispatchedInstructions == 29 &&
-                operation.snapshot().dispatchedInstructions == stateCount - 1 &&
-                operation.snapshot().timerDeliveries == irqCount, "shared work accounting differs");
+            const auto& snapshot = operation.snapshot();
+            const auto& elapsed = [&]() -> const InterruptibleFrameClockSnapshot& {
+                if constexpr (ThroughDisplay) return snapshot.elapsed;
+                else return snapshot;
+            }();
+            uint64_t timerDeliveries = elapsed.timerDeliveries;
+            if constexpr (ThroughDisplay) {
+                require(snapshot.display && snapshot.display->display.outcome == FrameDisplayOutcome::Returned &&
+                    elapsed.dispatchedInstructions + snapshot.display->dispatchedInstructions == snapshot.dispatchedInstructions,
+                    "DOS/elapsed/display work composition differs");
+                timerDeliveries += snapshot.display->timerDeliveries;
+            }
+            require(elapsed.dos.dos.dispatchedInstructions == 325 &&
+                elapsed.frame && elapsed.frame->dispatchedInstructions == 29 &&
+                snapshot.dispatchedInstructions == stateCount - 1 && timerDeliveries == irqCount,
+                "shared work accounting differs");
         }
         delivered += irqCount;
     }
     require(reader.cursor == reader.bytes.size(), "projection tail differs");
-    std::cout << "frame_clock_original=ok cases=" << count << " comparisons=" << comparisons
+    std::cout << (ThroughDisplay ? "frame_pacing_calculation_original=ok cases=" : "frame_clock_original=ok cases=")
+              << count << " comparisons=" << comparisons
               << " delivered_irqs=" << delivered << " irq_instructions_skipped=0 output_state_injected=0 scheduler_claim=0"
               << " coupled_clock=" << !clocks.empty() << " predicted_irqs=" << predicted
               << " later_cpu_flags_injected=0 whole_game_clock_claim=0\n";
@@ -499,7 +525,11 @@ int main(int argc, char** argv) {
                 std::ifstream clockStream(argv[2], std::ios::binary); require(clockStream.good(), "clock projection missing");
                 clocks = readClocks(Reader{{std::istreambuf_iterator<char>(clockStream), std::istreambuf_iterator<char>()}});
             }
-            original(Reader{{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()}}, clocks);
+            Reader reader{{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()}};
+            const std::vector<uint8_t> displayMagic{'L','Z','F','D','S','P','0','1'};
+            if (reader.bytes.size() >= 8 && std::equal(displayMagic.begin(), displayMagic.end(), reader.bytes.begin()))
+                original<FramePacingCalculationOperation>(std::move(reader), clocks);
+            else original(std::move(reader), clocks);
         }
     } catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
 }

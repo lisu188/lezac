@@ -1,0 +1,930 @@
+{
+  "schema": "lezac-controlled-frame-display-v1",
+  "original_executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "producer_sha256": "0d88d0619292953d12829869b52bc7787fe9cd8e54aba527e9bebd901601ae5d",
+  "unicorn": "2.1.4",
+  "instruction_cases": 256,
+  "instruction_states": 148357,
+  "minimum_instructions": 29,
+  "maximum_instructions": 743,
+  "reached_original_runtime_error_cases": 16,
+  "isolated_phase": "game:7966..799a plus original software Real48 calls",
+  "instruction_patches": 0,
+  "original_calls_stubbed": false,
+  "initial_cpu_memory_inputs_seeded": true,
+  "runtime_error_observation_stops_before": "library:00e2",
+  "natural_gameplay_claim": false,
+  "full_memory_read_hooks": false,
+  "instruction_observer_matches_unobserved_endpoints": true,
+  "unobserved_control_sha256": "001c28d96331f8dce4124b3043eb36a7e5c39ed1c6fafdca8e9f4e41eee4b534",
+  "code_bytes_unchanged": 43552,
+  "exhaustive_denominators": [
+    1,
+    66,
+    65535
+  ],
+  "exhaustive_numerator_inputs": 65536,
+  "endpoint_cases": 196608,
+  "projection_bytes": 24777945,
+  "projection_sha256": "3914af832fa54c924050c7b294e08481ffe84dc527892c7f83afaf91778f50df",
+  "endpoints_bytes": 33619980,
+  "endpoints_sha256": "5c82de9e86b85fa1758390e08148831b4a37db4dddd30333c7c0c756a019aa9d",
+  "unique_instructions": [
+    {
+      "relative_cs": 0,
+      "ip": 31078
+    },
+    {
+      "relative_cs": 0,
+      "ip": 31081
+    },
+    {
+      "relative_cs": 0,
+      "ip": 31083
+    },
+    {
+      "relative_cs": 0,
+      "ip": 31088
+    },
+    {
+      "relative_cs": 0,
+      "ip": 31089
+    },
+    {
+      "relative_cs": 0,
+      "ip": 31090
+    },
+    {
+      "relative_cs": 0,
+      "ip": 31091
+    },
+    {
+      "relative_cs": 0,
+      "ip": 31094
+    },
+    {
+      "relative_cs": 0,
+      "ip": 31096
+    },
+    {
+      "relative_cs": 0,
+      "ip": 31101
+    },
+    {
+      "relative_cs": 0,
+      "ip": 31102
+    },
+    {
+      "relative_cs": 0,
+      "ip": 31103
+    },
+    {
+      "relative_cs": 0,
+      "ip": 31104
+    },
+    {
+      "relative_cs": 0,
+      "ip": 31109
+    },
+    {
+      "relative_cs": 0,
+      "ip": 31112
+    },
+    {
+      "relative_cs": 0,
+      "ip": 31114
+    },
+    {
+      "relative_cs": 0,
+      "ip": 31117
+    },
+    {
+      "relative_cs": 0,
+      "ip": 31122
+    },
+    {
+      "relative_cs": 0,
+      "ip": 31127
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3237
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3240
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3242
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3244
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3246
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3248
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3249
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3251
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3253
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3257
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3259
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3261
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3263
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3265
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3269
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3273
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3274
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3276
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3278
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3280
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3282
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3284
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3286
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3288
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3290
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3291
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3293
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3295
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3297
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3299
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3301
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3303
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3305
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3307
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3309
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3312
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3314
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3316
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3318
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3320
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3323
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3449
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3450
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3451
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3452
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3454
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3456
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3458
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3460
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3462
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3463
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3467
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3470
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3473
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3476
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3481
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3484
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3486
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3487
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3489
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3491
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3493
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3494
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3496
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3498
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3500
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3501
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3503
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3505
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3506
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3508
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3510
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3514
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3518
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3522
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3524
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3526
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3528
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3529
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3531
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3534
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3536
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3538
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3540
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3542
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3544
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3546
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3548
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3550
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3552
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3554
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3556
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3558
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3560
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3562
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3564
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3566
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3568
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3570
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3571
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3573
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3575
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3577
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3578
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3581
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3583
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3585
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3587
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3589
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3591
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3593
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3594
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3595
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3596
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3597
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3599
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3601
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3604
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3606
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3608
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3610
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3612
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3613
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3617
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3662
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3664
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3666
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3668
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3670
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3672
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3684
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3686
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3689
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3691
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3693
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3695
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3697
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3699
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3701
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3703
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3705
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3707
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3709
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3711
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3713
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3715
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3717
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3719
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3721
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3724
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3725
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3726
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3728
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3730
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3732
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3735
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3737
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3739
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3741
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3744
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3747
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3749
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3751
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3753
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3756
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3759
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3761
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3763
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3765
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3767
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3769
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3772
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3774
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3776
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3778
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3780
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3782
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3784
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3794
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3796
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3808
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3809
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3812
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3814
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3816
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3835
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3838
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3840
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3841
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3843
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3845
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3848
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3850
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3855
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3858
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3859
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3861
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3864
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3866
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3887
+    },
+    {
+      "relative_cs": 2336,
+      "ip": 3890
+    }
+  ],
+  "files": [
+    {
+      "name": "instructions.bin.gz",
+      "bytes": 706942,
+      "sha256": "bf755367b8a8995dab6f257ec64bab426f0faaabda94c57b2f3fbb5d9e75e9ad",
+      "projection_bytes": 24777945,
+      "projection_sha256": "3914af832fa54c924050c7b294e08481ffe84dc527892c7f83afaf91778f50df"
+    },
+    {
+      "name": "endpoints.bin.gz",
+      "bytes": 3877796,
+      "sha256": "197dd6aa984470ae7467356e5b3da2e7487c46c53c18a02e3a5058164f4faa36",
+      "projection_bytes": 33619980,
+      "projection_sha256": "5c82de9e86b85fa1758390e08148831b4a37db4dddd30333c7c0c756a019aa9d"
+    }
+  ]
+}

@@ -185,6 +185,13 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_frame_display_test tests/core/frame_display_test.cpp)
+    target_link_libraries(lezac_frame_display_test PRIVATE lezac_core)
+    add_test(NAME frame_display_unit COMMAND lezac_frame_display_test)
+    set_tests_properties(frame_display_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_display_edges=ok boundaries=654")
+    add_test(NAME frame_pacing_calculation_unit COMMAND lezac_frame_display_test --composition)
+    set_tests_properties(frame_pacing_calculation_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "frame_pacing_calculation_edges=ok boundaries=1008")
     add_executable(lezac_frame_clock_test tests/core/frame_clock_test.cpp)
     target_link_libraries(lezac_frame_clock_test PRIVATE lezac_core)
     add_test(NAME frame_clock_unit COMMAND lezac_frame_clock_test)
@@ -571,6 +578,34 @@ if(BUILD_TESTING)
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_elapsed_oracle.py
                 --projection ${CMAKE_CURRENT_BINARY_DIR}/frame-elapsed-projection.bin)
         set_tests_properties(frame_elapsed_oracle_fixture_contract PROPERTIES FIXTURES_SETUP frame_elapsed_corpus)
+        add_test(NAME frame_display_oracle_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_display_oracle.py
+                --instructions ${CMAKE_CURRENT_BINARY_DIR}/frame-display-instructions.bin
+                --endpoints ${CMAKE_CURRENT_BINARY_DIR}/frame-display-endpoints.bin)
+        set_tests_properties(frame_display_oracle_fixture_contract PROPERTIES FIXTURES_SETUP frame_display_corpus)
+        add_test(NAME frame_display_instructions COMMAND lezac_frame_display_test --instructions
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-display-instructions.bin)
+        set_tests_properties(frame_display_instructions PROPERTIES FIXTURES_REQUIRED frame_display_corpus
+            PASS_REGULAR_EXPRESSION "frame_display_instructions=ok cases=256 comparisons=296714 runtime_error_cases=16")
+        add_test(NAME frame_display_endpoints COMMAND lezac_frame_display_test --endpoints
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-display-endpoints.bin)
+        set_tests_properties(frame_display_endpoints PROPERTIES FIXTURES_REQUIRED frame_display_corpus
+            PASS_REGULAR_EXPRESSION "frame_display_endpoints=ok cases=196608 denominator_profiles=3 numerator_inputs=65536")
+        add_test(NAME frame_display_oracle_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_display_oracle.py)
+        add_test(NAME frame_display_control_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_display_controls.py
+                --cpu-projection ${CMAKE_CURRENT_BINARY_DIR}/display-control-cpu.bin
+                --clock-projection ${CMAKE_CURRENT_BINARY_DIR}/display-control-pic.bin)
+        set_tests_properties(frame_display_control_fixture_contract PROPERTIES FIXTURES_SETUP display_control_corpus)
+        add_test(NAME frame_display_control_original COMMAND lezac_frame_clock_test
+            ${CMAKE_CURRENT_BINARY_DIR}/display-control-cpu.bin ${CMAKE_CURRENT_BINARY_DIR}/display-control-pic.bin)
+        set_tests_properties(frame_display_control_original PROPERTIES FIXTURES_REQUIRED display_control_corpus
+            PASS_REGULAR_EXPRESSION "frame_pacing_calculation_original=ok cases=2 comparisons=1768 delivered_irqs=0")
+        add_test(NAME frame_display_control_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_display_controls.py)
+        add_test(NAME frame_display_input_route_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_display_input_route.py)
         add_test(NAME frame_elapsed_oracle COMMAND lezac_frame_clock_test --oracle
             ${CMAKE_CURRENT_BINARY_DIR}/frame-elapsed-projection.bin)
         set_tests_properties(frame_elapsed_oracle PROPERTIES FIXTURES_REQUIRED frame_elapsed_corpus

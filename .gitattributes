@@ -13,6 +13,10 @@ tools/pic_clock_probe/** text eol=lf
 tools/pic_clock_probe/*.patch -whitespace
 tests/fixtures/frame_elapsed/** -text
 tests/fixtures/frame_clock/** -text
+tests/fixtures/frame_display/** -text
+tests/fixtures/frame_display_controls/** -text
+tools/frame_display_probe/** text eol=lf
+tools/frame_display_probe/*.patch -whitespace
 tools/frame_clock_probe/** text eol=lf
 tools/frame_clock_probe/*.patch -whitespace
 tools/timer_irq_probe/** text eol=lf

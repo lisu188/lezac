@@ -10,11 +10,11 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from analyze_original_work_clock import analyze, COLUMNS, read_rows
+from analyze_original_work_clock import analyze, COLUMNS, read_rows, validate_capture_recipe
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / 'tests/fixtures/original_work_clock'
-MANIFEST_SHA = '729d360941ba14c2d3bed3ae2b5c0b124dfbfa598967fbd0c79a1858292000b0'
+MANIFEST_SHA = '4dcdf07d1e22d6499cce511afd3a44e246716360575e859788b40d8713d2d4e4'
 sha = lambda raw: hashlib.sha256(raw).hexdigest()
 
 class WorkClockTests(unittest.TestCase):
@@ -33,6 +33,7 @@ class WorkClockTests(unittest.TestCase):
         self.assertFalse(manifest['full_ram_or_images_published'])
         self.assertEqual(sha((ROOT / 'LEZAC.EXE').read_bytes()), manifest['original_executable_sha256'])
         self.assertEqual(sha((ROOT / 'tools/original_work_probe/lezac_work_probe.h').read_bytes()), manifest['probe_sha256'])
+        self.assertEqual(sha((ROOT / 'tools/original_work_probe/capture.py').read_bytes()), manifest['audit_capture_producer_sha256'])
         profiles = []
         for run in manifest['runs']:
             with self.subTest(run=run['name']):
@@ -55,10 +56,52 @@ class WorkClockTests(unittest.TestCase):
                 profiles.append(result)
         self.assertEqual(profiles[0]['row_work_dispatches_without_vertical_carry'],
                          profiles[1]['row_work_dispatches_without_vertical_carry'])
+        self.assertTrue(all(profile['row_work_dispatches_without_vertical_carry'] ==
+            profiles[0]['row_work_dispatches_without_vertical_carry'] for profile in profiles))
         self.assertNotEqual([(page['horizontal'], page['vertical']) for page in profiles[0]['pages']],
                             [(page['horizontal'], page['vertical']) for page in profiles[1]['pages']])
         self.assertEqual({item['calibrated_delay_word'] for item in manifest['runs'][0]['observations']}, {81})
         self.assertEqual({item['calibrated_delay_word'] for item in manifest['runs'][1]['observations']}, {82})
+
+    def test_capture_recipes_and_rejection_controls(self):
+        recipes = {}
+        for run in self.manifest['runs']:
+            raw = (FIXTURES / run['recipe']).read_bytes()
+            self.assertEqual(sha(raw), run['recipe_sha256'])
+            recipe = json.loads(raw)
+            recipes[run['name']] = recipe
+            if run['name'] in self.manifest['auditable_capture_runs']:
+                validate_capture_recipe(recipe)
+                self.assertEqual(recipe['producer_sha256'], self.manifest['audit_capture_producer_sha256'])
+            else:
+                self.assertTrue(recipe['inherited_environment_was_not_recorded'])
+                with self.assertRaisesRegex(ValueError, 'Incomplete capture environment'):
+                    validate_capture_recipe(recipe)
+        controls = []
+        recipe = copy.deepcopy(recipes['r3'])
+        recipe['environment_is_complete'] = False
+        controls.append(recipe)
+        recipe = copy.deepcopy(recipes['r3'])
+        recipe['dosbox_environment'].pop('HOME')
+        controls.append(recipe)
+        recipe = copy.deepcopy(recipes['r3'])
+        recipe['dosbox_argv'].pop()
+        controls.append(recipe)
+        recipe = copy.deepcopy(recipes['r3'])
+        next(item for item in recipe['host_commands'] if item['command'][:2] == ['xdotool', 'key'])['command'][-1] = '2'
+        controls.append(recipe)
+        recipe = copy.deepcopy(recipes['r3'])
+        recipe['host_commands'][0]['exit_code'] = 1
+        controls.append(recipe)
+        recipe = copy.deepcopy(recipes['r3'])
+        recipe['events'].pop()
+        controls.append(recipe)
+        recipe = copy.deepcopy(recipes['r3'])
+        recipe['input_injection_failures'].append({'error': 'injected test failure'})
+        controls.append(recipe)
+        for index, recipe in enumerate(controls):
+            with self.subTest(index=index), self.assertRaises(ValueError):
+                validate_capture_recipe(recipe)
 
     def test_raw_and_compressed_profiles_match(self):
         with tempfile.TemporaryDirectory(prefix='lezac-work-clock-') as directory:
@@ -109,6 +152,12 @@ class WorkClockTests(unittest.TestCase):
         rows.remove(next(item for item in rows if item['kind'] == 'horizontal'))
         cases.append(('missing pixel', rows))
         cases.append(('cycles used as dispatches', [dict(row, exclusive_dispatch=row['exclusive_clock']) for row in self.rows]))
+        rows = copy.deepcopy(self.rows)
+        clear = next(row for row in rows if row['kind'] == 'clear_return')
+        ready = next(row for row in rows if row['kind'] == 'palette_ready')
+        clear['kind'], ready['kind'] = ready['kind'], clear['kind']
+        clear['ip'], ready['ip'] = ready['ip'], clear['ip']
+        cases.append(('swapped fill boundaries', rows))
         with tempfile.TemporaryDirectory(prefix='lezac-work-mutants-') as directory:
             for index, (label, rows) in enumerate(cases):
                 with self.subTest(label=label):
@@ -119,7 +168,7 @@ class WorkClockTests(unittest.TestCase):
                         writer.writerows(rows)
                     with self.assertRaises(ValueError):
                         analyze(path)
-        self.assertEqual(len(cases), 29)
+        self.assertEqual(len(cases), 30)
 
     def test_malformed_streams(self):
         cases = [self.raw.replace(b'kind,page,', b'kind,pages,', 1),

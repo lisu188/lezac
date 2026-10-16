@@ -1,0 +1,595 @@
+{
+  "status": "observed",
+  "run": "r3",
+  "producer_sha256": "3dbd83ac74c7409273f53bbacf1556b0491931801ece26e9e250164d8467a30b",
+  "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "dosbox_sha256": "4d8eaba9db5e3f733b49c35f191eff98f1f5730035f7374c5c703693a080c8ac",
+  "events": [
+    {
+      "key": "1",
+      "observed_utc": "2026-10-16T07:23:02.120324+00:00",
+      "monotonic_before": 21.155730024999684,
+      "monotonic_after": 21.17507903400019
+    },
+    {
+      "key": "Return",
+      "observed_utc": "2026-10-16T07:23:06.177679+00:00",
+      "monotonic_before": 25.211983234999934,
+      "monotonic_after": 25.23238335899987
+    },
+    {
+      "key": "Escape",
+      "observed_utc": "2026-10-16T07:23:07.238335+00:00",
+      "monotonic_before": 26.27405381399967,
+      "monotonic_after": 26.293036502999712
+    },
+    {
+      "key": "1",
+      "observed_utc": "2026-10-16T07:23:12.307170+00:00",
+      "monotonic_before": 31.340404059999855,
+      "monotonic_after": 31.36187249700015
+    },
+    {
+      "key": "q",
+      "observed_utc": "2026-10-16T07:23:27.383111+00:00",
+      "monotonic_before": 46.41506559800018,
+      "monotonic_after": 46.43781351100006
+    },
+    {
+      "key": "Return",
+      "observed_utc": "2026-10-16T07:23:27.659639+00:00",
+      "monotonic_before": 46.68982765799956,
+      "monotonic_after": 46.714341727999454
+    }
+  ],
+  "fixture_scores": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    -1
+  ],
+  "samples": [
+    {
+      "name": "main",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 0,
+      "frame_counter": 0,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "62ad04fe72e7f38e6cf42eff10d1f192e65e88931d537663a08c6d3317506beb",
+      "ram_gzip_sha256": "a90afe0b0598cacd9f20d21dc5308f1cfcc4944847bca990cfbc70603dc3578b",
+      "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+      "pixels_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 21.106618490000074,
+      "monotonic_after": 21.155055872000048,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "intro",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 0,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "ac45f4db8011ddb342f646009da71b746ecdf993cedd46512c39916580679d78",
+      "ram_gzip_sha256": "b171c5c01090231463b5367e65703646110ea0c9735b0e5527448a18ead1bc73",
+      "png_sha256": "e7f9e56e35dfa732cb1ac37bb071c2251efea833e3519a08ffd432c6a0de2058",
+      "pixels_sha256": "af4927d37fc7beba741c7ab73fe85308dcf99b95cae82aa12143b9f384b6d89e",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 25.175180211000225,
+      "monotonic_after": 25.211276418000125,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "gameplay",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 12,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "0cfab58f959f5fbc921a00cd8421d5427242423bc6bbafac5c7decb8d1e073b9",
+      "ram_gzip_sha256": "3b1207b626230203022f8ff2e2d4d0d2ee5084dc89a4c84e3f413481c80c5733",
+      "png_sha256": "7c10c1d7f9a5f0f745673af1e0e5d3a6dbc1b05338d2f2d76eb5323d0b9b6bbd",
+      "pixels_sha256": "7885222a3bcf4d1be675cee33be36126d6245b87bff129ca6e8283efe659670a",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 26.232473162999668,
+      "monotonic_after": 26.273295754999708,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "game-over",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "6d83b55196f65d20c488dc1d0c76b56b9d4680fec5d3d9a6baf8666b08a23aa5",
+      "ram_gzip_sha256": "966d2b22c2dd335adf7d8c2c57adf22ec146823cfa0823e204cbd2173b9c3d54",
+      "png_sha256": "0cf814c6801e994869da44c8b3b16247ae636eef4a26de3055b9fc2e18da595c",
+      "pixels_sha256": "f6255d771d78138d40af2296f8667724d863721488bba0a14143c36863f2064b",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 31.293132627999512,
+      "monotonic_after": 31.339289020999786,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "record-prompt",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "846e08f9f6d28f8556a446b68771150a60a713a101de23c38bd8f7e94446031a",
+      "ram_gzip_sha256": "77e25f30af1756e042fee399598fd1b71f767c401fa50530bfa87d4f54cb906e",
+      "png_sha256": "7e994f495201bc2352f8fa608aad7f8d24e03b01b631c2a5aa400e5202305f32",
+      "pixels_sha256": "35f2cfeadb56fb1f4fa0245d372b80ce676fc035c30685f5c465a8fee92bfc0e",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 46.36197805499978,
+      "monotonic_after": 46.41418131099999,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "player1-q",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "7f5202a01080ddc51abb289886c566691e793f3af4c13f2e6c03044c8537d900",
+      "ram_gzip_sha256": "58ad463d833e968a3f82b3a99374bf8fa74586a5524aec6692de7ff781b42b3b",
+      "png_sha256": "5ef93830144fb40521bbac6d3365ee39c9b965406567da6c64f2fe5962a50f57",
+      "pixels_sha256": "f1da8e612f096f027aad23f41b37be8bd61727623d385a3034103e2bd73cd243",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 46.63794098800008,
+      "monotonic_after": 46.68881884300026,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "after-commit",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a0000000008713a3a3a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "910830cfd26086ad8ef3203a8c28f9cf45b89d2082123b8df3d1c06e03619d20",
+      "ram_gzip_sha256": "19c4009fc7e270415d25fe6b63136ed207bfc7089fa0d210c4fc024c96baa861",
+      "png_sha256": "43ec4b9089f05c3eaf038bc5c22a20920384b608a5a21c4a5faa74b276d2080a",
+      "pixels_sha256": "4ee1023ed654a8c90095caae66b4718594947805e7c04c1920a10891a094c4be",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 49.71447509100017,
+      "monotonic_after": 49.75975404200017,
+      "ram_rgb_cpu_atomic": false
+    }
+  ],
+  "assets": {
+    "SFONLEF.ZBG": {
+      "bytes": 34292,
+      "sha256": "b1b7cc03122510318c1a3670f151712406e9e3fa60aabd8fb558320766c3835c"
+    },
+    "SETUP.LOG": {
+      "bytes": 566,
+      "sha256": "4c86cd7436be442663b10b1425bbcd7a179b7955b67c23632bf20a8180144a14"
+    },
+    "RECS.DAT": {
+      "bytes": 92,
+      "sha256": "27197ebb56fb339e4d41baf6ad5282cd79bb66b642c81ae406e607a263c80eb8"
+    },
+    "PROVA.SPR": {
+      "bytes": 21250,
+      "sha256": "d6d6b634f8613251f6e82e9a15c5c68e2be437892bfa25c53eb4bcd9094188b7"
+    },
+    "PROEFS.SON": {
+      "bytes": 782,
+      "sha256": "b5bc702a27ac85554cc76a62fced07567921b07d5c16f2027a62fbc956df701d"
+    },
+    "LIVELS.SCH": {
+      "bytes": 41047,
+      "sha256": "d8b553871014108515d6af05b0853de8ccc22e4d3e44d63533ba1167fdc8c7b2"
+    },
+    "LEZAC.EXE": {
+      "bytes": 52384,
+      "sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
+    },
+    "ITALIANO.DOC": {
+      "bytes": 4392,
+      "sha256": "5ea7481d3179e60b6f1229aa114dc4b47c95f7c1200c7888ad5c259f161317c1"
+    },
+    "GRAN.MST": {
+      "bytes": 399,
+      "sha256": "3f0cf17706d557ca863d6e39bfa6641fba777a88815ba3f0a22e5ac89e0e39e2"
+    },
+    "FONTS.SPR": {
+      "bytes": 5425,
+      "sha256": "f65aa9bbba2a66ee69f1b279a32c448e36012feb53441fbbb8e64e31bee87a0e"
+    },
+    "ENGLISH.DOC": {
+      "bytes": 3522,
+      "sha256": "e2fd2f2521b0277f2fca0c8f2a265408412542932bb6e977bf1ab3d0aabdfed9"
+    },
+    "CARO.CAR": {
+      "bytes": 8450,
+      "sha256": "949cce4db6071d6675a291c978d725c6e4ee1730b2c7a428bc1c8a8185cbd8d8"
+    },
+    "BOMPAL.PAL": {
+      "bytes": 768,
+      "sha256": "f2559164074ca529ba6c275a9831b11c6da9e6317f09b3d9228c299d6f8f8319"
+    },
+    "BOMOMIMK.SPR": {
+      "bytes": 20168,
+      "sha256": "08dfd0e59ba191c52af2529bdfa140fd15a57829f0c6c13bbb78e156769ac0d1"
+    }
+  },
+  "record_file_fixture_seeded": true,
+  "gameplay_state_seeded": false,
+  "clock_rng_or_heap_seeded": false,
+  "process_memory_writes": 0,
+  "process_pauses": 0,
+  "canonical_assets_unchanged": true,
+  "child_exit_code": 0,
+  "audio": "dummy",
+  "record_fixture_hex": "0700000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+  "dosbox_config": "[sdl]\nfullscreen=false\noutput=surface\n[render]\nframeskip=0\naspect=false\nscaler=none\n[cpu]\ncore=normal\ncycles=fixed 6000\n[mixer]\nnosound=true\n[speaker]\npcspeaker=false\n[sblaster]\nsbtype=none\n[midi]\nmpu401=none\nmididevice=none\n",
+  "dosbox_argv": [
+    "/dev/shm/lezac-work-oracle-t190/dosbox-0.74-3/src/dosbox",
+    "-conf",
+    "/dev/shm/lezac-work-clock-t190-r3/dosbox.conf",
+    "-c",
+    "mount c /dev/shm/lezac-work-clock-t190-r3/run",
+    "-c",
+    "c:",
+    "-c",
+    "LEZAC.EXE"
+  ],
+  "dosbox_cwd": "/dev/shm/lezac-work-clock-t190-r3",
+  "dosbox_environment": {
+    "PATH": "/usr/bin:/bin",
+    "HOME": "/dev/shm/lezac-work-clock-t190-r3/home",
+    "TMPDIR": "/dev/shm/lezac-work-clock-t190-r3/tmp",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "DISPLAY": ":99",
+    "XAUTHORITY": "/dev/shm/xvfb-run.xTjPjm/Xauthority",
+    "SDL_VIDEODRIVER": "x11",
+    "SDL_AUDIODRIVER": "dummy",
+    "LEZAC_WORK_TRACE": "/dev/shm/lezac-work-clock-t190-r3/guest-work.csv"
+  },
+  "environment_is_complete": true,
+  "host_commands": [
+    {
+      "command": [
+        "xdotool",
+        "search",
+        "--pid",
+        "27256",
+        "--name",
+        "DOSBox"
+      ],
+      "exit_code": 0,
+      "stdout": "6291464\n",
+      "stderr": "",
+      "monotonic_before": 1.0910849040001267,
+      "monotonic_after": 1.0964291069994943
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 1.0971439300001293,
+      "monotonic_after": 1.1041952479999964
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 21.10708535699996,
+      "monotonic_after": 21.109756535000088
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 21.15573291199962,
+      "monotonic_after": 21.15814319099991
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "1"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 21.158912893999513,
+      "monotonic_after": 21.174091079999926
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 25.17556182699991,
+      "monotonic_after": 25.178140140999858
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 25.211986274999617,
+      "monotonic_after": 25.214793424000163
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "Return"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 25.21592874199996,
+      "monotonic_after": 25.231467880999844
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 26.232844277999902,
+      "monotonic_after": 26.235534051000286
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 26.2740569030002,
+      "monotonic_after": 26.2763154889999
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "Escape"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 26.277119516999846,
+      "monotonic_after": 26.29214958099965
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 31.29355879099967,
+      "monotonic_after": 31.296498144999532
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 31.34040830199956,
+      "monotonic_after": 31.343307432000074
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "1"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 31.344240088999868,
+      "monotonic_after": 31.360891792000075
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 46.362405248999494,
+      "monotonic_after": 46.366022985999734
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 46.41506966899942,
+      "monotonic_after": 46.41881206800008
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "q"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 46.420235357999445,
+      "monotonic_after": 46.43676947899985
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 46.63860789999944,
+      "monotonic_after": 46.642539564999424
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 46.68983072900028,
+      "monotonic_after": 46.6944874740002
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "Return"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 46.69577880199995,
+      "monotonic_after": 46.71329456500007
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 49.71523383400017,
+      "monotonic_after": 49.71792986899982
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "ctrl+F9"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 49.76180449599997,
+      "monotonic_after": 49.790560573999755
+    }
+  ],
+  "input_injection_failures": [],
+  "capture_argv": [
+    "/dev/shm/lezac-work-profile-t190/tools/original_work_probe/capture.py",
+    "--inside-xvfb",
+    "--run",
+    "r3",
+    "--repo",
+    "/dev/shm/lezac-work-profile-t190",
+    "--dosbox",
+    "/dev/shm/lezac-work-oracle-t190/dosbox-0.74-3/src/dosbox",
+    "--out",
+    "/dev/shm/lezac-work-clock-t190-r3"
+  ],
+  "private_display_autorepeat_command": {
+    "command": [
+      "xset",
+      "r",
+      "off"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+}

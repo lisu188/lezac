@@ -67,6 +67,42 @@ def read_rows(path):
 def delta(begin, end, key='exclusive_dispatch'):
     return end[key] - begin[key]
 
+def validate_capture_recipe(recipe):
+    require(recipe.get('environment_is_complete') is True, 'Incomplete capture environment')
+    environment = recipe.get('dosbox_environment', {})
+    require(set(environment) == {'PATH', 'HOME', 'TMPDIR', 'LANG', 'LC_ALL', 'DISPLAY',
+        'XAUTHORITY', 'SDL_VIDEODRIVER', 'SDL_AUDIODRIVER', 'LEZAC_WORK_TRACE'}, 'Unexpected environment keys')
+    root = recipe.get('dosbox_cwd', '')
+    require(root.startswith('/dev/shm/') and '..' not in Path(root).parts, 'Capture escaped RAM')
+    require(environment['PATH'] == '/usr/bin:/bin' and environment['HOME'] == root + '/home'
+            and environment['TMPDIR'] == root + '/tmp' and environment['LANG'] == environment['LC_ALL'] == 'C.UTF-8'
+            and environment['SDL_VIDEODRIVER'] == 'x11' and environment['SDL_AUDIODRIVER'] == 'dummy'
+            and environment['LEZAC_WORK_TRACE'] == root + '/guest-work.csv', 'Capture environment changed')
+    require(environment['DISPLAY'].startswith(':') and environment['XAUTHORITY'].startswith('/dev/shm/'),
+            'Unexpected private display')
+    command = recipe.get('dosbox_argv', [])
+    require(len(command) == 9 and command[1:] == ['-conf', root + '/dosbox.conf', '-c',
+        'mount c ' + root + '/run', '-c', 'c:', '-c', 'LEZAC.EXE'], 'Unexpected DOSBox command')
+    require(recipe.get('status') == 'observed' and recipe.get('child_exit_code') == 0
+            and recipe.get('canonical_assets_unchanged') is True, 'Capture did not finish successfully')
+    require(recipe.get('input_injection_failures') == [], 'Input injection failed')
+    commands = recipe.get('host_commands', [])
+    require(commands and all(item['exit_code'] == 0 for item in commands), 'Host command failed')
+    for previous, current in zip(commands, commands[1:]):
+        require(0 <= previous['monotonic_before'] <= previous['monotonic_after'] <= current['monotonic_before'],
+                'Command times are not ordered')
+    inputs = [item['command'] for item in commands if item['command'][:2] == ['xdotool', 'key']]
+    require(inputs == [['xdotool', 'key', '--clearmodifiers', key]
+        for key in ('1', 'Return', 'Escape', '1', 'q', 'Return', 'ctrl+F9')], 'Capture input sequence changed')
+    events = recipe.get('events', [])
+    require([item['key'] for item in events] == ['1', 'Return', 'Escape', '1', 'q', 'Return'],
+            'Missing timed key event')
+    require(all(0 <= item['monotonic_before'] <= item['monotonic_after'] for item in events),
+            'Invalid key event timing')
+    require([item['name'] for item in recipe.get('samples', [])] ==
+        ['main', 'intro', 'gameplay', 'game-over', 'record-prompt', 'player1-q', 'after-commit'],
+        'Missing capture checkpoints')
+
 def analyze(path):
     rows, raw = read_rows(path)
     pages = collections.defaultdict(list)
@@ -132,6 +168,8 @@ def analyze(path):
                                      ('begin', 'clear_return', 'palette_ready', 'finish'))
         require(begin['ip'] == 0x1fc and clear['ip'] == 0x219 and ready['ip'] == 0x247
                 and finish['ip'] == 0x309, 'Wrong routine boundary')
+        require(all(delta(a, b) > 0 for a, b in zip((begin, clear, ready), (clear, ready, finish))),
+                'Out-of-order fill boundaries')
         require(finish['frame_valid'] == 1 and finish['destination'] == 64000
                 and finish['index'] == 63999, 'Incomplete background destination')
         h, v = finish['h'], finish['v']
@@ -198,8 +236,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('trace', type=Path)
     parser.add_argument('output', type=Path)
+    parser.add_argument('--recipe', type=Path)
     args = parser.parse_args()
     require(not args.output.exists(), 'Output already exists')
+    if args.recipe:
+        validate_capture_recipe(json.loads(args.recipe.read_text()))
     result = analyze(args.trace)
     args.output.write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps({key: result[key] for key in result if key != 'row_work_dispatches_without_vertical_carry'}, indent=2))

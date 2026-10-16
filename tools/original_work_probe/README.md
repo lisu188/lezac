@@ -59,10 +59,29 @@ reads are not synchronized to these host probe records.
 Replay a retained trace with:
 
 ```sh
-python3 -S -B tools/analyze_original_work_clock.py TRACE.csv.gz NEW_REPORT.json
+python3 -S -B tools/analyze_original_work_clock.py TRACE.csv.gz NEW_REPORT.json --recipe RECIPE.json
 python3 -S -B tools/test_original_work_clock.py -v
 ```
 
 The analyzer never overwrites an existing report. The fixtures establish bounded
 CPU-work facts only; live C++ scheduling and full frame-level fidelity still need
 independent original-backed runtime validation.
+
+Acquire a fresh, fully audited run after building the pinned host:
+
+```sh
+python3 -B tools/original_work_probe/capture.py --run r3 \
+  --dosbox /dev/shm/lezac-work-oracle-t190/dosbox-0.74-3/src/dosbox \
+  --out /dev/shm/lezac-work-clock-t190-r3
+```
+
+Use a new output path and run label for every attempt. The producer creates a
+private Xvfb display, records the complete clean emulator environment, and drives
+the exact seven-checkpoint route: wait 20 seconds, capture menu, `1`, wait four,
+capture intro, Return, wait one, capture gameplay, Escape, wait five, capture
+Game Over, `1`, wait fifteen, capture record prompt, `q`, wait 0.2, capture typed
+name, Return, wait three, capture post-commit, then host Ctrl+F9. Recorded monotonic
+before/after times and checked xdotool argv in each `*-recipe.json` are the actual
+observations, not promises of instruction-aligned or atomic input delivery.
+The initial read-only guest locator scan precedes the 20-second wait. Every
+capture verifies unchanged relocated code and preserves its diagnostics in RAM.

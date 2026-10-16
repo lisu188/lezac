@@ -195,7 +195,7 @@ if(BUILD_TESTING)
     add_test(NAME frame_pacing_original COMMAND lezac_frame_pacing_test
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/frame_pacing")
     set_tests_properties(frame_pacing_original PROPERTIES
-        PASS_REGULAR_EXPRESSION "frame_pacing_original=ok counter_inputs=65536 elapsed_inputs=65536 feedback_cases=240 natural_frames=289 measurements=8 live_clock_integrated=0")
+        PASS_REGULAR_EXPRESSION "frame_pacing_original=ok counter_inputs=65536 elapsed_inputs=65536 feedback_cases=240 natural_frames=299 measurements=9 live_clock_integrated=0")
     add_executable(lezac_cpp23_contract_test tests/core/cpp23_contract_test.cpp)
     add_test(NAME cpp23_standard_contract COMMAND lezac_cpp23_contract_test)
     add_executable(lezac_sdl_display_ownership_test
@@ -512,6 +512,12 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME original_capture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_original_capture_contract.py -v)
+        set_tests_properties(original_capture_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
         add_test(NAME startup_timing_fixture_contract
             COMMAND ${Python3_EXECUTABLE} -S -B
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_startup_timing_fixture.py)

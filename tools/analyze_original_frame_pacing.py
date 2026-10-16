@@ -8,12 +8,14 @@ import json
 import math
 from pathlib import Path
 
+from original_capture_contract import ASSET_PINS, validate_geometry
+
 IPS = dict(identified=0x1fc, frame_before=0x7903, time_begin=0x7919,
            time_result=0x792a, measurement=0x7966, adjust_begin=0x799a,
            adjust_end=0x79cd, delay_before=0x79df, delay_after=0x79e8)
 CAPTURE_HASHES = dict(
     dosbox_sha256='b19be3dd86b5d6ee59e67ffd5c4d888069f8624b4d92499babe33f4ae168c7ef',
-    producer_sha256='a256801e0478922e1335f154b0225a6cc32866e6eaa90a8e170368cdf405fbb6')
+    producer_sha256='7b64df5132975a4354728f7f1cdf7c3a21c5bf11fab9e395bafbdc0b3881a2e4')
 CAPTURE_CONFIG = dict(sdl=dict(fullscreen='false', output='surface'),
     render=dict(frameskip='0', aspect='false', scaler='none'),
     cpu=dict(core='normal', cycles='fixed 6000'), mixer=dict(nosound='true'),
@@ -46,6 +48,8 @@ def validate_input_commands(recipe):
         focus, ['xdotool', 'key', '--clearmodifiers', 'Return'], geometry, geometry, geometry,
         ['xdotool', 'key', '--clearmodifiers', 'ctrl+F9']]
     require([command.get('command') for command in commands] == expected, 'Input command sequence differs')
+    for index in (2, 5, 8, 9, 10):
+        validate_geometry(commands[index].get('stdout'), window)
 
     def interval(item):
         require(type(item) is dict, 'Input command timing differs')
@@ -81,6 +85,13 @@ def analyze(raw, recipe):
             '7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec', 'Wrong original recipe')
     require(all(type(recipe.get(key)) is str and recipe[key] == expected
                 for key, expected in CAPTURE_HASHES.items()), 'Capture host or producer differs')
+    require(recipe.get('capture_contract_sha256') == hashlib.sha256(
+        Path(__file__).with_name('original_capture_contract.py').read_bytes()).hexdigest(), 'Capture contract differs')
+    assets = recipe.get('assets')
+    require(type(assets) is dict and set(assets) == set(ASSET_PINS), 'Original asset domain differs')
+    require(all(type(assets[name]) is dict and type(assets[name].get('bytes')) is int and
+        assets[name]['bytes'] == size and assets[name].get('sha256') == pin
+        for name, (size, pin) in ASSET_PINS.items()), 'Canonical original asset differs')
     config = configparser.ConfigParser()
     try:
         config.read_string(recipe['dosbox_config'])

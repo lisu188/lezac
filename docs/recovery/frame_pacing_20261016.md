@@ -26,9 +26,9 @@ display calculation at CS:7966..799a is not translated by this extraction.
 
 The first measurement is especially important: previous-clock bytes are stale
 presentation state, not a newly sampled or normalized clock. The two runs begin
-with previous byte triples 82/51/39 and 82/65/39. Their first elapsed words are
-10127 and 16549. Both reduce the delay from 16 to 14, then subsequent samples
-reduce it to 12, 10 and 8. Initializing those bytes from a fresh host time would
+with previous byte triples 111/24/40 and 106/6/39. Their first elapsed words are
+24624 and 59918. Both reduce the delay from 16 to 14, then subsequent samples
+reduce it to final values 8 and 6. Initializing those bytes from a fresh host time would
 silently change this observed behavior.
 
 ## Original Evidence
@@ -40,10 +40,11 @@ injected. The host is explicitly instrumented DOSBox 0.74-3, normal core, fixed
 clean ten-variable emulator environments, commands, configuration and timed
 inputs/checkpoints are retained in their exact trace-bound recipes.
 
-The captures contain 144 and 145 complete frame-pacing groups, eight total DOS
-measurements, calibrated character-delay values 81 and 82, and one incomplete
-final CRT delay in r2 caused by the declared host shutdown. The pending call is
-reported, not counted as completed. Each run checks all 43,552 relocated code
+The canonical-asset-bound recaptures contain 149 and 150 complete frame-pacing
+groups, nine total DOS measurements, calibrated character-delay values 81 and
+81, and no incomplete final frame. The earlier producer's 144/145-frame runs
+and partial shutdown call remain separately retained, not relabeled as the new
+producer. Each new run checks all 43,552 relocated code
 bytes at five asynchronous RAM/RGB checkpoints. Screenshots and RAM are local
 only; they are not synchronized to CPU trace boundaries.
 
@@ -67,7 +68,7 @@ executes bounded blocks, not the complete game loop or its DOS/IRQ/CRT services.
 The fixture contract pins the original executable, oracle producer, probe,
 capture producer, exact recipes, raw CSVs, result tables and replay projections.
 Native C++23 tests compare both complete input domains, all 240 cases and all
-289 completed natural frame-pacing groups with these independent observations.
+299 completed natural frame-pacing groups with these independent observations.
 CI needs no Unicorn or DOSBox to replay the frozen evidence.
 
 ## Remaining Integration
@@ -100,3 +101,17 @@ Sixty-two controls cover missing, incorrectly typed and contradictory mode or
 profile fields. The CLI publication/retention regression covers both guest
 mutation and instrumentation-mode contradictions. Capture fixtures remain
 byte-identical; this validation repair makes no new fidelity claim.
+
+Review of `415261e2173cc0c48fb43a61bd65e88962edee1d` found that asset hashes
+were self-observed rather than pinned and geometry stdout was not validated.
+Changed level-asset metadata and four malformed geometry recipes were reproduced
+as accepted, each labeling 144 frames natural. The producer now verifies all
+fourteen shipped size/hash pins before output creation or DOSBox launch and
+copies the exact verified bytes. The analyzer checks the same canonical domain,
+the shared contract hash and every geometry result's window, 320-by-200 dimensions
+and private-display bounds. Eighty-four asset-recipe and forty geometry-recipe
+controls reject the contradictions. Shared tests mutate every shipped asset
+before the actual producer preflight. Both new CLI rejection paths publish no
+report and preserve existing reports. Fresh original recaptures replace the
+accepted frozen frame streams; the original executable, instruction oracle,
+counter/feedback helper and live App loop are unchanged.

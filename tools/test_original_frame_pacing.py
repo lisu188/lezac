@@ -13,6 +13,7 @@ import tempfile
 import unittest
 
 from analyze_original_frame_pacing import CAPTURE_CONFIG, CAPTURE_ENVIRONMENT, CAPTURE_HASHES, analyze
+from original_capture_contract import ASSET_PINS
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / 'tests/fixtures/frame_pacing'
@@ -22,7 +23,7 @@ SHA = lambda raw: hashlib.sha256(raw).hexdigest()
 class OriginalFramePacingTests(unittest.TestCase):
     def test_fixture_contract(self):
         raw = (FIXTURE / 'manifest.json').read_bytes()
-        self.assertEqual(SHA(raw), '4a600ebb500bce5f63363bca7842166794e5ba96078aeea69094e1d5ce0761d1')
+        self.assertEqual(SHA(raw), '1767846700e2d50e1267675e4e045a52eb39df64a59e25e5578aa2c40406fbac')
         manifest = json.loads(raw)
         for item in manifest['files']:
             value = (FIXTURE / item['name']).read_bytes()
@@ -30,6 +31,7 @@ class OriginalFramePacingTests(unittest.TestCase):
         self.assertEqual(manifest['executable_sha256'], SHA((ROOT / 'LEZAC.EXE').read_bytes()))
         self.assertEqual(manifest['capture_producer_sha256'], SHA((ROOT / 'tools/frame_pacing_probe/capture.py').read_bytes()))
         self.assertEqual(manifest['host_probe_sha256'], SHA((ROOT / 'tools/frame_pacing_probe/lezac_work_probe.h').read_bytes()))
+        self.assertEqual(manifest['capture_contract_sha256'], SHA((ROOT / 'tools/original_capture_contract.py').read_bytes()))
         self.assertEqual(CAPTURE_HASHES, dict(dosbox_sha256=manifest['host_binary_sha256'],
                                             producer_sha256=manifest['capture_producer_sha256']))
         oracle = json.loads((FIXTURE / 'oracle.json').read_text())
@@ -53,9 +55,9 @@ class OriginalFramePacingTests(unittest.TestCase):
             self.assertEqual(recipe['producer_sha256'], manifest['capture_producer_sha256'])
             actual.append(analyze((FIXTURE / (name + '.csv')).read_bytes(), recipe))
         self.assertEqual(actual, expected)
-        self.assertEqual(sum(run['completed_frames'] for run in actual), 289)
-        self.assertEqual([run['character'] for run in actual], [81, 82])
-        self.assertEqual([run['final_delay'] for run in actual], [8, 8])
+        self.assertEqual(sum(run['completed_frames'] for run in actual), 299)
+        self.assertEqual([run['character'] for run in actual], [81, 81])
+        self.assertEqual([run['final_delay'] for run in actual], [8, 6])
 
     def test_cross_run_recipe_rejected(self):
         for trace, recipe in [('r2', 'r3'), ('r3', 'r2')]:
@@ -232,6 +234,45 @@ class OriginalFramePacingTests(unittest.TestCase):
             with self.subTest(control=index), self.assertRaises(ValueError):
                 analyze(raw, changed)
 
+    def test_canonical_asset_recipe_controls(self):
+        raw = (FIXTURE / 'r2.csv').read_bytes()
+        recipe = json.loads((FIXTURE / 'r2-recipe.json').read_text())
+        controls = []
+        for name, (size, _) in ASSET_PINS.items():
+            for key, value in [('sha256', '0' * 64), ('sha256', None), ('bytes', size + 1),
+                               ('bytes', False), ('bytes', None)]:
+                changed = copy.deepcopy(recipe)
+                changed['assets'][name][key] = value
+                controls.append(changed)
+            changed = copy.deepcopy(recipe)
+            del changed['assets'][name]
+            controls.append(changed)
+        self.assertEqual(len(controls), 84)
+        for index, changed in enumerate(controls):
+            with self.subTest(control=index), self.assertRaises(ValueError):
+                analyze(raw, changed)
+        for value in (None, False, '0' * 64):
+            with self.subTest(contract=value), self.assertRaises(ValueError):
+                analyze(raw, dict(recipe, capture_contract_sha256=value))
+
+    def test_geometry_recipe_controls(self):
+        raw = (FIXTURE / 'r2.csv').read_bytes()
+        recipe = json.loads((FIXTURE / 'r2-recipe.json').read_text())
+        controls = []
+        for index in (2, 5, 8, 9, 10):
+            original = recipe['host_commands'][index]['stdout']
+            values = [None, '', 'bogus', original.replace('WIDTH=320', 'WIDTH=640'),
+                original.replace('HEIGHT=200', 'HEIGHT=400'), original + 'WIDTH=320\n',
+                original.replace('SCREEN=0', 'SCREEN=1'), original.replace('WINDOW=', 'WINDOW=1')]
+            for value in values:
+                changed = copy.deepcopy(recipe)
+                changed['host_commands'][index]['stdout'] = value
+                controls.append(changed)
+        self.assertEqual(len(controls), 40)
+        for index, changed in enumerate(controls):
+            with self.subTest(control=index), self.assertRaises(ValueError):
+                analyze(raw, changed)
+
     def test_cli_rejects_invalid_recipe_without_publishing_report(self):
         recipe = json.loads((FIXTURE / 'r2-recipe.json').read_text())
         extra = dict(recipe['host_commands'][-1], command=['xdotool', 'key', '--clearmodifiers', 'Left'])
@@ -246,7 +287,11 @@ class OriginalFramePacingTests(unittest.TestCase):
                     ('dosbox_config', recipe['dosbox_config'].replace('sbtype=none', 'sbtype=sb16'), 'Wrong capture profile'),
                     ('dosbox_environment', dict(recipe['dosbox_environment'], SDL_VIDEODRIVER='dummy'),
                      'Unexpected emulator environment'),
-                    ('host_commands', recipe['host_commands'] + [extra], 'Input command sequence differs')]):
+                    ('host_commands', recipe['host_commands'] + [extra], 'Input command sequence differs'),
+                    ('assets', dict(recipe['assets'], **{'LIVELS.SCH': dict(recipe['assets']['LIVELS.SCH'], sha256='0' * 64)}),
+                     'Canonical original asset differs'),
+                    ('host_commands', [dict(command, stdout='bogus') if command['command'][1] == 'getwindowgeometry'
+                                      else command for command in recipe['host_commands']], 'Capture geometry output differs')]):
                 output = folder / ('report' + str(index) + '.json')
                 bad_recipe.write_text(json.dumps(dict(recipe, **{key: value})))
                 command = [sys.executable, '-S', '-B', str(ROOT / 'tools/analyze_original_frame_pacing.py'),

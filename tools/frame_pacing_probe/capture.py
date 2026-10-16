@@ -15,6 +15,9 @@ import sys
 import time
 from PIL import Image, ImageGrab
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from original_capture_contract import read_canonical_assets, validate_geometry
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--inside-xvfb', action='store_true')
 parser.add_argument('--run', required=True)
@@ -32,6 +35,7 @@ if not args.inside_xvfb:
         '--out', str(args.out)], env=environment).returncode)
 
 ROOT = args.repo.resolve(strict=True)
+canonical = read_canonical_assets(ROOT)
 OUT = args.out.resolve()
 HOST = args.dosbox.resolve(strict=True)
 assert OUT.is_relative_to(Path('/dev/shm')), 'This capture is RAM-only'
@@ -56,7 +60,7 @@ def xdo(*args):
     return subprocess.check_output(['xdotool', *map(str, args)], text=True, timeout=5).strip()
 
 def frame():
-    geometry = dict(row.split('=', 1) for row in xdo('getwindowgeometry', '--shell', window).splitlines())
+    geometry = validate_geometry(xdo('getwindowgeometry', '--shell', window), window)
     x, y, width, height = (int(geometry[key]) for key in ('X', 'Y', 'WIDTH', 'HEIGHT'))
     assert (width, height) == (320, 200)
     return ImageGrab.grab(xdisplay=os.environ['DISPLAY']).crop((x, y, x + width, y + height)).convert('RGB')
@@ -99,17 +103,16 @@ def key(value):
     report['events'].append(dict(key=value, observed_utc=datetime.now(timezone.utc).isoformat()))
 
 assets = {}
-for path in ROOT.iterdir():
-    if path.is_file() and path.suffix.upper() in {'.EXE', '.DAT', '.SPR', '.PAL', '.SCH', '.SON', '.MST', '.CAR', '.ZBG', '.DOC', '.LOG'}:
-        raw = path.read_bytes()
-        write(run / path.name, raw)
-        assets[path.name] = dict(bytes=len(raw), sha256=sha(raw))
+for name, raw in canonical.items():
+    write(run / name, raw)
+    assets[name] = dict(bytes=len(raw), sha256=sha(raw))
 assert len(assets) == 14 and sum(item['bytes'] for item in assets.values()) < 1048576
 exe = (run / 'LEZAC.EXE').read_bytes()
 assert sha(exe) == '7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec'
 mz = struct.unpack_from('<14H', exe)
 assert mz[4] * 16 == 0x770
 write(OUT / 'producer.py', Path(__file__).read_bytes())
+write(OUT / 'capture-contract.py', (Path(__file__).resolve().parents[1] / 'original_capture_contract.py').read_bytes())
 locator = ROOT / 'tools/seed_original_level.py'
 assert sha(locator.read_bytes()) == 'b2e6a4fc80e6e612718baf10ff4aabc8e2c438524f5d24547b9a97fd483551fe'
 spec = importlib.util.spec_from_file_location('work_clock_read_only_locator', locator)
@@ -121,6 +124,7 @@ write(conf, b'[sdl]\nfullscreen=false\noutput=surface\n[render]\nframeskip=0\nas
 report = dict(schema='lezac-instrumented-frame-pacing-v1', status='capturing', run=args.run,
     assets=assets, executable_sha256=sha(exe), dosbox_sha256=sha(HOST.read_bytes()),
     producer_sha256=sha(Path(__file__).read_bytes()), samples=[], events=[],
+    capture_contract_sha256=sha((Path(__file__).resolve().parents[1] / 'original_capture_contract.py').read_bytes()),
     host_instrumented=True, host_probe_guest_register_writes=0, host_probe_guest_memory_writes=0,
     original_executable_changed=False, natural_wall_clock_fidelity_claim=False,
     trace_clock='normal-core fixed-cycle budget, sampled before decode',
@@ -255,7 +259,9 @@ finally:
         report.update(status='failed', passed=False, error=terminal_error)
     report['canonical_assets_unchanged'] = all(sha((ROOT / name).read_bytes()) == pin['sha256']
                                               for name, pin in assets.items())
-    assert report['canonical_assets_unchanged']
+    if not report['canonical_assets_unchanged']:
+        terminal_error = (terminal_error + '; ' if terminal_error else '') + 'Canonical original assets changed'
+        report.update(status='failed', passed=False, error=terminal_error)
     persist()
     print(json.dumps(dict(status=report['status'], root=str(OUT), samples=len(report['samples']),
                           trace_bytes=report.get('trace_bytes'), child_exit_code=report['child_exit_code'])), flush=True)

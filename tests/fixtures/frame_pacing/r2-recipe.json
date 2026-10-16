@@ -3,66 +3,66 @@
   "status": "observed",
   "run": "r2",
   "assets": {
-    "SFONLEF.ZBG": {
-      "bytes": 34292,
-      "sha256": "b1b7cc03122510318c1a3670f151712406e9e3fa60aabd8fb558320766c3835c"
-    },
-    "SETUP.LOG": {
-      "bytes": 566,
-      "sha256": "4c86cd7436be442663b10b1425bbcd7a179b7955b67c23632bf20a8180144a14"
-    },
-    "RECS.DAT": {
-      "bytes": 92,
-      "sha256": "27197ebb56fb339e4d41baf6ad5282cd79bb66b642c81ae406e607a263c80eb8"
-    },
-    "PROVA.SPR": {
-      "bytes": 21250,
-      "sha256": "d6d6b634f8613251f6e82e9a15c5c68e2be437892bfa25c53eb4bcd9094188b7"
-    },
-    "PROEFS.SON": {
-      "bytes": 782,
-      "sha256": "b5bc702a27ac85554cc76a62fced07567921b07d5c16f2027a62fbc956df701d"
-    },
-    "LIVELS.SCH": {
-      "bytes": 41047,
-      "sha256": "d8b553871014108515d6af05b0853de8ccc22e4d3e44d63533ba1167fdc8c7b2"
-    },
-    "LEZAC.EXE": {
-      "bytes": 52384,
-      "sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
-    },
-    "ITALIANO.DOC": {
-      "bytes": 4392,
-      "sha256": "5ea7481d3179e60b6f1229aa114dc4b47c95f7c1200c7888ad5c259f161317c1"
-    },
-    "GRAN.MST": {
-      "bytes": 399,
-      "sha256": "3f0cf17706d557ca863d6e39bfa6641fba777a88815ba3f0a22e5ac89e0e39e2"
-    },
-    "FONTS.SPR": {
-      "bytes": 5425,
-      "sha256": "f65aa9bbba2a66ee69f1b279a32c448e36012feb53441fbbb8e64e31bee87a0e"
-    },
-    "ENGLISH.DOC": {
-      "bytes": 3522,
-      "sha256": "e2fd2f2521b0277f2fca0c8f2a265408412542932bb6e977bf1ab3d0aabdfed9"
-    },
-    "CARO.CAR": {
-      "bytes": 8450,
-      "sha256": "949cce4db6071d6675a291c978d725c6e4ee1730b2c7a428bc1c8a8185cbd8d8"
+    "BOMOMIMK.SPR": {
+      "bytes": 20168,
+      "sha256": "08dfd0e59ba191c52af2529bdfa140fd15a57829f0c6c13bbb78e156769ac0d1"
     },
     "BOMPAL.PAL": {
       "bytes": 768,
       "sha256": "f2559164074ca529ba6c275a9831b11c6da9e6317f09b3d9228c299d6f8f8319"
     },
-    "BOMOMIMK.SPR": {
-      "bytes": 20168,
-      "sha256": "08dfd0e59ba191c52af2529bdfa140fd15a57829f0c6c13bbb78e156769ac0d1"
+    "CARO.CAR": {
+      "bytes": 8450,
+      "sha256": "949cce4db6071d6675a291c978d725c6e4ee1730b2c7a428bc1c8a8185cbd8d8"
+    },
+    "ENGLISH.DOC": {
+      "bytes": 3522,
+      "sha256": "e2fd2f2521b0277f2fca0c8f2a265408412542932bb6e977bf1ab3d0aabdfed9"
+    },
+    "FONTS.SPR": {
+      "bytes": 5425,
+      "sha256": "f65aa9bbba2a66ee69f1b279a32c448e36012feb53441fbbb8e64e31bee87a0e"
+    },
+    "GRAN.MST": {
+      "bytes": 399,
+      "sha256": "3f0cf17706d557ca863d6e39bfa6641fba777a88815ba3f0a22e5ac89e0e39e2"
+    },
+    "ITALIANO.DOC": {
+      "bytes": 4392,
+      "sha256": "5ea7481d3179e60b6f1229aa114dc4b47c95f7c1200c7888ad5c259f161317c1"
+    },
+    "LEZAC.EXE": {
+      "bytes": 52384,
+      "sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
+    },
+    "LIVELS.SCH": {
+      "bytes": 41047,
+      "sha256": "d8b553871014108515d6af05b0853de8ccc22e4d3e44d63533ba1167fdc8c7b2"
+    },
+    "PROEFS.SON": {
+      "bytes": 782,
+      "sha256": "b5bc702a27ac85554cc76a62fced07567921b07d5c16f2027a62fbc956df701d"
+    },
+    "PROVA.SPR": {
+      "bytes": 21250,
+      "sha256": "d6d6b634f8613251f6e82e9a15c5c68e2be437892bfa25c53eb4bcd9094188b7"
+    },
+    "RECS.DAT": {
+      "bytes": 92,
+      "sha256": "27197ebb56fb339e4d41baf6ad5282cd79bb66b642c81ae406e607a263c80eb8"
+    },
+    "SETUP.LOG": {
+      "bytes": 566,
+      "sha256": "4c86cd7436be442663b10b1425bbcd7a179b7955b67c23632bf20a8180144a14"
+    },
+    "SFONLEF.ZBG": {
+      "bytes": 34292,
+      "sha256": "b1b7cc03122510318c1a3670f151712406e9e3fa60aabd8fb558320766c3835c"
     }
   },
   "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
   "dosbox_sha256": "b19be3dd86b5d6ee59e67ffd5c4d888069f8624b4d92499babe33f4ae168c7ef",
-  "producer_sha256": "a256801e0478922e1335f154b0225a6cc32866e6eaa90a8e170368cdf405fbb6",
+  "producer_sha256": "7b64df5132975a4354728f7f1cdf7c3a21c5bf11fab9e395bafbdc0b3881a2e4",
   "samples": [
     {
       "name": "main",
@@ -80,14 +80,14 @@
       },
       "record_bytes": "10420800086167613a3a3a3a3ab6e20700086167613a3a3a3a3a56de0700086167613a3a3a3a3adcad0700086167613a3a3a3a3a8a500700086167613a3a3a3a3ae6490700086167613a3a3a3a3a323f0700086167613a3a3a3a3a",
       "slot8_bytes": "0087e900f0601200f000000000",
-      "ram_sha256": "e9d9b991fc8557fac0afa02f9f3b16e7e40eca830badbc570ca63f12c46b8f3f",
-      "ram_gzip_sha256": "b400f74c67e642fd8c0bfbeb3a0b7cc62fa9c23576f7202d7c243ac31ce45193",
+      "ram_sha256": "07b4384d94cd6275577c59f4335104860112746ecb001f4887f906bfc093d19e",
+      "ram_gzip_sha256": "9bd7371249541322787d8f63eb6a169035575388486bdb02817f6a8e8a2ec62c",
       "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
       "pixels_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914",
       "code_bytes_verified": 43552,
       "code_differences": 0,
-      "monotonic_before": 20.96223110899882,
-      "monotonic_after": 21.009941987000275,
+      "monotonic_before": 21.04695847900075,
+      "monotonic_after": 21.095950668001024,
       "ram_rgb_cpu_atomic": false
     },
     {
@@ -106,14 +106,14 @@
       },
       "record_bytes": "10420800086167613a3a3a3a3ab6e20700086167613a3a3a3a3a56de0700086167613a3a3a3a3adcad0700086167613a3a3a3a3a8a500700086167613a3a3a3a3ae6490700086167613a3a3a3a3a323f0700086167613a3a3a3a3a",
       "slot8_bytes": "0087e900f0601200f000000000",
-      "ram_sha256": "bb1dee6e7ed56eb2e87b52df48eb736a3327c32e82c76df23b1486f24f60251b",
-      "ram_gzip_sha256": "c310adb31f410f097712b375fc1298a6f71cdd2a8319aa874e0c877ce0e964c8",
-      "png_sha256": "71b3296b2861c01656f2a659a3d47e26c0766e0c8f9f3093d20f5551aed0680b",
-      "pixels_sha256": "b6099d1875786fb366c3dcd5c3b88b6fa26c2ecf3a206c43a9ab9a6efd379346",
+      "ram_sha256": "93be4d03d3aec1b48186145d39eeadbf06da0b8348606909ded0480b40f44d9f",
+      "ram_gzip_sha256": "a647c321baf5a17ac58bf416aa9546a7342cad36e9853240b0269b006fd62e5b",
+      "png_sha256": "92891ef91c9688a59d8974a751a9611189abc21adcda51e63ab287642c5cff74",
+      "pixels_sha256": "4b7e2f0456d125269e8bec1e70c47e62c0de1c4ca1fdd736f0097eb516d92c85",
       "code_bytes_verified": 43552,
       "code_differences": 0,
-      "monotonic_before": 25.029952365999634,
-      "monotonic_after": 25.069959792999725,
+      "monotonic_before": 25.11604008499853,
+      "monotonic_after": 25.14756738199867,
       "ram_rgb_cpu_atomic": false
     },
     {
@@ -123,7 +123,7 @@
         0
       ],
       "level": 1,
-      "frame_counter": 12,
+      "frame_counter": 13,
       "delay_words": {
         "0x78ca": 2,
         "0x78cc": 16,
@@ -132,14 +132,14 @@
       },
       "record_bytes": "10420800086167613a3a3a3a3ab6e20700086167613a3a3a3a3a56de0700086167613a3a3a3a3adcad0700086167613a3a3a3a3a8a500700086167613a3a3a3a3ae6490700086167613a3a3a3a3a323f0700086167613a3a3a3a3a",
       "slot8_bytes": "0087e900f0601200f000000000",
-      "ram_sha256": "60134a355e18ad290a356de419b4f7e36afbcd6cfa8487c546ebc028dcb45ad7",
-      "ram_gzip_sha256": "55134ef6338f4337d292439530817865b13157e747643879e5b7ec27bf340c47",
-      "png_sha256": "f5253d9f315b830d76ad82a7dcacf4cc982e109345b6c464776e933d2d52848a",
-      "pixels_sha256": "74b27802b84d0621620c752c4c631ad5b0495a3123a82ffc6ab09030cc77be57",
+      "ram_sha256": "2d7f45e89458edde9bb859e912fb803a8f4b5e5859248638122572566a2f8ea4",
+      "ram_gzip_sha256": "0fce64bd232212a962a910b189288128f9ac76ad03f33950ee930e169098588b",
+      "png_sha256": "cbd7de6bdfb5fef9aaa0c5378d521858f16e18b0a25372dc69e9037456b978f5",
+      "pixels_sha256": "965c522ef6a320eaf24ebcdde74e6c0321e57bd2a1db0943877fd1f36ca53a68",
       "code_bytes_verified": 43552,
       "code_differences": 0,
-      "monotonic_before": 26.092255173998637,
-      "monotonic_after": 26.138900771999033,
+      "monotonic_before": 26.166805873999692,
+      "monotonic_after": 26.209553644999687,
       "ram_rgb_cpu_atomic": false
     },
     {
@@ -149,23 +149,23 @@
         0
       ],
       "level": 1,
-      "frame_counter": 59,
+      "frame_counter": 61,
       "delay_words": {
         "0x78ca": 2,
-        "0x78cc": 14,
+        "0x78cc": 12,
         "0x78ce": 81,
         "0x78d0": 16
       },
       "record_bytes": "10420800086167613a3a3a3a3ab6e20700086167613a3a3a3a3a56de0700086167613a3a3a3a3adcad0700086167613a3a3a3a3a8a500700086167613a3a3a3a3ae6490700086167613a3a3a3a3a323f0700086167613a3a3a3a3a",
       "slot8_bytes": "0087e900f0601200f000000000",
-      "ram_sha256": "48d19ffa0ccc99a933e17f55c1efc3e011639bd6b7cd014954ef619d658d318d",
-      "ram_gzip_sha256": "7740d820404698c2d66a7f7e85cdf13e674e67de27f9905d04031565d4581dfd",
-      "png_sha256": "0cea503ecdac3e36c3cbd4bb61c6a29c85389c319c50308a6166fc7a2888f22f",
-      "pixels_sha256": "a97c5a820246f2b7d489a1daaad5c7897c10bd0414d5c8c31c4b3bca6daedeb6",
+      "ram_sha256": "f070fe2a1538d2383b50efdeae8afe7294c73859c9e240f6e7903a512ba08079",
+      "ram_gzip_sha256": "16f9be170b36847d9931fd02a0619c42c538f696fe99e625de3c67322827c28e",
+      "png_sha256": "4d8e7a486d27d1cda5c352196b088cd6d864a4626964b738c9876cc4a8dc09f8",
+      "pixels_sha256": "ac7d32051477e94ac61d0a367e94c03e704154c627c0f839834f05bd078145c5",
       "code_bytes_verified": 43552,
       "code_differences": 0,
-      "monotonic_before": 29.139713153999764,
-      "monotonic_after": 29.183791726998606,
+      "monotonic_before": 29.21039203699911,
+      "monotonic_after": 29.252310756000952,
       "ram_rgb_cpu_atomic": false
     },
     {
@@ -175,7 +175,7 @@
         0
       ],
       "level": 1,
-      "frame_counter": 144,
+      "frame_counter": 148,
       "delay_words": {
         "0x78ca": 2,
         "0x78cc": 8,
@@ -184,31 +184,32 @@
       },
       "record_bytes": "10420800086167613a3a3a3a3ab6e20700086167613a3a3a3a3a56de0700086167613a3a3a3a3adcad0700086167613a3a3a3a3a8a500700086167613a3a3a3a3ae6490700086167613a3a3a3a3a323f0700086167613a3a3a3a3a",
       "slot8_bytes": "0087e900f0601200f000000000",
-      "ram_sha256": "ca749aa359bdaca051e5db045a3c492fac2c4b22f970e5a6578133e620f4b7c4",
-      "ram_gzip_sha256": "47f4680f197cf58a5adbb4e8d1f94a0c741dbf26b3644fbd68b157f83903d9e4",
-      "png_sha256": "90ecce194385bcf399fbfc733e696ecc6855d6677eeb44217dc74b877f622190",
-      "pixels_sha256": "d0fcbc43fd88736fdaebfc7af3758b27bd2b34485c735848d90569c482172ab5",
+      "ram_sha256": "02346105755eb6f51804b10583153add376d0621454adbd44467b1afa4944dee",
+      "ram_gzip_sha256": "a500da72c533dc273ddb7edd745d09a7d8be8277870f155ba0fa2297d587196a",
+      "png_sha256": "ce73600e0f7dc519fa160e029a56d2c58b7a37fd680413bede717349bd6047ad",
+      "pixels_sha256": "8912ebb49d328ff9667c619f645de5d8c7c08ad5de9430c20989dc905e54be64",
       "code_bytes_verified": 43552,
       "code_differences": 0,
-      "monotonic_before": 34.18463757099926,
-      "monotonic_after": 34.22505794399876,
+      "monotonic_before": 34.25314481600071,
+      "monotonic_after": 34.29201995200128,
       "ram_rgb_cpu_atomic": false
     }
   ],
   "events": [
     {
       "key": "1",
-      "observed_utc": "2026-10-16T08:18:55.108550+00:00",
-      "monotonic_before": 21.01058020900018,
-      "monotonic_after": 21.029861574999813
+      "observed_utc": "2026-10-16T10:38:57.753315+00:00",
+      "monotonic_before": 21.096522370000457,
+      "monotonic_after": 21.115998328001297
     },
     {
       "key": "Return",
-      "observed_utc": "2026-10-16T08:18:59.170853+00:00",
-      "monotonic_before": 25.070727496999098,
-      "monotonic_after": 25.092163195999092
+      "observed_utc": "2026-10-16T10:39:01.804039+00:00",
+      "monotonic_before": 25.14817943000162,
+      "monotonic_after": 25.16671708300055
     }
   ],
+  "capture_contract_sha256": "36e27f3441ae98db6e2a459ca64c561b72c964e1e98de854ca416321c33c33e0",
   "host_instrumented": true,
   "host_probe_guest_register_writes": 0,
   "host_probe_guest_memory_writes": 0,
@@ -234,15 +235,15 @@
         "xdotool",
         "search",
         "--pid",
-        "42061",
+        "67712",
         "--name",
         "DOSBox"
       ],
       "exit_code": 0,
       "stdout": "6291464\n",
       "stderr": "",
-      "monotonic_before": 0.9533899580001162,
-      "monotonic_after": 0.9569864939985564
+      "monotonic_before": 1.0382430030003889,
+      "monotonic_after": 1.041194377001375
     },
     {
       "command": [
@@ -253,8 +254,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 0.9577979719997529,
-      "monotonic_after": 0.9599976429999515
+      "monotonic_before": 1.0418973560008453,
+      "monotonic_after": 1.0448217449993535
     },
     {
       "command": [
@@ -266,8 +267,8 @@
       "exit_code": 0,
       "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
       "stderr": "",
-      "monotonic_before": 20.962655497000014,
-      "monotonic_after": 20.965249435999795
+      "monotonic_before": 21.047426929999347,
+      "monotonic_after": 21.05001365299904
     },
     {
       "command": [
@@ -278,8 +279,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 21.010583035998934,
-      "monotonic_after": 21.01280397499977
+      "monotonic_before": 21.096524708998913,
+      "monotonic_after": 21.099238905000675
     },
     {
       "command": [
@@ -291,8 +292,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 21.01360847199976,
-      "monotonic_after": 21.028871284999695
+      "monotonic_before": 21.099981931998627,
+      "monotonic_after": 21.115177023999422
     },
     {
       "command": [
@@ -304,8 +305,8 @@
       "exit_code": 0,
       "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
       "stderr": "",
-      "monotonic_before": 25.030331500998727,
-      "monotonic_after": 25.035486053999193
+      "monotonic_before": 25.11645052300082,
+      "monotonic_after": 25.118866649001575
     },
     {
       "command": [
@@ -316,8 +317,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 25.070731342999352,
-      "monotonic_after": 25.074029654999322
+      "monotonic_before": 25.14818187399942,
+      "monotonic_after": 25.150278752000304
     },
     {
       "command": [
@@ -329,8 +330,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 25.074879674999465,
-      "monotonic_after": 25.091288800000257
+      "monotonic_before": 25.151096476998646,
+      "monotonic_after": 25.16590573999929
     },
     {
       "command": [
@@ -342,8 +343,8 @@
       "exit_code": 0,
       "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
       "stderr": "",
-      "monotonic_before": 26.09261155599961,
-      "monotonic_after": 26.095374089998586
+      "monotonic_before": 26.167203929999232,
+      "monotonic_after": 26.169702533999953
     },
     {
       "command": [
@@ -355,8 +356,8 @@
       "exit_code": 0,
       "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
       "stderr": "",
-      "monotonic_before": 29.14009826199981,
-      "monotonic_after": 29.14298005299861
+      "monotonic_before": 29.211004275999585,
+      "monotonic_after": 29.215449734001595
     },
     {
       "command": [
@@ -368,8 +369,8 @@
       "exit_code": 0,
       "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
       "stderr": "",
-      "monotonic_before": 34.1849963579989,
-      "monotonic_after": 34.18734263999977
+      "monotonic_before": 34.253561648998584,
+      "monotonic_after": 34.25593555500018
     },
     {
       "command": [
@@ -381,8 +382,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 34.225851519999196,
-      "monotonic_after": 34.2551190159993
+      "monotonic_before": 34.29282434199922,
+      "monotonic_after": 34.320712646000175
     }
   ],
   "input_injection_failures": [],
@@ -396,35 +397,35 @@
     "--dosbox",
     "/dev/shm/lezac-pacing-oracle-t192/dosbox-0.74-3/src/dosbox",
     "--out",
-    "/dev/shm/lezac-frame-pacing-t192-r2"
+    "/dev/shm/lezac-frame-pacing-t195-assets-r2"
   ],
   "dosbox_argv": [
     "/dev/shm/lezac-pacing-oracle-t192/dosbox-0.74-3/src/dosbox",
     "-conf",
-    "/dev/shm/lezac-frame-pacing-t192-r2/dosbox.conf",
+    "/dev/shm/lezac-frame-pacing-t195-assets-r2/dosbox.conf",
     "-c",
-    "mount c /dev/shm/lezac-frame-pacing-t192-r2/run",
+    "mount c /dev/shm/lezac-frame-pacing-t195-assets-r2/run",
     "-c",
     "c:",
     "-c",
     "LEZAC.EXE"
   ],
-  "dosbox_cwd": "/dev/shm/lezac-frame-pacing-t192-r2",
+  "dosbox_cwd": "/dev/shm/lezac-frame-pacing-t195-assets-r2",
   "dosbox_environment": {
     "PATH": "/usr/bin:/bin",
-    "HOME": "/dev/shm/lezac-frame-pacing-t192-r2/home",
-    "TMPDIR": "/dev/shm/lezac-frame-pacing-t192-r2/tmp",
+    "HOME": "/dev/shm/lezac-frame-pacing-t195-assets-r2/home",
+    "TMPDIR": "/dev/shm/lezac-frame-pacing-t195-assets-r2/tmp",
     "LANG": "C.UTF-8",
     "LC_ALL": "C.UTF-8",
     "DISPLAY": ":99",
-    "XAUTHORITY": "/dev/shm/xvfb-run.R0lu3l/Xauthority",
+    "XAUTHORITY": "/dev/shm/xvfb-run.QacnGR/Xauthority",
     "SDL_VIDEODRIVER": "x11",
     "SDL_AUDIODRIVER": "dummy",
-    "LEZAC_PACING_TRACE": "/dev/shm/lezac-frame-pacing-t192-r2/guest-pacing.csv"
+    "LEZAC_PACING_TRACE": "/dev/shm/lezac-frame-pacing-t195-assets-r2/guest-pacing.csv"
   },
   "dosbox_config": "[sdl]\nfullscreen=false\noutput=surface\n[render]\nframeskip=0\naspect=false\nscaler=none\n[cpu]\ncore=normal\ncycles=fixed 6000\n[mixer]\nnosound=true\n[speaker]\npcspeaker=false\n[sblaster]\nsbtype=none\n[midi]\nmpu401=none\nmididevice=none\n",
   "environment_is_complete": true,
-  "child_pid": 42061,
+  "child_pid": 67712,
   "private_display_autorepeat_command": {
     "command": [
       "xset",
@@ -437,12 +438,12 @@
   },
   "code_segment": 417,
   "data_segment": 3139,
-  "ram_base": 129957812498448,
+  "ram_base": 136076513505296,
   "private_xvfb_autorepeat_disabled": true,
   "passed": true,
   "child_exit_code": 0,
-  "trace_bytes": 48281,
-  "trace_sha256": "0749606d3f93a9007762e782447224b3466f435cfa0e47569f71104f2f5811d6",
+  "trace_bytes": 49713,
+  "trace_sha256": "cd116eec028710c67f0e5a57365cf57e8df4799d45dde7eeb9ef83c88ef91964",
   "trace_end_marker": true,
   "canonical_assets_unchanged": true
 }

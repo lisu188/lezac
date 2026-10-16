@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "cases": 17,
+  "snapshots": 758,
+  "original_dispatches": 13273201,
+  "identical_input_provider_results": true,
+  "original_executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "producer_sha256": "2a62c875cdf7199c869c17bf7cabca41e977c298721d45e7a0d552d07f408ce4",
+  "natural_clock_claim": false,
+  "cycle_clock_claim": false,
+  "full_game_parity": false,
+  "files": [
+    {
+      "name": "instruction-provider.json",
+      "bytes": 421894,
+      "sha256": "360ea98ef6cc5cc5b10ce485650c4e8c058ee155fd9e5277bd65282ac923c0d3"
+    },
+    {
+      "name": "memory-provider.json",
+      "bytes": 421967,
+      "sha256": "d5862ef297c1ff5c087de9d3210f15ea88cc27ef0cd400dbbd979c9256a47e94"
+    }
+  ]
+}

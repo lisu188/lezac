@@ -197,6 +197,13 @@ if(BUILD_TESTING)
     set_tests_properties(pattern_fill_unit PROPERTIES
         TIMEOUT 180 ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^pattern_fill=ok patterns=6400 compared_pixels=409600000 budgets=9 original_cursor_cases=3 semantic_stages=3 invalid_inputs=6 timing_claim=0")
+    add_executable(lezac_crt_delay_test tests/core/crt_delay_test.cpp)
+    target_link_libraries(lezac_crt_delay_test PRIVATE lezac_resources)
+    add_test(NAME crt_delay_original COMMAND lezac_crt_delay_test
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/crt_delay")
+    set_tests_properties(crt_delay_original PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "crt_delay_original=ok cases=17 snapshots=758 replay_modes=2 original_dispatches=13273201 natural_clock=0")
     add_executable(lezac_cpp23_contract_test tests/core/cpp23_contract_test.cpp)
     add_test(NAME cpp23_standard_contract COMMAND lezac_cpp23_contract_test)
     add_executable(lezac_sdl_display_ownership_test
@@ -517,6 +524,11 @@ if(BUILD_TESTING)
             COMMAND ${Python3_EXECUTABLE} -S -B
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_startup_timing_fixture.py)
         set_tests_properties(startup_timing_fixture_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        add_test(NAME crt_delay_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_original_crt_delay.py -v)
+        set_tests_properties(crt_delay_fixture_contract PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
     endif()
 

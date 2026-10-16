@@ -247,7 +247,47 @@ class WorkClockTests(unittest.TestCase):
         recipe['capture_argv'][5] = '/workspace/project with spaces'
         recipe['capture_argv'][7] = '/opt/observer/dosbox'
         recipe['dosbox_argv'][0] = '/opt/observer/dosbox'
-        validate_capture_recipe(recipe, trace)
+        self.assertFalse(validate_capture_recipe(recipe, trace))
+
+    def test_every_execution_marker_checks_its_code_segment(self):
+        rows, _ = read_rows(FIXTURES / 'r3.csv.gz')
+        recipe = json.loads((FIXTURES / 'r3-full-recipe.json').read_text())
+        kinds = sorted({row['kind'] for row in rows} - {'end'})
+        with tempfile.TemporaryDirectory(prefix='lezac-work-segments-') as temporary:
+            path = Path(temporary) / 'mutated.csv'
+            for kind in kinds:
+                changed = copy.deepcopy(rows)
+                next(row for row in changed if row['kind'] == kind)['cs'] = 0x1234
+                with path.open('w', newline='') as stream:
+                    writer = csv.DictWriter(stream, COLUMNS, lineterminator='\n')
+                    writer.writeheader()
+                    writer.writerows(changed)
+                raw = path.read_bytes()
+                bound = dict(recipe, trace_bytes=len(raw), trace_sha256=sha(raw))
+                with self.subTest(kind=kind), self.assertRaises(ValueError):
+                    analyze(path, bound)
+        self.assertEqual(len(kinds), 18)
+
+    def test_unpinned_checkpoint_metadata_is_not_authenticated(self):
+        recipe = json.loads((FIXTURES / 'r3-full-recipe.json').read_text())
+        for key, value in [('scores', [999, 123]), ('ram_sha256', '0' * 64), ('record_bytes', '00')]:
+            changed = copy.deepcopy(recipe)
+            changed['samples'][0][key] = value
+            result = analyze(FIXTURES / 'r3.csv.gz', changed)
+            with self.subTest(field=key):
+                self.assertTrue(result['capture_execution_contract_valid'])
+                self.assertFalse(result['capture_recipe_verified'])
+                self.assertFalse(result['capture_checkpoint_metadata_authenticated'])
+                self.assertFalse(result['raw_checkpoint_files_verified'])
+        with tempfile.TemporaryDirectory(prefix='lezac-work-unverified-cli-') as temporary:
+            folder = Path(temporary)
+            source, output = folder / 'recipe.json', folder / 'report.json'
+            source.write_text(json.dumps(changed))
+            result = subprocess.run([sys.executable, '-S', '-B', str(ROOT / 'tools/analyze_original_work_clock.py'),
+                str(FIXTURES / 'r3.csv.gz'), str(output), '--recipe', str(source)],
+                capture_output=True, text=True, timeout=15)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse(json.loads(output.read_text())['capture_recipe_verified'])
 
     def test_provenance_cli_failure_preserves_reports(self):
         original = json.loads((FIXTURES / 'r3-recipe.json').read_text())

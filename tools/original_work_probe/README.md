@@ -67,8 +67,14 @@ The analyzer never overwrites an existing report. The fixtures establish bounded
 CPU-work facts only; live C++ scheduling and full frame-level fidelity still need
 independent original-backed runtime validation.
 Recipe mode binds the recorded trace size and SHA256 to the uncompressed bytes
-actually analyzed. It rejects cross-run recipe/trace combinations and only emits
-`capture_recipe_verified=true` after that check succeeds.
+actually analyzed and checks the declared execution contract and marker segments.
+It rejects cross-run recipe/trace combinations. `capture_recipe_verified=true`
+authenticates only an exact retained compact or complete recipe identity. New
+reports may satisfy `capture_execution_contract_valid` without authenticating
+their checkpoint metadata; `capture_recipe_verified` and
+`capture_checkpoint_metadata_authenticated` are then false. Raw RAM/PNG files
+are not supplied to this analyzer, so `raw_checkpoint_files_verified` is false
+even when the saved metadata identity is authenticated.
 
 Acquire a fresh, fully audited run after building the pinned host:
 

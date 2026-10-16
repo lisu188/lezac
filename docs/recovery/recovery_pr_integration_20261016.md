@@ -47,6 +47,28 @@ newly acquired runs, and contain no raw RAM or image payloads. Existing trace
 and compact-fixture bytes are unchanged. CLI rejection controls check both
 failure without publication and preservation of existing reports.
 
+The follow-up review found segment attribution and checkpoint-authentication
+gaps. Every game marker now requires its original code segment and offset; CRT
+entry/caller markers and both IRQ vectors have separate ownership checks. IRQ
+return targets must lie in the linked code units or BIOS. The two CRT callers
+are backed by the original far-call bytes at `1614` and `79e3`, both targeting
+`084a:029c`. The host-exit row is terminal metadata, not an attributed instruction.
+
+`capture_recipe_verified` now authenticates only the exact four retained recipe
+identities. A new full producer report can satisfy the execution contract without
+authenticating its checkpoint metadata. Such a report explicitly carries
+`capture_execution_contract_valid=true`, `capture_recipe_verified=false`, and
+`capture_checkpoint_metadata_authenticated=false`. The analyzer never claims
+verification of raw checkpoint files, which are not supplied to it. Altering
+saved scores, record bytes or RAM hashes cannot retain the old whole-recipe label.
+
+The local full-suite attempt did not complete: long C++ campaign replay outputs
+filled the 12 GiB RAM filesystem, causing subsequent writes to fail. Its partial
+results and failure diagnostics are retained, and no full-suite pass is claimed.
+Completed successful C++ frames were losslessly compressed with per-file hashes
+and a restoration map; original captures and failed-route outputs were unchanged.
+Bounded current-head tests are used locally; complete CI remains required.
+
 ## CI Headroom
 
 The second Windows attempt for #395 completed every recorded step successfully,

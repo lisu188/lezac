@@ -20,6 +20,10 @@ LEGACY_RECIPE_PINS = {
     '1b23903d54c66604cb20854d8b563793c47e0a81aa6e6204b9be21fdc58dcbfa',
     '23b8534774ce23c94992d8fde68aa9d7db51b8323360b80b0bf2aa038ef2e252',
 }
+FULL_RECIPE_PINS = {
+    'db0c014c2bf1aa400a2fd404c6c564035bf2efc57e95cf86a6053fffb1364aef',
+    'c13912c95673cdf2d1a52aa35c399afdf3e3dc76ddbe65d47e12798914d66ef1',
+}
 CAPTURE_CONFIG = dict(sdl=dict(fullscreen='false', output='surface'),
     render=dict(frameskip='0', aspect='false', scaler='none'),
     cpu=dict(core='normal', cycles='fixed 6000'), mixer=dict(nosound='true'),
@@ -119,7 +123,7 @@ def validate_provenance(recipe):
         raise ValueError('Capture recipe is not canonical JSON') from error
     # Historical compact recipes omit fields. Only their exact pinned values are accepted.
     if identity in LEGACY_RECIPE_PINS:
-        return
+        return True
     scope = dict(schema='lezac-instrumented-work-clock-v1', passed=True, host_instrumented=True,
         host_probe_guest_register_writes=0, host_probe_guest_memory_writes=0,
         original_executable_changed=False, natural_wall_clock_fidelity_claim=False,
@@ -149,6 +153,7 @@ def validate_provenance(recipe):
         type(sample.get('code_differences')) is int and sample['code_differences'] == 0 and
         sample.get('ram_rgb_cpu_atomic') is False for sample in samples), 'Original code or checkpoint scope differs')
     validate_full_capture_commands(recipe)
+    return identity in FULL_RECIPE_PINS
 
 
 def validate_full_capture_commands(recipe):
@@ -214,7 +219,7 @@ def validate_full_capture_commands(recipe):
 def validate_capture_recipe(recipe, trace_raw):
     require(type(recipe) is dict, 'Capture recipe is not an object')
     require(recipe.get('environment_is_complete') is True, 'Incomplete capture environment')
-    validate_provenance(recipe)
+    authenticated_recipe = validate_provenance(recipe)
     environment = recipe.get('dosbox_environment', {})
     require(type(environment) is dict and all(type(value) is str and value for value in environment.values()),
             'Invalid capture environment')
@@ -257,11 +262,39 @@ def validate_capture_recipe(recipe, trace_raw):
     if recipe.get('schema') == 'lezac-instrumented-work-clock-v1':
         first = next(csv.DictReader(io.StringIO(trace_raw.decode('ascii'))))
         require(int(first['cs']) == recipe['code_segment'], 'Trace module differs from capture')
+    return authenticated_recipe
+
+
+def validate_marker_segments(rows):
+    code = rows[0]['cs']
+    require(16 < code < 0xa000 - 0xaa2, 'Original code relocation differs')
+    game_ips = dict(MARKER_IP, identified=0x1fc, begin=0x1fc, clear_return=0x219,
+                    palette_ready=0x247, finish=0x309)
+    # Linked game, CRT-delay, floating-point and runtime code units in LEZAC.EXE.
+    unit_sizes = {code: 0x84a0, code + 0x84a: 0x620,
+                  code + 0x8ac: 0x740, code + 0x920: 0x1820}
+    for row in rows:
+        kind, cs, ip = row['kind'], row['cs'], row['ip']
+        if kind in game_ips:
+            require(cs == code and ip == game_ips[kind], 'Game marker code segment or offset differs')
+        elif kind == 'delay_begin':
+            require((cs, ip) == (code + 0x84a, 0x29c), 'CRT delay marker segment or offset differs')
+        elif kind == 'delay_end':
+            require(cs == code and ip in (0x1619, 0x79e8), 'CRT delay caller segment or offset differs')
+        elif kind == 'irq8_enter':
+            require((cs, ip) == (0xf000, 0xfea5), 'Timer IRQ vector differs')
+        elif kind == 'irq9_enter':
+            require((cs, ip) == (code, 0x1091), 'Keyboard IRQ vector differs')
+        elif kind in ('irq8_return', 'irq9_return'):
+            require(cs == 0xf000 or cs in unit_sizes and ip < unit_sizes[cs],
+                    'IRQ return code segment or offset differs')
+        # The host-exit row is terminal metadata, not an attributed guest instruction.
 
 def analyze(path, recipe=None):
     rows, raw = read_rows(path)
+    validate_marker_segments(rows)
     if recipe is not None:
-        validate_capture_recipe(recipe, raw)
+        authenticated_recipe = validate_capture_recipe(recipe, raw)
     pages = collections.defaultdict(list)
     irq_stack = []
     delay = None
@@ -389,7 +422,10 @@ def analyze(path, recipe=None):
         row_work_dispatches_without_vertical_carry=row_costs,
         dispatches_are_cycle_clock=False, host_instrumented=True, natural_wall_clock_fidelity_claim=False)
     if recipe is not None:
-        result.update(capture_recipe_verified=True, capture_recipe_run=recipe['run'])
+        result.update(capture_recipe_verified=authenticated_recipe, capture_recipe_run=recipe['run'],
+                      capture_execution_contract_valid=True,
+                      capture_checkpoint_metadata_authenticated=authenticated_recipe,
+                      raw_checkpoint_files_verified=False)
     return result
 
 def main():

@@ -1,0 +1,58 @@
+{
+  "schema": "lezac-frozen-frame-display-controls-v1",
+  "files": [
+    {
+      "name": "r1.csv.gz",
+      "bytes": 93489,
+      "sha256": "9e1097c82184c7ea63ce212f2f8239111e392dc6d52fee58e0bfed7b096904c0"
+    },
+    {
+      "name": "r1-recipe.json",
+      "bytes": 107790,
+      "sha256": "559f87f7819810b67662d77705bb12367f1d314b020543c54729fb450b8e633a"
+    },
+    {
+      "name": "r2.csv.gz",
+      "bytes": 90088,
+      "sha256": "588c5a130705bd49f5a6ed1f786eae556e5c6264e8268b7cd1a6e333001c1f70"
+    },
+    {
+      "name": "r2-recipe.json",
+      "bytes": 114052,
+      "sha256": "cd630ec74b227c4f2f15f9486e0f3da9d54cd8a8ee0733470d1d5e50dc687b32"
+    }
+  ],
+  "observations": [
+    {
+      "run": "r1",
+      "trace_bytes": 2459697,
+      "trace_sha256": "6b43591e3be9c064ff94a2918738784429f755336f88195a7d621fd499ea9a10",
+      "capture_status": "failed",
+      "complete_target_capture_claim": false,
+      "states": 442,
+      "observed_irq_boundaries": 0,
+      "cpu_sha256": "6aa4a7a210b4f71d684afddd96a1fdac1830d84932cc6929bcf9dc2326ff6f4f",
+      "clock_sha256": "aebd03abacc55ae28ff9dd9d0e47ecc241f88c66801e8e39cd90414553c8a719"
+    },
+    {
+      "run": "r2",
+      "trace_bytes": 2385595,
+      "trace_sha256": "4697ea8c9f1ce525ee9b52ee35914dad906e97149064773e0b2269671243e9ab",
+      "capture_status": "failed",
+      "complete_target_capture_claim": false,
+      "states": 442,
+      "observed_irq_boundaries": 0,
+      "cpu_sha256": "b93128b284b30111b21c226ade46ab1aea96430a0cb47213ac1545f5973654a5",
+      "clock_sha256": "636c83eefe7d297245f603d5b4542a5ff7dcdbbdbd67224ce670e75fc5842155"
+    }
+  ],
+  "cases": 2,
+  "states": 884,
+  "comparisons_in_two_modes": 1768,
+  "natural_irq_boundaries": 0,
+  "completed_interrupted_target_claim": false,
+  "raw_ram_published": false,
+  "raw_png_published": false,
+  "cpu_sha256": "46a0a859bf1f8cafbc358d7922d7b6fa45a6faa86e0d1f945d4e3ce24c1afee5",
+  "clock_sha256": "b17b7a4f8597eae9610156a1ec4b6eead1ac6628ef33016355d96276694257b3"
+}

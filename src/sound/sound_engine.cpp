@@ -216,7 +216,7 @@ std::vector<int16_t> SoundEngine::renderClockedSamples(size_t sampleCount) {
 void SoundEngine::applyClockedInterrupt() {
     ++soundClock_.interrupts;
     const SoundLatch before = soundLatch_;
-    const SoundInterruptAction action = advanceSoundInterrupt();
+    const SoundInterruptAction action = advanceSoundInterruptWorkOrdered();
     if (action.programTone) {
         lastPumpedSoundRecord_ = static_cast<int>(before.recordIndex);
         lastPumpedSoundOffset_ = before.latchedOffset;
@@ -260,7 +260,10 @@ uint64_t SoundEngine::skipClockedSamples(uint64_t sampleCount) {
             // overflow before division by the rational clock threshold.
             const uint64_t whole = sampleCount / threshold;
             const uint64_t partial = (sampleCount % threshold) * kPitClockRate + soundClock_.pitAccumulator;
-            soundClock_.interrupts += whole * kPitClockRate + partial / threshold;
+            const uint64_t interrupts = whole * kPitClockRate + partial / threshold;
+            soundClock_.interrupts += interrupts;
+            soundInterruptWork_.callbacks += interrupts;
+            soundInterruptWork_.dispatchedInstructions += interrupts * uint64_t{24};
             soundClock_.pitAccumulator = partial % threshold;
             soundClock_.renderedSamples += sampleCount;
             break;

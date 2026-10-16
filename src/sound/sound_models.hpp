@@ -184,4 +184,12 @@ struct SoundClockState {
     uint64_t renderedSamples = 0;
 };
 
+struct SoundInterruptWorkState {
+    // INT1C and CRT dispatches only, excluding BIOS wrapper and hardware delivery.
+    uint64_t callbacks = 0;
+    uint64_t dispatchedInstructions = 0;
+    uint64_t portReads = 0;
+    uint64_t portWrites = 0;
+};
+
 }  // namespace lezac::sound

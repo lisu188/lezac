@@ -273,6 +273,43 @@ class OriginalFramePacingTests(unittest.TestCase):
             with self.subTest(control=index), self.assertRaises(ValueError):
                 analyze(raw, changed)
 
+    def test_launch_command_and_path_binding(self):
+        raw = (FIXTURE / 'r2.csv').read_bytes()
+        recipe = json.loads((FIXTURE / 'r2-recipe.json').read_text())
+        controls = []
+        for key in ('dosbox_argv', 'dosbox_cwd', 'capture_argv'):
+            for value in (None, False, '', [], ['/tmp/evil'], '/unrelated'):
+                controls.append(dict(recipe, **{key: value}))
+            missing = dict(recipe)
+            del missing[key]
+            controls.append(missing)
+        for index in range(len(recipe['dosbox_argv'])):
+            changed = copy.deepcopy(recipe)
+            changed['dosbox_argv'][index] = '/tmp/evil'
+            controls.append(changed)
+        for index in range(len(recipe['capture_argv'])):
+            changed = copy.deepcopy(recipe)
+            changed['capture_argv'][index] = '/tmp/evil'
+            controls.append(changed)
+        for key in ('HOME', 'TMPDIR', 'LEZAC_PACING_TRACE'):
+            changed = copy.deepcopy(recipe)
+            changed['dosbox_environment'][key] = '/dev/shm/unrelated'
+            controls.append(changed)
+        for value in ('/dev/shm/x/../run', '/dev/shm//run', '/dev/shm/x y', '/dev/shm/x/./run',
+                      '/dev/shm/run/', '/dev/shm/run;evil', '/dev/shm/run\n'):
+            controls.append(dict(recipe, dosbox_cwd=value))
+        for key in ('dosbox_argv', 'capture_argv'):
+            changed = copy.deepcopy(recipe)
+            changed[key] = tuple(changed[key])
+            controls.append(changed)
+            changed = copy.deepcopy(recipe)
+            changed[key].append('extra')
+            controls.append(changed)
+        self.assertEqual(len(controls), 54)
+        for index, changed in enumerate(controls):
+            with self.subTest(control=index), self.assertRaises(ValueError):
+                analyze(raw, changed)
+
     def test_cli_rejects_invalid_recipe_without_publishing_report(self):
         recipe = json.loads((FIXTURE / 'r2-recipe.json').read_text())
         extra = dict(recipe['host_commands'][-1], command=['xdotool', 'key', '--clearmodifiers', 'Left'])
@@ -291,7 +328,9 @@ class OriginalFramePacingTests(unittest.TestCase):
                     ('assets', dict(recipe['assets'], **{'LIVELS.SCH': dict(recipe['assets']['LIVELS.SCH'], sha256='0' * 64)}),
                      'Canonical original asset differs'),
                     ('host_commands', [dict(command, stdout='bogus') if command['command'][1] == 'getwindowgeometry'
-                                      else command for command in recipe['host_commands']], 'Capture geometry output differs')]):
+                                      else command for command in recipe['host_commands']], 'Capture geometry output differs'),
+                    ('dosbox_argv', ['/tmp/evil'], 'DOSBox launch command differs'),
+                    ('dosbox_cwd', '/unrelated', 'DOSBox launch path differs')]):
                 output = folder / ('report' + str(index) + '.json')
                 bad_recipe.write_text(json.dumps(dict(recipe, **{key: value})))
                 command = [sys.executable, '-S', '-B', str(ROOT / 'tools/analyze_original_frame_pacing.py'),

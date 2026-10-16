@@ -6,7 +6,7 @@ import hashlib
 import io
 import json
 import math
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from original_capture_contract import ASSET_PINS, validate_geometry
 
@@ -28,6 +28,35 @@ CAPTURE_ENVIRONMENT = dict(PATH='/usr/bin:/bin', LANG='C.UTF-8', LC_ALL='C.UTF-8
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
+
+def validate_launch(recipe):
+    def ram_path(value):
+        require(type(value) is str and value.startswith('/dev/shm/') and
+                str(PurePosixPath(value)) == value and '..' not in PurePosixPath(value).parts and
+                all(character.isascii() and (character.isalnum() or character in '/._-') for character in value),
+                'DOSBox launch path differs')
+        return PurePosixPath(value)
+
+    cwd = ram_path(recipe.get('dosbox_cwd'))
+    capture = recipe.get('capture_argv')
+    require(type(capture) is list and len(capture) == 10 and all(type(value) is str for value in capture),
+            'DOSBox capture command differs')
+    repo, host = ram_path(capture[5]), ram_path(capture[7])
+    require(host.parts[-3:] == ('dosbox-0.74-3', 'src', 'dosbox'), 'DOSBox host command differs')
+    run = recipe.get('run')
+    require(type(run) is str and run.isascii() and run.isalnum(), 'DOSBox capture run differs')
+    require(capture == [str(repo / 'tools/frame_pacing_probe/capture.py'), '--inside-xvfb', '--run', run,
+                        '--repo', str(repo), '--dosbox', str(host), '--out', str(cwd)],
+            'DOSBox capture command differs')
+    argv = recipe.get('dosbox_argv')
+    require(type(argv) is list and argv == [str(host), '-conf', str(cwd / 'dosbox.conf'),
+                '-c', 'mount c ' + str(cwd / 'run'), '-c', 'c:', '-c', 'LEZAC.EXE'],
+            'DOSBox launch command differs')
+    env = recipe['dosbox_environment']
+    require(all(env.get(key) == str(cwd / suffix) for key, suffix in
+                [('HOME', 'home'), ('TMPDIR', 'tmp'), ('LEZAC_PACING_TRACE', 'guest-pacing.csv')]),
+            'DOSBox launch environment binding differs')
 
 
 def validate_input_commands(recipe):
@@ -106,6 +135,7 @@ def analyze(raw, recipe):
             all(type(value) is str and value for value in env.values()) and
             all(env[key] == value for key, value in CAPTURE_ENVIRONMENT.items()),
             'Unexpected emulator environment')
+    validate_launch(recipe)
     require(recipe['process_memory_writes'] == 0 and recipe['injected_instructions'] == 0 and
             recipe['process_pauses'] == 0 and recipe['record_file_fixture_seeded'] is False and
             recipe['clock_rng_or_heap_seeded'] is False and recipe['gameplay_state_seeded'] is False and

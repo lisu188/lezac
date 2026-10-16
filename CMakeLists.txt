@@ -183,6 +183,13 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_startup_timing_test tests/core/startup_timing_test.cpp)
+    target_link_libraries(lezac_startup_timing_test PRIVATE lezac_resources)
+    add_test(NAME startup_timing_original COMMAND lezac_startup_timing_test
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/startup_timing")
+    set_tests_properties(startup_timing_original PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "startup_timing_original=ok inputs=65536 accepted=299 functions=10 service_events=55 natural_startup=0 whole_game_parity=0")
     add_executable(lezac_cpp23_contract_test tests/core/cpp23_contract_test.cpp)
     add_test(NAME cpp23_standard_contract COMMAND lezac_cpp23_contract_test)
     add_executable(lezac_sdl_display_ownership_test
@@ -498,6 +505,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION "^render_state_boundary=ok repeat_pixels=1 nonblank=1 rng_unchanged=1 actor_order_unchanged=1 palette_unchanged=1 live_map_alias=1")
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME startup_timing_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_startup_timing_fixture.py)
+        set_tests_properties(startup_timing_fixture_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+    endif()
 
     add_executable(lezac_jolly_cloud_rain_test tests/gameplay/jolly_cloud_rain_test.cpp)
     target_include_directories(lezac_jolly_cloud_rain_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

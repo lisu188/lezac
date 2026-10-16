@@ -8,7 +8,8 @@
         "src/core/hud.hpp",
         "src/core/progress.cpp",
         "src/core/progress.hpp",
-        "src/core/random.hpp"
+        "src/core/random.hpp",
+        "src/core/startup_timing.hpp"
       ]
     },
     "resources": {

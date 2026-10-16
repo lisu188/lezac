@@ -1,0 +1,42 @@
+{
+  "schema": "lezac-dos-timer-frozen-v1",
+  "files": [
+    {
+      "name": "r1-trace.csv.gz",
+      "bytes": 39709,
+      "sha256": "d398a06395778261b1435136f51a6572bb5aebbb36a1f9b0278b1cce45565f27"
+    },
+    {
+      "name": "r1-recipe.json",
+      "bytes": 15993,
+      "sha256": "47d58314541988db58226216eed916a880a1a580b249b6455a4c8116f81881a4"
+    },
+    {
+      "name": "r2-trace.csv.gz",
+      "bytes": 39720,
+      "sha256": "b08847a2d94f8c630fa955cf9307cbafa8503a858ca23a7762f054e3c4d69682"
+    },
+    {
+      "name": "r2-recipe.json",
+      "bytes": 15978,
+      "sha256": "768ac5edcdcd65c568dd72f106668de20355bc62aa2b488f7e2ebe29aee492e2"
+    }
+  ],
+  "new_full_memory_calls": 20,
+  "legacy_interrupted_cpu_stack_calls": 1,
+  "legacy_irq_idle_from_branch_constraint": true,
+  "legacy_disk_inputs_scripted_unverified": true,
+  "legacy_initial_stack_below_sp_unobserved": true,
+  "legacy_stack_compared_only_after_known_inputs_or_computed_writes": true,
+  "fresh_captures_have_nested_irq": false,
+  "guest_state_writes": false,
+  "irq_instructions_skipped": false,
+  "shared_memory_clock_replayed": true,
+  "pic_schedule_replayed": false,
+  "elapsed_irq_time_replayed": false,
+  "sixteen_bit_register_projection": true,
+  "app_clock_integrated": false,
+  "whole_game_parity": false,
+  "synchronized_frame_parity": false,
+  "raw_ram_or_png_published": false
+}

@@ -21,6 +21,9 @@ tools/full_pacing_probe/*.patch -whitespace
 tests/fixtures/pacing_device_clock/** -text
 tools/pacing_clock_probe/** text eol=lf
 tools/pacing_clock_probe/*.patch -whitespace
+tests/fixtures/crt_keyboard/** -text
+tools/crt_keyboard_probe/** text eol=lf
+tools/crt_keyboard_probe/*.patch -whitespace
 tools/frame_display_probe/** text eol=lf
 tools/frame_display_probe/*.patch -whitespace
 tools/frame_clock_probe/** text eol=lf

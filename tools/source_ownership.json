@@ -5,6 +5,7 @@
       "runtime": [
         "src/core/constants.hpp",
         "src/core/crt_delay.hpp",
+        "src/core/crt_keyboard.hpp",
         "src/core/dos_time.hpp",
         "src/core/fixed_point.hpp",
         "src/core/frame_display.hpp",

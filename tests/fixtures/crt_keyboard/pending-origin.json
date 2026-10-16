@@ -1,0 +1,17 @@
+{
+  "cases": 510,
+  "pending_inputs": 255,
+  "original_executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "producer_sha256": "9ca5e89759f47ab5e8e8e613a72fef4dda852e5d7c13646a58f8e9d3163903cd",
+  "projection_sha256": "bee3faf3b021dd807e27c49e23449a7106ba0619c8cd7b4613108308c4514195",
+  "projection_bytes": 87222,
+  "compressed_sha256": "be646311e2ba64b471e7572ef5bb331b1722d7b57740623141205b0764cb6d04",
+  "compressed_bytes": 7467,
+  "unicorn": "2.1.4",
+  "original_calls_stubbed": false,
+  "instruction_patches": 0,
+  "read_hooks": false,
+  "separate_unobserved_control_endpoints_identical": true,
+  "full_endpoint_flags": true,
+  "natural_gameplay_claim": false
+}

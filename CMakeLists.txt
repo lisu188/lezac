@@ -197,6 +197,11 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION "frame_pacing_calculation_edges=ok boundaries=1008")
     add_executable(lezac_frame_clock_test tests/core/frame_clock_test.cpp)
     add_executable(lezac_pacing_device_clock_test tests/core/pacing_device_clock_test.cpp)
+    add_executable(lezac_crt_keyboard_test tests/core/crt_keyboard_test.cpp)
+    target_link_libraries(lezac_crt_keyboard_test PRIVATE lezac_core)
+    add_test(NAME crt_keyboard_unit COMMAND lezac_crt_keyboard_test)
+    set_tests_properties(crt_keyboard_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "crt_keyboard_unit=ok timer_boundaries=91 masked_boundaries=5")
     target_link_libraries(lezac_pacing_device_clock_test PRIVATE lezac_core)
     add_test(NAME pacing_device_clock_unit COMMAND lezac_pacing_device_clock_test)
     set_tests_properties(pacing_device_clock_unit PROPERTIES
@@ -629,6 +634,23 @@ if(BUILD_TESTING)
         set_tests_properties(pacing_device_clock_coupling_controls PROPERTIES FIXTURES_REQUIRED pacing_device_clock_corpus)
         add_test(NAME pacing_device_clock_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_pacing_device_clock_fixture.py)
+        add_test(NAME crt_keyboard_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_crt_keyboard_fixture.py
+                --cpu ${CMAKE_CURRENT_BINARY_DIR}/crt-keyboard-cpu.bin
+                --classification ${CMAKE_CURRENT_BINARY_DIR}/crt-keyboard-classification.bin
+                --pending ${CMAKE_CURRENT_BINARY_DIR}/crt-keyboard-pending.bin)
+        set_tests_properties(crt_keyboard_fixture_contract PROPERTIES FIXTURES_SETUP crt_keyboard_corpus)
+        add_test(NAME crt_keyboard_original COMMAND lezac_crt_keyboard_test --original ${CMAKE_CURRENT_BINARY_DIR}/crt-keyboard-cpu.bin)
+        set_tests_properties(crt_keyboard_original PROPERTIES FIXTURES_REQUIRED crt_keyboard_corpus
+            PASS_REGULAR_EXPRESSION "crt_keyboard_original=ok cases=6 comparisons=150")
+        add_test(NAME crt_keyboard_classification COMMAND lezac_crt_keyboard_test --classification ${CMAKE_CURRENT_BINARY_DIR}/crt-keyboard-classification.bin)
+        set_tests_properties(crt_keyboard_classification PROPERTIES FIXTURES_REQUIRED crt_keyboard_corpus
+            PASS_REGULAR_EXPRESSION "bios_keyboard_classification=ok inputs=65536")
+        add_test(NAME crt_keyboard_pending_oracle COMMAND lezac_crt_keyboard_test --pending-oracle ${CMAKE_CURRENT_BINARY_DIR}/crt-keyboard-pending.bin)
+        set_tests_properties(crt_keyboard_pending_oracle PROPERTIES FIXTURES_REQUIRED crt_keyboard_corpus
+            PASS_REGULAR_EXPRESSION "crt_keyboard_pending_oracle=ok cases=510 pending_inputs=255")
+        add_test(NAME crt_keyboard_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_crt_keyboard_fixture.py)
         add_test(NAME frame_display_instructions COMMAND lezac_frame_display_test --instructions
             ${CMAKE_CURRENT_BINARY_DIR}/frame-display-instructions.bin)
         set_tests_properties(frame_display_instructions PROPERTIES FIXTURES_REQUIRED frame_display_corpus

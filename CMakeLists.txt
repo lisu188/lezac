@@ -513,6 +513,18 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME original_capture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_original_capture_contract.py -v)
+        set_tests_properties(original_capture_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+        add_test(NAME original_interrupt_trace_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_original_interrupt_probe.py -v)
+        set_tests_properties(original_interrupt_trace_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
         add_test(NAME startup_timing_fixture_contract
             COMMAND ${Python3_EXECUTABLE} -S -B
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_startup_timing_fixture.py)

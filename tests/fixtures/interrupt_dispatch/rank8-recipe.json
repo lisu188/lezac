@@ -1,0 +1,830 @@
+{
+  "schema": "lezac-instrumented-irq-chain-v1",
+  "status": "observed",
+  "run": "rank8r6",
+  "case": "rank8",
+  "assets": {
+    "BOMOMIMK.SPR": {
+      "bytes": 20168,
+      "sha256": "08dfd0e59ba191c52af2529bdfa140fd15a57829f0c6c13bbb78e156769ac0d1"
+    },
+    "BOMPAL.PAL": {
+      "bytes": 768,
+      "sha256": "f2559164074ca529ba6c275a9831b11c6da9e6317f09b3d9228c299d6f8f8319"
+    },
+    "CARO.CAR": {
+      "bytes": 8450,
+      "sha256": "949cce4db6071d6675a291c978d725c6e4ee1730b2c7a428bc1c8a8185cbd8d8"
+    },
+    "ENGLISH.DOC": {
+      "bytes": 3522,
+      "sha256": "e2fd2f2521b0277f2fca0c8f2a265408412542932bb6e977bf1ab3d0aabdfed9"
+    },
+    "FONTS.SPR": {
+      "bytes": 5425,
+      "sha256": "f65aa9bbba2a66ee69f1b279a32c448e36012feb53441fbbb8e64e31bee87a0e"
+    },
+    "GRAN.MST": {
+      "bytes": 399,
+      "sha256": "3f0cf17706d557ca863d6e39bfa6641fba777a88815ba3f0a22e5ac89e0e39e2"
+    },
+    "ITALIANO.DOC": {
+      "bytes": 4392,
+      "sha256": "5ea7481d3179e60b6f1229aa114dc4b47c95f7c1200c7888ad5c259f161317c1"
+    },
+    "LEZAC.EXE": {
+      "bytes": 52384,
+      "sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
+    },
+    "LIVELS.SCH": {
+      "bytes": 41047,
+      "sha256": "d8b553871014108515d6af05b0853de8ccc22e4d3e44d63533ba1167fdc8c7b2"
+    },
+    "PROEFS.SON": {
+      "bytes": 782,
+      "sha256": "b5bc702a27ac85554cc76a62fced07567921b07d5c16f2027a62fbc956df701d"
+    },
+    "PROVA.SPR": {
+      "bytes": 21250,
+      "sha256": "d6d6b634f8613251f6e82e9a15c5c68e2be437892bfa25c53eb4bcd9094188b7"
+    },
+    "RECS.DAT": {
+      "bytes": 92,
+      "sha256": "27197ebb56fb339e4d41baf6ad5282cd79bb66b642c81ae406e607a263c80eb8"
+    },
+    "SETUP.LOG": {
+      "bytes": 566,
+      "sha256": "4c86cd7436be442663b10b1425bbcd7a179b7955b67c23632bf20a8180144a14"
+    },
+    "SFONLEF.ZBG": {
+      "bytes": 34292,
+      "sha256": "b1b7cc03122510318c1a3670f151712406e9e3fa60aabd8fb558320766c3835c"
+    }
+  },
+  "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "dosbox_sha256": "b2ecf617bea4c1b31ba7da8845b31f448bd0018c6ba60d6fe37fff8d9de9d5a3",
+  "producer_sha256": "dca6bd8da6d78130db8f570215ab2208e84e423ec0360601c9eef12af274be1a",
+  "samples": [
+    {
+      "name": "main",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 0,
+      "frame_counter": 0,
+      "bios_ticks": 847034,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "1b633b347bd1153bd550b12bef40e0bc24ef99ae980e296fb7e0bd0cc3831ceb",
+      "ram_gzip_sha256": "f876b95c8c1520c5bf9280761e22ab6ca2065c001a6eaef32ff10b8ed69e00d4",
+      "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+      "pixels_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 21.16486044600242,
+      "monotonic_after": 21.207643197001744,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "intro",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 0,
+      "bios_ticks": 847109,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "50b858b08d202792795fb26e3ff98abc4a3e3a4077642d09112c95f2e85df2e3",
+      "ram_gzip_sha256": "742e1136994f82f4043507ec43ac8526f25573241c6abbfe41de6fbe45a67952",
+      "png_sha256": "5d6f96052178be34b76000a7dd8b293475f432fa3ff9ee2ce342950a5d5fc706",
+      "pixels_sha256": "93796cc02d96b3050d90e1187f86d7f90bfca2bba91a266a818f261acb9a0cfb",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 25.22954976099936,
+      "monotonic_after": 25.265754799002025,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "gameplay",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 12,
+      "bios_ticks": 847129,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "ac03ca54957c41fced6c246d89fb3b17e02b13702d454fc276239fa47e300d43",
+      "ram_gzip_sha256": "6d5faad14ead95fa7ac794ae7583bcc691b227b91ad01a19cf1e7fc1c6edd064",
+      "png_sha256": "d679ed4fefff372380b9410b3b312ca4fd2a0217de5d2ddb2d5945a72cd1c170",
+      "pixels_sha256": "ab6d557883bd49fd476753f8d5e07ba4dc2c3baf77011f4d6e523c2529d9e3fa",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 26.285381962999963,
+      "monotonic_after": 26.32746206700176,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "game-over",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "bios_ticks": 847223,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "5417af78cc75decc42051f07b3de15794d419c61d60d65e24ecf1b2351a60b9d",
+      "ram_gzip_sha256": "fe2c529ab1fbae37fc2d80e751d1d301c66b37c3258d202d7c9a3fbacf939ecf",
+      "png_sha256": "575200187f00990004b0c02717cb162c238c3abb742452621ae9761b47374ca6",
+      "pixels_sha256": "228c680fb2453c83f19110ea0df9a006de6053c45be015016fa868b7948ab856",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 31.34801931200127,
+      "monotonic_after": 31.391997398000967,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "record-prompt",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "bios_ticks": 847503,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "f337aedf0636305db82cb233df8b1dcbe400e5dba4057e2658c7df98c8333039",
+      "ram_gzip_sha256": "25325134739a625c53ae79040cce78192f92b6d00ee68af2c80774f1b9cec861",
+      "png_sha256": "21cbcb90791096abc9fb1fa1676f647cbcfe2531279cafd6945bf20c46d310e2",
+      "pixels_sha256": "a6a56e1d12e0d950a0d0e328e0614732fe1ca80fa633a7af788deb25a00922df",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 46.412950062000164,
+      "monotonic_after": 46.45279270800165,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "player1-q",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "bios_ticks": 847508,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "bfcdec4538a537e9bc4f97e3ecdc5e76fb607a1a2ff839f4244df2d3074f7df2",
+      "ram_gzip_sha256": "89c9479f08bc8ef24638c6edb0d55b9a4391b8c0c39ba5a70368b7d83e7ccff1",
+      "png_sha256": "157f82f1f55ba333904462340c075f8a06471ce5cb2a86274931f55a2cfe56dc",
+      "pixels_sha256": "8dd75c8f7cf7c91d19b88389ace65aa064c7b03e27d6b397442e135117dbe295",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 46.67663661200277,
+      "monotonic_after": 46.71612322500005,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "after-commit",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "bios_ticks": 847509,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "slot8_bytes": "0000000008713a3a3a3a3a3a3a",
+      "ram_sha256": "d0f7a1cc4f0875e4b2a3de9a84121a7e13751912892bcfed100e645296ae3a15",
+      "ram_gzip_sha256": "0628bd6d436d57068790bbc1808c4b2a16a882028bda1ed0e2125bc8ba2f1d11",
+      "png_sha256": "02526498a264be98499e77fed2213413a06ae97c8c3957574495f4e24b794646",
+      "pixels_sha256": "1a56886632f175cf75b332df921170fb90180f608ee1254ef50874435a74cb2a",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 49.7374630459999,
+      "monotonic_after": 49.77969197100174,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "after-r",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "bios_ticks": 847509,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "slot8_bytes": "0000000008713a3a3a3a3a3a3a",
+      "ram_sha256": "d0f7a1cc4f0875e4b2a3de9a84121a7e13751912892bcfed100e645296ae3a15",
+      "ram_gzip_sha256": "0628bd6d436d57068790bbc1808c4b2a16a882028bda1ed0e2125bc8ba2f1d11",
+      "png_sha256": "02526498a264be98499e77fed2213413a06ae97c8c3957574495f4e24b794646",
+      "pixels_sha256": "1a56886632f175cf75b332df921170fb90180f608ee1254ef50874435a74cb2a",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 50.001010284002405,
+      "monotonic_after": 50.04095843899995,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "after-return",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "bios_ticks": 847509,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "slot8_bytes": "0000000008713a3a3a3a3a3a3a",
+      "ram_sha256": "d0f7a1cc4f0875e4b2a3de9a84121a7e13751912892bcfed100e645296ae3a15",
+      "ram_gzip_sha256": "0628bd6d436d57068790bbc1808c4b2a16a882028bda1ed0e2125bc8ba2f1d11",
+      "png_sha256": "02526498a264be98499e77fed2213413a06ae97c8c3957574495f4e24b794646",
+      "pixels_sha256": "1a56886632f175cf75b332df921170fb90180f608ee1254ef50874435a74cb2a",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 50.56176325300112,
+      "monotonic_after": 50.602000743001554,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "after-wait",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "bios_ticks": 847509,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "slot8_bytes": "0000000008713a3a3a3a3a3a3a",
+      "ram_sha256": "d0f7a1cc4f0875e4b2a3de9a84121a7e13751912892bcfed100e645296ae3a15",
+      "ram_gzip_sha256": "0628bd6d436d57068790bbc1808c4b2a16a882028bda1ed0e2125bc8ba2f1d11",
+      "png_sha256": "02526498a264be98499e77fed2213413a06ae97c8c3957574495f4e24b794646",
+      "pixels_sha256": "1a56886632f175cf75b332df921170fb90180f608ee1254ef50874435a74cb2a",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 52.603056324001955,
+      "monotonic_after": 52.64143387700096,
+      "ram_rgb_cpu_atomic": false
+    }
+  ],
+  "events": [
+    {
+      "key": "1",
+      "observed_utc": "2026-10-16T10:55:23.618644+00:00",
+      "monotonic_before": 21.20822472800137,
+      "monotonic_after": 21.229483843002527
+    },
+    {
+      "key": "Return",
+      "observed_utc": "2026-10-16T10:55:27.674464+00:00",
+      "monotonic_before": 25.266468846999487,
+      "monotonic_after": 25.28530332000082
+    },
+    {
+      "key": "Escape",
+      "observed_utc": "2026-10-16T10:55:28.737124+00:00",
+      "monotonic_before": 26.328196425001806,
+      "monotonic_after": 26.347962670002744
+    },
+    {
+      "key": "1",
+      "observed_utc": "2026-10-16T10:55:33.802033+00:00",
+      "monotonic_before": 31.392759086000297,
+      "monotonic_after": 31.412870989999647
+    },
+    {
+      "key": "q",
+      "observed_utc": "2026-10-16T10:55:49.410555+00:00",
+      "monotonic_before": 46.453643640001246,
+      "monotonic_after": 46.47657106200131
+    },
+    {
+      "key": "Return",
+      "observed_utc": "2026-10-16T10:55:49.671418+00:00",
+      "monotonic_before": 46.716883827000856,
+      "monotonic_after": 46.73743386199931
+    },
+    {
+      "key": "r",
+      "observed_utc": "2026-10-16T10:55:52.734899+00:00",
+      "monotonic_before": 49.780592188999435,
+      "monotonic_after": 49.80091715900198
+    },
+    {
+      "key": "Return",
+      "observed_utc": "2026-10-16T10:55:52.995663+00:00",
+      "monotonic_before": 50.041868839001836,
+      "monotonic_after": 50.06168015200092
+    }
+  ],
+  "capture_contract_sha256": "36e27f3441ae98db6e2a459ca64c561b72c964e1e98de854ca416321c33c33e0",
+  "host_instrumented": true,
+  "host_probe_guest_register_writes": 0,
+  "host_probe_guest_memory_writes": 0,
+  "original_executable_changed": false,
+  "natural_wall_clock_fidelity_claim": false,
+  "trace_clock": "normal-core fixed-cycle budget, sampled before decode",
+  "trace_dispatch": "normal-core iterations; REP may charge multiple cycles per iteration",
+  "record_file_fixture_seeded": true,
+  "fixture_scores": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "configured_players": 1,
+  "audio": "dummy",
+  "process_memory_opened_read_only": true,
+  "process_memory_writes": 0,
+  "injected_instructions": 0,
+  "process_pauses": 0,
+  "gameplay_state_seeded": false,
+  "clock_rng_or_heap_seeded": false,
+  "cpu_memory_frame_atomic": false,
+  "complete_frame_sequence_claim": false,
+  "whole_game_complete": false,
+  "host_commands": [
+    {
+      "command": [
+        "xdotool",
+        "search",
+        "--pid",
+        "82821",
+        "--name",
+        "DOSBox"
+      ],
+      "exit_code": 0,
+      "stdout": "6291464\n",
+      "stderr": "",
+      "monotonic_before": 1.1415624200017191,
+      "monotonic_after": 1.1479690660016786
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 1.1487884750022204,
+      "monotonic_after": 1.162618365000526
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 21.165278045002196,
+      "monotonic_after": 21.16815294600019
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 21.20822698700067,
+      "monotonic_after": 21.21094006400017
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "1"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 21.21177812500173,
+      "monotonic_after": 21.228744111002015
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 25.22998202999952,
+      "monotonic_after": 25.232881857002212
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 25.266471090999403,
+      "monotonic_after": 25.26875758499955
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "Return"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 25.269532431000698,
+      "monotonic_after": 25.28444230900277
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 26.285799591001705,
+      "monotonic_after": 26.288305541002046
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 26.328199142000813,
+      "monotonic_after": 26.330556248001812
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "Escape"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 26.331357311999454,
+      "monotonic_after": 26.346990602000005
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 31.348424735999288,
+      "monotonic_after": 31.350901564001106
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 31.39276124400203,
+      "monotonic_after": 31.395049661001394
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "1"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 31.39588326900048,
+      "monotonic_after": 31.411952321999706
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 46.413317130001815,
+      "monotonic_after": 46.41600667100283
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 46.45364605600116,
+      "monotonic_after": 46.45710501600115
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "q"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 46.45799363799961,
+      "monotonic_after": 46.47557576500185
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 46.67702037900017,
+      "monotonic_after": 46.68006448100277
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 46.71688593500221,
+      "monotonic_after": 46.71973158699984
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "Return"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 46.72055315699981,
+      "monotonic_after": 46.736538418001146
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 49.737841131001915,
+      "monotonic_after": 49.74235843600036
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 49.780594742001995,
+      "monotonic_after": 49.78295401700234
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "r"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 49.783967424002185,
+      "monotonic_after": 49.79986209400158
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 50.0014379580025,
+      "monotonic_after": 50.00410076499975
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 50.04187125500175,
+      "monotonic_after": 50.04411480800263
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "Return"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 50.045123059000616,
+      "monotonic_after": 50.06057611900178
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 50.56216106600186,
+      "monotonic_after": 50.56525134700132
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 52.60344755500046,
+      "monotonic_after": 52.6060154020015
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "ctrl+F9"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 52.64316435500223,
+      "monotonic_after": 52.67106841799978
+    }
+  ],
+  "input_injection_failures": [],
+  "capture_argv": [
+    "/dev/shm/lezac-interrupt-runtime-t195/tools/original_interrupt_probe/capture.py",
+    "--inside-xvfb",
+    "--run",
+    "rank8r6",
+    "--case",
+    "rank8",
+    "--repo",
+    "/dev/shm/lezac-interrupt-runtime-t195",
+    "--dosbox",
+    "/dev/shm/lezac-irq-oracle-t195-r2/dosbox-0.74-3/src/dosbox",
+    "--out",
+    "/dev/shm/lezac-irq-original-t195-rank8-r6"
+  ],
+  "host_build": {
+    "base_host_sha256": "4d8eaba9db5e3f733b49c35f191eff98f1f5730035f7374c5c703693a080c8ac",
+    "base_cpu_sha256": "4aa44efa8c6d8788f23d6bcc29d24beb4a4123d3e442b51f03a03bdbdf8c6516",
+    "cpu_source_unchanged": true,
+    "probe_sha256": "99e7e5163d97fdd94fae55bb0b9aa03f7c5fc42c59cdc531e370758c49e10231",
+    "source_filesystem": "tmpfs",
+    "output_filesystem": "tmpfs",
+    "guest_instruction_patches": 0,
+    "host_instrumented": true,
+    "copied_build_products": true,
+    "external_sdk": "/dev/shm/lezac-work-oracle-t190/sdk",
+    "build_exit": 0,
+    "host_sha256": "b2ecf617bea4c1b31ba7da8845b31f448bd0018c6ba60d6fe37fff8d9de9d5a3"
+  },
+  "probe_pre_decode": true,
+  "arithmetic_flags_claim": false,
+  "vga_snapshot_format": "64000 chained-VGA indices via ((i & ~3) << 2) + (i & 3), then 256 RGB DAC triples",
+  "vga_snapshot_profile": "M_VGA, chained, compatible_chain4, pel_mask=255",
+  "vga_guest_read_latch_accesses": 0,
+  "vga_pre_decode_boundary_claim": true,
+  "screen_pixels_synchronous_with_probe_claim": false,
+  "dosbox_argv": [
+    "/dev/shm/lezac-irq-oracle-t195-r2/dosbox-0.74-3/src/dosbox",
+    "-conf",
+    "/dev/shm/lezac-irq-original-t195-rank8-r6/dosbox.conf",
+    "-c",
+    "mount c /dev/shm/lezac-irq-original-t195-rank8-r6/run",
+    "-c",
+    "c:",
+    "-c",
+    "LEZAC.EXE"
+  ],
+  "dosbox_cwd": "/dev/shm/lezac-irq-original-t195-rank8-r6",
+  "dosbox_environment": {
+    "PATH": "/usr/bin:/bin",
+    "HOME": "/dev/shm/lezac-irq-original-t195-rank8-r6/home",
+    "TMPDIR": "/dev/shm/lezac-irq-original-t195-rank8-r6/tmp",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "DISPLAY": ":99",
+    "XAUTHORITY": "/dev/shm/xvfb-run.Bkxkow/Xauthority",
+    "SDL_VIDEODRIVER": "x11",
+    "SDL_AUDIODRIVER": "dummy",
+    "LEZAC_IRQ_TRACE": "/dev/shm/lezac-irq-original-t195-rank8-r6/guest-irq.csv"
+  },
+  "dosbox_config": "[sdl]\nfullscreen=false\noutput=surface\n[render]\nframeskip=0\naspect=false\nscaler=none\n[cpu]\ncore=normal\ncycles=fixed 6000\n[mixer]\nnosound=true\n[speaker]\npcspeaker=false\n[sblaster]\nsbtype=none\n[midi]\nmpu401=none\nmididevice=none\n",
+  "environment_is_complete": true,
+  "child_pid": 82821,
+  "private_display_autorepeat_command": {
+    "command": [
+      "xset",
+      "r",
+      "off"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "code_segment": 417,
+  "data_segment": 3139,
+  "ram_base": 140185656356880,
+  "private_xvfb_autorepeat_disabled": true,
+  "passed": true,
+  "child_exit_code": 0,
+  "trace_bytes": 359342,
+  "trace_sha256": "c75cb9b87b05774e8fae941b807dfb24a9e5a4c58e0c91a9b9c3cbafbaf75942",
+  "trace_end_marker": true,
+  "canonical_assets_unchanged": true,
+  "vga_snapshots": [
+    {
+      "name": "guest-irq.csv.vga-00.bin",
+      "bytes": 64768,
+      "sha256": "5fafa89d6f270d0693b450396dc2b1e8d70cc683bc7ce9c834f9a24049622eab"
+    },
+    {
+      "name": "guest-irq.csv.vga-01.bin",
+      "bytes": 64768,
+      "sha256": "5fafa89d6f270d0693b450396dc2b1e8d70cc683bc7ce9c834f9a24049622eab"
+    },
+    {
+      "name": "guest-irq.csv.vga-02.bin",
+      "bytes": 64768,
+      "sha256": "5fafa89d6f270d0693b450396dc2b1e8d70cc683bc7ce9c834f9a24049622eab"
+    }
+  ]
+}

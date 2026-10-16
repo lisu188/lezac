@@ -1,0 +1,33 @@
+[
+  {
+    "case": "rank8",
+    "trace_rows": 1235,
+    "predecode_guest_state_claim": true,
+    "arithmetic_flags_claim": false,
+    "vga_files_verified": false,
+    "full_app_claim": false,
+    "whole_game_parity": false,
+    "destination": 39578,
+    "columns_remaining": 102,
+    "row_start": 39360,
+    "rows_remaining": 77,
+    "corrupt_call_ip": 4424,
+    "corrupt_target_cs": 2048,
+    "corrupt_target_ip": 0,
+    "first_fault_dispatch": 279533791,
+    "fault_ip": 63129,
+    "exception_entries": 65,
+    "frozen_rgb_sha256": "1a56886632f175cf75b332df921170fb90180f608ee1254ef50874435a74cb2a",
+    "bios_ticks_frozen": true
+  },
+  {
+    "case": "rank7",
+    "trace_rows": 517,
+    "predecode_guest_state_claim": true,
+    "arithmetic_flags_claim": false,
+    "vga_files_verified": false,
+    "full_app_claim": false,
+    "whole_game_parity": false,
+    "bios_ticks_frozen": false
+  }
+]

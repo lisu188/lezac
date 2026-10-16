@@ -52,6 +52,7 @@ add_library(lezac_rendering STATIC
     src/rendering/game_renderer.cpp
     src/rendering/hud_renderer.cpp
     src/rendering/menu_renderer.cpp
+    src/rendering/pattern_fill.cpp
     src/rendering/presentation_state.cpp
     src/rendering/canvas.cpp
     src/rendering/text_renderer.cpp
@@ -183,6 +184,12 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_pattern_fill_test tests/rendering/pattern_fill_test.cpp)
+    target_link_libraries(lezac_pattern_fill_test PRIVATE lezac_rendering)
+    add_test(NAME pattern_fill_unit COMMAND lezac_pattern_fill_test)
+    set_tests_properties(pattern_fill_unit PROPERTIES
+        TIMEOUT 180 ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^pattern_fill=ok patterns=6400 compared_pixels=409600000 budgets=9 original_cursor_cases=3 semantic_stages=3 invalid_inputs=6 timing_claim=0")
     add_executable(lezac_cpp23_contract_test tests/core/cpp23_contract_test.cpp)
     add_test(NAME cpp23_standard_contract COMMAND lezac_cpp23_contract_test)
     add_executable(lezac_sdl_display_ownership_test
@@ -498,6 +505,21 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION "^render_state_boundary=ok repeat_pixels=1 nonblank=1 rng_unchanged=1 actor_order_unchanged=1 palette_unchanged=1 live_map_alias=1")
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
+
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME pattern_fill_original COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pattern_fill_original.py
+            --exe $<TARGET_FILE:lezac_cpp>
+            --fixture ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/pattern_fill_original.json
+            --out ${CMAKE_CURRENT_BINARY_DIR}/pattern-fill-original)
+        add_test(NAME pattern_fill_checker COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_pattern_fill_checker.py)
+        set_tests_properties(pattern_fill_original pattern_fill_checker PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 180
+            ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+        set_tests_properties(pattern_fill_original PROPERTIES
+            PASS_REGULAR_EXPRESSION "^pattern_fill_original=ok invocations=2 original_frames=6 verified_rgb_bytes=1152000 cursor_cases=6 first_evidence_unchanged=1 actual_app_fixture=1 natural_timing_claim=0")
+    endif()
 
     add_executable(lezac_jolly_cloud_rain_test tests/gameplay/jolly_cloud_rain_test.cpp)
     target_include_directories(lezac_jolly_cloud_rain_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

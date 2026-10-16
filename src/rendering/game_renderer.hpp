@@ -2,6 +2,7 @@
 
 #include "rendering/canvas.hpp"
 #include "rendering/presentation_state.hpp"
+#include "rendering/pattern_fill.hpp"
 #include "rendering/render_views.hpp"
 #include "rendering/text_renderer.hpp"
 #include "resources/asset_catalog.hpp"
@@ -22,6 +23,10 @@ public:
     void drawLevelIntro(int levelIndex, const ui::LevelIntroPattern& pattern, size_t visibleCharacters);
     void drawLevelOutro(const OutroView& outro);
     void drawPauseOverlay();
+    void beginPatternBackground(const ui::LevelIntroPattern& pattern) { patternFill_.begin(pattern); }
+    size_t advancePatternBackground(size_t pixels) { return patternFill_.advancePixels(canvas_, pixels); }
+    size_t advancePatternBackgroundStages(size_t stages) { return patternFill_.advanceStages(canvas_, stages); }
+    PatternFillCursor patternBackgroundCursor() const { return patternFill_.cursor(); }
     bool isBossActor(const gameplay::ActiveMonster& monster) const;
     const resources::SpriteBank& monsterSpriteBank(const gameplay::ActiveMonster& monster) const;
     int monsterSpriteIndex(const gameplay::ActiveMonster& monster) const;
@@ -30,6 +35,8 @@ public:
     int nameEntryCursorSlot(const std::string& name) const;
     int nameEntrySlotX(int slot) const;
 private:
+    void drawPatternBackground(const ui::LevelIntroPattern& pattern);
+    PatternFill patternFill_;
     Canvas& canvas_;
     TextRenderer& text_;
     const resources::AssetCatalog& assets_;

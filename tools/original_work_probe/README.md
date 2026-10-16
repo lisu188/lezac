@@ -66,6 +66,9 @@ python3 -S -B tools/test_original_work_clock.py -v
 The analyzer never overwrites an existing report. The fixtures establish bounded
 CPU-work facts only; live C++ scheduling and full frame-level fidelity still need
 independent original-backed runtime validation.
+Recipe mode binds the recorded trace size and SHA256 to the uncompressed bytes
+actually analyzed. It rejects cross-run recipe/trace combinations and only emits
+`capture_recipe_verified=true` after that check succeeds.
 
 Acquire a fresh, fully audited run after building the pinned host:
 

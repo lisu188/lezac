@@ -259,6 +259,8 @@
   "canonical_assets_unchanged": true,
   "child_exit_code": 0,
   "audio": "dummy",
+  "trace_bytes": 2165567,
+  "trace_sha256": "2597ca014e1fc19c66b4bead68329bdf8c33c57a8d0febefdfd2fd9f80b2de7f",
   "record_fixture_hex": "0700000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
   "dosbox_config": "[sdl]\nfullscreen=false\noutput=surface\n[render]\nframeskip=0\naspect=false\nscaler=none\n[cpu]\ncore=normal\ncycles=fixed 6000\n[mixer]\nnosound=true\n[speaker]\npcspeaker=false\n[sblaster]\nsbtype=none\n[midi]\nmpu401=none\nmididevice=none\n",
   "environment_is_complete": false,

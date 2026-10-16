@@ -7,6 +7,8 @@ import hashlib
 import io
 import json
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -14,7 +16,7 @@ from analyze_original_work_clock import analyze, COLUMNS, read_rows, validate_ca
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / 'tests/fixtures/original_work_clock'
-MANIFEST_SHA = '4dcdf07d1e22d6499cce511afd3a44e246716360575e859788b40d8713d2d4e4'
+MANIFEST_SHA = '89b94118713a8c73e22c32cd4e7115e3fc8f3ef86ae30ff54afb1a1daef99dc1'
 sha = lambda raw: hashlib.sha256(raw).hexdigest()
 
 class WorkClockTests(unittest.TestCase):
@@ -69,14 +71,22 @@ class WorkClockTests(unittest.TestCase):
             raw = (FIXTURES / run['recipe']).read_bytes()
             self.assertEqual(sha(raw), run['recipe_sha256'])
             recipe = json.loads(raw)
+            _, trace_raw = read_rows(FIXTURES / run['trace'])
             recipes[run['name']] = recipe
             if run['name'] in self.manifest['auditable_capture_runs']:
-                validate_capture_recipe(recipe)
+                validate_capture_recipe(recipe, trace_raw)
                 self.assertEqual(recipe['producer_sha256'], self.manifest['audit_capture_producer_sha256'])
             else:
                 self.assertTrue(recipe['inherited_environment_was_not_recorded'])
                 with self.assertRaisesRegex(ValueError, 'Incomplete capture environment'):
-                    validate_capture_recipe(recipe)
+                    validate_capture_recipe(recipe, trace_raw)
+        for name in ('r3', 'r4'):
+            result = analyze(FIXTURES / (name + '.csv.gz'), recipe=recipes[name])
+            self.assertTrue(result['capture_recipe_verified'])
+            self.assertEqual(result['capture_recipe_run'], name)
+            other = 'r4' if name == 'r3' else 'r3'
+            with self.assertRaisesRegex(ValueError, 'Recipe does not match analyzed trace'):
+                analyze(FIXTURES / (other + '.csv.gz'), recipe=recipes[name])
         controls = []
         recipe = copy.deepcopy(recipes['r3'])
         recipe['environment_is_complete'] = False
@@ -99,9 +109,41 @@ class WorkClockTests(unittest.TestCase):
         recipe = copy.deepcopy(recipes['r3'])
         recipe['input_injection_failures'].append({'error': 'injected test failure'})
         controls.append(recipe)
+        recipe = copy.deepcopy(recipes['r3'])
+        recipe['trace_sha256'] = '0' * 64
+        controls.append(recipe)
+        recipe = copy.deepcopy(recipes['r3'])
+        recipe['trace_bytes'] += 1
+        controls.append(recipe)
+        _, trace_raw = read_rows(FIXTURES / 'r3.csv.gz')
         for index, recipe in enumerate(controls):
             with self.subTest(index=index), self.assertRaises(ValueError):
-                validate_capture_recipe(recipe)
+                validate_capture_recipe(recipe, trace_raw)
+
+    def test_recipe_cli_binding_and_retention(self):
+        with tempfile.TemporaryDirectory(prefix='lezac-work-cli-') as directory:
+            directory = Path(directory)
+            recipe = FIXTURES / 'r3-recipe.json'
+            script = ROOT / 'tools/analyze_original_work_clock.py'
+            output = directory / 'matched.json'
+            result = subprocess.run([sys.executable, '-S', '-B', str(script),
+                str(FIXTURES / 'r3.csv.gz'), str(output), '--recipe', str(recipe)],
+                capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(json.loads(output.read_text())['capture_recipe_verified'])
+            retained = output.read_bytes()
+            mismatch = directory / 'mismatched.json'
+            result = subprocess.run([sys.executable, '-S', '-B', str(script),
+                str(FIXTURES / 'r4.csv.gz'), str(mismatch), '--recipe', str(recipe)],
+                capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Recipe does not match analyzed trace', result.stderr)
+            self.assertFalse(mismatch.exists())
+            result = subprocess.run([sys.executable, '-S', '-B', str(script),
+                str(FIXTURES / 'r3.csv.gz'), str(output), '--recipe', str(recipe)],
+                capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(output.read_bytes(), retained)
 
     def test_raw_and_compressed_profiles_match(self):
         with tempfile.TemporaryDirectory(prefix='lezac-work-clock-') as directory:
@@ -186,6 +228,10 @@ class WorkClockTests(unittest.TestCase):
             path = Path(directory) / 'oversized.csv.gz'
             path.write_bytes(gzip.compress(b'x' * (6 * 1024 * 1024 + 1), mtime=0))
             with self.assertRaisesRegex(ValueError, 'Expanded trace exceeds size limit'):
+                analyze(path)
+            path = Path(directory) / 'oversized.csv'
+            path.write_bytes(b'x' * (6 * 1024 * 1024 + 1))
+            with self.assertRaisesRegex(ValueError, 'Trace file exceeds size limit'):
                 analyze(path)
 
 if __name__ == '__main__':

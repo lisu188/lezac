@@ -122,6 +122,15 @@ the full configuration, every checked xdotool command and exit status, timed key
 events, and all seven timed checkpoints. Both have zero input-injection failures
 and successful host-command exit statuses. Xauthority file contents are not
 published. Unrelated inherited host variables were not passed to the emulator.
-Seven recipe rejection controls cover missing environment/commands/events and
+Nine recipe rejection controls cover missing environment/commands/events, stale
+trace hashes and sizes, and
 reported input failures. The fresh runs independently repeat the same work profile
 and the 81-versus-82 calibrated-delay variation.
+
+Review of head `e43713a4eb` found that recipe validation was independent of the
+trace being analyzed. Recipes now retain the capture's uncompressed CSV size and
+SHA256. `analyze(..., recipe=...)` verifies both against the exact expanded bytes
+used for analysis; the CLI uses that same path. Reports identify verified recipes
+explicitly. Both r3/r4 cross-run mix-ups are rejected, a failed CLI match creates
+no success report, and existing reports remain unchanged on retry. Plain-file
+reads and gzip expansion are both bounded before parsing.

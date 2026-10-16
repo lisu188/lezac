@@ -22,7 +22,8 @@ def require(condition, message):
         raise ValueError(message)
 
 def read_rows(path):
-    raw = path.read_bytes()
+    with path.open('rb') as stream:
+        raw = stream.read(6 * 1024 * 1024 + 1)
     require(len(raw) <= 6 * 1024 * 1024, 'Trace file exceeds size limit')
     if path.suffix == '.gz':
         with gzip.GzipFile(fileobj=io.BytesIO(raw)) as stream:
@@ -67,7 +68,7 @@ def read_rows(path):
 def delta(begin, end, key='exclusive_dispatch'):
     return end[key] - begin[key]
 
-def validate_capture_recipe(recipe):
+def validate_capture_recipe(recipe, trace_raw):
     require(recipe.get('environment_is_complete') is True, 'Incomplete capture environment')
     environment = recipe.get('dosbox_environment', {})
     require(set(environment) == {'PATH', 'HOME', 'TMPDIR', 'LANG', 'LC_ALL', 'DISPLAY',
@@ -102,9 +103,14 @@ def validate_capture_recipe(recipe):
     require([item['name'] for item in recipe.get('samples', [])] ==
         ['main', 'intro', 'gameplay', 'game-over', 'record-prompt', 'player1-q', 'after-commit'],
         'Missing capture checkpoints')
+    require(recipe.get('trace_bytes') == len(trace_raw)
+            and recipe.get('trace_sha256') == hashlib.sha256(trace_raw).hexdigest(),
+            'Recipe does not match analyzed trace')
 
-def analyze(path):
+def analyze(path, recipe=None):
     rows, raw = read_rows(path)
+    if recipe is not None:
+        validate_capture_recipe(recipe, raw)
     pages = collections.defaultdict(list)
     irq_stack = []
     delay = None
@@ -224,13 +230,16 @@ def analyze(path):
     groups = collections.defaultdict(list)
     for row in delays:
         groups[(row['argument'], row['calibration'], row['dispatches'])].append(row['cycle_clock'])
-    return dict(schema='lezac-normal-core-work-profile-v1', trace_sha256=hashlib.sha256(raw).hexdigest(),
+    result = dict(schema='lezac-normal-core-work-profile-v1', trace_sha256=hashlib.sha256(raw).hexdigest(),
         trace_rows=len(rows), pages=reports, irq_pairs=irq_pairs,
         completed_delays=len(delays), unfinished_delays_at_host_exit=int(delay is not None),
         delays=[dict(argument=k[0], calibration=k[1], dispatches=k[2], observations=len(v),
                      cycle_clock_min=min(v), cycle_clock_max=max(v)) for k, v in sorted(groups.items())],
         row_work_dispatches_without_vertical_carry=row_costs,
         dispatches_are_cycle_clock=False, host_instrumented=True, natural_wall_clock_fidelity_claim=False)
+    if recipe is not None:
+        result.update(capture_recipe_verified=True, capture_recipe_run=recipe['run'])
+    return result
 
 def main():
     parser = argparse.ArgumentParser()
@@ -239,9 +248,8 @@ def main():
     parser.add_argument('--recipe', type=Path)
     args = parser.parse_args()
     require(not args.output.exists(), 'Output already exists')
-    if args.recipe:
-        validate_capture_recipe(json.loads(args.recipe.read_text()))
-    result = analyze(args.trace)
+    recipe = json.loads(args.recipe.read_text()) if args.recipe else None
+    result = analyze(args.trace, recipe=recipe)
     args.output.write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps({key: result[key] for key in result if key != 'row_work_dispatches_without_vertical_carry'}, indent=2))
 

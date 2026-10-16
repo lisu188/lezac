@@ -1,5 +1,6 @@
 """Frozen original-pacing fixture contract and malformed-trace controls."""
 import copy
+import configparser
 import csv
 import hashlib
 import io
@@ -11,7 +12,7 @@ import sys
 import tempfile
 import unittest
 
-from analyze_original_frame_pacing import CAPTURE_HASHES, analyze
+from analyze_original_frame_pacing import CAPTURE_CONFIG, CAPTURE_ENVIRONMENT, CAPTURE_HASHES, analyze
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / 'tests/fixtures/frame_pacing'
@@ -132,6 +133,48 @@ class OriginalFramePacingTests(unittest.TestCase):
             controls += 1
         self.assertEqual(controls, 20)
 
+    def test_complete_capture_profile(self):
+        raw = (FIXTURE / 'r2.csv').read_bytes()
+        recipe = json.loads((FIXTURE / 'r2-recipe.json').read_text())
+        controls = []
+        def configured(config):
+            stream = io.StringIO()
+            config.write(stream)
+            return dict(recipe, dosbox_config=stream.getvalue())
+        for section, settings in CAPTURE_CONFIG.items():
+            for key in settings:
+                for missing in (False, True):
+                    config = configparser.ConfigParser()
+                    config.read_string(recipe['dosbox_config'])
+                    if missing:
+                        del config[section][key]
+                    else:
+                        config[section][key] = 'contradiction'
+                    controls.append(configured(config))
+            config = configparser.ConfigParser()
+            config.read_string(recipe['dosbox_config'])
+            del config[section]
+            controls.append(configured(config))
+        for suffix in ('\n[extra]\nkey=value\n', '\n[DEFAULT]\nkey=value\n',
+                       '\n[sdl]\noutput=opengl\n'):
+            controls.append(dict(recipe, dosbox_config=recipe['dosbox_config'] + suffix))
+        config = configparser.ConfigParser()
+        config.read_string(recipe['dosbox_config'])
+        config['cpu']['unrecognized'] = 'value'
+        controls.append(configured(config))
+        for key in CAPTURE_ENVIRONMENT:
+            controls.append(dict(recipe, dosbox_environment=dict(recipe['dosbox_environment'], **{key: 'contradiction'})))
+        for key in recipe['dosbox_environment']:
+            for value in (None, False, 0, ''):
+                controls.append(dict(recipe, dosbox_environment=dict(recipe['dosbox_environment'], **{key: value})))
+            missing = dict(recipe['dosbox_environment'])
+            del missing[key]
+            controls.append(dict(recipe, dosbox_environment=missing))
+        self.assertEqual(len(controls), 90)
+        for index, changed in enumerate(controls):
+            with self.subTest(control=index), self.assertRaises(ValueError):
+                analyze(raw, changed)
+
     def test_cli_rejects_mutated_guest_without_publishing_report(self):
         recipe = json.loads((FIXTURE / 'r2-recipe.json').read_text())
         with tempfile.TemporaryDirectory(prefix='lezac-pacing-recipe-') as temporary:
@@ -141,7 +184,10 @@ class OriginalFramePacingTests(unittest.TestCase):
                     ('host_probe_guest_memory_writes', 1, 'Read-only guest provenance differs'),
                     ('host_instrumented', False, 'Capture mode claims differ'),
                     ('dosbox_sha256', '0' * 64, 'Capture host or producer differs'),
-                    ('producer_sha256', None, 'Capture host or producer differs')]):
+                    ('producer_sha256', None, 'Capture host or producer differs'),
+                    ('dosbox_config', recipe['dosbox_config'].replace('sbtype=none', 'sbtype=sb16'), 'Wrong capture profile'),
+                    ('dosbox_environment', dict(recipe['dosbox_environment'], SDL_VIDEODRIVER='dummy'),
+                     'Unexpected emulator environment')]):
                 output = folder / ('report' + str(index) + '.json')
                 bad_recipe.write_text(json.dumps(dict(recipe, **{key: value})))
                 command = [sys.executable, '-S', '-B', str(ROOT / 'tools/analyze_original_frame_pacing.py'),

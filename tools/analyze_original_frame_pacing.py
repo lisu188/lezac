@@ -13,6 +13,13 @@ IPS = dict(identified=0x1fc, frame_before=0x7903, time_begin=0x7919,
 CAPTURE_HASHES = dict(
     dosbox_sha256='b19be3dd86b5d6ee59e67ffd5c4d888069f8624b4d92499babe33f4ae168c7ef',
     producer_sha256='a256801e0478922e1335f154b0225a6cc32866e6eaa90a8e170368cdf405fbb6')
+CAPTURE_CONFIG = dict(sdl=dict(fullscreen='false', output='surface'),
+    render=dict(frameskip='0', aspect='false', scaler='none'),
+    cpu=dict(core='normal', cycles='fixed 6000'), mixer=dict(nosound='true'),
+    speaker=dict(pcspeaker='false'), sblaster=dict(sbtype='none'),
+    midi=dict(mpu401='none', mididevice='none'))
+CAPTURE_ENVIRONMENT = dict(PATH='/usr/bin:/bin', LANG='C.UTF-8', LC_ALL='C.UTF-8',
+                           SDL_VIDEODRIVER='x11', SDL_AUDIODRIVER='dummy')
 
 
 def require(condition, message):
@@ -31,14 +38,19 @@ def analyze(raw, recipe):
     require(all(type(recipe.get(key)) is str and recipe[key] == expected
                 for key, expected in CAPTURE_HASHES.items()), 'Capture host or producer differs')
     config = configparser.ConfigParser()
-    config.read_string(recipe['dosbox_config'])
-    require(config['cpu']['core'] == 'normal' and config['cpu']['cycles'] == 'fixed 6000' and
-            config['mixer']['nosound'] == 'true' and config['speaker']['pcspeaker'] == 'false', 'Wrong capture profile')
+    try:
+        config.read_string(recipe['dosbox_config'])
+        require(not config.defaults() and {section: dict(config[section]) for section in config.sections()} ==
+                CAPTURE_CONFIG, 'Wrong capture profile')
+    except configparser.Error as error:
+        raise ValueError('Wrong capture profile') from error
     require(recipe['environment_is_complete'] is True and not recipe['input_injection_failures'], 'Incomplete input provenance')
     env = recipe['dosbox_environment']
     require(set(env) == {'PATH', 'HOME', 'TMPDIR', 'LANG', 'LC_ALL', 'DISPLAY', 'XAUTHORITY',
                         'SDL_VIDEODRIVER', 'SDL_AUDIODRIVER', 'LEZAC_PACING_TRACE'} and
-            env['SDL_AUDIODRIVER'] == 'dummy', 'Unexpected emulator environment')
+            all(type(value) is str and value for value in env.values()) and
+            all(env[key] == value for key, value in CAPTURE_ENVIRONMENT.items()),
+            'Unexpected emulator environment')
     require(recipe['process_memory_writes'] == 0 and recipe['injected_instructions'] == 0 and
             recipe['process_pauses'] == 0 and recipe['record_file_fixture_seeded'] is False and
             recipe['clock_rng_or_heap_seeded'] is False and recipe['gameplay_state_seeded'] is False and

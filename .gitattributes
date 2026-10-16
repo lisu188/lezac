@@ -3,8 +3,20 @@
 *.route text eol=lf
 tools/original_interrupt_probe/** text eol=lf
 tests/fixtures/interrupt_dispatch/** -text
+tools/dos_time_probe/** text eol=lf
+tests/fixtures/dos_time/** -text
+tools/dos_timer_probe/** text eol=lf
+tests/fixtures/dos_timer/** -text
+tests/fixtures/pic_work_clock/** -text
+tools/pic_clock_probe/** text eol=lf
+# Unified-patch context retains pinned upstream indentation and blank lines.
+tools/pic_clock_probe/*.patch -whitespace
+tools/timer_irq_probe/** text eol=lf
+tests/fixtures/timer_irq/** -text
 tests/fixtures/startup_timing/** -text
 tests/fixtures/crt_delay/** -text
+tests/fixtures/frame_pacing/** -text
+tools/frame_pacing_probe/** text eol=lf
 tests/fixtures/end_screen_*.rgb binary
 tests/fixtures/end_screen_original.json -text
 tests/fixtures/records_page_*.rgb binary
@@ -139,3 +151,5 @@ tests/fixtures/startup_map_original.json -text
 tests/fixtures/startup_map_original.bin.gz -text
 tests/fixtures/abort_map_original.json -text
 tests/fixtures/abort_map_original.bin.gz -text
+tests/fixtures/original_work_clock/** -text
+tools/original_work_probe/** text eol=lf

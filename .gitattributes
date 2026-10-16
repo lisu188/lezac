@@ -18,6 +18,9 @@ tests/fixtures/frame_display_controls/** -text
 tests/fixtures/full_pacing/** -text
 tools/full_pacing_probe/** text eol=lf
 tools/full_pacing_probe/*.patch -whitespace
+tests/fixtures/pacing_device_clock/** -text
+tools/pacing_clock_probe/** text eol=lf
+tools/pacing_clock_probe/*.patch -whitespace
 tools/frame_display_probe/** text eol=lf
 tools/frame_display_probe/*.patch -whitespace
 tools/frame_clock_probe/** text eol=lf

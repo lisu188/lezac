@@ -17,6 +17,7 @@
         "src/core/interruptible_frame_clock.hpp",
         "src/core/interruptible_frame_display.hpp",
         "src/core/pic_work_clock.hpp",
+        "src/core/pacing_device_clock.hpp",
         "src/core/progress.cpp",
         "src/core/progress.hpp",
         "src/core/random.hpp",

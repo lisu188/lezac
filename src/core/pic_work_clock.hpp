@@ -9,7 +9,10 @@
 
 namespace lezac::core {
 
-enum class PicClockEventKind : uint8_t { Pit0 = 1, Foreign = 2 };
+enum class PicClockEventKind : uint8_t {
+    Pit0 = 1, Foreign = 2, VgaDrawPart = 3, VgaVertical = 4,
+    VgaDisplayLatch = 5, VgaPanningLatch = 6, VgaVerticalInterrupt = 7
+};
 struct PicClockEvent {
     float index = 0;
     PicClockEventKind kind = PicClockEventKind::Foreign;
@@ -154,6 +157,30 @@ public:
         for (auto& event : state_.queue) event.index -= 1.0;
         ++state_.millisecondGrants;
         state_.phase = PicClockPhase::Queue;
+    }
+
+    PicClockEvent consumeDeviceEvent() {
+        if (state_.phase != PicClockPhase::Queue || state_.queue.empty() ||
+            state_.queue.front().kind == PicClockEventKind::Pit0 ||
+            eventCycles(state_.queue.front()) > static_cast<float>(tickIndex()))
+            throw std::logic_error("PIC device callback is not due");
+        const auto event = state_.queue.front();
+        state_.queue.erase(state_.queue.begin());
+        return event;
+    }
+    void scheduleDeviceEvent(PicClockEvent event) {
+        if (state_.phase != PicClockPhase::Queue || !std::isfinite(event.index) ||
+            std::abs(event.index) > 1024 || static_cast<unsigned>(event.kind) < 3 ||
+            static_cast<unsigned>(event.kind) > 7 || state_.queue.size() >= 64)
+            throw std::logic_error("PIC device scheduling is outside the recovered profile");
+        const auto at = std::upper_bound(state_.queue.begin(), state_.queue.end(), event.index,
+            [](float index, const PicClockEvent& candidate) { return index < candidate.index; });
+        state_.queue.insert(at, event);
+    }
+    void removeDeviceEvents(PicClockEventKind kind) {
+        if (state_.phase != PicClockPhase::Queue || static_cast<unsigned>(kind) < 3 || static_cast<unsigned>(kind) > 7)
+            throw std::logic_error("PIC device removal is outside the recovered profile");
+        std::erase_if(state_.queue, [kind](const PicClockEvent& event) { return event.kind == kind; });
     }
 
 private:

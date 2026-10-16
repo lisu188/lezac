@@ -196,6 +196,11 @@ if(BUILD_TESTING)
     set_tests_properties(frame_pacing_calculation_unit PROPERTIES
         PASS_REGULAR_EXPRESSION "frame_pacing_calculation_edges=ok boundaries=1008")
     add_executable(lezac_frame_clock_test tests/core/frame_clock_test.cpp)
+    add_executable(lezac_pacing_device_clock_test tests/core/pacing_device_clock_test.cpp)
+    target_link_libraries(lezac_pacing_device_clock_test PRIVATE lezac_core)
+    add_test(NAME pacing_device_clock_unit COMMAND lezac_pacing_device_clock_test)
+    set_tests_properties(pacing_device_clock_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "pacing_device_clock_unit=ok callback_kinds=5 profile_rejections=12")
     target_link_libraries(lezac_frame_clock_test PRIVATE lezac_core)
     add_test(NAME frame_clock_unit COMMAND lezac_frame_clock_test)
     set_tests_properties(frame_clock_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_clock_edges=ok foreground_boundaries=30")
@@ -609,6 +614,21 @@ if(BUILD_TESTING)
         endforeach()
         add_test(NAME full_pacing_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_full_pacing_fixture.py)
+        add_test(NAME pacing_device_clock_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pacing_device_clock_fixture.py
+                --cpu ${CMAKE_CURRENT_BINARY_DIR}/pacing-device-cpu.bin
+                --clock ${CMAKE_CURRENT_BINARY_DIR}/pacing-device-clock.bin)
+        set_tests_properties(pacing_device_clock_fixture_contract PROPERTIES FIXTURES_SETUP pacing_device_clock_corpus)
+        add_test(NAME pacing_device_clock_original COMMAND lezac_frame_clock_test --device-clock-projection
+            ${CMAKE_CURRENT_BINARY_DIR}/pacing-device-cpu.bin ${CMAKE_CURRENT_BINARY_DIR}/pacing-device-clock.bin)
+        set_tests_properties(pacing_device_clock_original PROPERTIES FIXTURES_REQUIRED pacing_device_clock_corpus
+            PASS_REGULAR_EXPRESSION "frame_pacing_original=ok cases=2 comparisons=265588 delivered_irqs=2.*coupled_clock=1 predicted_irqs=4")
+        add_test(NAME pacing_device_clock_coupling_controls COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_pacing_clock_coupling.py --binary $<TARGET_FILE:lezac_frame_clock_test>
+            --cpu ${CMAKE_CURRENT_BINARY_DIR}/pacing-device-cpu.bin --clock ${CMAKE_CURRENT_BINARY_DIR}/pacing-device-clock.bin)
+        set_tests_properties(pacing_device_clock_coupling_controls PROPERTIES FIXTURES_REQUIRED pacing_device_clock_corpus)
+        add_test(NAME pacing_device_clock_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_pacing_device_clock_fixture.py)
         add_test(NAME frame_display_instructions COMMAND lezac_frame_display_test --instructions
             ${CMAKE_CURRENT_BINARY_DIR}/frame-display-instructions.bin)
         set_tests_properties(frame_display_instructions PROPERTIES FIXTURES_REQUIRED frame_display_corpus

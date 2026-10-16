@@ -1,0 +1,448 @@
+{
+  "schema": "lezac-instrumented-frame-pacing-v1",
+  "status": "observed",
+  "run": "r3",
+  "assets": {
+    "SFONLEF.ZBG": {
+      "bytes": 34292,
+      "sha256": "b1b7cc03122510318c1a3670f151712406e9e3fa60aabd8fb558320766c3835c"
+    },
+    "SETUP.LOG": {
+      "bytes": 566,
+      "sha256": "4c86cd7436be442663b10b1425bbcd7a179b7955b67c23632bf20a8180144a14"
+    },
+    "RECS.DAT": {
+      "bytes": 92,
+      "sha256": "27197ebb56fb339e4d41baf6ad5282cd79bb66b642c81ae406e607a263c80eb8"
+    },
+    "PROVA.SPR": {
+      "bytes": 21250,
+      "sha256": "d6d6b634f8613251f6e82e9a15c5c68e2be437892bfa25c53eb4bcd9094188b7"
+    },
+    "PROEFS.SON": {
+      "bytes": 782,
+      "sha256": "b5bc702a27ac85554cc76a62fced07567921b07d5c16f2027a62fbc956df701d"
+    },
+    "LIVELS.SCH": {
+      "bytes": 41047,
+      "sha256": "d8b553871014108515d6af05b0853de8ccc22e4d3e44d63533ba1167fdc8c7b2"
+    },
+    "LEZAC.EXE": {
+      "bytes": 52384,
+      "sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
+    },
+    "ITALIANO.DOC": {
+      "bytes": 4392,
+      "sha256": "5ea7481d3179e60b6f1229aa114dc4b47c95f7c1200c7888ad5c259f161317c1"
+    },
+    "GRAN.MST": {
+      "bytes": 399,
+      "sha256": "3f0cf17706d557ca863d6e39bfa6641fba777a88815ba3f0a22e5ac89e0e39e2"
+    },
+    "FONTS.SPR": {
+      "bytes": 5425,
+      "sha256": "f65aa9bbba2a66ee69f1b279a32c448e36012feb53441fbbb8e64e31bee87a0e"
+    },
+    "ENGLISH.DOC": {
+      "bytes": 3522,
+      "sha256": "e2fd2f2521b0277f2fca0c8f2a265408412542932bb6e977bf1ab3d0aabdfed9"
+    },
+    "CARO.CAR": {
+      "bytes": 8450,
+      "sha256": "949cce4db6071d6675a291c978d725c6e4ee1730b2c7a428bc1c8a8185cbd8d8"
+    },
+    "BOMPAL.PAL": {
+      "bytes": 768,
+      "sha256": "f2559164074ca529ba6c275a9831b11c6da9e6317f09b3d9228c299d6f8f8319"
+    },
+    "BOMOMIMK.SPR": {
+      "bytes": 20168,
+      "sha256": "08dfd0e59ba191c52af2529bdfa140fd15a57829f0c6c13bbb78e156769ac0d1"
+    }
+  },
+  "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "dosbox_sha256": "b19be3dd86b5d6ee59e67ffd5c4d888069f8624b4d92499babe33f4ae168c7ef",
+  "producer_sha256": "a256801e0478922e1335f154b0225a6cc32866e6eaa90a8e170368cdf405fbb6",
+  "samples": [
+    {
+      "name": "main",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 0,
+      "frame_counter": 0,
+      "delay_words": {
+        "0x78ca": 2,
+        "0x78cc": 16,
+        "0x78ce": 82,
+        "0x78d0": 16
+      },
+      "record_bytes": "10420800086167613a3a3a3a3ab6e20700086167613a3a3a3a3a56de0700086167613a3a3a3a3adcad0700086167613a3a3a3a3a8a500700086167613a3a3a3a3ae6490700086167613a3a3a3a3a323f0700086167613a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "02559ebf7c398c909abb28aefee674a79e9e5e97f750bfe4f2807f0f8bac5005",
+      "ram_gzip_sha256": "fa143e8f8f91ca53838a922427d0f6d7612251a04668397b573680c1496bf6ad",
+      "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+      "pixels_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 21.117130517000987,
+      "monotonic_after": 21.170707537001363,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "intro",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 0,
+      "delay_words": {
+        "0x78ca": 2,
+        "0x78cc": 16,
+        "0x78ce": 82,
+        "0x78d0": 16
+      },
+      "record_bytes": "10420800086167613a3a3a3a3ab6e20700086167613a3a3a3a3a56de0700086167613a3a3a3a3adcad0700086167613a3a3a3a3a8a500700086167613a3a3a3a3ae6490700086167613a3a3a3a3a323f0700086167613a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "1c83c4f3f26bb841cf4efaf5b9ffee471d5674c602ab15cc7b75c7f46383a2e4",
+      "ram_gzip_sha256": "eea685f2bf31e24a334f023f6126bdb2a2c0a0bbec426985510ca3610e5401d0",
+      "png_sha256": "ca94cc2f254558de7def0fe9030b241c15f3ccfc9eb04d21e1973653322fab08",
+      "pixels_sha256": "4cd020342896dfc6b7876a9c47ff0ade5a4680a735bbd54dee7f3e1025b55349",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 25.227406276000693,
+      "monotonic_after": 25.268421851000312,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "gameplay",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 12,
+      "delay_words": {
+        "0x78ca": 2,
+        "0x78cc": 16,
+        "0x78ce": 82,
+        "0x78d0": 16
+      },
+      "record_bytes": "10420800086167613a3a3a3a3ab6e20700086167613a3a3a3a3a56de0700086167613a3a3a3a3adcad0700086167613a3a3a3a3a8a500700086167613a3a3a3a3ae6490700086167613a3a3a3a3a323f0700086167613a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "623f8b76a595b7e13725cb635125980f4df2553158e3774bf1478eb93d8997df",
+      "ram_gzip_sha256": "7e44d7ee32a84dc00f68235277600d52dca59219f63d139b5f7aaf2903ec8ae3",
+      "png_sha256": "bc4c3680503a658efd206884f537553187eeff8ae3ec65cda8beb96345311b3a",
+      "pixels_sha256": "efe0be9761548276f8fe55ca7621e28c3a4371bbd341f030bd341ee91ff95f89",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 26.293333296000128,
+      "monotonic_after": 26.34220322500005,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "gameplay-middle",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 59,
+      "delay_words": {
+        "0x78ca": 2,
+        "0x78cc": 14,
+        "0x78ce": 82,
+        "0x78d0": 16
+      },
+      "record_bytes": "10420800086167613a3a3a3a3ab6e20700086167613a3a3a3a3a56de0700086167613a3a3a3a3adcad0700086167613a3a3a3a3a8a500700086167613a3a3a3a3ae6490700086167613a3a3a3a3a323f0700086167613a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "2e4d86fea61448071ead5f6fa5e61096f4edfe6f51ceaf2b06162d9617df314b",
+      "ram_gzip_sha256": "5572ab899f2a946955104927696810ba17e8134ef96b90c6b8706f235939101d",
+      "png_sha256": "cd8e94eac02fd75c0fb04404870df79b34e56ced7bc8a0988f62c60cdf7cc0b0",
+      "pixels_sha256": "8cf9b21773b53cebf3c844509f02bcab1c411c5d69735b7fb77af967c0bb70ad",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 29.343117547001384,
+      "monotonic_after": 29.399186991000533,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "gameplay-late",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 144,
+      "delay_words": {
+        "0x78ca": 2,
+        "0x78cc": 8,
+        "0x78ce": 82,
+        "0x78d0": 16
+      },
+      "record_bytes": "10420800086167613a3a3a3a3ab6e20700086167613a3a3a3a3a56de0700086167613a3a3a3a3adcad0700086167613a3a3a3a3a8a500700086167613a3a3a3a3ae6490700086167613a3a3a3a3a323f0700086167613a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "07c83f5c505be2178278ee0d689128ed119dfd71c22b03878f64bfb9a93995e0",
+      "ram_gzip_sha256": "db95a294c01f029b802c004ec6c674b3708964a28c55d4a73374f6727edc5929",
+      "png_sha256": "60effc74cadd5ea3c96ea64954aff72a9ff1f3a7b2183d0382989fce5fe3e85a",
+      "pixels_sha256": "7b74f0616501c604d55b5098da3384fe41bf4210ad6a48b254c1198d84711baf",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 34.400230218001525,
+      "monotonic_after": 34.466253392,
+      "ram_rgb_cpu_atomic": false
+    }
+  ],
+  "events": [
+    {
+      "key": "1",
+      "observed_utc": "2026-10-16T08:20:12.855483+00:00",
+      "monotonic_before": 21.171393227001317,
+      "monotonic_after": 21.227349800999946
+    },
+    {
+      "key": "Return",
+      "observed_utc": "2026-10-16T08:20:16.921368+00:00",
+      "monotonic_before": 25.269131806000587,
+      "monotonic_after": 25.293232044001343
+    }
+  ],
+  "host_instrumented": true,
+  "host_probe_guest_register_writes": 0,
+  "host_probe_guest_memory_writes": 0,
+  "original_executable_changed": false,
+  "natural_wall_clock_fidelity_claim": false,
+  "trace_clock": "normal-core fixed-cycle budget, sampled before decode",
+  "trace_dispatch": "normal-core iterations; REP may charge multiple cycles per iteration",
+  "record_file_fixture_seeded": false,
+  "configured_players": 1,
+  "audio": "dummy",
+  "process_memory_opened_read_only": true,
+  "process_memory_writes": 0,
+  "injected_instructions": 0,
+  "process_pauses": 0,
+  "gameplay_state_seeded": false,
+  "clock_rng_or_heap_seeded": false,
+  "cpu_memory_frame_atomic": false,
+  "complete_frame_sequence_claim": false,
+  "whole_game_complete": false,
+  "host_commands": [
+    {
+      "command": [
+        "xdotool",
+        "search",
+        "--pid",
+        "42380",
+        "--name",
+        "DOSBox"
+      ],
+      "exit_code": 0,
+      "stdout": "6291464\n",
+      "stderr": "",
+      "monotonic_before": 1.1091109380013222,
+      "monotonic_after": 1.1123971270008042
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 1.1130988580007397,
+      "monotonic_after": 1.115126530001362
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 21.117571200000384,
+      "monotonic_after": 21.125701957000274
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 21.171396449000895,
+      "monotonic_after": 21.19848679000097
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "1"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 21.199274747001255,
+      "monotonic_after": 21.22620469800131
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 25.227790324001035,
+      "monotonic_after": 25.231502177000948
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 25.269134688000122,
+      "monotonic_after": 25.274442062000162
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "Return"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 25.275316094001028,
+      "monotonic_after": 25.292366985000626
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 26.293744369000706,
+      "monotonic_after": 26.300932498999828
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 29.34351759600031,
+      "monotonic_after": 29.358437871000206
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 34.40096230100062,
+      "monotonic_after": 34.40882397400128
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "ctrl+F9"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 34.46763916800046,
+      "monotonic_after": 34.497167840001566
+    }
+  ],
+  "input_injection_failures": [],
+  "capture_argv": [
+    "/dev/shm/lezac-frame-pacing-t192/tools/frame_pacing_probe/capture.py",
+    "--inside-xvfb",
+    "--run",
+    "r3",
+    "--repo",
+    "/dev/shm/lezac-frame-pacing-t192",
+    "--dosbox",
+    "/dev/shm/lezac-pacing-oracle-t192/dosbox-0.74-3/src/dosbox",
+    "--out",
+    "/dev/shm/lezac-frame-pacing-t192-r3"
+  ],
+  "dosbox_argv": [
+    "/dev/shm/lezac-pacing-oracle-t192/dosbox-0.74-3/src/dosbox",
+    "-conf",
+    "/dev/shm/lezac-frame-pacing-t192-r3/dosbox.conf",
+    "-c",
+    "mount c /dev/shm/lezac-frame-pacing-t192-r3/run",
+    "-c",
+    "c:",
+    "-c",
+    "LEZAC.EXE"
+  ],
+  "dosbox_cwd": "/dev/shm/lezac-frame-pacing-t192-r3",
+  "dosbox_environment": {
+    "PATH": "/usr/bin:/bin",
+    "HOME": "/dev/shm/lezac-frame-pacing-t192-r3/home",
+    "TMPDIR": "/dev/shm/lezac-frame-pacing-t192-r3/tmp",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "DISPLAY": ":99",
+    "XAUTHORITY": "/dev/shm/xvfb-run.tvlwDS/Xauthority",
+    "SDL_VIDEODRIVER": "x11",
+    "SDL_AUDIODRIVER": "dummy",
+    "LEZAC_PACING_TRACE": "/dev/shm/lezac-frame-pacing-t192-r3/guest-pacing.csv"
+  },
+  "dosbox_config": "[sdl]\nfullscreen=false\noutput=surface\n[render]\nframeskip=0\naspect=false\nscaler=none\n[cpu]\ncore=normal\ncycles=fixed 6000\n[mixer]\nnosound=true\n[speaker]\npcspeaker=false\n[sblaster]\nsbtype=none\n[midi]\nmpu401=none\nmididevice=none\n",
+  "environment_is_complete": true,
+  "child_pid": 42380,
+  "private_display_autorepeat_command": {
+    "command": [
+      "xset",
+      "r",
+      "off"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "code_segment": 417,
+  "data_segment": 3139,
+  "ram_base": 136374543970320,
+  "private_xvfb_autorepeat_disabled": true,
+  "passed": true,
+  "child_exit_code": 0,
+  "trace_bytes": 48928,
+  "trace_sha256": "34163608d883db54b470ca18b108bb57123ed01d4e2d54dbfaf3d5020bb8da59",
+  "trace_end_marker": true,
+  "canonical_assets_unchanged": true
+}

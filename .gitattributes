@@ -2,6 +2,8 @@
 *.py text eol=lf
 *.route text eol=lf
 tests/fixtures/startup_timing/** -text
+tests/fixtures/frame_pacing/** -text
+tools/frame_pacing_probe/** text eol=lf
 tests/fixtures/end_screen_*.rgb binary
 tests/fixtures/end_screen_original.json -text
 tests/fixtures/records_page_*.rgb binary

@@ -185,6 +185,10 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_frame_clock_test tests/core/frame_clock_test.cpp)
+    target_link_libraries(lezac_frame_clock_test PRIVATE lezac_core)
+    add_test(NAME frame_clock_unit COMMAND lezac_frame_clock_test)
+    set_tests_properties(frame_clock_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_clock_edges=ok foreground_boundaries=30")
     add_executable(lezac_pic_work_clock_test tests/core/pic_work_clock_test.cpp)
     target_link_libraries(lezac_pic_work_clock_test PRIVATE lezac_core)
     add_test(NAME pic_work_clock_unit COMMAND lezac_pic_work_clock_test)
@@ -563,6 +567,29 @@ if(BUILD_TESTING)
         set_tests_properties(original_interrupt_trace_contract PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+        add_test(NAME frame_elapsed_oracle_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_elapsed_oracle.py
+                --projection ${CMAKE_CURRENT_BINARY_DIR}/frame-elapsed-projection.bin)
+        set_tests_properties(frame_elapsed_oracle_fixture_contract PROPERTIES FIXTURES_SETUP frame_elapsed_corpus)
+        add_test(NAME frame_elapsed_oracle COMMAND lezac_frame_clock_test --oracle
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-elapsed-projection.bin)
+        set_tests_properties(frame_elapsed_oracle PROPERTIES FIXTURES_REQUIRED frame_elapsed_corpus
+            PASS_REGULAR_EXPRESSION "frame_elapsed_oracle=ok cases=3375 comparisons=6750")
+        add_test(NAME frame_elapsed_oracle_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_elapsed_oracle.py)
+        add_test(NAME frame_clock_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_clock_fixture.py
+                --cpu-projection ${CMAKE_CURRENT_BINARY_DIR}/frame-clock-cpu.bin
+                --clock-projection ${CMAKE_CURRENT_BINARY_DIR}/frame-clock-pic.bin)
+        set_tests_properties(frame_clock_fixture_contract PROPERTIES FIXTURES_SETUP frame_clock_corpus)
+        add_test(NAME frame_clock_original COMMAND lezac_frame_clock_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-clock-cpu.bin ${CMAKE_CURRENT_BINARY_DIR}/frame-clock-pic.bin)
+        set_tests_properties(frame_clock_original PROPERTIES FIXTURES_REQUIRED frame_clock_corpus
+            PASS_REGULAR_EXPRESSION "frame_clock_original=ok cases=2 comparisons=1492 delivered_irqs=1")
+        add_test(NAME frame_clock_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_clock_fixture.py)
+        add_test(NAME frame_clock_input_route_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_clock_input_route.py)
         add_test(NAME pic_work_clock_fixture_contract
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pic_work_clock_fixture.py
                 --cpu-projection ${CMAKE_CURRENT_BINARY_DIR}/pic-dos-time-projection.bin

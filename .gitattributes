@@ -11,6 +11,10 @@ tests/fixtures/pic_work_clock/** -text
 tools/pic_clock_probe/** text eol=lf
 # Unified-patch context retains pinned upstream indentation and blank lines.
 tools/pic_clock_probe/*.patch -whitespace
+tests/fixtures/frame_elapsed/** -text
+tests/fixtures/frame_clock/** -text
+tools/frame_clock_probe/** text eol=lf
+tools/frame_clock_probe/*.patch -whitespace
 tools/timer_irq_probe/** text eol=lf
 tests/fixtures/timer_irq/** -text
 tests/fixtures/startup_timing/** -text

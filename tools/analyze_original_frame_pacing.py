@@ -31,19 +31,21 @@ def require(condition, message):
 
 
 def validate_launch(recipe):
-    def ram_path(value):
-        require(type(value) is str and value.startswith('/dev/shm/') and
+    def absolute_path(value):
+        require(type(value) is str and value.startswith('/') and not value.startswith('//') and
                 str(PurePosixPath(value)) == value and '..' not in PurePosixPath(value).parts and
-                all(character.isascii() and (character.isalnum() or character in '/._-') for character in value),
+                all(character.isprintable() for character in value),
                 'DOSBox launch path differs')
         return PurePosixPath(value)
 
-    cwd = ram_path(recipe.get('dosbox_cwd'))
+    cwd = absolute_path(recipe.get('dosbox_cwd'))
+    require(cwd.is_relative_to('/dev/shm') and cwd != PurePosixPath('/dev/shm'),
+            'DOSBox launch path differs')
     capture = recipe.get('capture_argv')
     require(type(capture) is list and len(capture) == 10 and all(type(value) is str for value in capture),
             'DOSBox capture command differs')
-    repo, host = ram_path(capture[5]), ram_path(capture[7])
-    require(host.parts[-3:] == ('dosbox-0.74-3', 'src', 'dosbox'), 'DOSBox host command differs')
+    repo, host = absolute_path(capture[5]), absolute_path(capture[7])
+    require(host.name, 'DOSBox host command differs')
     run = recipe.get('run')
     require(type(run) is str and run.isascii() and run.isalnum(), 'DOSBox capture run differs')
     require(capture == [str(repo / 'tools/frame_pacing_probe/capture.py'), '--inside-xvfb', '--run', run,

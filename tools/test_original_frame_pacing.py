@@ -310,6 +310,53 @@ class OriginalFramePacingTests(unittest.TestCase):
             with self.subTest(control=index), self.assertRaises(ValueError):
                 analyze(raw, changed)
 
+    @staticmethod
+    def relocated_sources(recipe, repo, host):
+        changed = copy.deepcopy(recipe)
+        changed['capture_argv'][0] = repo + '/tools/frame_pacing_probe/capture.py'
+        changed['capture_argv'][5] = repo
+        changed['capture_argv'][7] = host
+        changed['dosbox_argv'][0] = host
+        return changed
+
+    def test_documented_and_relocated_source_paths(self):
+        for run in ('r2', 'r3'):
+            raw = (FIXTURE / (run + '.csv')).read_bytes()
+            recipe = json.loads((FIXTURE / (run + '-recipe.json')).read_text())
+            expected = analyze(raw, recipe)
+            for repo in ('/workspace/lezac', '/mnt/c/Users/andrz/git/LEZAC',
+                         '/workspace/project with spaces'):
+                for host in ('/dev/shm/pacing-host/src/dosbox', '/opt/observers/dosbox',
+                             '/opt/custom probe/renamed-observer'):
+                    with self.subTest(run=run, repo=repo, host=host):
+                        self.assertEqual(analyze(raw, self.relocated_sources(recipe, repo, host)), expected)
+
+    def test_noncanonical_source_paths_remain_rejected(self):
+        raw = (FIXTURE / 'r2.csv').read_bytes()
+        recipe = json.loads((FIXTURE / 'r2-recipe.json').read_text())
+        for value in ('relative', '../relative', '/workspace/../other', '/workspace//other',
+                      '/workspace/./other', '/workspace/other/', '//workspace/other',
+                      '/workspace/other\n', '/workspace/other\0'):
+            for kind in ('repo', 'host'):
+                changed = self.relocated_sources(recipe,
+                    value if kind == 'repo' else '/workspace/lezac',
+                    value if kind == 'host' else '/dev/shm/pacing-host/src/dosbox')
+                with self.subTest(kind=kind, value=value), self.assertRaises(ValueError):
+                    analyze(raw, changed)
+
+    def test_cli_accepts_documented_source_paths(self):
+        recipe = json.loads((FIXTURE / 'r2-recipe.json').read_text())
+        relocated = self.relocated_sources(recipe, '/workspace/lezac', '/dev/shm/pacing-host/src/dosbox')
+        with tempfile.TemporaryDirectory(prefix='lezac-pacing-valid-source-') as temporary:
+            folder = Path(temporary)
+            recipe_path, output = folder / 'recipe.json', folder / 'report.json'
+            recipe_path.write_text(json.dumps(relocated))
+            result = subprocess.run([sys.executable, '-S', '-B', str(ROOT / 'tools/analyze_original_frame_pacing.py'),
+                str(FIXTURE / 'r2.csv'), '--recipe', str(recipe_path), '--out', str(output)],
+                capture_output=True, text=True, env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1'), timeout=15)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(output.read_text()), analyze((FIXTURE / 'r2.csv').read_bytes(), recipe))
+
     def test_cli_rejects_invalid_recipe_without_publishing_report(self):
         recipe = json.loads((FIXTURE / 'r2-recipe.json').read_text())
         extra = dict(recipe['host_commands'][-1], command=['xdotool', 'key', '--clearmodifiers', 'Left'])

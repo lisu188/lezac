@@ -1,7 +1,7 @@
 {
   "schema": "lezac-instrumented-irq-chain-v1",
   "status": "observed",
-  "run": "rank7r5",
+  "run": "rank7r6",
   "case": "rank7",
   "assets": {
     "BOMOMIMK.SPR": {
@@ -63,7 +63,7 @@
   },
   "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
   "dosbox_sha256": "b2ecf617bea4c1b31ba7da8845b31f448bd0018c6ba60d6fe37fff8d9de9d5a3",
-  "producer_sha256": "576afec3b56c9429b10065acc47b4e5fe0433ecaa8516bf41610fe682cd0a969",
+  "producer_sha256": "dca6bd8da6d78130db8f570215ab2208e84e423ec0360601c9eef12af274be1a",
   "samples": [
     {
       "name": "main",
@@ -73,17 +73,17 @@
       ],
       "level": 0,
       "frame_counter": 0,
-      "bios_ticks": 828084,
+      "bios_ticks": 848004,
       "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
       "slot8_bytes": "0087e900f0601200f000000000",
-      "ram_sha256": "08b14db4791cc4e8e99433cd1e32f0f77a0745477cd4fbd40987659d4a6165b3",
-      "ram_gzip_sha256": "6993343aff124070f6cecafecec49f016c925aa4393d957c85fed96c77b3ff52",
+      "ram_sha256": "745a27c5aadaf1389431ea78a98aa77c43f41eb34735e97e64502cdd58f689a5",
+      "ram_gzip_sha256": "26b242f0a497d7504b402c31bdc63f21662d5fa113a40ae7f1f5ce9aa307d688",
       "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
       "pixels_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914",
       "code_bytes_verified": 43552,
       "code_differences": 0,
-      "monotonic_before": 21.05387641500056,
-      "monotonic_after": 21.10115080900141,
+      "monotonic_before": 21.077665097000136,
+      "monotonic_after": 21.12619485599862,
       "ram_rgb_cpu_atomic": false
     },
     {
@@ -94,17 +94,17 @@
       ],
       "level": 1,
       "frame_counter": 0,
-      "bios_ticks": 828161,
+      "bios_ticks": 848079,
       "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
       "slot8_bytes": "0087e900f0601200f000000000",
-      "ram_sha256": "4cc0ab9313e7d3e8e99edf6f00772e315fc7237cc94dd68219432cd2fc0b2372",
-      "ram_gzip_sha256": "c23c2912923e8c61cfcbb5eda5b850c9ccb7f0e406deaf0fc3ebdc44ff0723c6",
-      "png_sha256": "f1425dfb0691840cc293af77d1449ac2f4a5beb5fb96a9a1bcb5dc0a6766defd",
-      "pixels_sha256": "7244bad22e838b15cb9556a6aed4ffb0e4fa7cff5b0833c9e437c59fe91eac5c",
+      "ram_sha256": "7b1b03c68d2716e0b6a5c48656f5c0c36ea4670914f463b6603d4d4d58ef4416",
+      "ram_gzip_sha256": "216e94ba73093529942854519b0b0ecdc04bed228121018ca8f09d7598be6dfe",
+      "png_sha256": "12e9df0f375f02eea2cd3d32365c5c5ebd7b19c0e68c46cba4056f4b11dc4e73",
+      "pixels_sha256": "4acb51165fcf7c7f3a9ddda793040b59799627ec3f7fc74ce0b4068188b5eff8",
       "code_bytes_verified": 43552,
       "code_differences": 0,
-      "monotonic_before": 25.151428192999447,
-      "monotonic_after": 25.183820926002227,
+      "monotonic_before": 25.148084763000952,
+      "monotonic_after": 25.18363653599954,
       "ram_rgb_cpu_atomic": false
     },
     {
@@ -115,17 +115,17 @@
       ],
       "level": 1,
       "frame_counter": 13,
-      "bios_ticks": 828180,
+      "bios_ticks": 848099,
       "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
       "slot8_bytes": "0087e900f0601200f000000000",
-      "ram_sha256": "30b6addaa74eb4f5fdd14ced4850510cb8a5a652bf062a92c3bbe5bb44052e5b",
-      "ram_gzip_sha256": "f8347f94cc705a757e615bb0517960762e3ffe4bb25e1fee3fc7594e6694fd73",
-      "png_sha256": "3550e013dd4e03bdcb15528c361e4f7e082980406e3f92075291cd801a9c0f7b",
-      "pixels_sha256": "aa70b17ea09cfc39d2e5592c161e8f286d4ea8bfec39d5ddf312093c1a337cbb",
+      "ram_sha256": "aaff14365d6ee17be2ff6a78e4cdd68248cd476f437fd5501924158505c5fbaf",
+      "ram_gzip_sha256": "8c3ea85af74faa240796359cdeb18c30c7ed14316f9feb549f82dd0dc95ece25",
+      "png_sha256": "e601939bfb23446a167ab4a653eef514e4adbb98e4dcae58d37f715d432a10c1",
+      "pixels_sha256": "b8aaedf794ef8f72cef65175e1ef790c13effda984bdea1ad9f17a6a3b17048c",
       "code_bytes_verified": 43552,
       "code_differences": 0,
-      "monotonic_before": 26.203482286000508,
-      "monotonic_after": 26.246080888002325,
+      "monotonic_before": 26.203806810997776,
+      "monotonic_after": 26.24447137199968,
       "ram_rgb_cpu_atomic": false
     },
     {
@@ -136,17 +136,17 @@
       ],
       "level": 1,
       "frame_counter": 14,
-      "bios_ticks": 828274,
+      "bios_ticks": 848193,
       "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
       "slot8_bytes": "0087e900f0601200f000000000",
-      "ram_sha256": "145085cb0da932b1067343074313447abf393ead340788ee098bb230be60699b",
-      "ram_gzip_sha256": "0600a54079ed03d039feb02663933748f6b5b79d5f4477f645faa95f00ffc6d5",
-      "png_sha256": "c288fea23bd87aa1f8b7dc5d3f5c785de19b8b561388b1655b7a3324b57b3858",
-      "pixels_sha256": "b65caada18a54191935ae21a0c3759c7556d4a0e873a367b43e2b484bcedda1f",
+      "ram_sha256": "04ee88315dd8c105736814f3091035478bbdb30ca48d8f466a5e68859d220d0c",
+      "ram_gzip_sha256": "36a47962d22b9e84f21662995d9756313b2e3162405ff9a1a48556b237aa5833",
+      "png_sha256": "58dd4b328b565f87456bb476d5b20ce4362f067de04b85588f8073ef011abfbb",
+      "pixels_sha256": "6eb5630ce8de1f3547abc54b5779b2f90fc3ebe9570efd39ce14ad86cac3ac1c",
       "code_bytes_verified": 43552,
       "code_differences": 0,
-      "monotonic_before": 31.266627487999358,
-      "monotonic_after": 31.309772682001494,
+      "monotonic_before": 31.26402891699763,
+      "monotonic_after": 31.31019081499835,
       "ram_rgb_cpu_atomic": false
     },
     {
@@ -157,17 +157,17 @@
       ],
       "level": 1,
       "frame_counter": 14,
-      "bios_ticks": 828554,
+      "bios_ticks": 848472,
       "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
       "slot8_bytes": "0087e900f0601200f000000000",
-      "ram_sha256": "d44dec0fec3973fd23284c0f681de3deea6590854e6f7ae054d889fa7822148c",
-      "ram_gzip_sha256": "6f4c3592164e3408afb34f2c56a9e7f3fe90b8f36a752fc96e65e9c8e375385b",
-      "png_sha256": "f97f39e6c4580c7b7616a6cc65cb3ac20ea120dec481785957b9ae600086dfb3",
-      "pixels_sha256": "c72fb79bcffa8228f1c4a9d69212db4ec1dff6065976a09033f9f4eb65eb08db",
+      "ram_sha256": "86d96af57178f4f9e2614c1ce13bf58918507386d8b7c9dfb03a559c2f28c5ec",
+      "ram_gzip_sha256": "5710b835fbd24167e63ae54bfc2b90f32ab57eb97c33c3566ee8bd31c410b90a",
+      "png_sha256": "a1ca8690c56ebe58192249e040977dc966d237a4d354926b85879ce5303e60fe",
+      "pixels_sha256": "ea2fc521814599894d703eebee067bf53687a6c28992406d9463d9dc86a9826c",
       "code_bytes_verified": 43552,
       "code_differences": 0,
-      "monotonic_before": 46.332265056000324,
-      "monotonic_after": 46.372602895000455,
+      "monotonic_before": 46.33056915499765,
+      "monotonic_after": 46.375652496997645,
       "ram_rgb_cpu_atomic": false
     },
     {
@@ -178,17 +178,17 @@
       ],
       "level": 1,
       "frame_counter": 14,
-      "bios_ticks": 828559,
+      "bios_ticks": 848477,
       "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
       "slot8_bytes": "0087e900f0601200f000000000",
-      "ram_sha256": "c90c79902efdafa987b50311f3378ac5f74a8be573aa93734ace6e1fb42f0a5f",
-      "ram_gzip_sha256": "d6fe40d642569120642b7e5d9bc746130745f32f37f014ffa07b4c5c50f559d4",
-      "png_sha256": "3aee653c5ce87b8c581dc625997f59f225a8825664e3cf56bbbfa3c708d854a4",
-      "pixels_sha256": "7fbf75b69030804ee675fe54daeef68800386945a05cb8cc136ea8954b4c461b",
+      "ram_sha256": "e47319374e892f488a5f07c27d06c2d34f7ae15c92526caadf84aab369c3bdee",
+      "ram_gzip_sha256": "142fd680fab0d34d398cba648648f45ff7b5cdb8458055d1c2abeb83e80759e9",
+      "png_sha256": "548d81417c6389cd722c43d4d01cd7c0f56721b4b6a7b7959e151ab468483024",
+      "pixels_sha256": "0b299ea9e09aa389eb06ba04a57c127f897c79e6e46a1a52fc5be386471670e6",
       "code_bytes_verified": 43552,
       "code_differences": 0,
-      "monotonic_before": 46.593504103999294,
-      "monotonic_after": 46.636016348998965,
+      "monotonic_before": 46.59770139199827,
+      "monotonic_after": 46.64297052999973,
       "ram_rgb_cpu_atomic": false
     },
     {
@@ -199,17 +199,17 @@
       ],
       "level": 1,
       "frame_counter": 14,
-      "bios_ticks": 828617,
+      "bios_ticks": 848534,
       "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a0000000008713a3a3a3a3a3a3a",
       "slot8_bytes": "0087e900f0601200f000000000",
-      "ram_sha256": "6f9cf9fbd56168eccc230e578b50cb5942e7af53c9300529c9db5cbad0368a8b",
-      "ram_gzip_sha256": "c8275e03c4f1b09f65941d273d3289cc9536e94ca36b332ffa45b3fb1eae17db",
-      "png_sha256": "bf4f964320b7f5afb164c6637e591440040cf1387d327f0cc4b9de4b51905d6e",
-      "pixels_sha256": "14036a1039fae817e37828b216d8a4921d3cf41f2af9e1d28c4338772acac21b",
+      "ram_sha256": "9ec0e6511f87e362364968820b579c32b643fc6e9863270769b3b4ea6d948ae1",
+      "ram_gzip_sha256": "b05f50ba896910c7be96273ddb62d0e5c0588037f0af5a409c8c557354f1a548",
+      "png_sha256": "2732585ef566091cc1939b8db247c4736c7fd935a9c778461d9ff663fbc6c590",
+      "pixels_sha256": "01d8bfc5279c4f390913638245026941c37d44989743bbcc6cea61d89fa9d93d",
       "code_bytes_verified": 43552,
       "code_differences": 0,
-      "monotonic_before": 49.65595728400149,
-      "monotonic_after": 49.69438229300067,
+      "monotonic_before": 49.66399905800063,
+      "monotonic_after": 49.71058116199856,
       "ram_rgb_cpu_atomic": false
     },
     {
@@ -220,17 +220,17 @@
       ],
       "level": 1,
       "frame_counter": 14,
-      "bios_ticks": 828622,
+      "bios_ticks": 848539,
       "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a0000000008713a3a3a3a3a3a3a",
       "slot8_bytes": "0087e900f0601200f000000000",
-      "ram_sha256": "f5550acc5a208605ae4db1669d81f8f483dd55a60ea331c2b81c81dd06cab3e6",
-      "ram_gzip_sha256": "20e842a126ffd8b9b647c5fda72a23c09d820211a86d814ebc58b434055dfcc8",
-      "png_sha256": "f49cd0d46af7b091746aaa3fc1f7b0412abb551b2f9dfcc71e63798ac7c1d564",
-      "pixels_sha256": "9330bca65a121471f152df14a2a921b31646fd21a42491ed1ca3fdc3cc768882",
+      "ram_sha256": "88c44c7004437c45684d9368f8f2af42f68ef0a358e8c8388f933320016a1cc4",
+      "ram_gzip_sha256": "3dc0b465c579c38151460be51c0516f34f2e2a19abb865b0d0c9b62fe666ff2f",
+      "png_sha256": "2b411a7dee883d1e23052d54b77fc9dc91151bc3620dfc256ff395ba6833b3fd",
+      "pixels_sha256": "e9a39bb24d056ad773ba1a1cab8b4a6f2337e5b41adbdc131ae76c9c8ade54ea",
       "code_bytes_verified": 43552,
       "code_differences": 0,
-      "monotonic_before": 49.91347495200171,
-      "monotonic_after": 49.95460755300155,
+      "monotonic_before": 49.93155731799925,
+      "monotonic_after": 49.97611671999766,
       "ram_rgb_cpu_atomic": false
     },
     {
@@ -241,17 +241,17 @@
       ],
       "level": 1,
       "frame_counter": 14,
-      "bios_ticks": 828633,
+      "bios_ticks": 848549,
       "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a0000000008713a3a3a3a3a3a3a",
       "slot8_bytes": "0087e900f0601200f000000000",
-      "ram_sha256": "ab5d7b255bb5d2d112b9ca0fc614fbdd573b641917a42d43c419566c8d839e7e",
-      "ram_gzip_sha256": "b53c8c4fc2b55eeefbdd1fbf28676cd70463ca3480a492557e110d855fd885b9",
-      "png_sha256": "da06a20fde3609bcbce7761ec4142852afdcfeeba6b5da4214e7957f5bbfda1c",
-      "pixels_sha256": "f7c06a3902d4fdf49e75f46770d834e4e4347126ec0ed8ccfccd84403aa631b8",
+      "ram_sha256": "1f97cc4196eb9ab126154350f61ff55ccccb6c5354f7995d4352978f2e93d401",
+      "ram_gzip_sha256": "55a6377e447a884da64d45538a7e0eed09c69a52ff9c459d58fcd6cf8d658b7f",
+      "png_sha256": "faa83f893230ef7842fb0227ee8d74f4270ea5d73be9949ad37d6ea2fbaf1343",
+      "pixels_sha256": "277c242007b116a9299bd55dceedac6226032f841fc9dd12af4f6447978c0357",
       "code_bytes_verified": 43552,
       "code_differences": 0,
-      "monotonic_before": 50.47384878899902,
-      "monotonic_after": 50.519486392000545,
+      "monotonic_before": 50.503478234000795,
+      "monotonic_after": 50.54893444099798,
       "ram_rgb_cpu_atomic": false
     },
     {
@@ -262,68 +262,68 @@
       ],
       "level": 1,
       "frame_counter": 14,
-      "bios_ticks": 828671,
+      "bios_ticks": 848587,
       "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a0000000008713a3a3a3a3a3a3a",
       "slot8_bytes": "0087e900f0601200f000000000",
-      "ram_sha256": "316f3c8da966b88b2ea5908720235950108533590d642d8bb0112262418d5f8e",
-      "ram_gzip_sha256": "a8adb582fa5cdc4a9f5dbe5d4278b48513670d22f77cbfb45a055b0c46a0af7c",
-      "png_sha256": "c9d6305e52d7bfc5204edf24491e0c7c892cf90f6733098dae5fa09099be731a",
-      "pixels_sha256": "b82458d673ff38328bc05c410e1cfb636e993ce3be9ec90c716ceab817d60a54",
+      "ram_sha256": "e6c71bc58645efaa1a21db4b38af690c929f964d2418120a6f3a5f8150585943",
+      "ram_gzip_sha256": "039a6922587bff189a8ed8dadda6a82149ee3668055b2706f270b0bb743a44d0",
+      "png_sha256": "9479dd78bb1475533de80d0166884bd84cd7c6a3fa6dad0d45ad730a356437dc",
+      "pixels_sha256": "bca5029b56c547b84cca326e312b08cdfd46464967c4b21ff72501fe645e1d31",
       "code_bytes_verified": 43552,
       "code_differences": 0,
-      "monotonic_before": 52.52041757999905,
-      "monotonic_after": 52.56512231200031,
+      "monotonic_before": 52.55005742499998,
+      "monotonic_after": 52.59518527999899,
       "ram_rgb_cpu_atomic": false
     }
   ],
   "events": [
     {
       "key": "1",
-      "observed_utc": "2026-10-16T10:38:03.345746+00:00",
-      "monotonic_before": 21.101818312999967,
-      "monotonic_after": 21.151369135001005
+      "observed_utc": "2026-10-16T10:56:17.697635+00:00",
+      "monotonic_before": 21.126879741997982,
+      "monotonic_after": 21.147998034997727
     },
     {
       "key": "Return",
-      "observed_utc": "2026-10-16T10:38:07.397799+00:00",
-      "monotonic_before": 25.184425790001114,
-      "monotonic_after": 25.203416640000796
+      "observed_utc": "2026-10-16T10:56:21.753378+00:00",
+      "monotonic_before": 25.184340789997805,
+      "monotonic_after": 25.203737730000285
     },
     {
       "key": "Escape",
-      "observed_utc": "2026-10-16T10:38:08.460864+00:00",
-      "monotonic_before": 26.2467983610004,
-      "monotonic_after": 26.266482461000123
+      "observed_utc": "2026-10-16T10:56:22.813584+00:00",
+      "monotonic_before": 26.245388100000127,
+      "monotonic_after": 26.26394255299965
     },
     {
       "key": "1",
-      "observed_utc": "2026-10-16T10:38:13.526560+00:00",
-      "monotonic_before": 31.310601378001593,
-      "monotonic_after": 31.332185573999595
+      "observed_utc": "2026-10-16T10:56:27.880117+00:00",
+      "monotonic_before": 31.310972846000368,
+      "monotonic_after": 31.33047545199952
     },
     {
       "key": "q",
-      "observed_utc": "2026-10-16T10:38:29.392342+00:00",
-      "monotonic_before": 46.373322162002296,
-      "monotonic_after": 46.393436721999024
+      "observed_utc": "2026-10-16T10:56:43.665987+00:00",
+      "monotonic_before": 46.37649463900016,
+      "monotonic_after": 46.39761956700022
     },
     {
       "key": "Return",
-      "observed_utc": "2026-10-16T10:38:29.654812+00:00",
-      "monotonic_before": 46.636836894002045,
-      "monotonic_after": 46.655906823001715
+      "observed_utc": "2026-10-16T10:56:43.932319+00:00",
+      "monotonic_before": 46.64384188099939,
+      "monotonic_after": 46.66395147900039
     },
     {
       "key": "r",
-      "observed_utc": "2026-10-16T10:38:32.712306+00:00",
-      "monotonic_before": 49.69515472100102,
-      "monotonic_after": 49.713398945001245
+      "observed_utc": "2026-10-16T10:56:46.999840+00:00",
+      "monotonic_before": 49.71148550599901,
+      "monotonic_after": 49.731494477000524
     },
     {
       "key": "Return",
-      "observed_utc": "2026-10-16T10:38:32.972655+00:00",
-      "monotonic_before": 49.955549590999,
-      "monotonic_after": 49.97374823300197
+      "observed_utc": "2026-10-16T10:56:47.271773+00:00",
+      "monotonic_before": 49.977061392000905,
+      "monotonic_after": 50.003405318999285
     }
   ],
   "capture_contract_sha256": "36e27f3441ae98db6e2a459ca64c561b72c964e1e98de854ca416321c33c33e0",
@@ -361,15 +361,15 @@
         "xdotool",
         "search",
         "--pid",
-        "67626",
+        "82907",
         "--name",
         "DOSBox"
       ],
       "exit_code": 0,
       "stdout": "6291464\n",
       "stderr": "",
-      "monotonic_before": 1.0455197609990137,
-      "monotonic_after": 1.0485054400014633
+      "monotonic_before": 1.0690885049989447,
+      "monotonic_after": 1.0729227640003955
     },
     {
       "command": [
@@ -380,8 +380,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 1.0492259950005973,
-      "monotonic_after": 1.0515393450004922
+      "monotonic_before": 1.0736992620004457,
+      "monotonic_after": 1.0756871209996461
     },
     {
       "command": [
@@ -393,8 +393,8 @@
       "exit_code": 0,
       "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
       "stderr": "",
-      "monotonic_before": 21.05435270399903,
-      "monotonic_after": 21.057043208002142
+      "monotonic_before": 21.078114428000845,
+      "monotonic_after": 21.08241150899994
     },
     {
       "command": [
@@ -405,8 +405,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 21.101820857998973,
-      "monotonic_after": 21.123229379001714
+      "monotonic_before": 21.126882268999907,
+      "monotonic_after": 21.13050438299979
     },
     {
       "command": [
@@ -418,8 +418,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 21.124026105000667,
-      "monotonic_after": 21.150522347001242
+      "monotonic_before": 21.131241160997888,
+      "monotonic_after": 21.147143629998027
     },
     {
       "command": [
@@ -431,8 +431,8 @@
       "exit_code": 0,
       "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
       "stderr": "",
-      "monotonic_before": 25.15179340100076,
-      "monotonic_after": 25.15402661400003
+      "monotonic_before": 25.148481975000323,
+      "monotonic_after": 25.15103848599756
     },
     {
       "command": [
@@ -443,8 +443,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 25.18442789600158,
-      "monotonic_after": 25.186864368999522
+      "monotonic_before": 25.184343152999645,
+      "monotonic_after": 25.187112993000483
     },
     {
       "command": [
@@ -456,8 +456,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 25.187564982999902,
-      "monotonic_after": 25.20253691900143
+      "monotonic_before": 25.187918949999585,
+      "monotonic_after": 25.202892458997667
     },
     {
       "command": [
@@ -469,8 +469,8 @@
       "exit_code": 0,
       "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
       "stderr": "",
-      "monotonic_before": 26.20384984699922,
-      "monotonic_after": 26.206966716999887
+      "monotonic_before": 26.204207390001102,
+      "monotonic_after": 26.206904537997616
     },
     {
       "command": [
@@ -481,8 +481,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 26.246800847002305,
-      "monotonic_after": 26.249018351001723
+      "monotonic_before": 26.245390639000107,
+      "monotonic_after": 26.247514919999958
     },
     {
       "command": [
@@ -494,8 +494,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 26.249826519000635,
-      "monotonic_after": 26.26554208699963
+      "monotonic_before": 26.248255848000554,
+      "monotonic_after": 26.263055274997896
     },
     {
       "command": [
@@ -507,8 +507,8 @@
       "exit_code": 0,
       "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
       "stderr": "",
-      "monotonic_before": 31.267041858001903,
-      "monotonic_after": 31.26960618999874
+      "monotonic_before": 31.264430375998927,
+      "monotonic_after": 31.27034503699906
     },
     {
       "command": [
@@ -519,8 +519,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 31.31060454999897,
-      "monotonic_after": 31.313451820999035
+      "monotonic_before": 31.31097544899967,
+      "monotonic_after": 31.313493237998046
     },
     {
       "command": [
@@ -532,8 +532,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 31.3144482960015,
-      "monotonic_after": 31.330286084001273
+      "monotonic_before": 31.314399020000565,
+      "monotonic_after": 31.32956421400013
     },
     {
       "command": [
@@ -545,8 +545,8 @@
       "exit_code": 0,
       "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
       "stderr": "",
-      "monotonic_before": 46.33270047100086,
-      "monotonic_after": 46.33507706900127
+      "monotonic_before": 46.33101521299977,
+      "monotonic_after": 46.334039236000535
     },
     {
       "command": [
@@ -557,8 +557,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 46.373324489999504,
-      "monotonic_after": 46.3765104310005
+      "monotonic_before": 46.37649700199836,
+      "monotonic_after": 46.379446089998964
     },
     {
       "command": [
@@ -570,8 +570,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 46.37741147400084,
-      "monotonic_after": 46.39243782199992
+      "monotonic_before": 46.38040464599908,
+      "monotonic_after": 46.39652557199952
     },
     {
       "command": [
@@ -583,8 +583,8 @@
       "exit_code": 0,
       "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
       "stderr": "",
-      "monotonic_before": 46.593881548000354,
-      "monotonic_after": 46.59629399400001
+      "monotonic_before": 46.59814801799803,
+      "monotonic_after": 46.60099860699847
     },
     {
       "command": [
@@ -595,8 +595,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 46.63683891799883,
-      "monotonic_after": 46.639250086001994
+      "monotonic_before": 46.643844509999326,
+      "monotonic_after": 46.64658624100048
     },
     {
       "command": [
@@ -608,8 +608,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 46.64013636100208,
-      "monotonic_after": 46.65494728699923
+      "monotonic_before": 46.64761784700022,
+      "monotonic_after": 46.66288357799931
     },
     {
       "command": [
@@ -621,8 +621,8 @@
       "exit_code": 0,
       "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
       "stderr": "",
-      "monotonic_before": 49.65630492299897,
-      "monotonic_after": 49.6586219109995
+      "monotonic_before": 49.66445472899795,
+      "monotonic_after": 49.66830342399771
     },
     {
       "command": [
@@ -633,8 +633,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 49.69515676900119,
-      "monotonic_after": 49.69715512499897
+      "monotonic_before": 49.71148812499814,
+      "monotonic_after": 49.71399129799829
     },
     {
       "command": [
@@ -646,8 +646,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 49.69805396599986,
-      "monotonic_after": 49.712517378000484
+      "monotonic_before": 49.71501172200078,
+      "monotonic_after": 49.73027241199816
     },
     {
       "command": [
@@ -659,8 +659,8 @@
       "exit_code": 0,
       "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
       "stderr": "",
-      "monotonic_before": 49.91384004499923,
-      "monotonic_after": 49.91605068300123
+      "monotonic_before": 49.93197438399875,
+      "monotonic_after": 49.93474055099796
     },
     {
       "command": [
@@ -671,8 +671,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 49.95555201499883,
-      "monotonic_after": 49.957631359000516
+      "monotonic_before": 49.977063726997585,
+      "monotonic_after": 49.98262138700011
     },
     {
       "command": [
@@ -684,8 +684,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 49.95852525000009,
-      "monotonic_after": 49.97286276199884
+      "monotonic_before": 49.98367540799882,
+      "monotonic_after": 50.002283277997776
     },
     {
       "command": [
@@ -697,8 +697,8 @@
       "exit_code": 0,
       "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
       "stderr": "",
-      "monotonic_before": 50.474229923001985,
-      "monotonic_after": 50.477364176000265
+      "monotonic_before": 50.50393446599992,
+      "monotonic_after": 50.5074633990007
     },
     {
       "command": [
@@ -710,8 +710,8 @@
       "exit_code": 0,
       "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
       "stderr": "",
-      "monotonic_before": 52.52078801500102,
-      "monotonic_after": 52.523827385000914
+      "monotonic_before": 52.55049670399967,
+      "monotonic_after": 52.553312841999286
     },
     {
       "command": [
@@ -723,8 +723,8 @@
       "exit_code": 0,
       "stdout": "",
       "stderr": "",
-      "monotonic_before": 52.56681611699969,
-      "monotonic_after": 52.596369504000904
+      "monotonic_before": 52.59686001299997,
+      "monotonic_after": 52.62557108100009
     }
   ],
   "input_injection_failures": [],
@@ -732,7 +732,7 @@
     "/dev/shm/lezac-interrupt-runtime-t195/tools/original_interrupt_probe/capture.py",
     "--inside-xvfb",
     "--run",
-    "rank7r5",
+    "rank7r6",
     "--case",
     "rank7",
     "--repo",
@@ -740,7 +740,7 @@
     "--dosbox",
     "/dev/shm/lezac-irq-oracle-t195-r2/dosbox-0.74-3/src/dosbox",
     "--out",
-    "/dev/shm/lezac-irq-original-t195-rank7-r5"
+    "/dev/shm/lezac-irq-original-t195-rank7-r6"
   ],
   "host_build": {
     "base_host_sha256": "4d8eaba9db5e3f733b49c35f191eff98f1f5730035f7374c5c703693a080c8ac",
@@ -766,30 +766,30 @@
   "dosbox_argv": [
     "/dev/shm/lezac-irq-oracle-t195-r2/dosbox-0.74-3/src/dosbox",
     "-conf",
-    "/dev/shm/lezac-irq-original-t195-rank7-r5/dosbox.conf",
+    "/dev/shm/lezac-irq-original-t195-rank7-r6/dosbox.conf",
     "-c",
-    "mount c /dev/shm/lezac-irq-original-t195-rank7-r5/run",
+    "mount c /dev/shm/lezac-irq-original-t195-rank7-r6/run",
     "-c",
     "c:",
     "-c",
     "LEZAC.EXE"
   ],
-  "dosbox_cwd": "/dev/shm/lezac-irq-original-t195-rank7-r5",
+  "dosbox_cwd": "/dev/shm/lezac-irq-original-t195-rank7-r6",
   "dosbox_environment": {
     "PATH": "/usr/bin:/bin",
-    "HOME": "/dev/shm/lezac-irq-original-t195-rank7-r5/home",
-    "TMPDIR": "/dev/shm/lezac-irq-original-t195-rank7-r5/tmp",
+    "HOME": "/dev/shm/lezac-irq-original-t195-rank7-r6/home",
+    "TMPDIR": "/dev/shm/lezac-irq-original-t195-rank7-r6/tmp",
     "LANG": "C.UTF-8",
     "LC_ALL": "C.UTF-8",
     "DISPLAY": ":99",
-    "XAUTHORITY": "/dev/shm/xvfb-run.3Vd5Eg/Xauthority",
+    "XAUTHORITY": "/dev/shm/xvfb-run.sOqUPW/Xauthority",
     "SDL_VIDEODRIVER": "x11",
     "SDL_AUDIODRIVER": "dummy",
-    "LEZAC_IRQ_TRACE": "/dev/shm/lezac-irq-original-t195-rank7-r5/guest-irq.csv"
+    "LEZAC_IRQ_TRACE": "/dev/shm/lezac-irq-original-t195-rank7-r6/guest-irq.csv"
   },
   "dosbox_config": "[sdl]\nfullscreen=false\noutput=surface\n[render]\nframeskip=0\naspect=false\nscaler=none\n[cpu]\ncore=normal\ncycles=fixed 6000\n[mixer]\nnosound=true\n[speaker]\npcspeaker=false\n[sblaster]\nsbtype=none\n[midi]\nmpu401=none\nmididevice=none\n",
   "environment_is_complete": true,
-  "child_pid": 67626,
+  "child_pid": 82907,
   "private_display_autorepeat_command": {
     "command": [
       "xset",
@@ -802,12 +802,12 @@
   },
   "code_segment": 417,
   "data_segment": 3139,
-  "ram_base": 128638884245520,
+  "ram_base": 124986782117904,
   "private_xvfb_autorepeat_disabled": true,
   "passed": true,
   "child_exit_code": 0,
-  "trace_bytes": 151171,
-  "trace_sha256": "b28fc03ad3b374e16125666002dcc8e6cc3547f5fafe417d669a2532838c5bb9",
+  "trace_bytes": 151411,
+  "trace_sha256": "003af203100572a6d681056843983666c277fdf6e26f3b7fd3613ef0d1594232",
   "trace_end_marker": true,
   "canonical_assets_unchanged": true,
   "vga_snapshots": []

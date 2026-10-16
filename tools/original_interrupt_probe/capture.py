@@ -287,8 +287,11 @@ finally:
                 terminal_errors.append('Incomplete trace or unsuccessful emulator exit')
     elif report['status'] == 'observed':
         terminal_errors.append('No IRQ trace produced')
-    report['canonical_assets_unchanged'] = all(sha((ROOT / name).read_bytes()) == pin['sha256']
-                                              for name, pin in assets.items())
+    try:
+        report['canonical_assets_unchanged'] = all(sha((ROOT / name).read_bytes()) == pin['sha256']
+                                                  for name, pin in assets.items())
+    except OSError as error:
+        report.update(canonical_assets_unchanged=False, canonical_asset_check_error=repr(error))
     if not report['canonical_assets_unchanged']:
         terminal_errors.append('Canonical assets changed')
     report['vga_snapshots'] = [dict(name=path.name, bytes=path.stat().st_size, sha256=sha(path.read_bytes()))

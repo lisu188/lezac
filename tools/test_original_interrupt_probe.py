@@ -27,7 +27,7 @@ class OriginalInterruptProbeTests(unittest.TestCase):
 
     def test_frozen_manifest(self):
         raw = (FIXTURE / 'manifest.json').read_bytes()
-        self.assertEqual(SHA(raw), '3e94e5cce9b3bb9bdf386b95b00c969fef050ea9de1b20bab3b27dab916ef036')
+        self.assertEqual(SHA(raw), 'afeaaade936412fab208507cef4a2ad57146bceb92470819473a32bd4ea64d52')
         manifest = json.loads(raw)
         self.assertEqual((manifest['cases'], manifest['trace_rows']), (2, 1752))
         for key in ('raw_ram_published', 'raw_vga_published', 'screenshots_published',
@@ -50,7 +50,7 @@ class OriginalInterruptProbeTests(unittest.TestCase):
             self.assertIs(result['vga_files_verified'], False)
             results.append(result)
         self.assertEqual(results, json.loads((FIXTURE / 'replays.json').read_text()))
-        self.assertEqual(results[0]['destination'], 33712)
+        self.assertEqual(results[0]['destination'], 39578)
         self.assertEqual(results[0]['exception_entries'], 65)
         self.assertTrue(results[0]['bios_ticks_frozen'])
         self.assertFalse(results[1]['bios_ticks_frozen'])

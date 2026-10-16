@@ -147,3 +147,5 @@ tests/fixtures/startup_map_original.json -text
 tests/fixtures/startup_map_original.bin.gz -text
 tests/fixtures/abort_map_original.json -text
 tests/fixtures/abort_map_original.bin.gz -text
+tests/fixtures/original_work_clock/** -text
+tools/original_work_probe/** text eol=lf

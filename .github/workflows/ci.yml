@@ -32,6 +32,10 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: python3 -S -B tools/test_buffered_menu_output.py -v
+      - name: Original CPU work-clock evidence regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python3 -S -B tools/test_original_work_clock.py -v
       - name: Raw lane-word classification regressions
         env:
           SDL_AUDIODRIVER: dummy
@@ -737,6 +741,10 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
         run: python3 -S -B tools/test_buffered_menu_output.py -v
+      - name: Original CPU work-clock evidence regressions
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: python3 -S -B tools/test_original_work_clock.py -v
       - name: Raw lane-word classification regressions
         env:
           SDL_AUDIODRIVER: dummy

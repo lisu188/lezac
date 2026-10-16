@@ -175,8 +175,66 @@ class OriginalFramePacingTests(unittest.TestCase):
             with self.subTest(control=index), self.assertRaises(ValueError):
                 analyze(raw, changed)
 
-    def test_cli_rejects_mutated_guest_without_publishing_report(self):
+    def test_input_command_sequence_binding(self):
+        raw = (FIXTURE / 'r2.csv').read_bytes()
         recipe = json.loads((FIXTURE / 'r2-recipe.json').read_text())
+        controls = []
+        extra = dict(recipe['host_commands'][-1], command=['xdotool', 'key', '--clearmodifiers', 'Left'])
+        for index in range(13):
+            commands = copy.deepcopy(recipe['host_commands'])
+            commands.insert(index, extra)
+            controls.append(dict(recipe, host_commands=commands))
+        for index in range(12):
+            commands = copy.deepcopy(recipe['host_commands'])
+            del commands[index]
+            controls.append(dict(recipe, host_commands=commands))
+        for index in range(11):
+            commands = copy.deepcopy(recipe['host_commands'])
+            commands[index], commands[index + 1] = commands[index + 1], commands[index]
+            controls.append(dict(recipe, host_commands=commands))
+        for index in (4, 7, 11):
+            commands = copy.deepcopy(recipe['host_commands'])
+            commands[index]['command'][-1] = 'Left'
+            controls.append(dict(recipe, host_commands=commands))
+        self.assertEqual(len(controls), 39)
+        for index, changed in enumerate(controls):
+            with self.subTest(control=index), self.assertRaises(ValueError):
+                analyze(raw, changed)
+
+    def test_input_command_targets_and_intervals(self):
+        raw = (FIXTURE / 'r2.csv').read_bytes()
+        recipe = json.loads((FIXTURE / 'r2-recipe.json').read_text())
+        controls = []
+        for key, values in [('child_pid', [True, 0, str(recipe['child_pid']), None])]:
+            controls.extend(dict(recipe, **{key: value}) for value in values)
+        for value in ['', 'not-a-window', '0', False]:
+            changed = copy.deepcopy(recipe)
+            changed['host_commands'][0]['stdout'] = value
+            controls.append(changed)
+        for key, value in [('exit_code', False), ('exit_code', 1), ('monotonic_before', False),
+                           ('monotonic_before', -1), ('monotonic_before', float('nan')),
+                           ('monotonic_after', float('inf')), ('monotonic_after', 0)]:
+            changed = copy.deepcopy(recipe)
+            changed['host_commands'][4][key] = value
+            controls.append(changed)
+        for key, value in [('monotonic_before', 1000), ('monotonic_after', 0)]:
+            changed = copy.deepcopy(recipe)
+            changed['events'][0][key] = value
+            controls.append(changed)
+        changed = copy.deepcopy(recipe)
+        changed['events'][0]['monotonic_after'] = changed['host_commands'][4]['monotonic_before']
+        controls.append(changed)
+        changed = copy.deepcopy(recipe)
+        changed['samples'][0]['monotonic_after'] = changed['host_commands'][2]['monotonic_before']
+        controls.append(changed)
+        self.assertEqual(len(controls), 19)
+        for index, changed in enumerate(controls):
+            with self.subTest(control=index), self.assertRaises(ValueError):
+                analyze(raw, changed)
+
+    def test_cli_rejects_invalid_recipe_without_publishing_report(self):
+        recipe = json.loads((FIXTURE / 'r2-recipe.json').read_text())
+        extra = dict(recipe['host_commands'][-1], command=['xdotool', 'key', '--clearmodifiers', 'Left'])
         with tempfile.TemporaryDirectory(prefix='lezac-pacing-recipe-') as temporary:
             folder = Path(temporary)
             bad_recipe = folder / 'recipe.json'
@@ -187,7 +245,8 @@ class OriginalFramePacingTests(unittest.TestCase):
                     ('producer_sha256', None, 'Capture host or producer differs'),
                     ('dosbox_config', recipe['dosbox_config'].replace('sbtype=none', 'sbtype=sb16'), 'Wrong capture profile'),
                     ('dosbox_environment', dict(recipe['dosbox_environment'], SDL_VIDEODRIVER='dummy'),
-                     'Unexpected emulator environment')]):
+                     'Unexpected emulator environment'),
+                    ('host_commands', recipe['host_commands'] + [extra], 'Input command sequence differs')]):
                 output = folder / ('report' + str(index) + '.json')
                 bad_recipe.write_text(json.dumps(dict(recipe, **{key: value})))
                 command = [sys.executable, '-S', '-B', str(ROOT / 'tools/analyze_original_frame_pacing.py'),

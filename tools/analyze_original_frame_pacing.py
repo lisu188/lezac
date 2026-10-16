@@ -5,6 +5,7 @@ import csv
 import hashlib
 import io
 import json
+import math
 from pathlib import Path
 
 IPS = dict(identified=0x1fc, frame_before=0x7903, time_begin=0x7919,
@@ -25,6 +26,49 @@ CAPTURE_ENVIRONMENT = dict(PATH='/usr/bin:/bin', LANG='C.UTF-8', LC_ALL='C.UTF-8
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
+
+def validate_input_commands(recipe):
+    commands = recipe.get('host_commands')
+    require(type(commands) is list and len(commands) == 12 and
+            all(type(command) is dict and type(command.get('exit_code')) is int and
+                command['exit_code'] == 0 for command in commands), 'Input command sequence differs')
+    pid = recipe.get('child_pid')
+    output = commands[0].get('stdout')
+    require(type(pid) is int and pid > 0 and type(output) is str and output.splitlines(),
+            'Input command target differs')
+    window = output.splitlines()[-1]
+    require(window.isascii() and window.isdecimal() and int(window) > 0, 'Input command target differs')
+    focus = ['xdotool', 'windowfocus', window]
+    geometry = ['xdotool', 'getwindowgeometry', '--shell', window]
+    expected = [['xdotool', 'search', '--pid', str(pid), '--name', 'DOSBox'], focus, geometry,
+        focus, ['xdotool', 'key', '--clearmodifiers', '1'], geometry,
+        focus, ['xdotool', 'key', '--clearmodifiers', 'Return'], geometry, geometry, geometry,
+        ['xdotool', 'key', '--clearmodifiers', 'ctrl+F9']]
+    require([command.get('command') for command in commands] == expected, 'Input command sequence differs')
+
+    def interval(item):
+        require(type(item) is dict, 'Input command timing differs')
+        values = [item.get('monotonic_before'), item.get('monotonic_after')]
+        require(all(type(value) in (int, float) and math.isfinite(value) for value in values) and
+                0 <= values[0] <= values[1], 'Input command timing differs')
+        return values
+
+    times = [interval(command) for command in commands]
+    require(all(first[1] <= second[0] for first, second in zip(times, times[1:])),
+            'Input command timing differs')
+    events = recipe.get('events')
+    require(type(events) is list and len(events) == 2 and all(type(event) is dict for event in events) and
+            [event.get('key') for event in events] == ['1', 'Return'],
+            'Unexpected input recipe')
+    for event, focus_index, key_index in zip(events, (3, 6), (4, 7)):
+        before, after = interval(event)
+        require(before <= times[focus_index][0] <= times[key_index][1] <= after,
+                'Input command does not bind its event')
+    for sample, index in zip(recipe['samples'], (2, 5, 8, 9, 10)):
+        before, after = interval(sample)
+        require(before <= times[index][0] <= times[index][1] <= after,
+                'Input command does not bind its sample')
 
 
 def analyze(raw, recipe):
@@ -76,8 +120,7 @@ def analyze(raw, recipe):
     require(len(recipe['samples']) == 5 and all(sample['code_bytes_verified'] == 43552 and
             sample['code_differences'] == 0 and sample.get('ram_rgb_cpu_atomic') is False
             for sample in recipe['samples']), 'Original code or checkpoint scope differs')
-    require(recipe['host_commands'] and all(command['exit_code'] == 0 for command in recipe['host_commands']), 'Input command failed')
-    require([event['key'] for event in recipe['events']] == ['1', 'Return'], 'Unexpected input recipe')
+    validate_input_commands(recipe)
     require(raw.endswith(b'\nend\n'), 'Missing terminal trace marker')
     rows = list(csv.DictReader(io.StringIO(raw[:-4].decode('ascii'))))
     require(rows and rows[0]['kind'] == 'identified', 'Original not identified')

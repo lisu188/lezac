@@ -20,6 +20,7 @@ public:
     void clearRequestAttemptCount() { requestAttemptCount_ = 0; }
     SoundInterruptState interruptState() const { return soundInterrupt_; }
     SoundClockState clockState() const { return soundClock_; }
+    SoundInterruptWorkState interruptWorkState() const { return soundInterruptWork_; }
     SpeakerToneState speakerState() const { return speaker_; }
     SoundPlaybackSnapshot lastPumped() const {
         return {lastPumpedSoundRecord_, lastPumpedSoundOffset_, lastPumpedSoundSelector_};
@@ -60,6 +61,9 @@ public:
     bool requestSoundOffset(uint16_t offset, uint8_t selector);
     // One original INT 1Ch transition. Host scheduling is deliberately separate.
     SoundInterruptAction advanceSoundInterrupt();
+    // Complete recovered INT1C/CRT execution on the canonical latch/counters.
+    // Caller registers are private adapter state; IRQ cadence is still separate.
+    SoundInterruptAction advanceSoundInterruptWorkOrdered();
     // Persistent default BIOS-clock playback; no SDL or gameplay-tick dependency.
     std::vector<int16_t> renderClockedSamples(size_t sampleCount);
     // Advance discarded host-time samples without allocating PCM. Returns
@@ -82,6 +86,7 @@ private:
     uint64_t requestAttemptCount_ = 0;
     SoundInterruptState soundInterrupt_;
     SoundClockState soundClock_;
+    SoundInterruptWorkState soundInterruptWork_;
     SpeakerToneState speaker_;
     int lastPumpedSoundRecord_ = -1;
     uint16_t lastPumpedSoundOffset_ = 0;

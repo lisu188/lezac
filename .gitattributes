@@ -1,6 +1,8 @@
 *.sh text eol=lf
 *.py text eol=lf
 *.route text eol=lf
+tools/timer_irq_probe/** text eol=lf
+tests/fixtures/timer_irq/** -text
 tests/fixtures/startup_timing/** -text
 tests/fixtures/end_screen_*.rgb binary
 tests/fixtures/end_screen_original.json -text

@@ -34,6 +34,7 @@ target_link_libraries(lezac_resources PUBLIC lezac_core)
 
 add_library(lezac_sound STATIC
     src/sound/sound_engine.cpp
+    src/sound/sound_interrupt_runtime.cpp
     src/sound/sdl_audio_output.cpp
 )
 target_include_directories(lezac_sound PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src ${SDL2_INCLUDE_DIRS})
@@ -184,6 +185,44 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_frame_display_test tests/core/frame_display_test.cpp)
+    target_link_libraries(lezac_frame_display_test PRIVATE lezac_core)
+    add_test(NAME frame_display_unit COMMAND lezac_frame_display_test)
+    set_tests_properties(frame_display_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_display_edges=ok boundaries=654")
+    add_test(NAME frame_pacing_calculation_unit COMMAND lezac_frame_display_test --composition)
+    add_test(NAME full_pacing_unit COMMAND lezac_frame_display_test --pacing)
+    set_tests_properties(full_pacing_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "frame_pacing_operation_edges=ok eligible_boundaries=1037 masked_boundaries=1")
+    set_tests_properties(frame_pacing_calculation_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "frame_pacing_calculation_edges=ok boundaries=1008")
+    add_executable(lezac_frame_clock_test tests/core/frame_clock_test.cpp)
+    target_link_libraries(lezac_frame_clock_test PRIVATE lezac_core)
+    add_test(NAME frame_clock_unit COMMAND lezac_frame_clock_test)
+    set_tests_properties(frame_clock_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_clock_edges=ok foreground_boundaries=30")
+    add_executable(lezac_pic_work_clock_test tests/core/pic_work_clock_test.cpp)
+    target_link_libraries(lezac_pic_work_clock_test PRIVATE lezac_core)
+    add_test(NAME pic_work_clock_unit COMMAND lezac_pic_work_clock_test)
+    set_tests_properties(pic_work_clock_unit PROPERTIES PASS_REGULAR_EXPRESSION "pic_work_clock_unit=ok")
+    add_executable(lezac_interruptible_dos_time_test tests/core/interruptible_dos_time_test.cpp)
+    target_link_libraries(lezac_interruptible_dos_time_test PRIVATE lezac_core)
+    add_test(NAME interruptible_dos_time_unit COMMAND lezac_interruptible_dos_time_test)
+    set_tests_properties(interruptible_dos_time_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "interruptible_dos_time_edges=ok")
+    add_executable(lezac_dos_time_test tests/core/dos_time_test.cpp)
+    target_link_libraries(lezac_dos_time_test PRIVATE lezac_core)
+    add_test(NAME dos_time_unit COMMAND lezac_dos_time_test)
+    set_tests_properties(dos_time_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "dos_time_unit=ok")
+    add_executable(lezac_timer_irq_test tests/core/timer_irq_test.cpp)
+    target_link_libraries(lezac_timer_irq_test PRIVATE lezac_core)
+    add_executable(lezac_timer_irq_natural_test tests/core/timer_irq_natural_test.cpp)
+    target_link_libraries(lezac_timer_irq_natural_test PRIVATE lezac_core)
+    add_executable(lezac_sound_interrupt_runtime_test tests/sound/sound_interrupt_runtime_test.cpp
+        src/sound/sound_engine.cpp src/sound/sound_interrupt_runtime.cpp)
+    target_link_libraries(lezac_sound_interrupt_runtime_test PRIVATE lezac_resources)
+    add_test(NAME sound_interrupt_runtime COMMAND lezac_sound_interrupt_runtime_test ${CMAKE_CURRENT_SOURCE_DIR}/PROEFS.SON)
+    set_tests_properties(sound_interrupt_runtime PROPERTIES
+        PASS_REGULAR_EXPRESSION "sound_interrupt_runtime=ok cases=13858")
     add_executable(lezac_startup_timing_test tests/core/startup_timing_test.cpp)
     target_link_libraries(lezac_startup_timing_test PRIVATE lezac_resources)
     add_test(NAME startup_timing_original COMMAND lezac_startup_timing_test
@@ -204,6 +243,12 @@ if(BUILD_TESTING)
     set_tests_properties(crt_delay_original PROPERTIES
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "crt_delay_original=ok cases=17 snapshots=758 replay_modes=2 original_dispatches=13273201 natural_clock=0")
+    add_executable(lezac_frame_pacing_test tests/core/frame_pacing_test.cpp)
+    target_link_libraries(lezac_frame_pacing_test PRIVATE lezac_resources)
+    add_test(NAME frame_pacing_original COMMAND lezac_frame_pacing_test
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/frame_pacing")
+    set_tests_properties(frame_pacing_original PROPERTIES
+        PASS_REGULAR_EXPRESSION "frame_pacing_original=ok counter_inputs=65536 elapsed_inputs=65536 feedback_cases=240 natural_frames=294 measurements=8 live_clock_integrated=0")
     add_executable(lezac_cpp23_contract_test tests/core/cpp23_contract_test.cpp)
     add_test(NAME cpp23_standard_contract COMMAND lezac_cpp23_contract_test)
     add_executable(lezac_sdl_display_ownership_test
@@ -293,7 +338,7 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION "^end_screen=ok original_frames=2 compared_pixels=128000 differing_pixels=0 masks=0 score_cases=8 rng_calls=8 timing_parity=0")
 
     add_executable(lezac_sound_shared_cursor_test tests/sound/sound_shared_cursor_test.cpp
-        src/sound/sound_engine.cpp src/resources/binary.cpp)
+        src/sound/sound_engine.cpp src/sound/sound_interrupt_runtime.cpp src/resources/binary.cpp)
     target_include_directories(lezac_sound_shared_cursor_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME sound_shared_cursor COMMAND lezac_sound_shared_cursor_test)
     set_tests_properties(sound_shared_cursor PROPERTIES
@@ -307,7 +352,7 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^timed_seed_isolation=ok cases=1184 corpse_cases=592 raw_timer_boundaries=1 production_storage=1 full_app=0")
     add_executable(lezac_clocked_sound_test tests/sound/clocked_sound_test.cpp
-        src/sound/sound_engine.cpp)
+        src/sound/sound_engine.cpp src/sound/sound_interrupt_runtime.cpp)
     target_link_libraries(lezac_clocked_sound_test PRIVATE lezac_resources)
     add_test(NAME clocked_sound
         COMMAND lezac_clocked_sound_test ${CMAKE_CURRENT_SOURCE_DIR}/PROEFS.SON)
@@ -341,13 +386,13 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "clocked_sound_live=ok state=${clock_state} .*deadline_service=1 elapsed_ms=[0-9]+ advanced_samples=[0-9]+ advanced_interrupts=[0-9]+ stalled_deadline=1")
     endforeach()
     add_executable(lezac_sound_pitch_test tests/sound/sound_pitch_test.cpp
-        src/sound/sound_engine.cpp src/resources/binary.cpp)
+        src/sound/sound_engine.cpp src/sound/sound_interrupt_runtime.cpp src/resources/binary.cpp)
     target_include_directories(lezac_sound_pitch_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME sound_pitch COMMAND lezac_sound_pitch_test)
     set_tests_properties(sound_pitch PROPERTIES PASS_REGULAR_EXPRESSION
         "sound_pitch=ok frequencies=65536 pcm_cases=10 ignored_command_states=3 cursor_playback=1 direct_sweep=1 original_runtime_claim=0")
     add_executable(lezac_sound_interrupt_test tests/sound/sound_interrupt_test.cpp
-        src/sound/sound_engine.cpp)
+        src/sound/sound_engine.cpp src/sound/sound_interrupt_runtime.cpp)
     target_link_libraries(lezac_sound_interrupt_test PRIVATE lezac_resources)
     add_test(NAME sound_interrupt
         COMMAND lezac_sound_interrupt_test ${CMAKE_CURRENT_SOURCE_DIR}/PROEFS.SON)
@@ -389,7 +434,7 @@ if(BUILD_TESTING)
     add_executable(lezac_reward_storage_probe tests/gameplay/reward_storage_probe.cpp)
     target_include_directories(lezac_reward_storage_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_executable(lezac_corpse_storage_probe tests/gameplay/corpse_storage_probe.cpp
-        src/sound/sound_engine.cpp src/resources/binary.cpp)
+        src/sound/sound_engine.cpp src/sound/sound_interrupt_runtime.cpp src/resources/binary.cpp)
     target_include_directories(lezac_corpse_storage_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME actor_slots_binding_contract COMMAND lezac_actor_slots_test)
     set_tests_properties(actor_slots_binding_contract PROPERTIES
@@ -532,6 +577,141 @@ if(BUILD_TESTING)
         set_tests_properties(original_interrupt_trace_contract PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+        add_test(NAME frame_elapsed_oracle_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_elapsed_oracle.py
+                --projection ${CMAKE_CURRENT_BINARY_DIR}/frame-elapsed-projection.bin)
+        set_tests_properties(frame_elapsed_oracle_fixture_contract PROPERTIES FIXTURES_SETUP frame_elapsed_corpus)
+        add_test(NAME frame_display_oracle_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_display_oracle.py
+                --instructions ${CMAKE_CURRENT_BINARY_DIR}/frame-display-instructions.bin
+                --endpoints ${CMAKE_CURRENT_BINARY_DIR}/frame-display-endpoints.bin)
+        set_tests_properties(frame_display_oracle_fixture_contract PROPERTIES FIXTURES_SETUP frame_display_corpus)
+        add_test(NAME full_pacing_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_full_pacing_fixture.py
+                --full ${CMAKE_CURRENT_BINARY_DIR}/full-pacing-full.bin
+                --gate ${CMAKE_CURRENT_BINARY_DIR}/full-pacing-gate.bin
+                --feedback ${CMAKE_CURRENT_BINARY_DIR}/full-pacing-feedback.bin
+                --cpu ${CMAKE_CURRENT_BINARY_DIR}/full-pacing-cpu.bin)
+        set_tests_properties(full_pacing_fixture_contract PROPERTIES FIXTURES_SETUP full_pacing_corpus)
+        add_test(NAME full_pacing_original COMMAND lezac_frame_clock_test --observed-irq-projection
+            ${CMAKE_CURRENT_BINARY_DIR}/full-pacing-cpu.bin)
+        set_tests_properties(full_pacing_original PROPERTIES FIXTURES_REQUIRED full_pacing_corpus
+            PASS_REGULAR_EXPRESSION "frame_pacing_original=ok cases=1 comparisons=120816 delivered_irqs=1")
+        foreach(mode full gate feedback)
+            if(mode STREQUAL "full")
+                set(pacing_option --pacing-oracle)
+            else()
+                set(pacing_option --${mode}-oracle)
+            endif()
+            add_test(NAME full_pacing_${mode}_oracle COMMAND lezac_frame_display_test ${pacing_option}
+                ${CMAKE_CURRENT_BINARY_DIR}/full-pacing-${mode}.bin)
+            set_tests_properties(full_pacing_${mode}_oracle PROPERTIES FIXTURES_REQUIRED full_pacing_corpus)
+        endforeach()
+        add_test(NAME full_pacing_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_full_pacing_fixture.py)
+        add_test(NAME frame_display_instructions COMMAND lezac_frame_display_test --instructions
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-display-instructions.bin)
+        set_tests_properties(frame_display_instructions PROPERTIES FIXTURES_REQUIRED frame_display_corpus
+            PASS_REGULAR_EXPRESSION "frame_display_instructions=ok cases=256 comparisons=296714 runtime_error_cases=16")
+        add_test(NAME frame_display_endpoints COMMAND lezac_frame_display_test --endpoints
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-display-endpoints.bin)
+        set_tests_properties(frame_display_endpoints PROPERTIES FIXTURES_REQUIRED frame_display_corpus
+            PASS_REGULAR_EXPRESSION "frame_display_endpoints=ok cases=196608 denominator_profiles=3 numerator_inputs=65536")
+        add_test(NAME frame_display_oracle_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_display_oracle.py)
+        add_test(NAME frame_display_control_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_display_controls.py
+                --cpu-projection ${CMAKE_CURRENT_BINARY_DIR}/display-control-cpu.bin
+                --clock-projection ${CMAKE_CURRENT_BINARY_DIR}/display-control-pic.bin)
+        set_tests_properties(frame_display_control_fixture_contract PROPERTIES FIXTURES_SETUP display_control_corpus)
+        add_test(NAME frame_display_control_original COMMAND lezac_frame_clock_test
+            ${CMAKE_CURRENT_BINARY_DIR}/display-control-cpu.bin ${CMAKE_CURRENT_BINARY_DIR}/display-control-pic.bin)
+        set_tests_properties(frame_display_control_original PROPERTIES FIXTURES_REQUIRED display_control_corpus
+            PASS_REGULAR_EXPRESSION "frame_pacing_calculation_original=ok cases=2 comparisons=1768 delivered_irqs=0")
+        add_test(NAME frame_display_control_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_display_controls.py)
+        add_test(NAME frame_display_input_route_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_display_input_route.py)
+        add_test(NAME frame_elapsed_oracle COMMAND lezac_frame_clock_test --oracle
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-elapsed-projection.bin)
+        set_tests_properties(frame_elapsed_oracle PROPERTIES FIXTURES_REQUIRED frame_elapsed_corpus
+            PASS_REGULAR_EXPRESSION "frame_elapsed_oracle=ok cases=3375 comparisons=6750")
+        add_test(NAME frame_elapsed_oracle_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_elapsed_oracle.py)
+        add_test(NAME frame_clock_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_clock_fixture.py
+                --cpu-projection ${CMAKE_CURRENT_BINARY_DIR}/frame-clock-cpu.bin
+                --clock-projection ${CMAKE_CURRENT_BINARY_DIR}/frame-clock-pic.bin)
+        set_tests_properties(frame_clock_fixture_contract PROPERTIES FIXTURES_SETUP frame_clock_corpus)
+        add_test(NAME frame_clock_original COMMAND lezac_frame_clock_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-clock-cpu.bin ${CMAKE_CURRENT_BINARY_DIR}/frame-clock-pic.bin)
+        set_tests_properties(frame_clock_original PROPERTIES FIXTURES_REQUIRED frame_clock_corpus
+            PASS_REGULAR_EXPRESSION "frame_clock_original=ok cases=2 comparisons=1492 delivered_irqs=1")
+        add_test(NAME frame_clock_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_clock_fixture.py)
+        add_test(NAME frame_clock_input_route_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_clock_input_route.py)
+        add_test(NAME pic_work_clock_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pic_work_clock_fixture.py
+                --cpu-projection ${CMAKE_CURRENT_BINARY_DIR}/pic-dos-time-projection.bin
+                --clock-projection ${CMAKE_CURRENT_BINARY_DIR}/pic-work-clock-projection.bin)
+        set_tests_properties(pic_work_clock_fixture_contract PROPERTIES FIXTURES_SETUP pic_work_clock_corpus)
+        add_test(NAME pic_dos_time_original COMMAND lezac_interruptible_dos_time_test
+            ${CMAKE_CURRENT_BINARY_DIR}/pic-dos-time-projection.bin
+            ${CMAKE_CURRENT_BINARY_DIR}/pic-work-clock-projection.bin)
+        set_tests_properties(pic_dos_time_original PROPERTIES FIXTURES_REQUIRED pic_work_clock_corpus
+            PASS_REGULAR_EXPRESSION "coupled_clock=1 predicted_irqs=2 later_cpu_flags_injected=0 whole_game_clock_claim=0")
+        add_test(NAME pic_clock_input_route_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_pic_clock_input_route.py)
+        add_test(NAME pic_work_clock_fixture_rejections
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_pic_work_clock_fixture.py)
+        add_test(NAME interruptible_dos_time_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_interruptible_dos_time_fixture.py
+                --projection ${CMAKE_CURRENT_BINARY_DIR}/interruptible-dos-time-projection.bin)
+        set_tests_properties(interruptible_dos_time_fixture_contract PROPERTIES FIXTURES_SETUP interruptible_dos_time_corpus)
+        add_test(NAME interruptible_dos_time_original COMMAND lezac_interruptible_dos_time_test
+            ${CMAKE_CURRENT_BINARY_DIR}/interruptible-dos-time-projection.bin)
+        set_tests_properties(interruptible_dos_time_original PROPERTIES FIXTURES_REQUIRED interruptible_dos_time_corpus
+            PASS_REGULAR_EXPRESSION "interruptible_dos_time_original=ok cases=21 comparisons=13764 delivered_irqs=1")
+        add_test(NAME dos_timer_capture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_dos_timer_capture.py)
+        add_test(NAME interruptible_dos_time_fixture_rejections
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_interruptible_dos_time_fixture.py)
+        add_test(NAME dos_time_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dos_time_fixture.py
+                --projection ${CMAKE_CURRENT_BINARY_DIR}/dos-time-projection.bin)
+        set_tests_properties(dos_time_fixture_contract PROPERTIES FIXTURES_SETUP dos_time_corpus)
+        add_test(NAME dos_time_capture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_dos_time_capture.py)
+        add_test(NAME dos_time_fixture_rejections
+            COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_dos_time_fixture.py)
+        add_test(NAME dos_time_original COMMAND lezac_dos_time_test
+            ${CMAKE_CURRENT_BINARY_DIR}/dos-time-projection.bin)
+        set_tests_properties(dos_time_original PROPERTIES FIXTURES_REQUIRED dos_time_corpus
+            PASS_REGULAR_EXPRESSION "dos_time_original=ok windows=20 comparisons=13040")
+        add_test(NAME timer_irq_natural_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_timer_irq_natural_fixture.py
+                --projection ${CMAKE_CURRENT_BINARY_DIR}/timer-irq-natural-projection.bin)
+        set_tests_properties(timer_irq_natural_fixture_contract PROPERTIES FIXTURES_SETUP timer_irq_natural_corpus)
+        add_test(NAME timer_irq_natural COMMAND lezac_timer_irq_natural_test
+            ${CMAKE_CURRENT_BINARY_DIR}/timer-irq-natural-projection.bin)
+        set_tests_properties(timer_irq_natural PROPERTIES FIXTURES_REQUIRED timer_irq_natural_corpus
+            PASS_REGULAR_EXPRESSION "timer_irq_natural=ok comparisons=2868")
+        add_test(NAME timer_irq_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_timer_irq_fixture.py
+                --projection ${CMAKE_CURRENT_BINARY_DIR}/timer-irq-projection.bin)
+        set_tests_properties(timer_irq_fixture_contract PROPERTIES FIXTURES_SETUP timer_irq_corpus)
+        add_test(NAME timer_irq_fixture_rejections
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_timer_irq_fixture.py)
+        add_test(NAME timer_irq_capture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_timer_irq_capture.py)
+        add_test(NAME timer_irq_original COMMAND lezac_timer_irq_test
+            ${CMAKE_CURRENT_BINARY_DIR}/timer-irq-projection.bin ${CMAKE_CURRENT_SOURCE_DIR}/PROEFS.SON)
+        set_tests_properties(timer_irq_original PROPERTIES FIXTURES_REQUIRED timer_irq_corpus
+            PASS_REGULAR_EXPRESSION "timer_irq_original=ok cases=164 comparisons=21090")
         add_test(NAME startup_timing_fixture_contract
             COMMAND ${Python3_EXECUTABLE} -S -B
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_startup_timing_fixture.py)
@@ -557,6 +737,11 @@ if(BUILD_TESTING)
             ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
         set_tests_properties(pattern_fill_original PROPERTIES
             PASS_REGULAR_EXPRESSION "^pattern_fill_original=ok invocations=2 original_frames=6 verified_rgb_bytes=1152000 cursor_cases=6 first_evidence_unchanged=1 actual_app_fixture=1 natural_timing_claim=0")
+        add_test(NAME frame_pacing_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_original_frame_pacing.py -v)
+        set_tests_properties(frame_pacing_fixture_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
     endif()
 
     add_executable(lezac_jolly_cloud_rain_test tests/gameplay/jolly_cloud_rain_test.cpp)
@@ -800,7 +985,7 @@ if(BUILD_TESTING)
         add_test(NAME clocked_sound_routing
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_clocked_sound_routing.py)
         set_tests_properties(clocked_sound_routing PROPERTIES PASS_REGULAR_EXPRESSION
-            "clocked_sound_routing=ok live_paths=2 request_paths=4 mutations=12 native_timing_claim=0")
+            "clocked_sound_routing=ok live_paths=2 request_paths=4 mutations=15 native_timing_claim=0")
         add_test(NAME clocked_sound_routing_mutations
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_clocked_sound_routing.py)
         set_tests_properties(clocked_sound_routing_mutations PROPERTIES
@@ -853,6 +1038,11 @@ if(BUILD_TESTING)
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_main_menu_character_evidence.py)
         set_tests_properties(main_menu_character_evidence PROPERTIES
             PASS_REGULAR_EXPRESSION "main_menu_character_evidence=ok original_cases=16 failed_records=5 mutations=6 whole_game_parity=0")
+        add_test(NAME original_work_clock_evidence
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_original_work_clock.py -v)
+        set_tests_properties(original_work_clock_evidence PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
         add_test(NAME bios_menu_input_evidence
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_bios_menu_input_evidence.py)
         set_tests_properties(bios_menu_input_evidence PROPERTIES

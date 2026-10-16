@@ -1,0 +1,24 @@
+{
+  "schema": "lezac-controlled-frame-elapsed-isa-v1",
+  "cases": 3375,
+  "instructions_per_case": 29,
+  "original_executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "unicorn": "2.1.4",
+  "instruction_patches": 0,
+  "original_calls_stubbed": false,
+  "isolated_phase": "game:791e..7966",
+  "natural_gameplay_claim": false,
+  "whole_function_or_game_claim": false,
+  "initial_cpu_memory_inputs_seeded": true,
+  "projection_bytes": 1140772,
+  "projection_sha256": "0e732e8d033565677fa66d047be79230536d089d16cd57b0448a319e4d2bb49a",
+  "producer_sha256": "7c1951c4d6dea45414f6a86c8f5393ce839c0a560c6837c4b72e540308d58c48",
+  "code_bytes_unchanged": 43552,
+  "files": [
+    {
+      "name": "original.bin.gz",
+      "bytes": 88494,
+      "sha256": "66cecbcbb007cd9e799bc89aeb4315f50b580be2a2cc1d7a422a9432009b9baf"
+    }
+  ]
+}

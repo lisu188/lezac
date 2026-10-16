@@ -1,0 +1,89 @@
+{
+  "schema": "lezac-frozen-full-pacing-v1",
+  "files": [
+    {
+      "name": "full.bin.gz",
+      "bytes": 7330,
+      "sha256": "b79a7ba0889c513f4bec5b498e597b29426072bf8c64ac82901902caebd5522c"
+    },
+    {
+      "name": "gate.bin.gz",
+      "bytes": 298824,
+      "sha256": "e649b5b5e4cab21e20b11559993347a2895a0b5b2b81ee87844f7ef25bcbd92e"
+    },
+    {
+      "name": "feedback.bin.gz",
+      "bytes": 1685790,
+      "sha256": "48c06604e43463bf2bffec56d0584ed19be9fd4e5fe359e4acb0eafdac15d6b2"
+    },
+    {
+      "name": "oracle-manifest.json",
+      "bytes": 4242,
+      "sha256": "de88b01a7026de20288f5eef3696e7ddc1a0693dee09211c5a845014a132b546"
+    },
+    {
+      "name": "natural.csv.gz",
+      "bytes": 1351976,
+      "sha256": "3cded9c4ec2938e954c23adb807a9c4da2ef77d65c9b34fdf7c96f29e1965934"
+    },
+    {
+      "name": "natural-recipe.json",
+      "bytes": 19419,
+      "sha256": "17f0600105115693e90a391e83d614c9e658ac95e3dd961fa9b83151e248fd0b"
+    }
+  ],
+  "sources": {
+    "tools/full_pacing_probe/oracle.py": "904664bdf2e3003b26ebe6261629d997fec137f72a2d7d5dfc7a926ce4ca163e",
+    "tools/full_pacing_probe/capture.py": "46fb6e0999a2249ab7ab314dbb3a68f66be95ba18e6d9d1e92074132c929acae",
+    "tools/full_pacing_probe/input_route.py": "cb1b2008045403cd1144704b5750912c2910e8e0f200357d8bbf422257180b5e",
+    "tools/full_pacing_probe/trace.py": "fe5e5fd5b0e405e7ecd37fb58151f5e57a5f3966f15d0d5ea179c8cabd88845f",
+    "tools/full_pacing_probe/project.py": "8a1e2d4ac68c139240c313ef035a5d3f9a7c3ed9a06487e5fa85ae9018f0c378",
+    "tools/full_pacing_probe/lezac_work_probe.h": "d823346471b9b4e81df05aacb320b887d559ad404d948e024a5ea51df5703fb0",
+    "tools/full_pacing_probe/dos_time_hook.patch": "7b7b24a70c4a032533eb404d948d27eb36336b5248bb531604d8e4f737c3cd4b",
+    "tools/full_pacing_probe/clock_hook.patch": "fc58e1e7cb895fb0ae090c2f9e1421e25bc6be741ea874c2f07b176352106078",
+    "tools/full_pacing_probe/lezac_clock_observation.h": "9ac3ea3290115ea57d6729bb9f91687ef662d9b50ef374a736b46490fc25763a",
+    "tools/original_capture_contract.py": "36e27f3441ae98db6e2a459ca64c561b72c964e1e98de854ca416321c33c33e0",
+    "tools/frame_display_probe/oracle.py": "0d88d0619292953d12829869b52bc7787fe9cd8e54aba527e9bebd901601ae5d"
+  },
+  "natural_cpu_sha256": "870ab0d3f909508167730b0f03491c8ecab26a4e12e9a90ea3a29f52f74f8569",
+  "natural_states": 60408,
+  "natural_irq_boundaries": [
+    42291
+  ],
+  "raw_sample_proofs": [
+    {
+      "name": "main",
+      "ram_sha256": "0b005cd4a8a59f56d0c6d36729ab82acccb63fad33f8b87690449577f92876bd",
+      "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "intro",
+      "ram_sha256": "28e3138d71a3f8688d61b7e1a9ac10abbd71d50cf8050cb10e54c50da2c6d014",
+      "png_sha256": "bae45df49e06b1a505d754ef413198a281a9cffddfc9aeaec510254bf19d0d77",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "gameplay",
+      "ram_sha256": "b7526eb99b1833e8cfab800ef4db0336c829930c2b4aa854cbef915bab17d1ac",
+      "png_sha256": "8cbe5531e076cc805ec1465d93b76701666cea180ced162f31f41ebd5a730ab3",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "gameplay-middle",
+      "ram_sha256": "67df7b989e82f25a0dafb873923e4ac920e0b5bb6d25d7cdb972d394d413b683",
+      "png_sha256": "b13bfbbdfa6ca8c895355f58a710e1cc1fa438ccba72ad1468d20cf3f10e8f81",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "search-end",
+      "ram_sha256": "bf1f602ada5b9049f3d0033cf3fb582d861c080e50379b9231ac4b4a777b59d6",
+      "png_sha256": "6f807b305cd510d24b673c363151cade6c7484254044cdae22aefa1dd18a9e7d",
+      "code_bytes_verified": 43552
+    }
+  ],
+  "raw_memory_published": false,
+  "natural_irq_eligibility_predicted": false,
+  "whole_game_parity": false,
+  "known_capture_metadata_error": "trace_clock mentions callback boundaries although callback_boundary_probe is false"
+}

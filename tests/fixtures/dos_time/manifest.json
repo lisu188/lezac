@@ -1,0 +1,46 @@
+{
+  "schema": "lezac-dos-time-frozen-v1",
+  "files": [
+    {
+      "name": "r2-trace.csv.gz",
+      "bytes": 13649,
+      "sha256": "19f2dc1dcba305ced7e8175ed832cfd3f8b84fc5ee349b642bc41af53d8d53e5"
+    },
+    {
+      "name": "r2-recipe.json",
+      "bytes": 15754,
+      "sha256": "2dd8f99b05f6b915942d9a9449ca8c46f7108c9e9ad0efb60c2c640cbc0110ed"
+    },
+    {
+      "name": "r3-trace.csv.gz",
+      "bytes": 26131,
+      "sha256": "1a7829673a536d2b1af29f0635ba53262239ce2c1ebef82401647c50bf966d8d"
+    },
+    {
+      "name": "r3-recipe.json",
+      "bytes": 15960,
+      "sha256": "7a517c94c8def141b2474a75843905dc6f58f6946b8abb167adafe506b80b4b7"
+    },
+    {
+      "name": "r4-trace.csv.gz",
+      "bytes": 26113,
+      "sha256": "bae1fab19398c9790858900e431a2b6a83f27472135b04d7fa8ce700f9912d20"
+    },
+    {
+      "name": "r4-recipe.json",
+      "bytes": 15960,
+      "sha256": "0ec8dddd42dd6cc6e58e5fc16bf33e8eab3744c24923241fa4d32e303176bb56"
+    }
+  ],
+  "full_window_calls": 20,
+  "boundary_only_calls": 2,
+  "external_irq_instructions": 36,
+  "original_guest_instruction_patches": 0,
+  "inputs_seeded": false,
+  "external_irq_execution_replayed": false,
+  "live_app_integrated": false,
+  "natural_wall_clock_fidelity": false,
+  "synchronized_frame_parity": false,
+  "whole_game_parity": false,
+  "raw_ram_and_png_published": false
+}

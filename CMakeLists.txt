@@ -184,6 +184,11 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_dos_time_test tests/core/dos_time_test.cpp)
+    target_link_libraries(lezac_dos_time_test PRIVATE lezac_core)
+    add_test(NAME dos_time_unit COMMAND lezac_dos_time_test)
+    set_tests_properties(dos_time_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "dos_time_unit=ok")
     add_executable(lezac_startup_timing_test tests/core/startup_timing_test.cpp)
     target_link_libraries(lezac_startup_timing_test PRIVATE lezac_resources)
     add_test(NAME startup_timing_original COMMAND lezac_startup_timing_test
@@ -525,6 +530,21 @@ if(BUILD_TESTING)
         set_tests_properties(original_interrupt_trace_contract PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+        add_test(NAME dos_time_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_dos_time_fixture.py
+                --projection ${CMAKE_CURRENT_BINARY_DIR}/dos-time-projection.bin)
+        set_tests_properties(dos_time_fixture_contract PROPERTIES FIXTURES_SETUP dos_time_corpus)
+        add_test(NAME dos_time_capture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_dos_time_capture.py)
+        add_test(NAME dos_time_fixture_rejections
+            COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_dos_time_fixture.py)
+        add_test(NAME dos_time_original COMMAND lezac_dos_time_test
+            ${CMAKE_CURRENT_BINARY_DIR}/dos-time-projection.bin)
+        set_tests_properties(dos_time_original PROPERTIES FIXTURES_REQUIRED dos_time_corpus
+            PASS_REGULAR_EXPRESSION "dos_time_original=ok windows=20 comparisons=13040")
         add_test(NAME startup_timing_fixture_contract
             COMMAND ${Python3_EXECUTABLE} -S -B
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_startup_timing_fixture.py)

@@ -43,8 +43,22 @@ def analyze(raw, recipe):
             recipe.get('original_executable_changed') is False and
             recipe.get('process_memory_opened_read_only') is True,
             'Read-only guest provenance differs')
+    mode_flags = dict(host_instrumented=True, natural_wall_clock_fidelity_claim=False,
+                      complete_frame_sequence_claim=False, whole_game_complete=False,
+                      cpu_memory_frame_atomic=False, private_xvfb_autorepeat_disabled=True)
+    require(all(recipe.get(key) is value for key, value in mode_flags.items()), 'Capture mode claims differ')
+    require(recipe.get('audio') == 'dummy' and type(recipe.get('configured_players')) is int and
+            recipe['configured_players'] == 1 and
+            recipe.get('trace_clock') == 'normal-core fixed-cycle budget, sampled before decode' and
+            recipe.get('trace_dispatch') == 'normal-core iterations; REP may charge multiple cycles per iteration',
+            'Capture mode profile differs')
+    autorepeat = recipe.get('private_display_autorepeat_command')
+    require(type(autorepeat) is dict and autorepeat.get('command') == ['xset', 'r', 'off'] and
+            type(autorepeat.get('exit_code')) is int and autorepeat['exit_code'] == 0,
+            'Capture mode profile differs')
     require(len(recipe['samples']) == 5 and all(sample['code_bytes_verified'] == 43552 and
-            sample['code_differences'] == 0 for sample in recipe['samples']), 'Original code verification differs')
+            sample['code_differences'] == 0 and sample.get('ram_rgb_cpu_atomic') is False
+            for sample in recipe['samples']), 'Original code or checkpoint scope differs')
     require(recipe['host_commands'] and all(command['exit_code'] == 0 for command in recipe['host_commands']), 'Input command failed')
     require([event['key'] for event in recipe['events']] == ['1', 'Return'], 'Unexpected input recipe')
     require(raw.endswith(b'\nend\n'), 'Missing terminal trace marker')

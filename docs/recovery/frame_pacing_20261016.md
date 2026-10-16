@@ -89,3 +89,14 @@ host guest-register/memory write counts, an unchanged executable and read-only
 process-memory access. Missing fields and wrong types are also rejected. Eighteen
 focused controls cover those fields; the CLI must publish no report on failure
 and preserve an existing report. The original capture fixtures are unchanged.
+
+Follow-up review of `304aaf429a` identified contradictory instrumentation and
+completion claims that were silently replaced by narrower hard-coded labels.
+Those four counterexamples were reproduced too. Typed capture-mode flags now
+require host instrumentation and reject natural-clock, complete-stream,
+whole-game or atomic-checkpoint claims. The fixed audio/player/work-clock
+profile and successful private-display autorepeat command are checked as well.
+Sixty-two controls cover missing, incorrectly typed and contradictory mode or
+profile fields. The CLI publication/retention regression covers both guest
+mutation and instrumentation-mode contradictions. Capture fixtures remain
+byte-identical; this validation repair makes no new fidelity claim.

@@ -119,19 +119,62 @@ class OriginalFramePacingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='lezac-pacing-recipe-') as temporary:
             folder = Path(temporary)
             bad_recipe = folder / 'recipe.json'
-            output = folder / 'report.json'
-            bad_recipe.write_text(json.dumps(dict(recipe, host_probe_guest_memory_writes=1)))
-            command = [sys.executable, '-S', '-B', str(ROOT / 'tools/analyze_original_frame_pacing.py'),
-                       str(FIXTURE / 'r2.csv'), '--recipe', str(bad_recipe), '--out', str(output)]
-            environment = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
-            result = subprocess.run(command, capture_output=True, text=True, env=environment, timeout=15)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn('Read-only guest provenance differs', result.stderr)
-            self.assertFalse(output.exists())
-            output.write_bytes(b'preserved existing report\n')
-            result = subprocess.run(command, capture_output=True, text=True, env=environment, timeout=15)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertEqual(output.read_bytes(), b'preserved existing report\n')
+            for index, (key, value, reason) in enumerate([
+                    ('host_probe_guest_memory_writes', 1, 'Read-only guest provenance differs'),
+                    ('host_instrumented', False, 'Capture mode claims differ')]):
+                output = folder / ('report' + str(index) + '.json')
+                bad_recipe.write_text(json.dumps(dict(recipe, **{key: value})))
+                command = [sys.executable, '-S', '-B', str(ROOT / 'tools/analyze_original_frame_pacing.py'),
+                           str(FIXTURE / 'r2.csv'), '--recipe', str(bad_recipe), '--out', str(output)]
+                environment = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
+                result = subprocess.run(command, capture_output=True, text=True, env=environment, timeout=15)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(reason, result.stderr)
+                self.assertFalse(output.exists())
+                output.write_bytes(b'preserved existing report\n')
+                result = subprocess.run(command, capture_output=True, text=True, env=environment, timeout=15)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(output.read_bytes(), b'preserved existing report\n')
+
+    def test_capture_mode_claims_and_profile(self):
+        raw = (FIXTURE / 'r2.csv').read_bytes()
+        recipe = json.loads((FIXTURE / 'r2-recipe.json').read_text())
+        flags = dict(host_instrumented=True, natural_wall_clock_fidelity_claim=False,
+                     complete_frame_sequence_claim=False, whole_game_complete=False,
+                     cpu_memory_frame_atomic=False, private_xvfb_autorepeat_disabled=True)
+        controls = []
+        for key, expected in flags.items():
+            for value in [not expected, 0, 1, str(expected).lower(), None]:
+                controls.append((key, dict(recipe, **{key: value})))
+            missing = dict(recipe)
+            del missing[key]
+            controls.append((key + '-missing', missing))
+        for key, values in [('audio', ['alsa', False, None]),
+                            ('configured_players', [2, True, '1', None]),
+                            ('trace_clock', ['wall clock', False, None]),
+                            ('trace_dispatch', ['cycles', False, None])]:
+            controls.extend((key, dict(recipe, **{key: value})) for value in values)
+            missing = dict(recipe)
+            del missing[key]
+            controls.append((key + '-missing', missing))
+        for value in [True, 0, 'false', None, 'missing']:
+            changed = copy.deepcopy(recipe)
+            if value == 'missing':
+                del changed['samples'][0]['ram_rgb_cpu_atomic']
+            else:
+                changed['samples'][0]['ram_rgb_cpu_atomic'] = value
+            controls.append(('checkpoint-atomic', changed))
+        for key, value in [('exit_code', 1), ('exit_code', False), ('command', ['xset', 'r', 'on'])]:
+            changed = copy.deepcopy(recipe)
+            changed['private_display_autorepeat_command'][key] = value
+            controls.append(('autorepeat-command', changed))
+        missing = dict(recipe)
+        del missing['private_display_autorepeat_command']
+        controls.append(('autorepeat-command-missing', missing))
+        self.assertEqual(len(controls), 62)
+        for name, changed in controls:
+            with self.subTest(name=name, recipe=changed), self.assertRaises(ValueError):
+                analyze(raw, changed)
 
 
 if __name__ == '__main__':

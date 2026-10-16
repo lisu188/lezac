@@ -11,6 +11,7 @@
         "src/core/frame_elapsed.hpp",
         "src/core/frame_pacing.hpp",
         "src/core/frame_pacing_calculation.hpp",
+        "src/core/frame_pacing_operation.hpp",
         "src/core/hud.hpp",
         "src/core/interruptible_dos_time.hpp",
         "src/core/interruptible_frame_clock.hpp",

@@ -1,6 +1,7 @@
 #include "core/interruptible_dos_time.hpp"
 #include "core/interruptible_frame_clock.hpp"
 #include "core/frame_pacing_calculation.hpp"
+#include "core/frame_pacing_operation.hpp"
 #include "core/pic_work_clock.hpp"
 
 #include <algorithm>
@@ -113,9 +114,9 @@ struct Expected {
     DosGetTimeRegisters registers;
     uint32_t mask, ticks, pspStack, io;
     uint8_t motor, drive;
-    std::vector<uint8_t> stack, globals, frameGlobals, displayGlobals;
+    std::vector<uint8_t> stack, globals, frameGlobals, displayGlobals, pacingGlobals;
 };
-Expected state(Reader& reader, unsigned stackLength, bool display = false) {
+Expected state(Reader& reader, unsigned stackLength, bool display = false, bool pacing = false) {
     DosGetTimeRegisters r;
     r.ax = reader.word(); r.bx = reader.word(); r.cx = reader.word(); r.dx = reader.word();
     r.si = reader.word(); r.di = reader.word(); r.bp = reader.word(); r.cs = reader.word();
@@ -125,7 +126,7 @@ Expected state(Reader& reader, unsigned stackLength, bool display = false) {
     const auto motor = static_cast<uint8_t>(reader.number(1)), drive = static_cast<uint8_t>(reader.number(1));
     const auto io = reader.number(4);
     return {r, mask, ticks, pspStack, io, motor, drive, reader.take(stackLength), reader.take(10), reader.take(11),
-        display ? reader.take(5) : std::vector<uint8_t>{}};
+        display ? reader.take(5) : std::vector<uint8_t>{}, pacing ? reader.take(9) : std::vector<uint8_t>{}};
 }
 void seedGlobals(Memory& memory, uint16_t data, const std::vector<uint8_t>& globals, bool legacy) {
     if (legacy) { memory.seed(data, 0x79c4, {0}, true); return; }
@@ -198,13 +199,16 @@ void compareClock(const PicWorkClock& operation, const PicWorkClockSnapshot& exp
 }
 template<class Operation = InterruptibleFrameClockOperation>
 std::size_t original(Reader reader, const ClockCases& clocks = {}) {
-    constexpr bool ThroughDisplay = std::is_same_v<Operation, FramePacingCalculationOperation>;
-    require(reader.take(8) == (ThroughDisplay ? std::vector<uint8_t>({'L','Z','F','D','S','P','0','1'}) :
+    constexpr bool ThroughPacing = std::is_same_v<Operation, FramePacingOperation>;
+    constexpr bool ThroughDisplay = ThroughPacing || std::is_same_v<Operation, FramePacingCalculationOperation>;
+    require(reader.take(8) == (ThroughPacing ? std::vector<uint8_t>({'L','Z','F','P','A','C','0','1'}) :
+        ThroughDisplay ? std::vector<uint8_t>({'L','Z','F','D','S','P','0','1'}) :
         std::vector<uint8_t>({'L','Z','F','C','L','K','0','1'})), "projection version differs");
     const auto count = reader.number(4);
     require(count > 0 && count <= 256, "case domain differs");
     require(clocks.empty() || clocks.size() == count, "CPU/clock case count differs");
-    require(!clocks.empty(), "independent PIC projection required");
+    if constexpr (ThroughPacing) require(clocks.empty(), "full pacing has no coupled clock proof");
+    else require(!clocks.empty(), "independent PIC projection required");
     std::size_t comparisons = 0, delivered = 0, predicted = 0;
     for (unsigned caseIndex = 0; caseIndex < count; ++caseIndex) {
         const auto game = reader.word(), base = reader.word(), psp = reader.word(), ss = reader.word();
@@ -213,12 +217,14 @@ std::size_t original(Reader reader, const ClockCases& clocks = {}) {
         const auto vectorIp = reader.word(), vectorCs = reader.word();
         const bool legacy = reader.number(1) != 0;
         const auto stateCount = reader.number(4), ioCount = reader.number(4), irqCount = reader.number(4);
+        require(stateCount >= 16 && stateCount <= (ThroughPacing ? 250001u : 4097u), "CPU state domain differs");
+        require(!ThroughPacing || !legacy, "full pacing requires fixed-stack evidence");
         require(stackLength == (legacy ? 64 : 128), "stack scope differs");
         std::vector<uint32_t> deliveries;
         for (unsigned i = 0; i < irqCount; ++i) deliveries.push_back(reader.number(4));
         const auto bank = reader.take(bankLength);
         std::vector<Expected> states;
-        for (unsigned i = 0; i < stateCount; ++i) states.push_back(state(reader, stackLength, ThroughDisplay));
+        for (unsigned i = 0; i < stateCount; ++i) states.push_back(state(reader, stackLength, ThroughDisplay, ThroughPacing));
         std::vector<Io> io;
         for (unsigned i = 0; i < ioCount; ++i) {
             const bool output = reader.number(1) != 0; const auto port = reader.word();
@@ -247,6 +253,14 @@ std::size_t original(Reader reader, const ClockCases& clocks = {}) {
             if constexpr (ThroughDisplay) {
                 memory.seed(data, 0x78c6, {states[0].displayGlobals.begin(), states[0].displayGlobals.begin() + 4});
                 memory.seed(data, 0x79b5, {states[0].displayGlobals[4]}, true);
+            }
+            if constexpr (ThroughPacing) {
+                memory.seedNumber(0, 0x84, uint32_t{base} | (uint32_t{0xf000} << 16), 4);
+                const auto& bytes = states[0].pacingGlobals;
+                memory.seed(data, 0x78c2, {bytes.begin(), bytes.begin()+2}, true);
+                memory.seed(data, 0x78ca, {bytes.begin()+2, bytes.begin()+6}, true);
+                memory.seed(data, 0x7f68, {bytes.begin()+6, bytes.begin()+8});
+                memory.seedNumber(0x40, 0, bytes[8], 1);
             }
             Operation operation(states[0].registers, base, psp, game, 0x200000);
             const auto bus = memory.bus(clock ? &*clock : nullptr);
@@ -281,6 +295,13 @@ std::size_t original(Reader reader, const ClockCases& clocks = {}) {
                 if constexpr (ThroughDisplay) for (unsigned i = 0; i < 5; ++i)
                     require(memory.read(data, static_cast<uint16_t>(i < 4 ? 0x78c6 + i : 0x79b5), 1) ==
                         expected.displayGlobals[i], context + " display calculation memory differs");
+                if constexpr (ThroughPacing) {
+                    const auto& bytes = expected.pacingGlobals;
+                    for (unsigned i = 0; i < 8; ++i)
+                        require(memory.read(data, static_cast<uint16_t>(i < 2 ? 0x78c2+i : i < 6 ? 0x78ca+i-2 : 0x7f68+i-6), 1) ==
+                            bytes[i], context + " pacing memory differs");
+                    require(memory.read(0x40, 0, 1) == bytes[8], context + " calibration BIOS byte differs");
+                }
                 ++comparisons;
                 const auto before = operation.snapshot();
                 require(operation.advance(0, bus) == 0 && operation.snapshot() == before, "zero budget changed state");
@@ -315,30 +336,44 @@ std::size_t original(Reader reader, const ClockCases& clocks = {}) {
             }
             require(operation.returned() && operation.advance(1, bus) == 0 && memory.io == ioCount, "terminal state differs");
             const auto& snapshot = operation.snapshot();
-            const auto& elapsed = [&]() -> const InterruptibleFrameClockSnapshot& {
-                if constexpr (ThroughDisplay) return snapshot.elapsed;
-                else return snapshot;
-            }();
-            uint64_t timerDeliveries = elapsed.timerDeliveries;
-            if constexpr (ThroughDisplay) {
-                require(snapshot.display && snapshot.display->display.outcome == FrameDisplayOutcome::Returned &&
-                    elapsed.dispatchedInstructions + snapshot.display->dispatchedInstructions == snapshot.dispatchedInstructions,
-                    "DOS/elapsed/display work composition differs");
-                timerDeliveries += snapshot.display->timerDeliveries;
+            if constexpr (ThroughPacing) {
+                require(snapshot.calculation && snapshot.delay && snapshot.dispatchedInstructions == stateCount - 1,
+                    "full pacing work or delay terminal differs");
+                const auto& calculation = *snapshot.calculation;
+                require(calculation.elapsed.dos.dos.dispatchedInstructions == 325 && calculation.elapsed.frame &&
+                    calculation.elapsed.frame->dispatchedInstructions == 29 && calculation.display &&
+                    snapshot.gateInstructions + calculation.dispatchedInstructions + snapshot.feedbackInstructions +
+                        snapshot.delay->dispatchedInstructions + snapshot.timerInstructions == snapshot.dispatchedInstructions,
+                    "full pacing instruction composition differs");
+                require(snapshot.timerDeliveries + calculation.elapsed.timerDeliveries + calculation.display->timerDeliveries == irqCount,
+                    "full pacing observed IRQ count differs");
+            } else {
+                const auto& elapsed = [&]() -> const InterruptibleFrameClockSnapshot& {
+                    if constexpr (ThroughDisplay) return snapshot.elapsed;
+                    else return snapshot;
+                }();
+                uint64_t timerDeliveries = elapsed.timerDeliveries;
+                if constexpr (ThroughDisplay) {
+                    require(snapshot.display && snapshot.display->display.outcome == FrameDisplayOutcome::Returned &&
+                        elapsed.dispatchedInstructions + snapshot.display->dispatchedInstructions == snapshot.dispatchedInstructions,
+                        "DOS/elapsed/display work composition differs");
+                    timerDeliveries += snapshot.display->timerDeliveries;
+                }
+                require(elapsed.dos.dos.dispatchedInstructions == 325 &&
+                    elapsed.frame && elapsed.frame->dispatchedInstructions == 29 &&
+                    snapshot.dispatchedInstructions == stateCount - 1 && timerDeliveries == irqCount,
+                    "shared work accounting differs");
             }
-            require(elapsed.dos.dos.dispatchedInstructions == 325 &&
-                elapsed.frame && elapsed.frame->dispatchedInstructions == 29 &&
-                snapshot.dispatchedInstructions == stateCount - 1 && timerDeliveries == irqCount,
-                "shared work accounting differs");
         }
         delivered += irqCount;
     }
     require(reader.cursor == reader.bytes.size(), "projection tail differs");
-    std::cout << (ThroughDisplay ? "frame_pacing_calculation_original=ok cases=" : "frame_clock_original=ok cases=")
+    std::cout << (ThroughPacing ? "frame_pacing_original=ok cases=" : ThroughDisplay ? "frame_pacing_calculation_original=ok cases=" : "frame_clock_original=ok cases=")
               << count << " comparisons=" << comparisons
               << " delivered_irqs=" << delivered << " irq_instructions_skipped=0 output_state_injected=0 scheduler_claim=0"
               << " coupled_clock=" << !clocks.empty() << " predicted_irqs=" << predicted
               << " later_cpu_flags_injected=0 whole_game_clock_claim=0\n";
+    if constexpr (ThroughPacing) std::cout << "observed_irq_boundaries_external=1 irq_eligibility_claim=0\n";
     return comparisons;
 }
 void unit() {
@@ -512,6 +547,11 @@ int main(int argc, char** argv) {
         unit();
         edges();
         foregroundEdges();
+        if (argc == 3 && std::string(argv[1]) == "--observed-irq-projection") {
+            std::ifstream stream(argv[2], std::ios::binary); require(stream.good(), "full pacing projection missing");
+            original<FramePacingOperation>(Reader{{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()}});
+            return 0;
+        }
         if(argc==3 && std::string(argv[1])=="--oracle") {
             std::ifstream stream(argv[2],std::ios::binary);require(stream.good(),"elapsed oracle missing");
             elapsedOracle(Reader{{std::istreambuf_iterator<char>(stream),std::istreambuf_iterator<char>()}});

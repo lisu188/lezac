@@ -190,6 +190,9 @@ if(BUILD_TESTING)
     add_test(NAME frame_display_unit COMMAND lezac_frame_display_test)
     set_tests_properties(frame_display_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_display_edges=ok boundaries=654")
     add_test(NAME frame_pacing_calculation_unit COMMAND lezac_frame_display_test --composition)
+    add_test(NAME full_pacing_unit COMMAND lezac_frame_display_test --pacing)
+    set_tests_properties(full_pacing_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "frame_pacing_operation_edges=ok eligible_boundaries=1037 masked_boundaries=1")
     set_tests_properties(frame_pacing_calculation_unit PROPERTIES
         PASS_REGULAR_EXPRESSION "frame_pacing_calculation_edges=ok boundaries=1008")
     add_executable(lezac_frame_clock_test tests/core/frame_clock_test.cpp)
@@ -583,6 +586,29 @@ if(BUILD_TESTING)
                 --instructions ${CMAKE_CURRENT_BINARY_DIR}/frame-display-instructions.bin
                 --endpoints ${CMAKE_CURRENT_BINARY_DIR}/frame-display-endpoints.bin)
         set_tests_properties(frame_display_oracle_fixture_contract PROPERTIES FIXTURES_SETUP frame_display_corpus)
+        add_test(NAME full_pacing_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_full_pacing_fixture.py
+                --full ${CMAKE_CURRENT_BINARY_DIR}/full-pacing-full.bin
+                --gate ${CMAKE_CURRENT_BINARY_DIR}/full-pacing-gate.bin
+                --feedback ${CMAKE_CURRENT_BINARY_DIR}/full-pacing-feedback.bin
+                --cpu ${CMAKE_CURRENT_BINARY_DIR}/full-pacing-cpu.bin)
+        set_tests_properties(full_pacing_fixture_contract PROPERTIES FIXTURES_SETUP full_pacing_corpus)
+        add_test(NAME full_pacing_original COMMAND lezac_frame_clock_test --observed-irq-projection
+            ${CMAKE_CURRENT_BINARY_DIR}/full-pacing-cpu.bin)
+        set_tests_properties(full_pacing_original PROPERTIES FIXTURES_REQUIRED full_pacing_corpus
+            PASS_REGULAR_EXPRESSION "frame_pacing_original=ok cases=1 comparisons=120816 delivered_irqs=1")
+        foreach(mode full gate feedback)
+            if(mode STREQUAL "full")
+                set(pacing_option --pacing-oracle)
+            else()
+                set(pacing_option --${mode}-oracle)
+            endif()
+            add_test(NAME full_pacing_${mode}_oracle COMMAND lezac_frame_display_test ${pacing_option}
+                ${CMAKE_CURRENT_BINARY_DIR}/full-pacing-${mode}.bin)
+            set_tests_properties(full_pacing_${mode}_oracle PROPERTIES FIXTURES_REQUIRED full_pacing_corpus)
+        endforeach()
+        add_test(NAME full_pacing_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_full_pacing_fixture.py)
         add_test(NAME frame_display_instructions COMMAND lezac_frame_display_test --instructions
             ${CMAKE_CURRENT_BINARY_DIR}/frame-display-instructions.bin)
         set_tests_properties(frame_display_instructions PROPERTIES FIXTURES_REQUIRED frame_display_corpus

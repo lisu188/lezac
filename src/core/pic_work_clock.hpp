@@ -71,6 +71,17 @@ public:
 
     void chargePortRead() { chargeIo(1024); }
     void chargePortWrite() { chargeIo(1365); }
+    // Normal-core REP reimburses the decode decrement, then charges each transfer.
+    uint16_t chargeStringTransfers(uint16_t requested) {
+        if (state_.phase != PicClockPhase::Predecode || state_.cycles < 0 || state_.cycles >= state_.cycleMax)
+            throw std::logic_error("PIC string charge is outside a decoded instruction");
+        const int64_t available = state_.cycles + 1;
+        const auto transferred = static_cast<uint16_t>(std::min<int64_t>(requested, available));
+        if (requested > available) state_.cycles = 0;
+        else if (requested <= 1 && available <= 1) state_.cycles = available - 1;
+        else state_.cycles = available - requested;
+        return transferred;
+    }
     void nonspecificMasterEoi() {
         if (state_.activeIrq >= 8) return;
         state_.inserviceLines &= static_cast<uint16_t>(~(uint16_t{1} << state_.activeIrq));

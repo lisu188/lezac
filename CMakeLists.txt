@@ -199,6 +199,10 @@ if(BUILD_TESTING)
     add_executable(lezac_pacing_device_clock_test tests/core/pacing_device_clock_test.cpp)
     add_executable(lezac_crt_keyboard_test tests/core/crt_keyboard_test.cpp)
     add_executable(lezac_game_keyboard_test tests/core/game_keyboard_test.cpp)
+    add_executable(lezac_frame_hud_test tests/core/frame_hud_test.cpp)
+    target_link_libraries(lezac_frame_hud_test PRIVATE lezac_core)
+    add_test(NAME frame_hud_unit COMMAND lezac_frame_hud_test)
+    set_tests_properties(frame_hud_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_hud_unit=ok string_budget_cases=8")
     target_link_libraries(lezac_game_keyboard_test PRIVATE lezac_core)
     add_test(NAME game_keyboard_unit COMMAND lezac_game_keyboard_test)
     set_tests_properties(game_keyboard_unit PROPERTIES
@@ -665,6 +669,20 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "game_keyboard_original=ok cases=3 comparisons=260 reads=6")
         add_test(NAME game_keyboard_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_game_keyboard_fixture.py)
+        add_test(NAME frame_hud_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_hud_fixture.py
+            --cpu ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-cpu.bin --clock ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-clock.bin
+            --oracle ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-oracle.bin)
+        set_tests_properties(frame_hud_fixture_contract PROPERTIES FIXTURES_SETUP frame_hud_corpus)
+        add_test(NAME frame_hud_original COMMAND lezac_frame_hud_test --original
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-cpu.bin ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-clock.bin)
+        set_tests_properties(frame_hud_original PROPERTIES FIXTURES_REQUIRED frame_hud_corpus
+            PASS_REGULAR_EXPRESSION "frame_hud_original=ok cases=2 comparisons=1386 string_transfers=304")
+        add_test(NAME frame_hud_oracle COMMAND lezac_frame_hud_test --oracle ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-oracle.bin)
+        set_tests_properties(frame_hud_oracle PROPERTIES FIXTURES_REQUIRED frame_hud_corpus
+            PASS_REGULAR_EXPRESSION "frame_hud_oracle=ok cases=17 copy_modes=2 full_endpoint_flags=1 timer_boundaries=655")
+        add_test(NAME frame_hud_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_hud_fixture.py)
         add_test(NAME frame_display_instructions COMMAND lezac_frame_display_test --instructions
             ${CMAKE_CURRENT_BINARY_DIR}/frame-display-instructions.bin)
         set_tests_properties(frame_display_instructions PROPERTIES FIXTURES_REQUIRED frame_display_corpus

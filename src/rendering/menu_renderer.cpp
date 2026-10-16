@@ -3,7 +3,6 @@
 #include "resources/palette.hpp"
 #include "ui/level_flow.hpp"
 #include <algorithm>
-#include <cmath>
 #include <string>
 
 namespace lezac::rendering {
@@ -12,33 +11,6 @@ using namespace resources;
 using namespace ui;
 
 namespace {
-void drawPatternBackground(Canvas& canvas, const LevelIntroPattern& pattern) {
-    canvas.resetClip();
-    int fraction = 0;
-    int phase = 0;
-    for (int i = 0; i < kScreenW * kScreenH; ++i) {
-        fraction += pattern.horizontalStep;
-        if (fraction > 100) {
-            fraction -= 100;
-            ++phase;
-        }
-        if (i % kScreenW == 0) {
-            const int sineIndex = ((i * 3) / 100) % 128;
-            const int wave = static_cast<int>(
-                std::sin(static_cast<float>(sineIndex) * 6.28f / 128.0f) * 8.0f);
-            fraction += pattern.verticalStep + wave;
-            if (fraction > 100) {
-                fraction -= 100;
-                ++phase;
-            }
-        }
-        const Rgb color = pattern.colors[static_cast<size_t>(phase) % pattern.colors.size()];
-        canvas.pixel(i % kScreenW, i / kScreenW,
-                     0xff000000u | (static_cast<uint32_t>(color.r) << 16) |
-                         (static_cast<uint32_t>(color.g) << 8) | color.b);
-    }
-}
-
 class MenuPainter {
 public:
     MenuPainter(Canvas& canvas, TextRenderer& text, const AssetCatalog& assets,
@@ -261,10 +233,15 @@ private:
 };
 }
 
+void GameRenderer::drawPatternBackground(const LevelIntroPattern& pattern) {
+    beginPatternBackground(pattern);
+    advancePatternBackground(PatternFill::pixelCount);
+}
+
 void GameRenderer::drawMenu(const MenuView& menu) {
     if (menu.page == MenuPage::GameOver || menu.page == MenuPage::Records ||
         menu.page == MenuPage::NameEntry) {
-        drawPatternBackground(canvas_, menu.endScreenPattern);
+        drawPatternBackground(menu.endScreenPattern);
         std::vector<OutroLine> lines;
         if (menu.page == MenuPage::GameOver) {
             lines = LevelFlow::gameOverLines(menu.italian, menu.scores);
@@ -327,7 +304,7 @@ void GameRenderer::drawMenu(const MenuView& menu) {
 
 void GameRenderer::drawLevelIntro(int levelIndex, const LevelIntroPattern& pattern,
                     size_t visibleCharacters) {
-    drawPatternBackground(canvas_, pattern);
+    drawPatternBackground(pattern);
 
     const std::string caption = levelIntroCaption(levelIndex);
     const size_t count = std::min(visibleCharacters, caption.size());

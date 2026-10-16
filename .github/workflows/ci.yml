@@ -147,6 +147,21 @@ jobs:
             build/end-screen-repeat/
             build/Testing/Temporary/LastTest.log
           if-no-files-found: error
+      - name: Pattern background progress regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(pattern_fill_unit|pattern_fill_original|pattern_fill_checker)$'
+      - name: Preserve pattern background diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pattern-fill-linux-focused
+          path: |
+            build/pattern-fill-original/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
+          if-no-files-found: error
       - name: Original end-run regressions
         env:
           SDL_VIDEODRIVER: dummy
@@ -836,6 +851,21 @@ jobs:
             build/end-screen-original/
             build/end-screen-repeat/
             build/Testing/Temporary/LastTest.log
+          if-no-files-found: error
+      - name: Pattern background progress regressions
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ctest --test-dir build --verbose --output-on-failure -R '^(pattern_fill_unit|pattern_fill_original|pattern_fill_checker)$'
+      - name: Preserve pattern background diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pattern-fill-windows-focused
+          path: |
+            build/pattern-fill-original/
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
       - name: Original end-run regressions
         env:

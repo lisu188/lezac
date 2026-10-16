@@ -1,0 +1,172 @@
+{
+  "schema": "lezac-pattern-fill-original-v1",
+  "cases": [
+    {
+      "name": "commit-0020ms",
+      "horizontal_step": 53,
+      "vertical_step": 27,
+      "colors": [
+        {
+          "r": 16,
+          "g": 40,
+          "b": 20
+        },
+        {
+          "r": 24,
+          "g": 52,
+          "b": 32
+        },
+        {
+          "r": 36,
+          "g": 69,
+          "b": 44
+        },
+        {
+          "r": 48,
+          "g": 85,
+          "b": 56
+        },
+        {
+          "r": 56,
+          "g": 97,
+          "b": 69
+        },
+        {
+          "r": 69,
+          "g": 113,
+          "b": 81
+        },
+        {
+          "r": 81,
+          "g": 130,
+          "b": 93
+        }
+      ],
+      "destination_offset": 2259,
+      "rgb_sha256": "f968082fe39ca4f66bcbc644adeac545438e96e129e149b19d6ddaa10689747e",
+      "ram_cursor_destination": 4678,
+      "ram_cursor_fraction": 40,
+      "ram_cursor_phase": 2483,
+      "ram_loop_index": 4677,
+      "ram_phase_stage": "Horizontal",
+      "ram_rgb_atomic": false
+    },
+    {
+      "name": "commit-0080ms",
+      "horizontal_step": 53,
+      "vertical_step": 27,
+      "colors": [
+        {
+          "r": 16,
+          "g": 40,
+          "b": 20
+        },
+        {
+          "r": 24,
+          "g": 52,
+          "b": 32
+        },
+        {
+          "r": 36,
+          "g": 69,
+          "b": 44
+        },
+        {
+          "r": 48,
+          "g": 85,
+          "b": 56
+        },
+        {
+          "r": 56,
+          "g": 97,
+          "b": 69
+        },
+        {
+          "r": 69,
+          "g": 113,
+          "b": 81
+        },
+        {
+          "r": 81,
+          "g": 130,
+          "b": 93
+        }
+      ],
+      "destination_offset": 13216,
+      "rgb_sha256": "95484e82c56e55bf719d855194e1af9508bb663f81c38af34ca4a4e9b28fe481",
+      "ram_cursor_destination": 16373,
+      "ram_cursor_fraction": 30,
+      "ram_cursor_phase": 8692,
+      "ram_loop_index": 16373,
+      "ram_phase_stage": "Write",
+      "ram_rgb_atomic": false
+    },
+    {
+      "name": "commit-0150ms",
+      "horizontal_step": 53,
+      "vertical_step": 27,
+      "colors": [
+        {
+          "r": 16,
+          "g": 40,
+          "b": 20
+        },
+        {
+          "r": 24,
+          "g": 52,
+          "b": 32
+        },
+        {
+          "r": 36,
+          "g": 69,
+          "b": 44
+        },
+        {
+          "r": 48,
+          "g": 85,
+          "b": 56
+        },
+        {
+          "r": 56,
+          "g": 97,
+          "b": 69
+        },
+        {
+          "r": 69,
+          "g": 113,
+          "b": 81
+        },
+        {
+          "r": 81,
+          "g": 130,
+          "b": 93
+        }
+      ],
+      "destination_offset": 27525,
+      "rgb_sha256": "b999925d85a87121bfcda60628888d8ad56063daf95f02653c9c91d0d667784e",
+      "ram_cursor_destination": 30400,
+      "ram_cursor_fraction": 19,
+      "ram_cursor_phase": 16138,
+      "ram_loop_index": 30400,
+      "ram_phase_stage": "Vertical",
+      "ram_rgb_atomic": false
+    }
+  ],
+  "compared_pixels": 192000,
+  "differing_pixels": 0,
+  "masks": 0,
+  "raw_cursor_cases": 3,
+  "original_samples_verified": 11,
+  "code_bytes_verified_per_sample": 43552,
+  "real48_table_sha256": "466aea5bff071d610e66710d74d2ddecc79853ece03a4ae038113e83609e72d8",
+  "palette_source": "matched DOSBox DAC object, not fitted screenshot colors",
+  "complete_frame_sequence_claim": false,
+  "instruction_alignment_claim": false,
+  "full_game_parity": false,
+  "original_report_sha256": "9a1154be92d779377161b06a6b76d6ddd28e6db6ae83939ee992dcad3c9d0212",
+  "original_producer_sha256": "64e9da35d27487beed9576a1e40a358af247c42f728f9a944a4ddbf336c93158",
+  "audio": "dummy",
+  "retention": "Raw RAM and PNG remain local; only compact inputs, cursor facts and full-RGB hashes are published",
+  "vga_symbol_build_id": "791468b55d0528327548359d5679af3e487e830c",
+  "dac_rgb_176_elf_offset": 49548240
+}

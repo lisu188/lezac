@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "host_binary_sha256": "b19be3dd86b5d6ee59e67ffd5c4d888069f8624b4d92499babe33f4ae168c7ef",
+  "host_probe_sha256": "fbb0fa6de8a4e2855f98032a1ddb14a640ee549aee1c4bfd915cf27148fd2a2c",
+  "capture_producer_sha256": "723c70eb1e497f0efb34e4600b9ac8edd3b2cb66802f37580c83edc8fdcc817b",
+  "capture_contract_sha256": "36e27f3441ae98db6e2a459ca64c561b72c964e1e98de854ca416321c33c33e0",
+  "completed_frames": 294,
+  "measurements": 8,
+  "source_images_or_ram_published": false,
+  "synchronized_frame_parity": false,
+  "whole_game_parity": false,
+  "files": [
+    {
+      "name": "counter-bits.bin",
+      "bytes": 8192,
+      "sha256": "a3e2d79582a8e1e3a0fea3f47d7b97bd2c641fdf5f9f28e4847732de0e43d5db"
+    },
+    {
+      "name": "delay-words.bin",
+      "bytes": 131072,
+      "sha256": "d012bbac4d312ed1ee2dd387e977dad2b0bd97091d661320eb60eeb15484274a"
+    },
+    {
+      "name": "oracle.json",
+      "bytes": 23176,
+      "sha256": "54a262c28405c03a46cf59ce167ad7a94faa3dcb13e00be4021381f198e6863b"
+    },
+    {
+      "name": "r2-recipe.json",
+      "bytes": 14368,
+      "sha256": "ccf46d750e427217400717cb29df4c866860d39da7a81beb0f91b31e8ac57ba7"
+    },
+    {
+      "name": "r2.csv",
+      "bytes": 49781,
+      "sha256": "a3dea38b46a3114863b1cc456fa98b561c398b539295d920eda9d40266767cc3"
+    },
+    {
+      "name": "r3-recipe.json",
+      "bytes": 14367,
+      "sha256": "a3c8f9bad0aa5a544c12f7f900814fca6987dfb3b50a0a4f72fa7b451f4fbaa3"
+    },
+    {
+      "name": "r3.csv",
+      "bytes": 49592,
+      "sha256": "774a593bd4cb42c0158e6bcc5283ebfc36870f26435fb8cd20e84c9dc01d2df0"
+    },
+    {
+      "name": "replays.json",
+      "bytes": 51651,
+      "sha256": "ce718f2c02b354ad5e1187e279e645acf5753888d80df1fcaacc75e722235222"
+    }
+  ]
+}

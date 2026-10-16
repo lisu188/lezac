@@ -54,14 +54,16 @@ def check(app, engine, audio):
             "remaining > lezac::sound::kMaximumClockedTailSamples", "audioOutput_.discardClockedSamples();")
     require(engine, "renderClockedSamples", "uint64_t{kAudioSampleRate} * kBiosTimerDivisor",
             "applyClockedInterrupt();")
-    require(engine, "applyClockedInterrupt", "advanceSoundInterrupt()", "speakerDivisorForFrequency(action.frequency)",
+    require(engine, "applyClockedInterrupt", "advanceSoundInterruptWorkOrdered()", "speakerDivisorForFrequency(action.frequency)",
             "if (action.silence) speaker_.enabled = false;")
     require(engine, "renderClockedTail", "sampleCount > kMaximumClockedTailSamples",
             "skipClockedSamples(sampleCount - kMaximumClockedTailSamples);",
             "sampleCount = kMaximumClockedTailSamples;")
     require(engine, "skipClockedSamples", "if (!soundLatch_.active)",
             "advanceSpeakerPhase(sampleCount);", "advanceSpeakerPhase(count);",
-            "soundClock_.pitAccumulator = partial % threshold;", "applyClockedInterrupt();")
+            "soundClock_.pitAccumulator = partial % threshold;", "applyClockedInterrupt();",
+            "soundInterruptWork_.callbacks += interrupts;",
+            "soundInterruptWork_.dispatchedInstructions += interrupts * uint64_t{24};")
     if "clearSoundLatch(" in body(engine, "renderClockedSamples"):
         raise RuntimeError("clock renderer clears the latch")
     require(audio, "open", "SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0)")
@@ -90,6 +92,9 @@ def main():
         (app, engine.replace("soundClock_.pitAccumulator = partial % threshold;", ";"), audio),
         (app.replace("audioOutput_.discardClockedSamples();", ";"), engine, audio),
         (app, engine.replace("advanceSpeakerPhase(sampleCount);", ";"), audio),
+        (app, engine.replace("advanceSoundInterruptWorkOrdered()", "advanceSoundInterrupt()"), audio),
+        (app, engine.replace("soundInterruptWork_.callbacks += interrupts;", ";"), audio),
+        (app, engine.replace("soundInterruptWork_.dispatchedInstructions += interrupts * uint64_t{24};", ";"), audio),
     ]
     rejected = 0
     for index, changed in enumerate(mutations):
@@ -100,7 +105,7 @@ def main():
             rejected += 1
     if rejected != len(mutations):
         raise RuntimeError(f"routing mutations accepted: {len(mutations) - rejected}")
-    print("clocked_sound_routing=ok live_paths=2 request_paths=4 mutations=12 native_timing_claim=0")
+    print("clocked_sound_routing=ok live_paths=2 request_paths=4 mutations=15 native_timing_claim=0")
 
 
 if __name__ == "__main__":

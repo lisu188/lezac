@@ -793,6 +793,11 @@ if(BUILD_TESTING)
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_main_menu_character_evidence.py)
         set_tests_properties(main_menu_character_evidence PROPERTIES
             PASS_REGULAR_EXPRESSION "main_menu_character_evidence=ok original_cases=16 failed_records=5 mutations=6 whole_game_parity=0")
+        add_test(NAME original_work_clock_evidence
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_original_work_clock.py -v)
+        set_tests_properties(original_work_clock_evidence PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
         add_test(NAME bios_menu_input_evidence
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_bios_menu_input_evidence.py)
         set_tests_properties(bios_menu_input_evidence PROPERTIES

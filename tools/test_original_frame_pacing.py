@@ -11,7 +11,7 @@ import sys
 import tempfile
 import unittest
 
-from analyze_original_frame_pacing import analyze
+from analyze_original_frame_pacing import CAPTURE_HASHES, analyze
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / 'tests/fixtures/frame_pacing'
@@ -29,6 +29,8 @@ class OriginalFramePacingTests(unittest.TestCase):
         self.assertEqual(manifest['executable_sha256'], SHA((ROOT / 'LEZAC.EXE').read_bytes()))
         self.assertEqual(manifest['capture_producer_sha256'], SHA((ROOT / 'tools/frame_pacing_probe/capture.py').read_bytes()))
         self.assertEqual(manifest['host_probe_sha256'], SHA((ROOT / 'tools/frame_pacing_probe/lezac_work_probe.h').read_bytes()))
+        self.assertEqual(CAPTURE_HASHES, dict(dosbox_sha256=manifest['host_binary_sha256'],
+                                            producer_sha256=manifest['capture_producer_sha256']))
         oracle = json.loads((FIXTURE / 'oracle.json').read_text())
         self.assertEqual(oracle['producer_sha256'], SHA((ROOT / 'tools/capture_original_frame_delay.py').read_bytes()))
         self.assertEqual(oracle['counter_bits_sha256'], SHA((FIXTURE / 'counter-bits.bin').read_bytes()))
@@ -114,6 +116,22 @@ class OriginalFramePacingTests(unittest.TestCase):
             with self.subTest(missing=key), self.assertRaisesRegex(ValueError, 'Read-only'):
                 analyze(raw, missing)
 
+    def test_capture_host_and_producer_hashes(self):
+        raw = (FIXTURE / 'r2.csv').read_bytes()
+        recipe = json.loads((FIXTURE / 'r2-recipe.json').read_text())
+        controls = 0
+        for key, expected in CAPTURE_HASHES.items():
+            for value in ['0' * 64, recipe['executable_sha256'], '', None, False, 0, expected.upper(), {}, []]:
+                with self.subTest(key=key, value=value), self.assertRaisesRegex(ValueError, 'host or producer'):
+                    analyze(raw, dict(recipe, **{key: value}))
+                controls += 1
+            missing = dict(recipe)
+            del missing[key]
+            with self.subTest(missing=key), self.assertRaisesRegex(ValueError, 'host or producer'):
+                analyze(raw, missing)
+            controls += 1
+        self.assertEqual(controls, 20)
+
     def test_cli_rejects_mutated_guest_without_publishing_report(self):
         recipe = json.loads((FIXTURE / 'r2-recipe.json').read_text())
         with tempfile.TemporaryDirectory(prefix='lezac-pacing-recipe-') as temporary:
@@ -121,7 +139,9 @@ class OriginalFramePacingTests(unittest.TestCase):
             bad_recipe = folder / 'recipe.json'
             for index, (key, value, reason) in enumerate([
                     ('host_probe_guest_memory_writes', 1, 'Read-only guest provenance differs'),
-                    ('host_instrumented', False, 'Capture mode claims differ')]):
+                    ('host_instrumented', False, 'Capture mode claims differ'),
+                    ('dosbox_sha256', '0' * 64, 'Capture host or producer differs'),
+                    ('producer_sha256', None, 'Capture host or producer differs')]):
                 output = folder / ('report' + str(index) + '.json')
                 bad_recipe.write_text(json.dumps(dict(recipe, **{key: value})))
                 command = [sys.executable, '-S', '-B', str(ROOT / 'tools/analyze_original_frame_pacing.py'),

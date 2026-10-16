@@ -10,6 +10,9 @@ from pathlib import Path
 IPS = dict(identified=0x1fc, frame_before=0x7903, time_begin=0x7919,
            time_result=0x792a, measurement=0x7966, adjust_begin=0x799a,
            adjust_end=0x79cd, delay_before=0x79df, delay_after=0x79e8)
+CAPTURE_HASHES = dict(
+    dosbox_sha256='b19be3dd86b5d6ee59e67ffd5c4d888069f8624b4d92499babe33f4ae168c7ef',
+    producer_sha256='a256801e0478922e1335f154b0225a6cc32866e6eaa90a8e170368cdf405fbb6')
 
 
 def require(condition, message):
@@ -25,6 +28,8 @@ def analyze(raw, recipe):
             'Recipe does not bind this exact trace')
     require(recipe['schema'] == 'lezac-instrumented-frame-pacing-v1' and recipe['executable_sha256'] ==
             '7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec', 'Wrong original recipe')
+    require(all(type(recipe.get(key)) is str and recipe[key] == expected
+                for key, expected in CAPTURE_HASHES.items()), 'Capture host or producer differs')
     config = configparser.ConfigParser()
     config.read_string(recipe['dosbox_config'])
     require(config['cpu']['core'] == 'normal' and config['cpu']['cycles'] == 'fixed 6000' and

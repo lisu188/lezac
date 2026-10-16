@@ -45,6 +45,14 @@ def read_fixture(root=FIXTURE):
         ('capture_contract_sha256', 'tools/original_capture_contract.py'),
     ):
         require(recipe[field] == sha((ROOT / path).read_bytes()), 'Retained capture source differs')
+    for field, name in (
+        ('probe_sha256', 'lezac_work_probe.h'),
+        ('patch_sha256', 'dos_time_hook.patch'),
+        ('clock_patch_sha256', 'clock_hook.patch'),
+        ('clock_api_sha256', 'lezac_clock_observation.h'),
+    ):
+        require(recipe['host_build'][field] == sha((ROOT / 'tools/pic_clock_probe' / name).read_bytes()),
+            'Retained observer source differs')
     cpu, clock, cases = projections(raw, recipe)
     require([case['call'] for case in cases] == [1, 2, 48] and
         sum(len(case['states']) for case in cases) == 1014 and

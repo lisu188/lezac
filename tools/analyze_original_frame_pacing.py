@@ -15,7 +15,7 @@ IPS = dict(identified=0x1fc, frame_before=0x7903, time_begin=0x7919,
            adjust_end=0x79cd, delay_before=0x79df, delay_after=0x79e8)
 CAPTURE_HASHES = dict(
     dosbox_sha256='b19be3dd86b5d6ee59e67ffd5c4d888069f8624b4d92499babe33f4ae168c7ef',
-    producer_sha256='7b64df5132975a4354728f7f1cdf7c3a21c5bf11fab9e395bafbdc0b3881a2e4')
+    producer_sha256='723c70eb1e497f0efb34e4600b9ac8edd3b2cb66802f37580c83edc8fdcc817b')
 CAPTURE_CONFIG = dict(sdl=dict(fullscreen='false', output='surface'),
     render=dict(frameskip='0', aspect='false', scaler='none'),
     cpu=dict(core='normal', cycles='fixed 6000'), mixer=dict(nosound='true'),

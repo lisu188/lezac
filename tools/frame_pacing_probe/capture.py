@@ -257,8 +257,11 @@ finally:
     elif report['status'] == 'observed':
         terminal_error = 'No pacing trace produced'
         report.update(status='failed', passed=False, error=terminal_error)
-    report['canonical_assets_unchanged'] = all(sha((ROOT / name).read_bytes()) == pin['sha256']
-                                              for name, pin in assets.items())
+    try:
+        report['canonical_assets_unchanged'] = all(sha((ROOT / name).read_bytes()) == pin['sha256']
+                                                  for name, pin in assets.items())
+    except OSError as error:
+        report.update(canonical_assets_unchanged=False, canonical_asset_check_error=repr(error))
     if not report['canonical_assets_unchanged']:
         terminal_error = (terminal_error + '; ' if terminal_error else '') + 'Canonical original assets changed'
         report.update(status='failed', passed=False, error=terminal_error)

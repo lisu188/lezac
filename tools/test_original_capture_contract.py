@@ -1,9 +1,13 @@
 """Canonical asset preflight and private-display output rejection controls."""
 import ast
+import copy
+import hashlib
+import json
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
 import unittest
+from unittest import mock
 
 from original_capture_contract import ASSET_PINS, read_canonical_assets, validate_geometry
 
@@ -61,6 +65,52 @@ class OriginalCaptureContractTests(unittest.TestCase):
         for index, stdout in enumerate(controls):
             with self.subTest(control=index), self.assertRaisesRegex(ValueError, 'geometry output differs'):
                 validate_geometry(stdout, '123')
+
+    def test_missing_terminal_assets_persist_failed_report(self):
+        producers = [path for path in [ROOT / 'tools/frame_pacing_probe/capture.py',
+            ROOT / 'tools/original_interrupt_probe/capture.py'] if path.exists()]
+        for producer in producers:
+            tree = ast.parse(producer.read_text())
+            finalizers = [node.finalbody for node in tree.body if isinstance(node, ast.Try) and node.finalbody]
+            self.assertEqual(len(finalizers), 1)
+            code = compile(ast.Module(body=finalizers[0], type_ignores=[]), '<actual-terminal-finalizer>', 'exec')
+            for failure in ('deleted', 'renamed', 'unreadable'):
+                with self.subTest(producer=producer.name, failure=failure), tempfile.TemporaryDirectory(
+                        prefix='lezac-terminal-asset-') as temporary:
+                    root = Path(temporary)
+                    output = root / 'capture'
+                    output.mkdir()
+                    asset = root / 'asset.DAT'
+                    asset.write_bytes(b'canonical')
+                    if failure == 'deleted':
+                        asset.unlink()
+                    elif failure == 'renamed':
+                        asset.rename(root / 'renamed.DAT')
+                    trace = 'guest-pacing.csv' if producer.parent.name == 'frame_pacing_probe' else 'guest-irq.csv'
+                    (output / trace).write_bytes(b'trace\nend\n')
+                    sha = lambda raw: hashlib.sha256(raw).hexdigest()
+                    report, saved = dict(status='observed', passed=True, samples=[]), []
+
+                    def persist():
+                        saved.append(copy.deepcopy(report))
+
+                    original_read = Path.read_bytes
+
+                    def checked_read(path):
+                        if failure == 'unreadable' and path == asset:
+                            raise PermissionError('controlled unreadable canonical asset')
+                        return original_read(path)
+
+                    namespace = dict(ROOT=root, OUT=output, assets={'asset.DAT': {'sha256': sha(b'canonical')}},
+                        report=report, sha=sha, child=SimpleNamespace(returncode=0, poll=lambda: 0),
+                        mem=None, log=None, persist=persist, json=json)
+                    with mock.patch.object(Path, 'read_bytes', checked_read), self.assertRaises(RuntimeError):
+                        exec(code, namespace)
+                    self.assertEqual(len(saved), 1)
+                    self.assertEqual(saved[0]['status'], 'failed')
+                    self.assertIs(saved[0]['passed'], False)
+                    self.assertIs(saved[0]['canonical_assets_unchanged'], False)
+                    self.assertIn('Error', saved[0]['canonical_asset_check_error'])
 
 
 if __name__ == '__main__':

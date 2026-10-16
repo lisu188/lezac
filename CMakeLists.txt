@@ -195,7 +195,7 @@ if(BUILD_TESTING)
     add_test(NAME frame_pacing_original COMMAND lezac_frame_pacing_test
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/frame_pacing")
     set_tests_properties(frame_pacing_original PROPERTIES
-        PASS_REGULAR_EXPRESSION "frame_pacing_original=ok counter_inputs=65536 elapsed_inputs=65536 feedback_cases=240 natural_frames=299 measurements=9 live_clock_integrated=0")
+        PASS_REGULAR_EXPRESSION "frame_pacing_original=ok counter_inputs=65536 elapsed_inputs=65536 feedback_cases=240 natural_frames=294 measurements=8 live_clock_integrated=0")
     add_executable(lezac_cpp23_contract_test tests/core/cpp23_contract_test.cpp)
     add_test(NAME cpp23_standard_contract COMMAND lezac_cpp23_contract_test)
     add_executable(lezac_sdl_display_ownership_test

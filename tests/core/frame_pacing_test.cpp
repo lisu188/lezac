@@ -79,9 +79,9 @@ int main(int argc, char** argv) {
             require(capturedFrames.size() == word(run, "completed_frames") && delay == word(run, "final_delay"),
                     "natural terminal pacing state differs");
         }
-        require(frames == 299 && measurements == 9, "natural coverage differs");
+        require(frames == 294 && measurements == 8, "natural coverage differs");
         std::cout << "frame_pacing_original=ok counter_inputs=65536 elapsed_inputs=65536 "
-                     "feedback_cases=240 natural_frames=299 measurements=9 live_clock_integrated=0\n";
+                     "feedback_cases=240 natural_frames=294 measurements=8 live_clock_integrated=0\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "frame_pacing_original=failed " << error.what() << '\n';

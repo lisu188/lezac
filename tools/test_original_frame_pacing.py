@@ -23,7 +23,7 @@ SHA = lambda raw: hashlib.sha256(raw).hexdigest()
 class OriginalFramePacingTests(unittest.TestCase):
     def test_fixture_contract(self):
         raw = (FIXTURE / 'manifest.json').read_bytes()
-        self.assertEqual(SHA(raw), '1767846700e2d50e1267675e4e045a52eb39df64a59e25e5578aa2c40406fbac')
+        self.assertEqual(SHA(raw), '64fb11f77053cbcad274082c9d11122747573270dd09e42c80abc762d0cb91fe')
         manifest = json.loads(raw)
         for item in manifest['files']:
             value = (FIXTURE / item['name']).read_bytes()
@@ -55,9 +55,9 @@ class OriginalFramePacingTests(unittest.TestCase):
             self.assertEqual(recipe['producer_sha256'], manifest['capture_producer_sha256'])
             actual.append(analyze((FIXTURE / (name + '.csv')).read_bytes(), recipe))
         self.assertEqual(actual, expected)
-        self.assertEqual(sum(run['completed_frames'] for run in actual), 299)
-        self.assertEqual([run['character'] for run in actual], [81, 81])
-        self.assertEqual([run['final_delay'] for run in actual], [8, 6])
+        self.assertEqual(sum(run['completed_frames'] for run in actual), 294)
+        self.assertEqual([run['character'] for run in actual], [81, 82])
+        self.assertEqual([run['final_delay'] for run in actual], [8, 8])
 
     def test_cross_run_recipe_rejected(self):
         for trace, recipe in [('r2', 'r3'), ('r3', 'r2')]:

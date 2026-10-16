@@ -26,9 +26,9 @@ display calculation at CS:7966..799a is not translated by this extraction.
 
 The first measurement is especially important: previous-clock bytes are stale
 presentation state, not a newly sampled or normalized clock. The two runs begin
-with previous byte triples 111/24/40 and 106/6/39. Their first elapsed words are
-24624 and 59918. Both reduce the delay from 16 to 14, then subsequent samples
-reduce it to final values 8 and 6. Initializing those bytes from a fresh host time would
+with previous byte triples 122/110/40 and 94/48/44. Their first elapsed words are
+59441 and 40615. Both reduce the delay from 16 to 14, then subsequent samples
+reduce it to final values 8 and 8. Initializing those bytes from a fresh host time would
 silently change this observed behavior.
 
 ## Original Evidence
@@ -40,11 +40,12 @@ injected. The host is explicitly instrumented DOSBox 0.74-3, normal core, fixed
 clean ten-variable emulator environments, commands, configuration and timed
 inputs/checkpoints are retained in their exact trace-bound recipes.
 
-The canonical-asset-bound recaptures contain 149 and 150 complete frame-pacing
-groups, nine total DOS measurements, calibrated character-delay values 81 and
-81, and no incomplete final frame. The earlier producer's 144/145-frame runs
-and partial shutdown call remain separately retained, not relabeled as the new
-producer. Each new run checks all 43,552 relocated code
+The terminal-read-error-fixed recaptures contain 147 and 147 complete frame-pacing
+groups, eight total DOS measurements and calibrated character-delay values 81
+and 82. Both runs have an incomplete frame 148 waiting for CRT delay return at
+declared host shutdown; these partial calls are reported, not counted complete.
+The earlier 144/145-frame and 149/150-frame capture pairs remain separately
+retained, not relabeled as the new producer. Each new run checks all 43,552 relocated code
 bytes at five asynchronous RAM/RGB checkpoints. Screenshots and RAM are local
 only; they are not synchronized to CPU trace boundaries.
 
@@ -68,7 +69,7 @@ executes bounded blocks, not the complete game loop or its DOS/IRQ/CRT services.
 The fixture contract pins the original executable, oracle producer, probe,
 capture producer, exact recipes, raw CSVs, result tables and replay projections.
 Native C++23 tests compare both complete input domains, all 240 cases and all
-299 completed natural frame-pacing groups with these independent observations.
+294 completed natural frame-pacing groups with these independent observations.
 CI needs no Unicorn or DOSBox to replay the frozen evidence.
 
 ## Remaining Integration
@@ -115,3 +116,10 @@ before the actual producer preflight. Both new CLI rejection paths publish no
 report and preserve existing reports. Fresh original recaptures replace the
 accepted frozen frame streams; the original executable, instruction oracle,
 counter/feedback helper and live App loop are unchanged.
+
+The subsequent IRQ-tool review of `69610c32d1ac38b242b2a48d57a7882a6707970d`
+identified the same missing/deleted-asset terminal-report gap in this producer.
+Both producers now catch file-read errors, record a failed canonical-assets check
+and persist terminal failure before raising. Deleted, renamed and controlled
+unreadable-file regressions execute the actual parsed finalizers. Fresh captures
+remain bound to the exact fixed producer source; prior captures are retained.

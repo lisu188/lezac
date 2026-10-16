@@ -3,6 +3,12 @@
 *.route text eol=lf
 tools/original_interrupt_probe/** text eol=lf
 tests/fixtures/interrupt_dispatch/** -text
+tools/dos_time_probe/** text eol=lf
+tests/fixtures/dos_time/** -text
+tools/dos_timer_probe/** text eol=lf
+tests/fixtures/dos_timer/** -text
+tools/timer_irq_probe/** text eol=lf
+tests/fixtures/timer_irq/** -text
 tests/fixtures/startup_timing/** -text
 tests/fixtures/crt_delay/** -text
 tests/fixtures/end_screen_*.rgb binary

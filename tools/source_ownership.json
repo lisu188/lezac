@@ -5,12 +5,15 @@
       "runtime": [
         "src/core/constants.hpp",
         "src/core/crt_delay.hpp",
+        "src/core/dos_time.hpp",
         "src/core/fixed_point.hpp",
         "src/core/hud.hpp",
+        "src/core/interruptible_dos_time.hpp",
         "src/core/progress.cpp",
         "src/core/progress.hpp",
         "src/core/random.hpp",
-        "src/core/startup_timing.hpp"
+        "src/core/startup_timing.hpp",
+        "src/core/timer_irq.hpp"
       ]
     },
     "resources": {
@@ -51,6 +54,7 @@
         "src/sound/sdl_audio_output.hpp",
         "src/sound/sound_engine.cpp",
         "src/sound/sound_engine.hpp",
+        "src/sound/sound_interrupt_runtime.cpp",
         "src/sound/sound_models.hpp"
       ]
     },

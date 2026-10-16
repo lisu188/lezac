@@ -1,0 +1,67 @@
+"""Canonical asset preflight and private-display output rejection controls."""
+import ast
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+import unittest
+
+from original_capture_contract import ASSET_PINS, read_canonical_assets, validate_geometry
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class OriginalCaptureContractTests(unittest.TestCase):
+    def test_shipped_asset_pins(self):
+        actual = read_canonical_assets(ROOT)
+        self.assertEqual(set(actual), set(ASSET_PINS))
+        self.assertEqual(len(actual), 14)
+
+    def test_all_asset_mutations_reject_before_output_creation(self):
+        with tempfile.TemporaryDirectory(prefix='lezac-canonical-assets-') as temporary:
+            root = Path(temporary)
+            original = read_canonical_assets(ROOT)
+            for name, raw in original.items():
+                (root / name).write_bytes(raw)
+            producer = next(path for path in [ROOT / 'tools/frame_pacing_probe/capture.py',
+                ROOT / 'tools/original_interrupt_probe/capture.py'] if path.exists())
+            tree = ast.parse(producer.read_text())
+            root_index = next(index for index, node in enumerate(tree.body) if isinstance(node, ast.Assign) and
+                any(isinstance(target, ast.Name) and target.id == 'ROOT' for target in node.targets))
+            canonical_index = root_index + 1
+            self.assertIsInstance(tree.body[canonical_index], ast.Assign)
+            self.assertEqual(tree.body[canonical_index].targets[0].id, 'canonical')
+            self.assertEqual(tree.body[canonical_index + 1].targets[0].id, 'OUT')
+            code = compile(ast.Module(body=tree.body[root_index:canonical_index+1], type_ignores=[]),
+                           '<actual-capture-preflight>', 'exec')
+            for name, raw in original.items():
+                for changed in (raw + b'changed', bytes([raw[0] ^ 1]) + raw[1:]):
+                    with self.subTest(asset=name, bytes=len(changed)):
+                        (root / name).write_bytes(changed)
+                        with self.assertRaisesRegex(ValueError, 'Canonical original asset differs'):
+                            exec(code, dict(args=SimpleNamespace(repo=root), read_canonical_assets=read_canonical_assets))
+                    (root / name).write_bytes(raw)
+            (root / 'unexpected.DAT').write_bytes(b'extra')
+            with self.assertRaisesRegex(ValueError, 'asset domain differs'):
+                read_canonical_assets(root)
+            (root / 'unexpected.DAT').unlink()
+            (root / 'LIVELS.SCH').unlink()
+            with self.assertRaisesRegex(ValueError, 'asset domain differs'):
+                read_canonical_assets(root)
+
+    def test_geometry_rejection_controls(self):
+        valid = 'WINDOW=123\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n'
+        self.assertEqual(validate_geometry(valid, '123')['WIDTH'], 320)
+        controls = [None, '', 'bogus', 'x' * 2049, valid + 'WIDTH=320\n', valid + 'EXTRA=1\n',
+                    valid.replace('SCREEN=0\n', ''), valid + '[other]\nX=0\n']
+        for old, replacements in [('WINDOW=123', ['WINDOW=1', 'WINDOW=0', 'WINDOW=abc']),
+                ('X=192', ['X=-1', 'X=705', 'X=1.5']), ('Y=184', ['Y=-1', 'Y=569']),
+                ('WIDTH=320', ['WIDTH=640', 'WIDTH=0', 'WIDTH=True']),
+                ('HEIGHT=200', ['HEIGHT=400', 'HEIGHT=0']), ('SCREEN=0', ['SCREEN=1', 'SCREEN=-1'])]:
+            controls.extend(valid.replace(old, value) for value in replacements)
+        for index, stdout in enumerate(controls):
+            with self.subTest(control=index), self.assertRaisesRegex(ValueError, 'geometry output differs'):
+                validate_geometry(stdout, '123')
+
+
+if __name__ == '__main__':
+    unittest.main()

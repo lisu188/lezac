@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "original_executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "probe_sha256": "99e7e5163d97fdd94fae55bb0b9aa03f7c5fc42c59cdc531e370758c49e10231",
+  "producer_sha256": "576afec3b56c9429b10065acc47b4e5fe0433ecaa8516bf41610fe682cd0a969",
+  "host_sha256": "b2ecf617bea4c1b31ba7da8845b31f448bd0018c6ba60d6fe37fff8d9de9d5a3",
+  "cases": 2,
+  "capture_contract_sha256": "36e27f3441ae98db6e2a459ca64c561b72c964e1e98de854ca416321c33c33e0",
+  "trace_rows": 1752,
+  "raw_ram_published": false,
+  "raw_vga_published": false,
+  "screenshots_published": false,
+  "fixture_pixel_replay_claim": false,
+  "full_app_claim": false,
+  "whole_game_parity": false,
+  "files": [
+    {
+      "name": "rank8.csv.gz",
+      "bytes": 19734,
+      "sha256": "1a7642d7523ee94da5852992a2a888af65042b1eeb7a9bfbe0303ee3cc604ab7"
+    },
+    {
+      "name": "rank8-recipe.json",
+      "bytes": 26334,
+      "sha256": "4549de6497c640707a9682d021a3200be7e9ff2d7d2358d057a7264a349ffe29"
+    },
+    {
+      "name": "rank7.csv.gz",
+      "bytes": 9798,
+      "sha256": "97b98e6f1911f86492ddbc7a09f4150da4e348024f3781cbe7e1e38e6ddddee6"
+    },
+    {
+      "name": "rank7-recipe.json",
+      "bytes": 25858,
+      "sha256": "009a80ba5fed52aa14d7be6fd2a14596c9769ae6a634c22fc260c960a236dd26"
+    },
+    {
+      "name": "replays.json",
+      "bytes": 893,
+      "sha256": "596c7f62a985601fbbf98db4b20269af08b3ecc99985db86eb9bfa8f39f8f807"
+    }
+  ]
+}

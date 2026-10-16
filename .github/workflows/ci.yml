@@ -153,7 +153,7 @@ jobs:
           SDL_AUDIODRIVER: dummy
         run: |
           ./build/lezac_original_end_run_test tests/fixtures build/original-end-run-focused
-          ctest --test-dir build --verbose --output-on-failure -R '^(screen_clear_original|record_adjacent_original|end_run_return_unit|original_end_run_repeat|end_flow_records_temp|end_flow_frame_flow|records_save_failure_temp|record_name_sound|autoplayer_records_flow_dummy)$'
+          ctest --test-dir build --verbose --output-on-failure -R '^(screen_clear_original|record_adjacent_original|record_adjacent_app|end_run_return_unit|original_end_run_repeat|end_flow_records_temp|end_flow_frame_flow|records_save_failure_temp|record_name_sound|autoplayer_records_flow_dummy)$'
       - name: Preserve original end-run diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -164,6 +164,7 @@ jobs:
             build/original-end-run-repeat/
             build/screen-clear-original/
             build/record-adjacent-original/
+            build/record-adjacent-app/
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error
@@ -842,7 +843,7 @@ jobs:
           SDL_AUDIODRIVER: dummy
         run: |
           ./build/lezac_original_end_run_test.exe tests/fixtures build/original-end-run-focused
-          ctest --test-dir build --verbose --output-on-failure -R '^(screen_clear_original|record_adjacent_original|end_run_return_unit|original_end_run_repeat|end_flow_records_temp|end_flow_frame_flow|records_save_failure_temp|record_name_sound|autoplayer_records_flow_dummy)$'
+          ctest --test-dir build --verbose --output-on-failure -R '^(screen_clear_original|record_adjacent_original|record_adjacent_app|end_run_return_unit|original_end_run_repeat|end_flow_records_temp|end_flow_frame_flow|records_save_failure_temp|record_name_sound|autoplayer_records_flow_dummy)$'
       - name: Preserve original end-run diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -853,6 +854,7 @@ jobs:
             build/original-end-run-repeat/
             build/screen-clear-original/
             build/record-adjacent-original/
+            build/record-adjacent-app/
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
           if-no-files-found: error

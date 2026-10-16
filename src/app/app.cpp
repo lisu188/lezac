@@ -7722,6 +7722,73 @@ public:
                   << " retry_committed=1 name=" << reloaded[0].name << '\n';
     }
 
+    void debugRecordAdjacentMemory(const std::string& fixtures, const std::string& outputRoot) {
+        load();
+        initSdl();
+        const std::filesystem::path root(outputRoot);
+        std::filesystem::create_directories(root);
+        std::filesystem::path out;
+        for (uint64_t attempt = 0;; ++attempt) {
+            out = root / ("run-" + std::to_string(attempt));
+            if (std::filesystem::create_directory(out)) break;
+        }
+        const lezac::ui::RecordAdjacentMemory::Bytes qBytes{
+            0, 0, 0, 0, 8, 'q', ':', ':', ':', ':', ':', ':', ':'};
+        for (const bool rankEight : {true, false}) {
+            const std::string name = rankEight ? "rank8" : "rank7";
+            const auto fixture = std::filesystem::path(fixtures) /
+                (rankEight ? "record_adjacent_zero.dat" : "record_adjacent_rank7.dat");
+            recordStore_ = {};
+            recordStore_.replaceRecords(lezac::resources::loadRawRecords(fixture.string()));
+            recordStore_.setPath((out / (name + ".dat")).string());
+            saveRecords(recordStore_.path(), recordStore_.records());
+            auto expected = readFile(fixture.string());
+            if (expected.size() != 92 || expected.front() != 7 ||
+                readFile(recordStore_.path()) != expected || recordStore_.adjacentMemory().initialized())
+                throw std::runtime_error("App record fixture or unknown startup state changed");
+            resetLevel(0);
+            playerCount_ = 1;
+            score_ = score2_ = 0;
+            ui_.setMenu(false);
+            beginGameOver();
+            bool running = true;
+            pushKeyDown(SDLK_RETURN);
+            processEvents(running);
+            if (!running || ui_.snapshot().page != MenuPage::NameEntry ||
+                !recordStore_.hasPendingRecord() || recordStore_.pending().player != 1)
+                throw std::runtime_error("App did not acknowledge Game Over into player one");
+            pushKeyDown(SDLK_q);
+            processEvents(running);
+            if (recordStore_.pending().name != "q")
+                throw std::runtime_error("SDL name key did not reach the App record owner");
+            inspectRenderedFrame("record-adjacent-" + name + "-before");
+            writeArgbPpm((out / (name + "-before.ppm")).string(), fb_, kScreenW, kScreenH);
+            pushKeyDown(SDLK_RETURN);
+            processEvents(running);
+            if (!running) throw std::runtime_error("record commit closed the App");
+            if (rankEight) {
+                if (recordStore_.adjacentMemory().snapshot() != qBytes ||
+                    recordStore_.adjacentMemory().keyboardHandler() !=
+                        lezac::ui::OriginalFarPointer{0, 0x0800})
+                    throw std::runtime_error("SDL commit did not retain the original rank-eight write");
+            } else {
+                if (recordStore_.adjacentMemory().initialized())
+                    throw std::runtime_error("rank-seven App control wrote adjacent memory");
+                std::copy(qBytes.begin(), qBytes.end(), expected.begin() + 1 + 6 * 13);
+                if (ui_.snapshot().page != MenuPage::NameEntry ||
+                    !recordStore_.hasPendingRecord() || recordStore_.pending().player != 2)
+                    throw std::runtime_error("rank-seven control lost the original player-two prompt");
+            }
+            if (readFile(recordStore_.path()) != expected)
+                throw std::runtime_error("App commit differs from the original saved table");
+            inspectRenderedFrame("record-adjacent-" + name + "-after");
+            writeArgbPpm((out / (name + "-after.ppm")).string(), fb_, kScreenW, kScreenH);
+        }
+        std::cout << "record_adjacent_app=ok cases=2 sdl_commits=2 owned_span_bytes=13"
+                     " compared_saved_bytes=184 inspected_frames=4 rank7_control=1"
+                     " interrupt_dispatch_claim=0 frame_timing_claim=0 whole_game_parity=0\n";
+    }
+
     void debugEndFlowRecords(const std::string& path) {
         load();
         recordStore_.setPath(path);
@@ -32053,6 +32120,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-record-save-failure") {
             app.debugRecordSaveFailure(argv[2]);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--debug-record-adjacent-memory") {
+            app.debugRecordAdjacentMemory(argv[2], argv[3]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-end-flow-records") {

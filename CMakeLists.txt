@@ -228,6 +228,13 @@ if(BUILD_TESTING)
         "${CMAKE_CURRENT_BINARY_DIR}/record-adjacent-original")
     set_tests_properties(record_adjacent_original PROPERTIES
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+    add_test(NAME record_adjacent_app COMMAND lezac_cpp --debug-record-adjacent-memory
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures"
+        "${CMAKE_CURRENT_BINARY_DIR}/record-adjacent-app")
+    set_tests_properties(record_adjacent_app PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^record_adjacent_app=ok cases=2 sdl_commits=2 owned_span_bytes=13 compared_saved_bytes=184 inspected_frames=4 rank7_control=1 interrupt_dispatch_claim=0 frame_timing_claim=0 whole_game_parity=0")
     add_executable(lezac_screen_clear_test tests/rendering/screen_clear_test.cpp)
     target_link_libraries(lezac_screen_clear_test PRIVATE lezac_rendering)
     add_test(NAME screen_clear_original COMMAND lezac_screen_clear_test

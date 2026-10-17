@@ -3,6 +3,7 @@
 #include "gameplay/actor_models.hpp"
 #include "core/hud.hpp"
 #include "rendering/hud_ammo.hpp"
+#include "rendering/viewport_layout.hpp"
 #include "resources/levels.hpp"
 #include "resources/records.hpp"
 #include "ui/models.hpp"
@@ -18,6 +19,7 @@ struct PlayerRenderView {
     int lives;
     const gameplay::State2VisualCursor& state2Cursor;
     const gameplay::State2EffectEntry& state2Effect;
+    uint8_t globalState = 1; // The original viewport gate; zero retains its VGA view.
 };
 
 // Read-only world data needed for painting. Visual order is prepared by the
@@ -39,6 +41,7 @@ struct WorldRenderView {
     uint16_t cameraShakeOffset;
     bool state2CursorPreview;
     bool state2RowPreview;
+    const ViewportLayout* viewportLayout = nullptr;
 };
 
 struct PlayerHudView {

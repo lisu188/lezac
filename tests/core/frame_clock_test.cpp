@@ -1,5 +1,8 @@
 #include "core/interruptible_dos_time.hpp"
 #include "core/interruptible_frame_clock.hpp"
+#include "core/frame_pacing_calculation.hpp"
+#include "core/frame_pacing_operation.hpp"
+#include "core/pacing_device_clock.hpp"
 #include "core/pic_work_clock.hpp"
 
 #include <algorithm>
@@ -12,6 +15,7 @@
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -111,9 +115,9 @@ struct Expected {
     DosGetTimeRegisters registers;
     uint32_t mask, ticks, pspStack, io;
     uint8_t motor, drive;
-    std::vector<uint8_t> stack, globals, frameGlobals;
+    std::vector<uint8_t> stack, globals, frameGlobals, displayGlobals, pacingGlobals;
 };
-Expected state(Reader& reader, unsigned stackLength) {
+Expected state(Reader& reader, unsigned stackLength, bool display = false, bool pacing = false) {
     DosGetTimeRegisters r;
     r.ax = reader.word(); r.bx = reader.word(); r.cx = reader.word(); r.dx = reader.word();
     r.si = reader.word(); r.di = reader.word(); r.bp = reader.word(); r.cs = reader.word();
@@ -122,7 +126,8 @@ Expected state(Reader& reader, unsigned stackLength) {
     const auto mask = reader.number(4), ticks = reader.number(4), pspStack = reader.number(4);
     const auto motor = static_cast<uint8_t>(reader.number(1)), drive = static_cast<uint8_t>(reader.number(1));
     const auto io = reader.number(4);
-    return {r, mask, ticks, pspStack, io, motor, drive, reader.take(stackLength), reader.take(10), reader.take(11)};
+    return {r, mask, ticks, pspStack, io, motor, drive, reader.take(stackLength), reader.take(10), reader.take(11),
+        display ? reader.take(5) : std::vector<uint8_t>{}, pacing ? reader.take(9) : std::vector<uint8_t>{}};
 }
 void seedGlobals(Memory& memory, uint16_t data, const std::vector<uint8_t>& globals, bool legacy) {
     if (legacy) { memory.seed(data, 0x79c4, {0}, true); return; }
@@ -134,17 +139,25 @@ void seedGlobals(Memory& memory, uint16_t data, const std::vector<uint8_t>& glob
     }
 }
 using ClockCases = std::vector<std::vector<PicWorkClockSnapshot>>;
-ClockCases readClocks(Reader reader) {
-    require(reader.take(8) == std::vector<uint8_t>({'L','Z','P','C','L','K','0','1'}), "clock version differs");
+using DeviceClockCases = std::vector<std::vector<PacingDeviceClockSnapshot>>;
+template<class Snapshot = PicWorkClockSnapshot>
+std::vector<std::vector<Snapshot>> readClocks(Reader reader) {
+    constexpr bool Devices = std::is_same_v<Snapshot, PacingDeviceClockSnapshot>;
+    require(reader.take(8) == (Devices ? std::vector<uint8_t>({'L','Z','P','D','C','L','0','1'}) :
+        std::vector<uint8_t>({'L','Z','P','C','L','K','0','1'})), "clock version differs");
     const auto count = reader.number(4);
     require(count > 0 && count <= 8, "clock case domain differs");
-    ClockCases result;
+    std::vector<std::vector<Snapshot>> result;
     for (unsigned c = 0; c < count; ++c) {
         const auto stateCount = reader.number(4);
-        require(stateCount >= 326 && stateCount <= 4097, "clock state domain differs");
-        std::vector<PicWorkClockSnapshot> states;
+        require(stateCount >= (Devices ? 16u : 326u) && stateCount <= (Devices ? 250001u : 4097u), "clock state domain differs");
+        std::vector<Snapshot> states;
         for (unsigned i = 0; i < stateCount; ++i) {
-            PicWorkClockSnapshot state;
+            Snapshot observed;
+            auto& state = [&]() -> PicWorkClockSnapshot& {
+                if constexpr (Devices) return observed.clock;
+                else return observed;
+            }();
             state.cycles = std::bit_cast<int64_t>(reader.wide());
             state.cycleLeft = std::bit_cast<int64_t>(reader.wide());
             state.ioDelayRemoved = std::bit_cast<int64_t>(reader.wide());
@@ -165,7 +178,13 @@ ClockCases readClocks(Reader reader) {
                 const auto kind = static_cast<PicClockEventKind>(reader.number(1));
                 state.queue.push_back({index, kind, reader.wide()});
             }
-            states.push_back(std::move(state));
+            if constexpr (Devices) {
+                for (auto& value : observed.devices) value = reader.wide();
+                for (auto& value : observed.delayBits) value = reader.wide();
+                const auto tickers = reader.number(1); require(tickers <= 16, "ticker scope differs");
+                for (unsigned t = 0; t < tickers; ++t) observed.tickers.push_back(static_cast<uint8_t>(reader.number(1)));
+            }
+            states.push_back(std::move(observed));
         }
         result.push_back(std::move(states));
     }
@@ -193,12 +212,19 @@ void compareClock(const PicWorkClock& operation, const PicWorkClockSnapshot& exp
             actual.queue[i].kind == expected.queue[i].kind && actual.queue[i].value == expected.queue[i].value,
             context + " coupled queue event differs");
 }
-std::size_t original(Reader reader, const ClockCases& clocks = {}) {
-    require(reader.take(8) == std::vector<uint8_t>({'L','Z','F','C','L','K','0','1'}), "projection version differs");
+template<class Operation = InterruptibleFrameClockOperation, class Clock = PicWorkClock>
+std::size_t original(Reader reader, const std::conditional_t<std::is_same_v<Clock, PacingDeviceClock>, DeviceClockCases, ClockCases>& clocks = {}) {
+    constexpr bool DeviceClock = std::is_same_v<Clock, PacingDeviceClock>;
+    constexpr bool ThroughPacing = std::is_same_v<Operation, FramePacingOperation>;
+    constexpr bool ThroughDisplay = ThroughPacing || std::is_same_v<Operation, FramePacingCalculationOperation>;
+    require(reader.take(8) == (ThroughPacing ? std::vector<uint8_t>({'L','Z','F','P','A','C','0','1'}) :
+        ThroughDisplay ? std::vector<uint8_t>({'L','Z','F','D','S','P','0','1'}) :
+        std::vector<uint8_t>({'L','Z','F','C','L','K','0','1'})), "projection version differs");
     const auto count = reader.number(4);
     require(count > 0 && count <= 256, "case domain differs");
     require(clocks.empty() || clocks.size() == count, "CPU/clock case count differs");
-    require(!clocks.empty(), "independent PIC projection required");
+    if constexpr (ThroughPacing && !DeviceClock) require(clocks.empty(), "observed-IRQ mode has no coupled clock proof");
+    else require(!clocks.empty(), "independent PIC projection required");
     std::size_t comparisons = 0, delivered = 0, predicted = 0;
     for (unsigned caseIndex = 0; caseIndex < count; ++caseIndex) {
         const auto game = reader.word(), base = reader.word(), psp = reader.word(), ss = reader.word();
@@ -207,19 +233,21 @@ std::size_t original(Reader reader, const ClockCases& clocks = {}) {
         const auto vectorIp = reader.word(), vectorCs = reader.word();
         const bool legacy = reader.number(1) != 0;
         const auto stateCount = reader.number(4), ioCount = reader.number(4), irqCount = reader.number(4);
+        require(stateCount >= 16 && stateCount <= (ThroughPacing ? 250001u : 4097u), "CPU state domain differs");
+        require(!ThroughPacing || !legacy, "full pacing requires fixed-stack evidence");
         require(stackLength == (legacy ? 64 : 128), "stack scope differs");
         std::vector<uint32_t> deliveries;
         for (unsigned i = 0; i < irqCount; ++i) deliveries.push_back(reader.number(4));
         const auto bank = reader.take(bankLength);
         std::vector<Expected> states;
-        for (unsigned i = 0; i < stateCount; ++i) states.push_back(state(reader, stackLength));
+        for (unsigned i = 0; i < stateCount; ++i) states.push_back(state(reader, stackLength, ThroughDisplay, ThroughPacing));
         std::vector<Io> io;
         for (unsigned i = 0; i < ioCount; ++i) {
             const bool output = reader.number(1) != 0; const auto port = reader.word();
             io.emplace_back(output, port, static_cast<uint8_t>(reader.number(1)));
         }
         for (bool restore : {false, true}) {
-            std::optional<PicWorkClock> clock;
+            std::optional<Clock> clock;
             if (!clocks.empty()) {
                 require(clocks[caseIndex].size() == stateCount, "CPU/clock state count differs");
                 clock.emplace(clocks[caseIndex].front());
@@ -238,15 +266,40 @@ std::size_t original(Reader reader, const ClockCases& clocks = {}) {
             const auto data = static_cast<uint16_t>(game + 0xaa2);
             memory.seed(data, 0x2074, {states[0].frameGlobals.begin(), states[0].frameGlobals.begin() + 2}, true);
             memory.seed(data, 0x79a4, {states[0].frameGlobals.begin() + 2, states[0].frameGlobals.end()}, true);
-            InterruptibleFrameClockOperation operation(states[0].registers, base, psp, game, 0x200000);
-            const auto bus = memory.bus(clock ? &*clock : nullptr);
+            if constexpr (ThroughDisplay) {
+                memory.seed(data, 0x78c6, {states[0].displayGlobals.begin(), states[0].displayGlobals.begin() + 4});
+                memory.seed(data, 0x79b5, {states[0].displayGlobals[4]}, true);
+            }
+            if constexpr (ThroughPacing) {
+                memory.seedNumber(0, 0x84, uint32_t{base} | (uint32_t{0xf000} << 16), 4);
+                const auto& bytes = states[0].pacingGlobals;
+                memory.seed(data, 0x78c2, {bytes.begin(), bytes.begin()+2}, true);
+                memory.seed(data, 0x78ca, {bytes.begin()+2, bytes.begin()+6}, true);
+                memory.seed(data, 0x7f68, {bytes.begin()+6, bytes.begin()+8});
+                memory.seedNumber(0x40, 0, bytes[8], 1);
+            }
+            Operation operation(states[0].registers, base, psp, game, 0x200000);
+            PicWorkClock* workClock = nullptr;
+            if (clock) {
+                if constexpr (DeviceClock) workClock = &clock->workClock();
+                else workClock = &*clock;
+            }
+            const auto bus = memory.bus(workClock);
             for (unsigned step = 0; step < stateCount; ++step) {
                 if (!clock && std::find(deliveries.begin(), deliveries.end(), step) != deliveries.end())
                     operation.deliverTimerInterrupt(bus);
                 const auto& expected = states[step];
                 auto actual = operation.registers(), wanted = expected.registers;
                 const auto context = "case=" + std::to_string(caseIndex) + " state=" + std::to_string(step);
-                if (clock) compareClock(*clock, clocks[caseIndex][step], context);
+                if (clock) {
+                    if constexpr (DeviceClock) {
+                        const auto snapshot = clock->snapshot();
+                        const auto& expectedClock = clocks[caseIndex][step];
+                        compareClock(clock->workClock(), expectedClock.clock, context);
+                        require(snapshot.devices == expectedClock.devices && snapshot.delayBits == expectedClock.delayBits &&
+                            snapshot.tickers == expectedClock.tickers, context + " clock-device state differs");
+                    } else compareClock(*clock, clocks[caseIndex][step], context);
+                }
                 require(((actual.flags ^ wanted.flags) & expected.mask) == 0, context + " defined flags differ");
                 actual.flags = wanted.flags = 0;
                 require(actual == wanted, context + " registers differ");
@@ -268,6 +321,16 @@ std::size_t original(Reader reader, const ClockCases& clocks = {}) {
                 for (unsigned i = 0; i < 11; ++i)
                     require(memory.read(data, static_cast<uint16_t>(i < 2 ? 0x2074 + i : 0x79a4 + i - 2), 1) ==
                             expected.frameGlobals[i], context + " foreground clock memory differs");
+                if constexpr (ThroughDisplay) for (unsigned i = 0; i < 5; ++i)
+                    require(memory.read(data, static_cast<uint16_t>(i < 4 ? 0x78c6 + i : 0x79b5), 1) ==
+                        expected.displayGlobals[i], context + " display calculation memory differs");
+                if constexpr (ThroughPacing) {
+                    const auto& bytes = expected.pacingGlobals;
+                    for (unsigned i = 0; i < 8; ++i)
+                        require(memory.read(data, static_cast<uint16_t>(i < 2 ? 0x78c2+i : i < 6 ? 0x78ca+i-2 : 0x7f68+i-6), 1) ==
+                            bytes[i], context + " pacing memory differs");
+                    require(memory.read(0x40, 0, 1) == bytes[8], context + " calibration BIOS byte differs");
+                }
                 ++comparisons;
                 const auto before = operation.snapshot();
                 require(operation.advance(0, bus) == 0 && operation.snapshot() == before, "zero budget changed state");
@@ -282,7 +345,8 @@ std::size_t original(Reader reader, const ClockCases& clocks = {}) {
                     require(operation.advance(1, bus) == 1, "dispatch budget differs");
                     if (clock) {
                         const auto flags = operation.registers().flags;
-                        const bool picExit = iret && (flags & 0x200u) && clock->snapshot().pending;
+                        const bool sti = beforeRegisters.cs == 0xf000 && beforeRegisters.ip == base;
+                        const bool picExit = (iret || sti) && (flags & 0x200u) && workClock->snapshot().pending;
                         auto boundary = clock->nextDispatch(callback || picExit, flags);
                         while (boundary.kind == PicClockBoundaryKind::NeedMillisecond) {
                             clock->grantMillisecond();
@@ -296,23 +360,51 @@ std::size_t original(Reader reader, const ClockCases& clocks = {}) {
                     }
                 }
                 if (restore) {
-                    operation = InterruptibleFrameClockOperation(operation.snapshot());
-                    if (clock) *clock = PicWorkClock(clock->snapshot());
+                    operation = Operation(operation.snapshot());
+                    if (clock) *clock = Clock(clock->snapshot());
                 }
             }
             require(operation.returned() && operation.advance(1, bus) == 0 && memory.io == ioCount, "terminal state differs");
-            require(operation.snapshot().dos.dos.dispatchedInstructions == 325 &&
-                operation.snapshot().frame && operation.snapshot().frame->dispatchedInstructions == 29 &&
-                operation.snapshot().dispatchedInstructions == stateCount - 1 &&
-                operation.snapshot().timerDeliveries == irqCount, "shared work accounting differs");
+            const auto& snapshot = operation.snapshot();
+            if constexpr (ThroughPacing) {
+                require(snapshot.calculation && snapshot.delay && snapshot.dispatchedInstructions == stateCount - 1,
+                    "full pacing work or delay terminal differs");
+                const auto& calculation = *snapshot.calculation;
+                require(calculation.elapsed.dos.dos.dispatchedInstructions == 325 && calculation.elapsed.frame &&
+                    calculation.elapsed.frame->dispatchedInstructions == 29 && calculation.display &&
+                    snapshot.gateInstructions + calculation.dispatchedInstructions + snapshot.feedbackInstructions +
+                        snapshot.delay->dispatchedInstructions + snapshot.timerInstructions == snapshot.dispatchedInstructions,
+                    "full pacing instruction composition differs");
+                require(snapshot.timerDeliveries + calculation.elapsed.timerDeliveries + calculation.display->timerDeliveries == irqCount,
+                    "full pacing observed IRQ count differs");
+            } else {
+                const auto& elapsed = [&]() -> const InterruptibleFrameClockSnapshot& {
+                    if constexpr (ThroughDisplay) return snapshot.elapsed;
+                    else return snapshot;
+                }();
+                uint64_t timerDeliveries = elapsed.timerDeliveries;
+                if constexpr (ThroughDisplay) {
+                    require(snapshot.display && snapshot.display->display.outcome == FrameDisplayOutcome::Returned &&
+                        elapsed.dispatchedInstructions + snapshot.display->dispatchedInstructions == snapshot.dispatchedInstructions,
+                        "DOS/elapsed/display work composition differs");
+                    timerDeliveries += snapshot.display->timerDeliveries;
+                }
+                require(elapsed.dos.dos.dispatchedInstructions == 325 &&
+                    elapsed.frame && elapsed.frame->dispatchedInstructions == 29 &&
+                    snapshot.dispatchedInstructions == stateCount - 1 && timerDeliveries == irqCount,
+                    "shared work accounting differs");
+            }
         }
         delivered += irqCount;
     }
     require(reader.cursor == reader.bytes.size(), "projection tail differs");
-    std::cout << "frame_clock_original=ok cases=" << count << " comparisons=" << comparisons
+    std::cout << (ThroughPacing ? "frame_pacing_original=ok cases=" : ThroughDisplay ? "frame_pacing_calculation_original=ok cases=" : "frame_clock_original=ok cases=")
+              << count << " comparisons=" << comparisons
               << " delivered_irqs=" << delivered << " irq_instructions_skipped=0 output_state_injected=0 scheduler_claim=0"
               << " coupled_clock=" << !clocks.empty() << " predicted_irqs=" << predicted
               << " later_cpu_flags_injected=0 whole_game_clock_claim=0\n";
+    if constexpr (ThroughPacing) std::cout << "observed_irq_boundaries_external=" << !DeviceClock
+        << " irq_eligibility_claim=" << DeviceClock << "\n";
     return comparisons;
 }
 void unit() {
@@ -486,6 +578,18 @@ int main(int argc, char** argv) {
         unit();
         edges();
         foregroundEdges();
+        if (argc == 4 && std::string(argv[1]) == "--device-clock-projection") {
+            std::ifstream stream(argv[2], std::ios::binary), clockStream(argv[3], std::ios::binary);
+            require(stream.good() && clockStream.good(), "device clock projection missing");
+            const auto clocks = readClocks<PacingDeviceClockSnapshot>(Reader{{std::istreambuf_iterator<char>(clockStream),std::istreambuf_iterator<char>()}});
+            original<FramePacingOperation, PacingDeviceClock>(Reader{{std::istreambuf_iterator<char>(stream),std::istreambuf_iterator<char>()}}, clocks);
+            return 0;
+        }
+        if (argc == 3 && std::string(argv[1]) == "--observed-irq-projection") {
+            std::ifstream stream(argv[2], std::ios::binary); require(stream.good(), "full pacing projection missing");
+            original<FramePacingOperation>(Reader{{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()}});
+            return 0;
+        }
         if(argc==3 && std::string(argv[1])=="--oracle") {
             std::ifstream stream(argv[2],std::ios::binary);require(stream.good(),"elapsed oracle missing");
             elapsedOracle(Reader{{std::istreambuf_iterator<char>(stream),std::istreambuf_iterator<char>()}});
@@ -499,7 +603,11 @@ int main(int argc, char** argv) {
                 std::ifstream clockStream(argv[2], std::ios::binary); require(clockStream.good(), "clock projection missing");
                 clocks = readClocks(Reader{{std::istreambuf_iterator<char>(clockStream), std::istreambuf_iterator<char>()}});
             }
-            original(Reader{{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()}}, clocks);
+            Reader reader{{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()}};
+            const std::vector<uint8_t> displayMagic{'L','Z','F','D','S','P','0','1'};
+            if (reader.bytes.size() >= 8 && std::equal(displayMagic.begin(), displayMagic.end(), reader.bytes.begin()))
+                original<FramePacingCalculationOperation>(std::move(reader), clocks);
+            else original(std::move(reader), clocks);
         }
     } catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
 }

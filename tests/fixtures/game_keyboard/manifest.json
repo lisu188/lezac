@@ -1,0 +1,90 @@
+{
+  "schema": "lezac-frozen-game-keyboard-v1",
+  "files": [
+    {
+      "name": "natural-recipe.json",
+      "bytes": 22667,
+      "sha256": "31aa99bca8232b23a720dc2aaebb234c3d487c614786a7b6c20c84339221acfc"
+    },
+    {
+      "name": "natural.csv.gz",
+      "bytes": 8951,
+      "sha256": "7665e1730d7c42b4faf15a210f07a374e257a06f9128f654b17d681e5bf6f10c"
+    }
+  ],
+  "sources": {
+    "tools/game_keyboard_probe/build.py": "47b36fcfae5c85d7add93d3f20949bd398c561e4610833415fc9304564428500",
+    "tools/game_keyboard_probe/capture.py": "6eaef21737950b6082e58d682f11e505f7cbf04c436c55b7b7d05e265efa5d70",
+    "tools/game_keyboard_probe/clock_hook.patch": "b61aedfbd911f46766bc3c32eb7c12df920ec9eed16928183aadc4732a260e44",
+    "tools/game_keyboard_probe/dos_time_hook.patch": "7b7b24a70c4a032533eb404d948d27eb36336b5248bb531604d8e4f737c3cd4b",
+    "tools/game_keyboard_probe/input_route.py": "cb1b2008045403cd1144704b5750912c2910e8e0f200357d8bbf422257180b5e",
+    "tools/game_keyboard_probe/keyboard_clock_observation.inc": "7fb32b946df39756cbf4fad59ba15ace6383b070976bdd2d54cebeafff1753e3",
+    "tools/game_keyboard_probe/lezac_clock_observation.h": "5681ec0cda71b73176a4b9119dd572e316e0fe227389af328fd900ab6f36bfc5",
+    "tools/game_keyboard_probe/lezac_work_probe.h": "bde565cac118f4b0f3937d1b92aa6df87dadd7b18f0f82eab81615a924fc14f6",
+    "tools/game_keyboard_probe/mixer_clock_observation.inc": "b997f6b2a762f047b1cb1caa2d8a893039c405fb66f9abd024dc92035fcf0a58",
+    "tools/game_keyboard_probe/pic_tickers_observation.inc": "0025c8d94219966e73c5d9bca004311de4d0c2335f7f8dfff7b608753486fa72",
+    "tools/game_keyboard_probe/project.py": "1f9c620b0b8cf0165072459cbb6336242bce92b1bc1fe3b890d4dce281a3976e",
+    "tools/game_keyboard_probe/render_clock_observation.inc": "0880a7de2304f89afb07c1feaff97473bd054ef5a37604b0efe51a2b0bff258e",
+    "tools/game_keyboard_probe/trace.py": "72fe779a56954986725a85bbca5e26fbc6fa64739094385f2a27601d64ce395e",
+    "tools/game_keyboard_probe/vga_clock_observation.inc": "43f2ce053a4850f23e83111323c1edce8f66a7638758fb57aa48c714f13ec8d3",
+    "tools/original_capture_contract.py": "36e27f3441ae98db6e2a459ca64c561b72c964e1e98de854ca416321c33c33e0"
+  },
+  "states": 130,
+  "cases": [
+    {
+      "category": 0,
+      "entry_ip": 31232,
+      "states": 14,
+      "irq_boundaries": []
+    },
+    {
+      "category": 1,
+      "entry_ip": 31232,
+      "states": 47,
+      "irq_boundaries": []
+    },
+    {
+      "category": 2,
+      "entry_ip": 31232,
+      "states": 69,
+      "irq_boundaries": []
+    }
+  ],
+  "cpu_sha256": "89497a184c532bf098361a91c012ec9866e51ba327a4d41f847753bc15eaf7b8",
+  "raw_sample_proofs": [
+    {
+      "name": "main",
+      "ram_sha256": "3c964af9079170194923529c6242405c250f87a79a4e55eeb6dbfcbcd1e529eb",
+      "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "intro",
+      "ram_sha256": "74446ed9d9123aae37d3f2a22c1fa2c491c1f57d462a65594d892dd119d4bf45",
+      "png_sha256": "1cd2dd85c9dd14f22f60828241b79e4426b4ce3516f0cf26d6a0b3a114160598",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "gameplay",
+      "ram_sha256": "9ee19dc69f6e151a1ebec8694f134ca6d6dde0813a4a00bc94c43827ec3e59a4",
+      "png_sha256": "56c6111c0f79ea01a4e1140111821cd9952f429a9e6bcc9c4dc2ad1d69da8a89",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "gameplay-middle",
+      "ram_sha256": "6d3d4d585d91335d3fd6d6783c45cba377b03b2e12731e14c726b3bff916a645",
+      "png_sha256": "29b35095fc3d945aaa94fc31df80abcfaaa6cea63330f60c94fb8e8dee153b4f",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "search-end",
+      "ram_sha256": "b185a22bd87475c78621441dae2dd5b1166285a1f7b5a17d0dde5d8546071191",
+      "png_sha256": "8ef4c1e2dafe6d847debfeea88c91dc56e2e9b9ba38f63d4bb9d5061aa82d0bc",
+      "code_bytes_verified": 43552
+    }
+  ],
+  "raw_memory_published": false,
+  "raw_memory_available_to_frozen_checker": false,
+  "irq_eligibility_claim": false,
+  "whole_game_parity": false
+}

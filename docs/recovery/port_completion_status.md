@@ -2,6 +2,11 @@
 
 Last reviewed: 2026-10-08
 
+The [2026-10-17 keyboard IRQ1 runtime](keyboard_irq_20261017.md) recovers the
+original held-control interrupt and pinned BIOS translation with two natural
+captures and an independent function oracle. Active device-clock delivery and
+App cadence integration remain incomplete; broad completion claims stay false.
+
 The [JollyCloud rain recovery](jolly_cloud_rain_2026-10-08.md) replaces the
 invented four immediate rewards with the original shared 46-tick map producer.
 Bounded compiled production helpers match 293 original-instruction samples

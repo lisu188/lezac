@@ -190,9 +190,42 @@ if(BUILD_TESTING)
     add_test(NAME frame_display_unit COMMAND lezac_frame_display_test)
     set_tests_properties(frame_display_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_display_edges=ok boundaries=654")
     add_test(NAME frame_pacing_calculation_unit COMMAND lezac_frame_display_test --composition)
+    add_test(NAME full_pacing_unit COMMAND lezac_frame_display_test --pacing)
+    set_tests_properties(full_pacing_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "frame_pacing_operation_edges=ok eligible_boundaries=1037 masked_boundaries=1")
     set_tests_properties(frame_pacing_calculation_unit PROPERTIES
         PASS_REGULAR_EXPRESSION "frame_pacing_calculation_edges=ok boundaries=1008")
     add_executable(lezac_frame_clock_test tests/core/frame_clock_test.cpp)
+    add_executable(lezac_pacing_device_clock_test tests/core/pacing_device_clock_test.cpp)
+    add_executable(lezac_crt_keyboard_test tests/core/crt_keyboard_test.cpp)
+    add_executable(lezac_keyboard_irq_test tests/core/keyboard_irq_test.cpp)
+    add_executable(lezac_keyboard_controller_test tests/core/keyboard_controller_test.cpp)
+    add_executable(lezac_game_keyboard_test tests/core/game_keyboard_test.cpp)
+    add_executable(lezac_frame_hud_test tests/core/frame_hud_test.cpp)
+    add_executable(lezac_frame_foreground_test tests/core/frame_foreground_test.cpp)
+    target_link_libraries(lezac_frame_foreground_test PRIVATE lezac_core)
+    target_link_libraries(lezac_frame_hud_test PRIVATE lezac_core)
+    add_test(NAME frame_hud_unit COMMAND lezac_frame_hud_test)
+    set_tests_properties(frame_hud_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_hud_unit=ok string_budget_cases=8")
+    target_link_libraries(lezac_game_keyboard_test PRIVATE lezac_core)
+    add_test(NAME game_keyboard_unit COMMAND lezac_game_keyboard_test)
+    set_tests_properties(game_keyboard_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "game_keyboard_unit=ok cases=10 timer_boundaries=445 masked_boundaries=26")
+    target_link_libraries(lezac_crt_keyboard_test PRIVATE lezac_core)
+    target_link_libraries(lezac_keyboard_irq_test PRIVATE lezac_core)
+    target_link_libraries(lezac_keyboard_controller_test PRIVATE lezac_core)
+    add_test(NAME keyboard_controller_unit COMMAND lezac_keyboard_controller_test)
+    set_tests_properties(keyboard_controller_unit PROPERTIES PASS_REGULAR_EXPRESSION "keyboard_controller_unit=ok")
+    add_test(NAME keyboard_irq_unit COMMAND lezac_keyboard_irq_test)
+    set_tests_properties(keyboard_irq_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "keyboard_irq_unit=ok zero_budget=1 pause_handoff=1 pause_resume=1 invalid_entry=1 invalid_ring=1")
+    add_test(NAME crt_keyboard_unit COMMAND lezac_crt_keyboard_test)
+    set_tests_properties(crt_keyboard_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "crt_keyboard_unit=ok timer_boundaries=91 masked_boundaries=5")
+    target_link_libraries(lezac_pacing_device_clock_test PRIVATE lezac_core)
+    add_test(NAME pacing_device_clock_unit COMMAND lezac_pacing_device_clock_test)
+    set_tests_properties(pacing_device_clock_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "pacing_device_clock_unit=ok callback_kinds=5 profile_rejections=12")
     target_link_libraries(lezac_frame_clock_test PRIVATE lezac_core)
     add_test(NAME frame_clock_unit COMMAND lezac_frame_clock_test)
     set_tests_properties(frame_clock_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_clock_edges=ok foreground_boundaries=30")
@@ -233,6 +266,11 @@ if(BUILD_TESTING)
     set_tests_properties(pattern_fill_unit PROPERTIES
         TIMEOUT 180 ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^pattern_fill=ok patterns=6400 compared_pixels=409600000 budgets=9 original_cursor_cases=3 semantic_stages=3 invalid_inputs=6 timing_claim=0")
+    add_executable(lezac_canvas_palette_test tests/rendering/canvas_palette_test.cpp)
+    target_link_libraries(lezac_canvas_palette_test PRIVATE lezac_rendering)
+    add_test(NAME canvas_palette_unit COMMAND lezac_canvas_palette_test)
+    set_tests_properties(canvas_palette_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "canvas_palette=ok indices=256 pixels=64000 rgb_preserved=1 ownership_preserved=1 clip_preserved=1 idempotent=1")
     add_executable(lezac_crt_delay_test tests/core/crt_delay_test.cpp)
     target_link_libraries(lezac_crt_delay_test PRIVATE lezac_resources)
     add_test(NAME crt_delay_original COMMAND lezac_crt_delay_test
@@ -560,8 +598,67 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^render_state_boundary=ok repeat_pixels=1 nonblank=1 rng_unchanged=1 actor_order_unchanged=1 palette_unchanged=1 live_map_alias=1")
 
+    add_executable(lezac_render_view_gate_test tests/rendering/render_view_gate_test.cpp)
+    target_link_libraries(lezac_render_view_gate_test PRIVATE lezac_rendering)
+    add_executable(lezac_render_view_initialization_test tests/rendering/render_view_initialization_test.cpp)
+    target_link_libraries(lezac_render_view_initialization_test PRIVATE lezac_rendering)
+    add_executable(lezac_viewport_width_original_test tests/rendering/viewport_width_original_test.cpp)
+    target_link_libraries(lezac_viewport_width_original_test PRIVATE lezac_rendering)
+    add_executable(lezac_survivor_viewport_original_test tests/rendering/survivor_viewport_original_test.cpp)
+    target_link_libraries(lezac_survivor_viewport_original_test PRIVATE lezac_rendering)
+
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME render_view_gate_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_render_view_gate_fixture.py
+            --oracle ${CMAKE_CURRENT_BINARY_DIR}/render-view-gate.bin
+            --initialization ${CMAKE_CURRENT_BINARY_DIR}/render-view-initialization.bin)
+        set_tests_properties(render_view_gate_fixture_contract PROPERTIES FIXTURES_SETUP render_view_gate_corpus)
+        add_test(NAME render_view_gate_original COMMAND lezac_render_view_gate_test
+            ${CMAKE_CURRENT_BINARY_DIR}/render-view-gate.bin)
+        set_tests_properties(render_view_gate_original PROPERTIES FIXTURES_REQUIRED render_view_gate_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "render_view_gate=ok cases=20 retained_pixels=512000 differences=0 ownership_differences=0 active_views=54")
+        add_test(NAME render_view_initialization_original COMMAND lezac_render_view_initialization_test
+            ${CMAKE_CURRENT_BINARY_DIR}/render-view-initialization.bin)
+        set_tests_properties(render_view_initialization_original PROPERTIES FIXTURES_REQUIRED render_view_gate_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "render_view_initialization=ok cases=2 palette_modes=2 pixels=256000 differences=0 ownership_differences=0")
+        add_test(NAME render_view_gate_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_render_view_gate_fixture.py)
+        set_tests_properties(render_view_gate_fixture_rejections PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR}")
+        add_test(NAME viewport_width_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_viewport_width_fixture.py
+            --oracle ${CMAKE_CURRENT_BINARY_DIR}/viewport-width.bin)
+        set_tests_properties(viewport_width_fixture_contract PROPERTIES FIXTURES_SETUP viewport_width_corpus)
+        add_test(NAME viewport_width_original COMMAND lezac_viewport_width_original_test
+            ${CMAKE_CURRENT_BINARY_DIR}/viewport-width.bin)
+        set_tests_properties(viewport_width_original PROPERTIES FIXTURES_REQUIRED viewport_width_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "viewport_width=ok controls=44 views=60 widths=20 control_differences=0 control_pixels=2816000 control_pixel_differences=0 view_pixels=3072000 view_differences=0")
+        add_test(NAME viewport_width_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_viewport_width_fixture.py)
+        set_tests_properties(viewport_width_fixture_rejections PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR}")
+        add_test(NAME survivor_viewport_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_survivor_viewport_fixture.py
+            --oracle ${CMAKE_CURRENT_BINARY_DIR}/survivor-viewport.bin)
+        set_tests_properties(survivor_viewport_fixture_contract PROPERTIES FIXTURES_SETUP survivor_viewport_corpus)
+        add_test(NAME survivor_viewport_original COMMAND lezac_survivor_viewport_original_test
+            ${CMAKE_CURRENT_BINARY_DIR}/survivor-viewport.bin)
+        set_tests_properties(survivor_viewport_original PROPERTIES FIXTURES_REQUIRED survivor_viewport_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "survivor_viewport=ok profiles=8 stages=72 pixels=3686400 differences=0 retained_hud_checks=307200")
+        add_test(NAME survivor_viewport_app COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+            $<TARGET_FILE:lezac_cpp> --debug-survivor-viewport-original ${CMAKE_CURRENT_BINARY_DIR}/survivor-viewport.bin)
+        set_tests_properties(survivor_viewport_app PROPERTIES FIXTURES_REQUIRED survivor_viewport_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "survivor_viewport_app=ok profiles=8 stages=72 pixels=3686400 differences=0 countdown_boundary=60 configured_slots=2 survivor_fire_ownership=1 next_level_pitch=1")
+        add_test(NAME survivor_viewport_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_survivor_viewport_fixture.py)
+        set_tests_properties(survivor_viewport_fixture_rejections PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR}")
         add_test(NAME original_capture_contract
             COMMAND ${Python3_EXECUTABLE} -S -B
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_original_capture_contract.py -v)
@@ -583,6 +680,159 @@ if(BUILD_TESTING)
                 --instructions ${CMAKE_CURRENT_BINARY_DIR}/frame-display-instructions.bin
                 --endpoints ${CMAKE_CURRENT_BINARY_DIR}/frame-display-endpoints.bin)
         set_tests_properties(frame_display_oracle_fixture_contract PROPERTIES FIXTURES_SETUP frame_display_corpus)
+        add_test(NAME full_pacing_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_full_pacing_fixture.py
+                --full ${CMAKE_CURRENT_BINARY_DIR}/full-pacing-full.bin
+                --gate ${CMAKE_CURRENT_BINARY_DIR}/full-pacing-gate.bin
+                --feedback ${CMAKE_CURRENT_BINARY_DIR}/full-pacing-feedback.bin
+                --cpu ${CMAKE_CURRENT_BINARY_DIR}/full-pacing-cpu.bin)
+        set_tests_properties(full_pacing_fixture_contract PROPERTIES FIXTURES_SETUP full_pacing_corpus)
+        add_test(NAME full_pacing_original COMMAND lezac_frame_clock_test --observed-irq-projection
+            ${CMAKE_CURRENT_BINARY_DIR}/full-pacing-cpu.bin)
+        set_tests_properties(full_pacing_original PROPERTIES FIXTURES_REQUIRED full_pacing_corpus
+            PASS_REGULAR_EXPRESSION "frame_pacing_original=ok cases=1 comparisons=120816 delivered_irqs=1")
+        foreach(mode full gate feedback)
+            if(mode STREQUAL "full")
+                set(pacing_option --pacing-oracle)
+            else()
+                set(pacing_option --${mode}-oracle)
+            endif()
+            add_test(NAME full_pacing_${mode}_oracle COMMAND lezac_frame_display_test ${pacing_option}
+                ${CMAKE_CURRENT_BINARY_DIR}/full-pacing-${mode}.bin)
+            set_tests_properties(full_pacing_${mode}_oracle PROPERTIES FIXTURES_REQUIRED full_pacing_corpus)
+        endforeach()
+        add_test(NAME full_pacing_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_full_pacing_fixture.py)
+        add_test(NAME pacing_device_clock_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_pacing_device_clock_fixture.py
+                --cpu ${CMAKE_CURRENT_BINARY_DIR}/pacing-device-cpu.bin
+                --clock ${CMAKE_CURRENT_BINARY_DIR}/pacing-device-clock.bin)
+        set_tests_properties(pacing_device_clock_fixture_contract PROPERTIES FIXTURES_SETUP pacing_device_clock_corpus)
+        add_test(NAME pacing_device_clock_original COMMAND lezac_frame_clock_test --device-clock-projection
+            ${CMAKE_CURRENT_BINARY_DIR}/pacing-device-cpu.bin ${CMAKE_CURRENT_BINARY_DIR}/pacing-device-clock.bin)
+        set_tests_properties(pacing_device_clock_original PROPERTIES FIXTURES_REQUIRED pacing_device_clock_corpus
+            PASS_REGULAR_EXPRESSION "frame_pacing_original=ok cases=2 comparisons=265588 delivered_irqs=2.*coupled_clock=1 predicted_irqs=4")
+        add_test(NAME pacing_device_clock_coupling_controls COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_pacing_clock_coupling.py --binary $<TARGET_FILE:lezac_frame_clock_test>
+            --cpu ${CMAKE_CURRENT_BINARY_DIR}/pacing-device-cpu.bin --clock ${CMAKE_CURRENT_BINARY_DIR}/pacing-device-clock.bin)
+        set_tests_properties(pacing_device_clock_coupling_controls PROPERTIES FIXTURES_REQUIRED pacing_device_clock_corpus)
+        add_test(NAME pacing_device_clock_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_pacing_device_clock_fixture.py)
+        add_test(NAME crt_keyboard_fixture_contract
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_crt_keyboard_fixture.py
+                --cpu ${CMAKE_CURRENT_BINARY_DIR}/crt-keyboard-cpu.bin
+                --classification ${CMAKE_CURRENT_BINARY_DIR}/crt-keyboard-classification.bin
+                --pending ${CMAKE_CURRENT_BINARY_DIR}/crt-keyboard-pending.bin)
+        set_tests_properties(crt_keyboard_fixture_contract PROPERTIES FIXTURES_SETUP crt_keyboard_corpus)
+        add_test(NAME crt_keyboard_original COMMAND lezac_crt_keyboard_test --original ${CMAKE_CURRENT_BINARY_DIR}/crt-keyboard-cpu.bin)
+        set_tests_properties(crt_keyboard_original PROPERTIES FIXTURES_REQUIRED crt_keyboard_corpus
+            PASS_REGULAR_EXPRESSION "crt_keyboard_original=ok cases=6 comparisons=150")
+        add_test(NAME crt_keyboard_classification COMMAND lezac_crt_keyboard_test --classification ${CMAKE_CURRENT_BINARY_DIR}/crt-keyboard-classification.bin)
+        set_tests_properties(crt_keyboard_classification PROPERTIES FIXTURES_REQUIRED crt_keyboard_corpus
+            PASS_REGULAR_EXPRESSION "bios_keyboard_classification=ok inputs=65536")
+        add_test(NAME crt_keyboard_pending_oracle COMMAND lezac_crt_keyboard_test --pending-oracle ${CMAKE_CURRENT_BINARY_DIR}/crt-keyboard-pending.bin)
+        set_tests_properties(crt_keyboard_pending_oracle PROPERTIES FIXTURES_REQUIRED crt_keyboard_corpus
+            PASS_REGULAR_EXPRESSION "crt_keyboard_pending_oracle=ok cases=510 pending_inputs=255")
+        add_test(NAME crt_keyboard_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_crt_keyboard_fixture.py)
+        add_test(NAME keyboard_irq_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_keyboard_irq_fixture.py
+            --cpu ${CMAKE_CURRENT_BINARY_DIR}/keyboard-irq-cpu.bin --bios ${CMAKE_CURRENT_BINARY_DIR}/keyboard-irq-bios.bin)
+        set_tests_properties(keyboard_irq_fixture_contract PROPERTIES FIXTURES_SETUP keyboard_irq_corpus)
+        add_test(NAME keyboard_irq_original COMMAND lezac_keyboard_irq_test --original ${CMAKE_CURRENT_BINARY_DIR}/keyboard-irq-cpu.bin)
+        set_tests_properties(keyboard_irq_original PROPERTIES FIXTURES_REQUIRED keyboard_irq_corpus
+            PASS_REGULAR_EXPRESSION "keyboard_irq_original=ok cases=82 comparisons=13552 instructions=13388 ordered_io=492")
+        add_test(NAME bios_keyboard_original COMMAND lezac_keyboard_irq_test --bios ${CMAKE_CURRENT_BINARY_DIR}/keyboard-irq-bios.bin)
+        set_tests_properties(bios_keyboard_original PROPERTIES FIXTURES_REQUIRED keyboard_irq_corpus
+            PASS_REGULAR_EXPRESSION "bios_keyboard_original=ok cases=65536 bytes=9961472 pause_handoffs=64")
+        add_test(NAME keyboard_irq_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_keyboard_irq_fixture.py)
+        set_tests_properties(keyboard_irq_fixture_rejections PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR}")
+        add_test(NAME keyboard_device_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_keyboard_device_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/keyboard-device.bin)
+        set_tests_properties(keyboard_device_fixture_contract PROPERTIES FIXTURES_SETUP keyboard_device_corpus)
+        add_test(NAME keyboard_controller_original COMMAND lezac_keyboard_controller_test
+            --original ${CMAKE_CURRENT_BINARY_DIR}/keyboard-device.bin)
+        set_tests_properties(keyboard_controller_original PROPERTIES FIXTURES_REQUIRED keyboard_device_corpus
+            PASS_REGULAR_EXPRESSION "keyboard_port_clock_original=ok cases=20 early_core_slices=14")
+        add_test(NAME keyboard_device_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_keyboard_device_fixture.py)
+        set_tests_properties(keyboard_device_fixture_rejections PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR}")
+        add_test(NAME game_keyboard_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_game_keyboard_fixture.py
+            --cpu ${CMAKE_CURRENT_BINARY_DIR}/game-keyboard-cpu.bin)
+        set_tests_properties(game_keyboard_fixture_contract PROPERTIES FIXTURES_SETUP game_keyboard_corpus)
+        add_test(NAME game_keyboard_original COMMAND lezac_game_keyboard_test --original ${CMAKE_CURRENT_BINARY_DIR}/game-keyboard-cpu.bin)
+        set_tests_properties(game_keyboard_original PROPERTIES FIXTURES_REQUIRED game_keyboard_corpus
+            PASS_REGULAR_EXPRESSION "game_keyboard_original=ok cases=3 comparisons=260 reads=6")
+        add_test(NAME game_keyboard_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_game_keyboard_fixture.py)
+        add_test(NAME frame_hud_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_hud_fixture.py
+            --cpu ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-cpu.bin --clock ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-clock.bin
+            --oracle ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-oracle.bin)
+        set_tests_properties(frame_hud_fixture_contract PROPERTIES FIXTURES_SETUP frame_hud_corpus)
+        add_test(NAME frame_foreground_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_foreground_fixture.py
+            --cpu ${CMAKE_CURRENT_BINARY_DIR}/frame-foreground-cpu.bin --clock ${CMAKE_CURRENT_BINARY_DIR}/frame-foreground-clock.bin
+            --palette ${CMAKE_CURRENT_BINARY_DIR}/frame-foreground-palette.bin)
+        set_tests_properties(frame_foreground_fixture_contract PROPERTIES FIXTURES_SETUP frame_foreground_corpus)
+        add_test(NAME frame_foreground_original COMMAND lezac_frame_foreground_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-foreground-cpu.bin ${CMAKE_CURRENT_BINARY_DIR}/frame-foreground-clock.bin)
+        set_tests_properties(frame_foreground_original PROPERTIES FIXTURES_REQUIRED frame_foreground_corpus
+            PASS_REGULAR_EXPRESSION "frame_foreground_original=ok cases=2 comparisons=216686 transfers=0 millisecond_grants=36 device_callbacks=18 predicted_irqs=0")
+        add_test(NAME render_palette_original COMMAND lezac_frame_foreground_test --palette-oracle
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-foreground-palette.bin)
+        set_tests_properties(render_palette_original PROPERTIES FIXTURES_REQUIRED frame_foreground_corpus
+            PASS_REGULAR_EXPRESSION "render_palette_original=ok cases=96 callback_checks=384 profile_rejections=23")
+        add_test(NAME frame_foreground_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_foreground_fixture.py)
+        add_test(NAME frame_foreground_sdl_provenance COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_foreground_sdl_provenance.py)
+        add_test(NAME foreground_live_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_foreground_live_fixture.py
+            --cpu ${CMAKE_CURRENT_BINARY_DIR}/foreground-live-cpu.bin --clock ${CMAKE_CURRENT_BINARY_DIR}/foreground-live-clock.bin)
+        set_tests_properties(foreground_live_fixture_contract PROPERTIES FIXTURES_SETUP foreground_live_corpus)
+        add_test(NAME foreground_live_original COMMAND lezac_frame_foreground_test --live
+            ${CMAKE_CURRENT_BINARY_DIR}/foreground-live-cpu.bin ${CMAKE_CURRENT_BINARY_DIR}/foreground-live-clock.bin)
+        set_tests_properties(foreground_live_original PROPERTIES FIXTURES_REQUIRED foreground_live_corpus
+            PASS_REGULAR_EXPRESSION "frame_foreground_live=ok cases=2 comparisons=289010 transfers=304 millisecond_grants=48 device_callbacks=22 predicted_irqs=2")
+        add_test(NAME foreground_live_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_foreground_live_fixture.py)
+        add_test(NAME frame_hud_original COMMAND lezac_frame_hud_test --original
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-cpu.bin ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-clock.bin)
+        set_tests_properties(frame_hud_original PROPERTIES FIXTURES_REQUIRED frame_hud_corpus
+            PASS_REGULAR_EXPRESSION "frame_hud_original=ok cases=2 comparisons=1386 string_transfers=304")
+        add_test(NAME frame_hud_oracle COMMAND lezac_frame_hud_test --oracle ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-oracle.bin)
+        set_tests_properties(frame_hud_oracle PROPERTIES FIXTURES_REQUIRED frame_hud_corpus
+            PASS_REGULAR_EXPRESSION "frame_hud_oracle=ok cases=17 copy_modes=2 full_endpoint_flags=1 timer_boundaries=655")
+        add_executable(lezac_hud_objective_original_test tests/rendering/hud_objective_original_test.cpp)
+        target_link_libraries(lezac_hud_objective_original_test PRIVATE lezac_rendering)
+        add_test(NAME hud_objective_original COMMAND lezac_hud_objective_original_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-oracle.bin)
+        set_tests_properties(hud_objective_original PROPERTIES FIXTURES_REQUIRED frame_hud_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "hud_objective_original=ok cases=14 draws=84 indexed_pixels=13056 differences=0 flag_differences=0")
+        add_test(NAME hud_objective_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_hud_objective_fixture.py
+            --oracle ${CMAKE_CURRENT_BINARY_DIR}/hud-objective-oracle.bin)
+        set_tests_properties(hud_objective_fixture_contract PROPERTIES FIXTURES_SETUP hud_objective_corpus)
+        add_test(NAME hud_objective_boundaries COMMAND lezac_hud_objective_original_test
+            ${CMAKE_CURRENT_BINARY_DIR}/hud-objective-oracle.bin)
+        set_tests_properties(hud_objective_boundaries PROPERTIES FIXTURES_REQUIRED hud_objective_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "hud_objective_original=ok cases=17 draws=102 indexed_pixels=21504 differences=0 flag_differences=0")
+        add_test(NAME hud_objective_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_hud_objective_fixture.py)
+        set_tests_properties(hud_objective_fixture_rejections PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR}")
+        add_test(NAME frame_hud_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_hud_fixture.py)
         add_test(NAME frame_display_instructions COMMAND lezac_frame_display_test --instructions
             ${CMAKE_CURRENT_BINARY_DIR}/frame-display-instructions.bin)
         set_tests_properties(frame_display_instructions PROPERTIES FIXTURES_REQUIRED frame_display_corpus
@@ -1145,7 +1395,7 @@ if(BUILD_TESTING)
     set_tests_properties(ui_controls_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^control_smoke=ok manual_controls=s,e,r fire_keys=n,kp0,insert background_toggle=1 view_width=320->288->320 two_player_width_locked=1 frame_inspection=1 reentry_key_release=1 shared_fire_consumption=1")
+            "^control_smoke=ok manual_controls=s,e,r fire_keys=n,kp0,insert background_toggle=1 view_width=320->312->320 two_player_width_locked=1 frame_inspection=1 reentry_key_release=1 shared_fire_consumption=1 width_step=8 width_min=168 width_max=320 ignored_bounds=2 backdrop_latched=1 width_repeat=1")
 
     add_test(NAME ui_controls_json_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy LEZAC_LOAD_JSON_ASSETS=1
@@ -1262,6 +1512,31 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "red_palette_fixture=ok captures=2 lf_crlf=1 truncated_rejected=2 mutations_rejected=42 indexed_hashes=1 no_output_files=1")
+    endif()
+
+    add_test(NAME gameplay_palette_presentation
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-gameplay-palette-presentation)
+    set_tests_properties(gameplay_palette_presentation PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "gameplay_palette_presentation=ok frames=80 pre_actor_frame_retained=1 indexed_pixels=[0-9]+ rgb_pixels=[0-9]+ recolored_world=[0-9]+ recolored_hud=[0-9]+ actual_tick_and_present=1 seeded_scene=1 natural_route=0 whole_game_parity=0")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND Python3_Interpreter_FOUND)
+        add_library(lezac_sdl_present_observer SHARED tests/rendering/sdl_present_observer.cpp)
+        target_include_directories(lezac_sdl_present_observer PRIVATE ${SDL2_INCLUDE_DIRS})
+        target_link_libraries(lezac_sdl_present_observer PRIVATE ${SDL2_LIBRARIES} ${CMAKE_DL_LIBS})
+        target_link_directories(lezac_sdl_present_observer PRIVATE ${SDL2_LIBRARY_DIRS})
+        add_test(NAME gameplay_palette_sdl_submission
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gameplay_palette_present.py
+                --exe $<TARGET_FILE:lezac_cpp> --observer $<TARGET_FILE:lezac_sdl_present_observer>)
+        set_tests_properties(gameplay_palette_sdl_submission PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "gameplay_palette_sdl=ok pixels=64000 exact_scale=3 late_palette_submitted=1 seeded_scene=1 natural_route=0 whole_game_parity=0")
+        add_test(NAME gameplay_palette_check_failures
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_gameplay_palette_present.py)
+        set_tests_properties(gameplay_palette_check_failures PROPERTIES
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
     endif()
 
     foreach(capacity_mode IN ITEMS bomb spawner)
@@ -6889,6 +7164,12 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^two_player_hud_panel=ok split_views=2 p1_hud_visible=1 p1_world_visible=1 p2_hud_visible=1 p2_world_visible=1 objective_panel_visible=1 objective_panel_changed=1 panel_x=141 panel_w=37 p2_column_x=180 frame_inspection=1 original_art_claim=0")
+
+    add_test(NAME render_view_ownership
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+            $<TARGET_FILE:lezac_cpp> --debug-render-view-ownership)
+    set_tests_properties(render_view_ownership PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "render_view_ownership=ok phases=6 app_state_projection=1 inactive_views_retained=1 palette_indices_retained=1 palette_resolved=1 waiting_view_redrawn=1 level_initialization=1 whole_frame_claim=0")
 
     if(Python3_Interpreter_FOUND)
         add_test(NAME pickup_landing_guard

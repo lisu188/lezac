@@ -1,0 +1,643 @@
+{
+  "schema": "lezac-instrumented-frame-hud-v1",
+  "status": "observed",
+  "run": "r3",
+  "assets": {
+    "BOMOMIMK.SPR": {
+      "bytes": 20168,
+      "sha256": "08dfd0e59ba191c52af2529bdfa140fd15a57829f0c6c13bbb78e156769ac0d1"
+    },
+    "BOMPAL.PAL": {
+      "bytes": 768,
+      "sha256": "f2559164074ca529ba6c275a9831b11c6da9e6317f09b3d9228c299d6f8f8319"
+    },
+    "CARO.CAR": {
+      "bytes": 8450,
+      "sha256": "949cce4db6071d6675a291c978d725c6e4ee1730b2c7a428bc1c8a8185cbd8d8"
+    },
+    "ENGLISH.DOC": {
+      "bytes": 3522,
+      "sha256": "e2fd2f2521b0277f2fca0c8f2a265408412542932bb6e977bf1ab3d0aabdfed9"
+    },
+    "FONTS.SPR": {
+      "bytes": 5425,
+      "sha256": "f65aa9bbba2a66ee69f1b279a32c448e36012feb53441fbbb8e64e31bee87a0e"
+    },
+    "GRAN.MST": {
+      "bytes": 399,
+      "sha256": "3f0cf17706d557ca863d6e39bfa6641fba777a88815ba3f0a22e5ac89e0e39e2"
+    },
+    "ITALIANO.DOC": {
+      "bytes": 4392,
+      "sha256": "5ea7481d3179e60b6f1229aa114dc4b47c95f7c1200c7888ad5c259f161317c1"
+    },
+    "LEZAC.EXE": {
+      "bytes": 52384,
+      "sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
+    },
+    "LIVELS.SCH": {
+      "bytes": 41047,
+      "sha256": "d8b553871014108515d6af05b0853de8ccc22e4d3e44d63533ba1167fdc8c7b2"
+    },
+    "PROEFS.SON": {
+      "bytes": 782,
+      "sha256": "b5bc702a27ac85554cc76a62fced07567921b07d5c16f2027a62fbc956df701d"
+    },
+    "PROVA.SPR": {
+      "bytes": 21250,
+      "sha256": "d6d6b634f8613251f6e82e9a15c5c68e2be437892bfa25c53eb4bcd9094188b7"
+    },
+    "RECS.DAT": {
+      "bytes": 92,
+      "sha256": "27197ebb56fb339e4d41baf6ad5282cd79bb66b642c81ae406e607a263c80eb8"
+    },
+    "SETUP.LOG": {
+      "bytes": 566,
+      "sha256": "4c86cd7436be442663b10b1425bbcd7a179b7955b67c23632bf20a8180144a14"
+    },
+    "SFONLEF.ZBG": {
+      "bytes": 34292,
+      "sha256": "b1b7cc03122510318c1a3670f151712406e9e3fa60aabd8fb558320766c3835c"
+    }
+  },
+  "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "dosbox_sha256": "b45b719d2ddf2395a288eea5b2c59be8f7a5e3e0f0027749a985ac24fa8bcb8a",
+  "host_build": {
+    "base_host_sha256": "4d8eaba9db5e3f733b49c35f191eff98f1f5730035f7374c5c703693a080c8ac",
+    "source_hashes": {
+      "src/dosbox": "4d8eaba9db5e3f733b49c35f191eff98f1f5730035f7374c5c703693a080c8ac",
+      "src/dos/dos.cpp": "c563c5c0df429350ccba90019252abc0d6bcca2264fa36a3971b512ecd6ac002",
+      "src/cpu/core_normal.cpp": "4aa44efa8c6d8788f23d6bcc29d24beb4a4123d3e442b51f03a03bdbdf8c6516",
+      "src/cpu/callback.cpp": "945f1b696b2f031f6f5e4ffc00aecd77103eaf5be4a9cf7051814517ce6e74bf",
+      "src/cpu/cpu.cpp": "0e897027875de7eea33a35b9eeefcd5a7cd15facb4a409172e3e712766b08098",
+      "include/dos_inc.h": "c044eedc836ddcd1f18c0f16ad8f62861078fe065cf858094513ffdea9589e3a",
+      "config.h": "01aca5c63f5c70af786ea29d8a769b9a475edfcb9a36e2d762af00bbc204f786",
+      "src/hardware/pic.cpp": "f1a6d6b330a24a72440c7f1581ac804530e534714c7f79109f47afce100ae12a",
+      "src/hardware/timer.cpp": "6adc0ea61440ff684275172385edc0cc4a1b43f1f32e75a702aaf1c86380793a",
+      "include/pic.h": "9b8c4449d68e1619e9620a19a98585354412d0a3c61bd10dbfe9f5f2a6e1a052",
+      "src/dosbox.cpp": "e77e0cbc5c14158984fa77a33a19495640280d2a8f3ec6528bb5619f4e41941b",
+      "src/cpu/core_normal/prefix_none.h": "28bc5ff795eaab25672fe46068b0655bda169171e04df710fa6a423baceb9b1c",
+      "src/ints/bios.cpp": "b07734c610138cefb7383782aafdbf49d19dcc95c8b0113555261fcfdd71baa5",
+      "src/hardware/iohandler.cpp": "d7ef9acf52269924d8331b1b46140e5b5f621cc386a7bf733c95b6985d313393",
+      "src/hardware/vga_draw.cpp": "1526c501a3d523a68677092b9d75f01eb53eb544d2c557d7150118860050df1e",
+      "src/gui/render.cpp": "3bce9f5aded634ec34497a0ee8875e89e0b90cdb7de6e72bbbb81482c09dc7fc",
+      "src/hardware/keyboard.cpp": "37a37ca16f09370bdd103aa82348f52526a7d82cb430157c781208acecef804c",
+      "src/hardware/mixer.cpp": "f8a6ff503cd6730dc078688e2a92ce68e93fbcb42b12032e3f815d365320e475",
+      "src/ints/bios_keyboard.cpp": "880ef5796c968db80b7e0d23f2d5f68e86fd3d065b40f141bd77642ad2d89416"
+    },
+    "probe_sha256": "8c9e308b0010c9c5505f72a44f82fdfe9bf3e760b984c2c37f5e6c6f6860092c",
+    "patch_sha256": "7b7b24a70c4a032533eb404d948d27eb36336b5248bb531604d8e4f737c3cd4b",
+    "clock_patch_sha256": "b61aedfbd911f46766bc3c32eb7c12df920ec9eed16928183aadc4732a260e44",
+    "clock_api_sha256": "b03ce31c5fd6141f6a2bcfaa1d9496295060cc07c112fda20b97e2d565344e33",
+    "copied_build_products": true,
+    "host_instrumented": true,
+    "guest_instruction_patches": 0,
+    "source_filesystem": "tmpfs",
+    "output_filesystem": "tmpfs",
+    "device_fragment_hashes": {
+      "pic_tickers_observation.inc": "0025c8d94219966e73c5d9bca004311de4d0c2335f7f8dfff7b608753486fa72",
+      "vga_clock_observation.inc": "3dbee71ba4ff04fead3e3417c6a0ed2d9e28dbe0dcd3ba630f3e35d251f9c6e9",
+      "render_clock_observation.inc": "0880a7de2304f89afb07c1feaff97473bd054ef5a37604b0efe51a2b0bff258e",
+      "keyboard_clock_observation.inc": "7fb32b946df39756cbf4fad59ba15ace6383b070976bdd2d54cebeafff1753e3",
+      "mixer_clock_observation.inc": "b997f6b2a762f047b1cb1caa2d8a893039c405fb66f9abd024dc92035fcf0a58"
+    },
+    "device_patch_sha256": "03af532ff5e169a561256ca4c6c6a2d9794a678811d221ec7243c37b51bca38c",
+    "callback_identity": "direct original function pointer equality",
+    "build_exit": 0,
+    "host_sha256": "b45b719d2ddf2395a288eea5b2c59be8f7a5e3e0f0027749a985ac24fa8bcb8a",
+    "patched_dos_sha256": "77790a3b5ab163cdf9a0e9cfc26cb5bfc25588898a575e758943097b2a448674",
+    "patched_pic_sha256": "5b78080dbae398003c43d1eef3ba1a462b2597618c79f4672fae3d28243d9da7",
+    "patched_timer_sha256": "cf86e1b81e523784a3688dc7ae10b77fc7a4a2132d22f87164e52e77a6560e48",
+    "cpu_source_unchanged": true,
+    "patched_device_sources": {
+      "src/hardware/pic.cpp": "5b78080dbae398003c43d1eef3ba1a462b2597618c79f4672fae3d28243d9da7",
+      "src/hardware/vga_draw.cpp": "89ea0a7c2bcdfb60bed8bde9efeee5fcd56d37e8d01c762b11ab56c4cb075f46",
+      "src/gui/render.cpp": "3d1fc6a63ae757d513197a7b1d55ee09504ef7c900792f432018a7d4f2e2bff5",
+      "src/hardware/keyboard.cpp": "3558650ca364a3cab4b28e4cb6d1093be1c0c9e1a6aa23c13b18a8453218b05c",
+      "src/hardware/mixer.cpp": "fc7168bcae5a11c71ad4f0c53327e97d79864f08657bab33489d5e8b9d5125be"
+    },
+    "status": "built",
+    "reused_task_owned_host": true,
+    "previous_host_retained": "/dev/shm/lezac-clock-frontier-t208/retained-r2-host",
+    "rebuild_producer_sha256": "14c147e9071742d5c8e7193f990ac110cd2ebbc881ee958c903220d359f0d0c6"
+  },
+  "probe_pre_decode": true,
+  "callback_boundary_probe": false,
+  "arithmetic_flags_claim": false,
+  "bios_keyboard_service_profile": "DOSBox 0.74-3 INT16 AH=00/01 with CB_INT16 and original BIOS queue translation",
+  "producer_sha256": "6746ef2d2faf5910a5706eb202aab47df84c3d1febbb9efda0e30ebbf7870106",
+  "samples": [
+    {
+      "name": "main",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 0,
+      "frame_counter": 0,
+      "delay_words": {
+        "0x78ca": 2,
+        "0x78cc": 16,
+        "0x78ce": 81,
+        "0x78d0": 16
+      },
+      "record_bytes": "10420800086167613a3a3a3a3ab6e20700086167613a3a3a3a3a56de0700086167613a3a3a3a3adcad0700086167613a3a3a3a3a8a500700086167613a3a3a3a3ae6490700086167613a3a3a3a3a323f0700086167613a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "bab18eb489a5569f5958a0942c22106319de51b3beeed94e24fc524127990dbb",
+      "ram_gzip_sha256": "d142a2b6b39ca02f106f26196e0a6c4e3f4b78f4928b99ad472b4388b2ccdd37",
+      "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+      "pixels_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 20.948467926995363,
+      "monotonic_after": 20.992621425000834,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "intro",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 0,
+      "delay_words": {
+        "0x78ca": 2,
+        "0x78cc": 16,
+        "0x78ce": 81,
+        "0x78d0": 16
+      },
+      "record_bytes": "10420800086167613a3a3a3a3ab6e20700086167613a3a3a3a3a56de0700086167613a3a3a3a3adcad0700086167613a3a3a3a3a8a500700086167613a3a3a3a3ae6490700086167613a3a3a3a3a323f0700086167613a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "e1b515a41c8f23d905c2dc4716f19b7d2c20bf1c5a9aac76977e9b91947d78c6",
+      "ram_gzip_sha256": "38a4868c7efae93d745ad03a5a12bbef77c0e0f401dff5fae17a9a0fda536dae",
+      "png_sha256": "050bcb8ea4ac9df754a563f9ae82401c077862622fe47e2fe96ac143948cd8e5",
+      "pixels_sha256": "1c0a1e2b710fe3bbf4fd30b2b69e93a1cdb03aeb0aff8ce6e5a2ad21a4a8eb1c",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 25.010777265000797,
+      "monotonic_after": 25.04290783000033,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "gameplay",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 13,
+      "delay_words": {
+        "0x78ca": 2,
+        "0x78cc": 16,
+        "0x78ce": 81,
+        "0x78d0": 16
+      },
+      "record_bytes": "10420800086167613a3a3a3a3ab6e20700086167613a3a3a3a3a56de0700086167613a3a3a3a3adcad0700086167613a3a3a3a3a8a500700086167613a3a3a3a3ae6490700086167613a3a3a3a3a323f0700086167613a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "38008a88fdabae29f208cce0c673294744ecb318dd6dd997fd52e16ba1e80595",
+      "ram_gzip_sha256": "8c4009f7b896bf2e2c6ebf01c487b1015543d8998b4d5f97542fdd51d1c5d7c8",
+      "png_sha256": "b18d9758fdefc30599cce1b0052e6d818b167bcf18e1d3673e75eb21c15e55e6",
+      "pixels_sha256": "449f9c6674af2514a6e0609922a2a7f6c70c9e2546a0358f46d85b663b6c17cc",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 26.060990337995463,
+      "monotonic_after": 26.101782646001084,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "gameplay-middle",
+      "scores": [
+        100,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 75,
+      "delay_words": {
+        "0x78ca": 2,
+        "0x78cc": 12,
+        "0x78ce": 81,
+        "0x78d0": 16
+      },
+      "record_bytes": "10420800086167613a3a3a3a3ab6e20700086167613a3a3a3a3a56de0700086167613a3a3a3a3adcad0700086167613a3a3a3a3a8a500700086167613a3a3a3a3ae6490700086167613a3a3a3a3a323f0700086167613a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "26d53d7e1b33a3bf30308fc06ce61bb9c5d4bdd86069b0bea4c304585d50ac43",
+      "ram_gzip_sha256": "cb2f319c0d6d4ffda8d6fcb5b98fcd5ce37f8facb5f8593f9c504b205abc8d9a",
+      "png_sha256": "cde55112e81ff109edee3270944bb8626f42e5e6b5e3206e0f19ed83db93910b",
+      "pixels_sha256": "dd1c3cb3a6cc4fefd929893ad25c0a194a3127fb6f3bc129949876863c9a893c",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 29.882384751996142,
+      "monotonic_after": 29.916308161002235,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "search-end",
+      "scores": [
+        100,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 85,
+      "delay_words": {
+        "0x78ca": 2,
+        "0x78cc": 12,
+        "0x78ce": 81,
+        "0x78d0": 16
+      },
+      "record_bytes": "10420800086167613a3a3a3a3ab6e20700086167613a3a3a3a3a56de0700086167613a3a3a3a3adcad0700086167613a3a3a3a3a8a500700086167613a3a3a3a3ae6490700086167613a3a3a3a3a323f0700086167613a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "a86de88b40f6d80b5888b1114b6d986c10bd473ae8554b97674f6f66c6054963",
+      "ram_gzip_sha256": "cb08b6c984668e3290ef5a264b00f45a4ba40eb2e39446e96369193e6baa8668",
+      "png_sha256": "dff1ca447aceedd4876d847a4ff3a7738a60b50e16718e4946bbfdb805623b6f",
+      "pixels_sha256": "fcb9892c0e7e00723384269ac6c72a412897642162490fe0688be291c25b6f78",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 30.45200571500027,
+      "monotonic_after": 30.487528446996293,
+      "ram_rgb_cpu_atomic": false
+    }
+  ],
+  "events": [
+    {
+      "key": "1",
+      "observed_utc": "2026-10-16T23:21:41.325966+00:00",
+      "monotonic_before": 20.99277919800079,
+      "monotonic_after": 21.010739963996457
+    },
+    {
+      "key": "Return",
+      "observed_utc": "2026-10-16T23:21:45.376094+00:00",
+      "monotonic_before": 25.04306615400128,
+      "monotonic_after": 25.060862184000143
+    },
+    {
+      "action": "hold",
+      "key": "z",
+      "monotonic_before": 26.101998451995314,
+      "monotonic_after": 26.88231234900013
+    },
+    {
+      "key": "Left",
+      "observed_utc": "2026-10-16T23:21:50.249832+00:00",
+      "monotonic_before": 29.91652597799839,
+      "monotonic_after": 29.934599852000247
+    },
+    {
+      "key": "a",
+      "observed_utc": "2026-10-16T23:21:50.767182+00:00",
+      "monotonic_before": 30.434671146002074,
+      "monotonic_after": 30.45194998900115
+    }
+  ],
+  "capture_contract_sha256": "36e27f3441ae98db6e2a459ca64c561b72c964e1e98de854ca416321c33c33e0",
+  "host_instrumented": true,
+  "host_probe_guest_register_writes": 0,
+  "host_probe_guest_memory_writes": 0,
+  "original_executable_changed": false,
+  "natural_wall_clock_fidelity_claim": false,
+  "trace_clock": "normal-core fixed-cycle budget, pre-decode, original callback identity and scheduling inputs",
+  "trace_dispatch": "normal-core iterations; REP may charge multiple cycles per iteration",
+  "record_file_fixture_seeded": false,
+  "configured_players": 1,
+  "audio": "dummy",
+  "process_memory_opened_read_only": true,
+  "process_memory_writes": 0,
+  "injected_instructions": 0,
+  "process_pauses": 0,
+  "gameplay_state_seeded": false,
+  "clock_rng_or_heap_seeded": false,
+  "cpu_memory_frame_atomic": false,
+  "complete_frame_sequence_claim": false,
+  "whole_game_complete": false,
+  "host_commands": [
+    {
+      "command": [
+        "xdotool",
+        "search",
+        "--pid",
+        "567947",
+        "--name",
+        "DOSBox"
+      ],
+      "exit_code": 0,
+      "stdout": "6291464\n",
+      "stderr": "",
+      "monotonic_before": 0.9421050339951762,
+      "monotonic_after": 0.9450809999980265
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 0.9452563779996126,
+      "monotonic_after": 0.9471487080008956
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 20.948810565001622,
+      "monotonic_after": 20.951986672000203
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 20.99278140199749,
+      "monotonic_after": 20.995047169999452
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "1"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 20.995330990001094,
+      "monotonic_after": 21.010482532001333
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 25.01116045800154,
+      "monotonic_after": 25.014393004996236
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 25.043068341001344,
+      "monotonic_after": 25.045443894996424
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "Return"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 25.045654306995857,
+      "monotonic_after": 25.060585519997403
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 26.0613421320013,
+      "monotonic_after": 26.064453175997187
+    },
+    {
+      "command": [
+        "xdotool",
+        "keydown",
+        "--clearmodifiers",
+        "z"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 26.10200073500164,
+      "monotonic_after": 26.11736883100093
+    },
+    {
+      "command": [
+        "xdotool",
+        "keyup",
+        "z"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 26.86773839200032,
+      "monotonic_after": 26.882029298001726
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 29.88270106699929,
+      "monotonic_after": 29.88489558600122
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 29.91652790200169,
+      "monotonic_after": 29.918743738999183
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "Left"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 29.91904666699702,
+      "monotonic_after": 29.9342040440024
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 30.434680403996026,
+      "monotonic_after": 30.436848833000113
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "a"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 30.437149063000106,
+      "monotonic_after": 30.451597480998316
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit_code": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "monotonic_before": 30.452297281000938,
+      "monotonic_after": 30.45436311899539
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "ctrl+F9"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "monotonic_before": 30.487807564997638,
+      "monotonic_after": 30.51553466799669
+    }
+  ],
+  "input_injection_failures": [],
+  "capture_argv": [
+    "/dev/shm/lezac-clock-caller-t202/tools/frame_hud_probe/capture.py",
+    "--inside-xvfb",
+    "--run",
+    "r3",
+    "--repo",
+    "/mnt/c/Users/andrz/git/LEZAC",
+    "--dosbox",
+    "/dev/shm/lezac-frame-hud-host-t208/dosbox-0.74-3/src/dosbox",
+    "--out",
+    "/dev/shm/lezac-frame-hud-original-t208-r3",
+    "--observe-seconds",
+    "120"
+  ],
+  "pic_and_pit_observed": true,
+  "clock_or_irq_state_seeded": false,
+  "observed_foreground_range": "game79E8..7A13 complete HUD prelude and keyboard drain with unchanged callees",
+  "terminal_report_reserve_bytes": 1048576,
+  "observation_selection": "first complete bridge for each unchanged/word/byte/both HUD counter class; at most four bounded windows",
+  "observe_seconds": 120,
+  "natural_input_route": "one player; ordinary z hold, Left and a taps; idle; acknowledge only inspected menu pixels, level-one prompt text mask or Game Over text mask after a stalled counter",
+  "input_route_sha256": "cb1b2008045403cd1144704b5750912c2910e8e0f200357d8bbf422257180b5e",
+  "trace_parser_sha256": "75eb30d3d8e82109a252200e371a3d5f3f11e7b70528e13ecba83c3454d5cb56",
+  "frame_counter_polls": [],
+  "prompt_observations": [],
+  "maximum_prompt_inputs": 12,
+  "dosbox_argv": [
+    "/dev/shm/lezac-frame-hud-host-t208/dosbox-0.74-3/src/dosbox",
+    "-conf",
+    "/dev/shm/lezac-frame-hud-original-t208-r3/dosbox.conf",
+    "-c",
+    "mount c /dev/shm/lezac-frame-hud-original-t208-r3/run",
+    "-c",
+    "c:",
+    "-c",
+    "LEZAC.EXE"
+  ],
+  "dosbox_cwd": "/dev/shm/lezac-frame-hud-original-t208-r3",
+  "dosbox_environment": {
+    "PATH": "/usr/bin:/bin",
+    "HOME": "/dev/shm/lezac-frame-hud-original-t208-r3/home",
+    "TMPDIR": "/dev/shm/lezac-frame-hud-original-t208-r3/tmp",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "DISPLAY": ":99",
+    "XAUTHORITY": "/dev/shm/xvfb-run.sKHT0s/Xauthority",
+    "SDL_VIDEODRIVER": "x11",
+    "SDL_AUDIODRIVER": "dummy",
+    "LEZAC_FRAME_HUD_TRACE": "/dev/shm/lezac-frame-hud-original-t208-r3/guest-keyboard.csv.gz",
+    "LEZAC_FRAME_HUD_TARGET": "/dev/shm/lezac-frame-hud-original-t208-r3/target-complete.txt"
+  },
+  "dosbox_config": "[sdl]\nfullscreen=false\noutput=surface\n[render]\nframeskip=0\naspect=false\nscaler=none\n[cpu]\ncore=normal\ncycles=fixed 6000\n[mixer]\nnosound=true\n[speaker]\npcspeaker=false\n[sblaster]\nsbtype=none\n[midi]\nmpu401=none\nmididevice=none\n",
+  "environment_is_complete": true,
+  "child_pid": 567947,
+  "private_display_autorepeat_command": {
+    "command": [
+      "xset",
+      "r",
+      "off"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "code_segment": 417,
+  "data_segment": 3139,
+  "ram_base": 135446705205264,
+  "private_xvfb_autorepeat_disabled": true,
+  "target_completed": true,
+  "prompt_inputs": 0,
+  "search_ended_seconds": 30.452004115999443,
+  "passed": true,
+  "child_exit_code": 0,
+  "trace_bytes": 49381,
+  "trace_sha256": "86c49b64314ca2c1068de21c223799aba67fcca8bfefcb3706375354025b5559",
+  "trace_encoding": "gzip-csv",
+  "trace_end_marker": true,
+  "trace_uncompressed_bytes": 1377919,
+  "trace_uncompressed_sha256": "5c5e1744af3646abd2c976a07be6759bcc44ea3fe7fe2ba5a2b401a40eb0bb79",
+  "keyboard_windows": [
+    {
+      "window": 1,
+      "category": 3,
+      "states": 673,
+      "irq_entries": 0,
+      "dispatch": 153357408
+    },
+    {
+      "window": 2,
+      "category": 0,
+      "states": 20,
+      "irq_entries": 0,
+      "dispatch": 153704315
+    }
+  ],
+  "validated_target_completed": true,
+  "canonical_assets_unchanged": true
+}

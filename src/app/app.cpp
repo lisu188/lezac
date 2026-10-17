@@ -853,14 +853,19 @@ public:
             presented = true;
             if (afterPresent) afterPresent();
         };
+        gameplayPalettePresentation_ = [&] {
+            if (canvas_.resolvePalette(palette_)) display_.present(canvas_);
+        };
         try {
             update(dt);
             if (!presented) gameplayPresentation_();
         } catch (...) {
             gameplayPresentation_ = {};
+            gameplayPalettePresentation_ = {};
             throw;
         }
         gameplayPresentation_ = {};
+        gameplayPalettePresentation_ = {};
     }
 
     // The one implementation of the interactive cadence. Events are polled
@@ -2032,14 +2037,15 @@ public:
                 if (pixelDigest != fields.at("indexed_sha256")) throw std::runtime_error("palette indexed view changed");
                 if (presentation_.redPalettePhase() != value("before_phase")) throw std::runtime_error("palette pre-phase mismatch");
                 checkDac(bytes(fields.at("before_dac"), 768));
+                canvas_.clear(0xff000000u);
+                drawWorldView(player_, 4, 4, 312, 152);
+                canvas_.resetClip();
                 presentation_.updateRedPalette(static_cast<uint16_t>(expectedFrame));
                 if (expectedFrame % 5 == 0) ++writes;
                 if (presentation_.redPalettePhase() != value("after_phase")) throw std::runtime_error("palette post-phase mismatch");
                 const auto dac = bytes(fields.at("after_dac"), 768);
                 checkDac(dac);
-                std::fill(fb_.begin(), fb_.end(), 0xff000000u);
-                drawWorldView(player_, 4, 4, 312, 152);
-                canvas_.resetClip();
+                canvas_.resolvePalette(palette_);
                 size_t different = 0;
                 uint64_t hash = 1469598103934665603ull;
                 std::vector<uint32_t> pixels;
@@ -3472,6 +3478,58 @@ public:
         if (presentation_.redPalettePhase() != 27) throw std::runtime_error("palette updated on wrapped frame one");
         std::cout << "red_palette_lifecycle=ok gameplay_cadence=1 pause_menu_intro_hold=1 level_frame_preserved=1"
                      " new_game_frame_reset=1 phase_preserved=1 frame_wrap=1\n";
+    }
+
+    void debugGameplayPalettePresentation(const std::string& outDir) {
+        load();
+        initSdl();
+        resetLevel(0);
+        ui_.setMenu(false);
+        monsters_.clear();
+        spawnerStates_.clear();
+        // Controlled retained-border probes complement the natural HUD indices.
+        canvas_.indexedPixel(1, 1, 230, argb(palette_, 230));
+        canvas_.pixel(0, 0, 0xff123456u);
+        std::array<uint8_t, SDL_NUM_SCANCODES> keyboard{};
+        replayKeyboard_ = keyboard.data();
+        if (!outDir.empty()) std::filesystem::create_directories(outDir);
+        size_t indexedComparisons = 0, rgbComparisons = 0, recoloredWorld = 0, recoloredHud = 0;
+        for (int frame = 1; frame <= 80; ++frame) {
+            std::vector<uint8_t> indices, indexed;
+            std::vector<uint32_t> before;
+            int draws = 0;
+            tickAndPresent(0.04f, [&] {
+                ++draws;
+                indices = canvas_.paletteIndices();
+                indexed = canvas_.indexedPixels();
+                before = fb_;
+            });
+            if (draws != 1 || logicTick_ != static_cast<uint32_t>(frame) ||
+                indices != canvas_.paletteIndices() || indexed != canvas_.indexedPixels())
+                throw std::runtime_error("late palette presentation redrew or lost the pre-actor frame");
+            size_t mismatches = 0;
+            for (size_t at = 0; at < fb_.size(); ++at) {
+                const uint32_t expected = indexed[at] ? argb(palette_, indices[at]) : before[at];
+                if (fb_[at] != expected) ++mismatches;
+                if (indexed[at]) ++indexedComparisons;
+                else ++rgbComparisons;
+                if (expected != before[at]) {
+                    if (at < 160 * kScreenW) ++recoloredWorld;
+                    else ++recoloredHud;
+                }
+            }
+            if (mismatches)
+                throw std::runtime_error("late palette presentation frame=" + std::to_string(frame) +
+                                         " stale_pixels=" + std::to_string(mismatches));
+            if (!outDir.empty() && (frame == 4 || frame == 5 || frame == 10 || frame == 80))
+                writeArgbPpm(joinPath(outDir, "frame_" + std::to_string(frame) + ".ppm"), fb_, kScreenW, kScreenH);
+        }
+        replayKeyboard_ = nullptr;
+        if (!indexedComparisons || !rgbComparisons || !recoloredWorld || !recoloredHud)
+            throw std::runtime_error("late palette presentation lacks indexed, RGB, world or HUD coverage");
+        std::cout << "gameplay_palette_presentation=ok frames=80 pre_actor_frame_retained=1 indexed_pixels="
+                  << indexedComparisons << " rgb_pixels=" << rgbComparisons << " recolored_world=" << recoloredWorld
+                  << " recolored_hud=" << recoloredHud << " actual_tick_and_present=1 seeded_scene=1 natural_route=0 whole_game_parity=0\n";
     }
 
     void debugLevel1FrameInspection() {
@@ -27810,6 +27868,7 @@ private:
     lezac::rendering::PresentationState presentation_;
     const Palette& palette_ = presentation_.palette();
     std::function<void()> gameplayPresentation_;
+    std::function<void()> gameplayPalettePresentation_;
     std::function<void(size_t)> debugResultReelObserver_;
     std::function<void(size_t, uint32_t, uint32_t)> debugResultTypingObserver_;
     const Palette& backgroundPalette_ = assets_.backgroundPalette();
@@ -28633,6 +28692,8 @@ private:
         updateBonusRain();
         presentation_.advanceHudPalette();
         presentation_.updateRedPalette(static_cast<uint16_t>(logicTick_));
+        // DAC writes recolor the already-painted VGA frame without an actor redraw.
+        if (gameplayPalettePresentation_) gameplayPalettePresentation_();
         updateLevelCompletion();
         pumpSoundLatch();
     }
@@ -33229,6 +33290,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-red-palette-lifecycle") {
             app.debugRedPaletteLifecycle();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-gameplay-palette-presentation") {
+            app.debugGameplayPalettePresentation(argc > 2 ? argv[2] : "");
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-actor-constructor-velocity") {

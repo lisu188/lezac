@@ -693,6 +693,16 @@ if(BUILD_TESTING)
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_foreground_fixture.py)
         add_test(NAME frame_foreground_sdl_provenance COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_foreground_sdl_provenance.py)
+        add_test(NAME foreground_live_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_foreground_live_fixture.py
+            --cpu ${CMAKE_CURRENT_BINARY_DIR}/foreground-live-cpu.bin --clock ${CMAKE_CURRENT_BINARY_DIR}/foreground-live-clock.bin)
+        set_tests_properties(foreground_live_fixture_contract PROPERTIES FIXTURES_SETUP foreground_live_corpus)
+        add_test(NAME foreground_live_original COMMAND lezac_frame_foreground_test --live
+            ${CMAKE_CURRENT_BINARY_DIR}/foreground-live-cpu.bin ${CMAKE_CURRENT_BINARY_DIR}/foreground-live-clock.bin)
+        set_tests_properties(foreground_live_original PROPERTIES FIXTURES_REQUIRED foreground_live_corpus
+            PASS_REGULAR_EXPRESSION "frame_foreground_live=ok cases=2 comparisons=289010 transfers=304 millisecond_grants=48 device_callbacks=22 predicted_irqs=2")
+        add_test(NAME foreground_live_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_foreground_live_fixture.py)
         add_test(NAME frame_hud_original COMMAND lezac_frame_hud_test --original
             ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-cpu.bin ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-clock.bin)
         set_tests_properties(frame_hud_original PROPERTIES FIXTURES_REQUIRED frame_hud_corpus

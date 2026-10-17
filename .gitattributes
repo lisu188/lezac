@@ -33,6 +33,8 @@ tools/frame_hud_probe/*.patch -whitespace
 tests/fixtures/frame_foreground/** -text
 tools/frame_foreground_probe/** text eol=lf
 tools/frame_foreground_probe/*.patch -whitespace
+tests/fixtures/foreground_live/** -text
+tools/frame_foreground_live_probe/** text eol=lf
 tools/frame_display_probe/** text eol=lf
 tools/frame_display_probe/*.patch -whitespace
 tools/frame_clock_probe/** text eol=lf

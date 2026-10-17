@@ -10,6 +10,12 @@ using namespace resources;
 using namespace ui;
 
 namespace {
+void fillViewFrame(Canvas& canvas, const Palette& palette, int left, int width,
+                   uint8_t outline, uint8_t inner) {
+    canvas.indexedRect(left, 0, width, 160, outline, argb(palette, outline));
+    canvas.indexedRect(left + 1, 1, width - 2, 158, inner, argb(palette, inner));
+}
+
 class WorldPainter {
 public:
     WorldPainter(Canvas& canvas, TextRenderer& text, const AssetCatalog& assets,
@@ -79,19 +85,13 @@ public:
                               static_cast<uint8_t>(player == 0 ? 28 : 12));
             }
         } else if (world_.players[0].globalState != 0) {
-            // Single-player: one 312x152 viewport (x4..315, y4..155) inside
-            // the white/grey frame. The E/R width adjustment narrows the
-            // world view inside the frame.
-            int viewW = std::clamp(world_.viewWidth, 160, 312);
-            int viewX = 4 + (312 - viewW) / 2;
-            canvas_.rect(0, 0, kScreenW, 160, argb(presentation_.palette(), 0));
-            drawWorldView(world_.players[0].player, viewX, 4, viewW, 152);
+            // 0838/2959 centre the complete frame; its interior is pitch-8.
+            const int width = std::clamp(world_.viewWidth, 168, kScreenW);
+            const int left = (kScreenW - width) / 2;
+            refreshRetainedViewColors(0, kScreenW);
+            drawWorldView(world_.players[0].player, left + 4, 4, width - 8, 152);
             canvas_.resetClip();
-            if (viewW < 312) {
-                canvas_.rect(viewX - 1, 16, 1, 140, 0xfff0d060u);
-                canvas_.rect(viewX + viewW, 16, 1, 140, 0xfff0d060u);
-            }
-            drawViewFrame(0, kScreenW, 15, 28);
+            drawViewFrame(left, width, 15, 28);
         } else {
             refreshRetainedViewColors(0, kScreenW);
         }
@@ -116,14 +116,15 @@ public:
         // fed the player visual entry DS:0xC21E by the main loop): the
         // routine splits the scroll into a tile-aligned coarse part
         // (DS:0xC216/0xC218 = (x - 0x78BC) & ~7 / (y - 80) & ~7 with 0x78BC
-        // = viewW/2 - 4) and a fine part (DS:0xC20A/0xC20C = x%8 / y%8)
+        // = floor((pitch/8 - 2)/2)*8) and a fine part (DS:C20A/C20C = x%8 / y%8)
         // that recombine to a CONTINUOUS, instantly-applied camera
-        // camX = x - (viewW/2 - 4), camY = y - 80. On the max clamps
+        // camX = x - 78BC, camY = y - 80. On the max clamps
         // (coarse > DS:2094 = (Wt-40)*8 / DS:2096 = (Ht-21)*8) the fine
         // part is forced to 7, so the effective displayed limits are
         // worldW-313 and worldH-161 -- verified against the level-6 spawn
         // (cam 1127/351 for clamps 1120/344) and every walk/jump capture.
-        int camX = std::clamp(static_cast<int>(cameraPlayer.x) - (viewW / 2 - 4),
+        const int cameraCenter = (((viewW + 8) / 8 - 2) / 2) * 8;
+        int camX = std::clamp(static_cast<int>(cameraPlayer.x) - cameraCenter,
                               0, std::max(0, worldW - (viewW + 8) + 7));
         int camY = std::clamp(static_cast<int>(cameraPlayer.y) - (viewH / 2 + 4),
                               0, std::max(0, worldH - (viewH + 16) + 7));
@@ -347,17 +348,21 @@ void GameRenderer::initializePlayfield(int playerCount, int viewWidth) {
     // for an already-out player. Per-frame view gates must not inherit intro pixels.
     canvas_.resetClip();
     canvas_.indexedRect(0, 0, kScreenW, kScreenH, 0, argb(presentation_.palette(), 0));
-    const auto frame = [&](int left, int width, uint8_t outline, uint8_t inner) {
-        canvas_.indexedRect(left, 0, width, 160, outline, argb(presentation_.palette(), outline));
-        canvas_.indexedRect(left + 1, 1, width - 2, 158, inner, argb(presentation_.palette(), inner));
-    };
     if (playerCount == 2) {
-        frame(0, 160, 15, 28);
-        frame(160, 160, 4, 12);
+        fillViewFrame(canvas_, presentation_.palette(), 0, 160, 15, 28);
+        fillViewFrame(canvas_, presentation_.palette(), 160, 160, 4, 12);
     } else if (playerCount == 1) {
-        const int width = std::clamp(viewWidth, 160, kScreenW);
-        frame((kScreenW - width) / 2, width, 15, 28);
+        const int width = std::clamp(viewWidth, 168, kScreenW);
+        fillViewFrame(canvas_, presentation_.palette(), (kScreenW - width) / 2, width, 15, 28);
     }
+}
+
+void GameRenderer::resizePlayfield(int viewWidth) {
+    // 820F..8283 clear only the playfield, preserving the existing HUD.
+    canvas_.resetClip();
+    canvas_.indexedRect(0, 0, kScreenW, 160, 0, argb(presentation_.palette(), 0));
+    const int width = std::clamp(viewWidth, 168, kScreenW);
+    fillViewFrame(canvas_, presentation_.palette(), (kScreenW - width) / 2, width, 15, 28);
 }
 
 void GameRenderer::drawWorldView(const WorldRenderView& world, const Player& cameraPlayer,

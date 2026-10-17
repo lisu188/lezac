@@ -588,6 +588,8 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_render_view_gate_test PRIVATE lezac_rendering)
     add_executable(lezac_render_view_initialization_test tests/rendering/render_view_initialization_test.cpp)
     target_link_libraries(lezac_render_view_initialization_test PRIVATE lezac_rendering)
+    add_executable(lezac_viewport_width_original_test tests/rendering/viewport_width_original_test.cpp)
+    target_link_libraries(lezac_viewport_width_original_test PRIVATE lezac_rendering)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
@@ -609,6 +611,19 @@ if(BUILD_TESTING)
         add_test(NAME render_view_gate_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_render_view_gate_fixture.py)
         set_tests_properties(render_view_gate_fixture_rejections PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR}")
+        add_test(NAME viewport_width_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_viewport_width_fixture.py
+            --oracle ${CMAKE_CURRENT_BINARY_DIR}/viewport-width.bin)
+        set_tests_properties(viewport_width_fixture_contract PROPERTIES FIXTURES_SETUP viewport_width_corpus)
+        add_test(NAME viewport_width_original COMMAND lezac_viewport_width_original_test
+            ${CMAKE_CURRENT_BINARY_DIR}/viewport-width.bin)
+        set_tests_properties(viewport_width_original PROPERTIES FIXTURES_REQUIRED viewport_width_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "viewport_width=ok controls=44 views=60 widths=20 control_differences=0 control_pixels=2816000 control_pixel_differences=0 view_pixels=3072000 view_differences=0")
+        add_test(NAME viewport_width_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_viewport_width_fixture.py)
+        set_tests_properties(viewport_width_fixture_rejections PROPERTIES
             ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR}")
         add_test(NAME original_capture_contract
             COMMAND ${Python3_EXECUTABLE} -S -B
@@ -1320,7 +1335,7 @@ if(BUILD_TESTING)
     set_tests_properties(ui_controls_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^control_smoke=ok manual_controls=s,e,r fire_keys=n,kp0,insert background_toggle=1 view_width=320->288->320 two_player_width_locked=1 frame_inspection=1 reentry_key_release=1 shared_fire_consumption=1")
+            "^control_smoke=ok manual_controls=s,e,r fire_keys=n,kp0,insert background_toggle=1 view_width=320->312->320 two_player_width_locked=1 frame_inspection=1 reentry_key_release=1 shared_fire_consumption=1 width_step=8 width_min=168 width_max=320 ignored_bounds=2 backdrop_latched=1 width_repeat=1")
 
     add_test(NAME ui_controls_json_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy LEZAC_LOAD_JSON_ASSETS=1

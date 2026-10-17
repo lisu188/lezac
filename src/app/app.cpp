@@ -1354,10 +1354,10 @@ public:
         }
 
         int viewWidth = gameplayViewWidth_;
-        pushKeyDown(SDLK_r);
+        pushKeyDown(SDLK_e);
         processEvents(running);
         if (gameplayViewWidth_ >= viewWidth) {
-            throw std::runtime_error("R key did not reduce playfield width");
+            throw std::runtime_error("E key did not reduce playfield width");
         }
         int reducedViewWidth = gameplayViewWidth_;
         FrameInspection reducedWidthFrame =
@@ -1366,16 +1366,44 @@ public:
             throw std::runtime_error("reduced playfield width did not change frame");
         }
 
-        pushKeyDown(SDLK_e);
+        pushKeyDown(SDLK_r);
         processEvents(running);
         if (gameplayViewWidth_ != viewWidth) {
-            throw std::runtime_error("E key did not restore playfield width");
+            throw std::runtime_error("R key did not restore playfield width");
         }
         FrameInspection restoredWidthFrame =
             inspectRenderedFrame("controls-view-width-restored");
         if (restoredWidthFrame.hash != backgroundOffFrame.hash) {
             throw std::runtime_error("restored playfield width did not redraw original frame");
         }
+
+        const auto widthBackdrop = presentation_.backdropBuffer();
+        for (int step = 1; step <= 20; ++step) {
+            pushKeyDown(SDLK_e, true);
+            processEvents(running);
+            if (gameplayViewWidth_ != std::max(168, 320 - step * 8))
+                throw std::runtime_error("E key width step or lower bound differs from original");
+        }
+        inspectRenderedFrame("controls-view-width-minimum");
+        const auto minimumWidthPixels = fb_;
+        pushKeyDown(SDLK_e, true);
+        processEvents(running);
+        if (gameplayViewWidth_ != 168 || fb_ != minimumWidthPixels)
+            throw std::runtime_error("ignored minimum-width key repainted the playfield");
+        for (int step = 1; step <= 20; ++step) {
+            pushKeyDown(SDLK_r, true);
+            processEvents(running);
+            if (gameplayViewWidth_ != std::min(320, 168 + step * 8))
+                throw std::runtime_error("R key width step or upper bound differs from original");
+        }
+        const auto maximumWidthFrame = inspectRenderedFrame("controls-view-width-maximum");
+        const auto maximumWidthPixels = fb_;
+        pushKeyDown(SDLK_r, true);
+        processEvents(running);
+        if (gameplayViewWidth_ != 320 || fb_ != maximumWidthPixels ||
+            maximumWidthFrame.hash != backgroundOffFrame.hash || presentation_.backdropPitch() != 320 ||
+            presentation_.backdropBuffer() != widthBackdrop)
+            throw std::runtime_error("width changes lost the retained backdrop or repainted an ignored key");
 
         pushKeyDown(SDLK_PAGEUP);
         processEvents(running);
@@ -1494,7 +1522,8 @@ public:
                   << " view_width=" << viewWidth << "->" << reducedViewWidth
                   << "->" << gameplayViewWidth_
                   << " two_player_width_locked=1"
-                  << " frame_inspection=1 reentry_key_release=1 shared_fire_consumption=1\n";
+                  << " frame_inspection=1 reentry_key_release=1 shared_fire_consumption=1"
+                  << " width_step=8 width_min=168 width_max=320 ignored_bounds=2 backdrop_latched=1 width_repeat=1\n";
     }
 
     void smokeUi(int frames) {
@@ -27822,7 +27851,8 @@ private:
                        (!e.key.repeat ||
                         (!ui_.snapshot().menu && !ui_.snapshot().paused && !levelFlow_.intro().active && !levelFlow_.outro().active &&
                          (isPlayer1FireKey(e.key.keysym.sym) ||
-                          (playerCount_ > 1 && isPlayer2FireKey(e.key.keysym.sym)))) ||
+                          (playerCount_ > 1 && isPlayer2FireKey(e.key.keysym.sym)) ||
+                          (playerCount_ == 1 && (e.key.keysym.sym == SDLK_e || e.key.keysym.sym == SDLK_r)))) ||
                         shouldAcceptRepeatedUiKey(e.key.keysym.sym))) {
                 onKey(e.key.keysym.sym, running, e.key.keysym.mod);
             } else if (e.type == SDL_KEYDOWN) {
@@ -32086,7 +32116,10 @@ private:
     }
 
     void adjustGameplayViewWidth(int delta) {
-        gameplayViewWidth_ = std::clamp(gameplayViewWidth_ + delta, 160, kScreenW);
+        const int next = std::clamp(gameplayViewWidth_ + delta, 168, kScreenW);
+        if (next == gameplayViewWidth_) return;
+        gameplayViewWidth_ = next;
+        gameRenderer_.resizePlayfield(gameplayViewWidth_);
     }
 
     void buildBackdropBuffer() {

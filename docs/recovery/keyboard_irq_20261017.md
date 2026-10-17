@@ -114,6 +114,11 @@ authenticated before either decoded output can be published or replaced.
 
 ## Remaining Work
 
+The subsequent [controller/clock recovery](keyboard_device_clock_20261017.md)
+adds active transfer/repeat modeling and original-backed port-read CPU budgets.
+It still does not replace the actual App input/scheduler or prove full-frame
+active-clock parity.
+
 The App still uses its 40.8 ms governed loop and SDL input adapter. This module
 does not yet predict active keyboard transfer/repeat callbacks, select IRQ1
 through the PIC clock, or connect the foreground owner bus to live App state.

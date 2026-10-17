@@ -1,4 +1,5 @@
 #include "core/keyboard_irq.hpp"
+#include "core/keyboard_controller.hpp"
 #include "core/pic_work_clock.hpp"
 
 #include <algorithm>
@@ -118,6 +119,18 @@ void original(const char* path) {
             memory.bus.writeWord(0, 0x54, bios15Ip); memory.bus.writeWord(0, 0x56, bios15Cs);
             auto hardware = states.front().hardware;
             require(hardware[7] == scan, "IRQ1 initial hardware byte differs");
+            KeyboardControllerSnapshot keyboardState;
+            std::copy(states.front().hardwareBuffer.begin(), states.front().hardwareBuffer.end(), keyboardState.buffer.begin());
+            keyboardState.used = static_cast<uint32_t>(hardware[0]); keyboardState.pos = static_cast<uint32_t>(hardware[1]);
+            keyboardState.repeatKey = static_cast<KeyboardHardwareKey>(hardware[2]);
+            keyboardState.repeatWait = static_cast<uint32_t>(hardware[3]); keyboardState.repeatPause = static_cast<uint32_t>(hardware[4]);
+            keyboardState.repeatRate = static_cast<uint32_t>(hardware[5]); keyboardState.command = static_cast<KeyboardControllerCommand>(hardware[6]);
+            keyboardState.port60 = static_cast<uint8_t>(hardware[7]); keyboardState.port60Changed = hardware[8] != 0;
+            keyboardState.active = hardware[9] != 0; keyboardState.scanning = hardware[10] != 0;
+            keyboardState.scheduled = hardware[11] != 0; keyboardState.port61 = static_cast<uint8_t>(hardware[12]);
+            KeyboardController keyboard(keyboardState);
+            KeyboardControllerBus keyboardBus;
+            keyboardBus.scheduleTransfer = [](float delay) {require(delay == 0.300f, "Original keyboard transfer delay differs");};
             PicWorkClockSnapshot pic;
             pic.pitDelay = 1000.0f / (1193182.0f / 65536.0f);
             pic.activeIrq = static_cast<uint8_t>(states.front().pic[0]);
@@ -125,9 +138,7 @@ void original(const char* path) {
             PicWorkClock clock(pic);
             memory.readPort = [&](uint16_t port) {
                 require(port == 0x60, "IRQ1 unexpected IN port");
-                hardware[8] = 0;
-                if (!hardware[11] && hardware[0]) hardware[11] = 1;
-                return static_cast<uint8_t>(hardware[7]);
+                return keyboard.readPort(port, keyboardBus);
             };
             memory.writePort = [&](uint16_t port, uint8_t value) {
                 require(port == 0x20 && value == 0x20, "IRQ1 unexpected OUT port/value");
@@ -146,15 +157,22 @@ void original(const char* path) {
                 require(memory.matches(stackSegment, stackBase, expected.stack), "Original IRQ1 stack differs");
                 require(memory.matches(0x40, 0, expected.bios), "Original IRQ1 BIOS memory differs");
                 require(memory.matches(data, 0x1b78, expected.held), "Original IRQ1 held-control bank differs");
-                for (size_t field : {size_t{0}, size_t{1}, size_t{7}, size_t{8}, size_t{11}})
-                    require(hardware[field] == expected.hardware[field], "Original IRQ1 port-owned hardware state differs");
-                require(states.front().hardwareBuffer == expected.hardwareBuffer, "External input changed inside IRQ1 window");
+                const auto& k = keyboard.snapshot();
+                const std::array<uint64_t, 5> owned{k.used, k.pos, k.port60, k.port60Changed, k.scheduled};
+                const std::array<size_t, 5> fields{0, 1, 7, 8, 11};
+                for (size_t field = 0; field < fields.size(); ++field)
+                    require(owned[field] == expected.hardware[fields[field]], "Original IRQ1 port-owned hardware state differs");
+                require(std::equal(k.buffer.begin(), k.buffer.end(), expected.hardwareBuffer.begin()),
+                        "External input changed inside IRQ1 window");
                 require(clock.snapshot().activeIrq == expected.pic[0] && clock.snapshot().inserviceLines == expected.pic[3],
                         "Original IRQ1 PIC EOI state differs");
                 if (at + 1 < states.size()) {
                     require(operation.advance(1, memory.bus) == 1, "IRQ1 dispatch stopped early");
                     ++instructions;
-                    if (restore) operation = KeyboardIrqOperation(operation.snapshot());
+                    if (restore) {
+                        operation = KeyboardIrqOperation(operation.snapshot());
+                        keyboard = KeyboardController(keyboard.snapshot());
+                    }
                 }
             }
             require(operation.returned() && !operation.needsBiosIdle(), "Original IRQ1 did not return");

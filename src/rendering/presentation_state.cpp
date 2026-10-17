@@ -22,7 +22,13 @@ using resources::vga6To8;
 // Pitch is latched at initialization: 320 for P1, 160 for split-screen.
 // Later viewport narrowing does not regenerate or repack this buffer.
 void PresentationState::initializeBackdropBuffer(int playerCount) {
-    backdropPitch_ = playerCount > 1 ? 160 : 320;
+    initializeBackdropBufferForPitch(playerCount > 1 ? 160 : 320);
+}
+
+void PresentationState::initializeBackdropBufferForPitch(int pitch) {
+    if (pitch < 160 || pitch > 320 || pitch % 8 != 0)
+        throw std::invalid_argument("Backdrop pitch differs from the original tile geometry");
+    backdropPitch_ = pitch;
     backdropBuffer_.resize(60000);
     // Driver init fills exactly 60000 bytes, including byte wrap past 255.
     for (int k = 0; k < 60000; ++k) {
@@ -32,7 +38,11 @@ void PresentationState::initializeBackdropBuffer(int playerCount) {
 }
 
 void PresentationState::buildBackdropBuffer(int playerCount, core::TurboRandom& random) {
-    initializeBackdropBuffer(playerCount);
+    buildBackdropBufferForPitch(playerCount > 1 ? 160 : 320, random);
+}
+
+void PresentationState::buildBackdropBufferForPitch(int pitch, core::TurboRandom& random) {
+    initializeBackdropBufferForPitch(pitch);
     // City skyline: the original generates ten buildings from the live
     // Turbo Pascal RNG on each game start (file 0x7f64). Building 1 is
     // the fixed wide base (cols 0..160, top row 130); each of the others
@@ -143,18 +153,22 @@ void PresentationState::beginOriginalPlay(bool fromMenu) {
 
 void PresentationState::prepareHudObjectives(uint16_t frame, int collected, int destructionPercent,
                                              int requiredBonus, int requiredDestruction) {
-    if ((frame % 30) == 0) hudDestructionPercent_ = destructionPercent;
+    collected = static_cast<uint16_t>(collected);
+    if ((frame % 30) == 0) hudDestructionPercent_ = static_cast<uint8_t>(destructionPercent);
     // 79E8 calls 3184 only when an objective display is dirty.
     if (collected == hudPreviousCollected_ && hudDestructionPercent_ == hudPreviousDestruction_) return;
     if (collected != hudPreviousCollected_) {
         hudPreviousCollected_ = collected;
         hudPaletteQueue_.request(245, {63, 63, 63}, {1, 1, 41});
-        if (collected >= requiredBonus) hudBonusComplete_ = true;
+        if (core::hudBonusRemaining(static_cast<uint16_t>(requiredBonus), static_cast<uint16_t>(collected)) == 0)
+            hudBonusComplete_ = true;
     }
     if (hudDestructionPercent_ != hudPreviousDestruction_) {
         hudPreviousDestruction_ = hudDestructionPercent_;
         hudPaletteQueue_.request(246, {63, 63, 63}, {1, 1, 41});
-        if (hudDestructionPercent_ >= requiredDestruction) hudDestructionComplete_ = true;
+        if (core::hudDestructionRemaining(static_cast<uint8_t>(requiredDestruction),
+                                         static_cast<uint8_t>(hudDestructionPercent_)) == 0)
+            hudDestructionComplete_ = true;
     }
     // 325B requests the shared border whenever that dirty-only helper runs.
     if (hudBonusComplete_ && hudDestructionComplete_)

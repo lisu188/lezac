@@ -46,6 +46,30 @@ int main() {
         ui.onKey(Key::P, running, 0, 2, records, actions);
         ui.onKey(Key::Insert, running, 0, 2, records, actions);
         require(events.back() == "fire2", "player-two fire mapping changed");
+        UiController widthUi;
+        widthUi.setMenu(false);
+        const size_t beforeWidth = events.size();
+        widthUi.onKey(Key::E, running, 0, 1, records, actions);
+        widthUi.onKey(Key::R, running, 0, 1, records, actions);
+        require(events.size() == beforeWidth + 2 && events[beforeWidth] == "width-8" && events.back() == "width8",
+                "original E/R direction or tile step changed");
+        widthUi.onKey(Key::E, running, 0, 2, records, actions);
+        widthUi.onKey(Key::R, running, 0, 2, records, actions);
+        widthUi.onKey(Key::P, running, 0, 1, records, actions);
+        widthUi.onKey(Key::E, running, 0, 1, records, actions);
+        widthUi.onKey(Key::R, running, 0, 1, records, actions);
+        require(events.size() == beforeWidth + 2, "width control escaped two-player or pause gating");
+        widthUi.onKey(Key::P, running, 0, 2, records, actions);
+        actions.canAdjustViewWidth = [] { return true; };
+        widthUi.onKey(Key::E, running, 0, 2, records, actions);
+        widthUi.onKey(Key::R, running, 0, 2, records, actions);
+        require(events.size() == beforeWidth + 4 && events.back() == "width8",
+                "configured two-player mode blocked its remaining player's width controls");
+        widthUi.onKey(Key::Insert, running, 0, 2, records, actions);
+        require(events.back() == "fire2", "survivor width capability stole player-two fire ownership");
+        actions.canAdjustViewWidth = [] { return false; };
+        widthUi.onKey(Key::E, running, 0, 1, records, actions);
+        require(events.size() == beforeWidth + 5, "disabled original width capability was ignored");
         ui.beginEndRun(EndReason::GameOver, 2, 2, 100, 200, records, actions);
         require(ui.snapshot().page == MenuPage::GameOver && !records.hasPendingRecord() && events.back() == "reset",
                 "name entry bypassed the end-screen acknowledgement");

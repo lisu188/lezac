@@ -1,0 +1,62 @@
+{
+  "schema": "lezac-frozen-pic-work-clock-v1",
+  "capture": "lezac-pic-clock-original-t201-r2",
+  "files": [
+    {
+      "name": "r2.csv.gz",
+      "bytes": 25460,
+      "sha256": "c2ad4a485ffd402a54551371bc8ce61f15936c87ada63107d717c19dcd3ba3f7"
+    },
+    {
+      "name": "r2-recipe.json",
+      "bytes": 25994,
+      "sha256": "6cf17a01a3229d82ba8ac18056685371948ffe91054c527bb01691818cfe38d8"
+    }
+  ],
+  "trace_bytes": 893527,
+  "trace_sha256": "2d58f60f7bed1a69aac089b7d01078fae2fa3da4d148ab50c5513e0dda772612",
+  "calls": [
+    1,
+    2,
+    48
+  ],
+  "states": 1014,
+  "natural_irq_call": 48,
+  "natural_irq_state": 68,
+  "natural_irq_boundaries": 1,
+  "source_executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "local_raw_sample_verification": [
+    {
+      "name": "main",
+      "ram_sha256": "a86496cae251f160e6bcfd7b180e19eaaf85389439eaebd66687b3ec43402857",
+      "original_code_bytes_verified": 43552
+    },
+    {
+      "name": "intro",
+      "ram_sha256": "037fdaffa0be34e1edda14af6b9dac224cd01c8d501f01f938bb1df29c2b8825",
+      "original_code_bytes_verified": 43552
+    },
+    {
+      "name": "gameplay",
+      "ram_sha256": "c233c74a119d9a1f49d5921b24f3aeb44fd2a6b3f550cd271d8368cc6260357a",
+      "original_code_bytes_verified": 43552
+    },
+    {
+      "name": "gameplay-middle",
+      "ram_sha256": "f0515791c204e4af126682303a53780c958dc58c57f17436fecd37f038e6aba2",
+      "original_code_bytes_verified": 43552
+    },
+    {
+      "name": "search-end",
+      "ram_sha256": "eabcbd3ecbcfe93ca7b1dc5242a9211d106c7b546f9250794e609ccd37e83004",
+      "original_code_bytes_verified": 43552
+    }
+  ],
+  "raw_ram_or_png_payloads_in_fixture": false,
+  "wall_clock_or_whole_game_fidelity_claim": false,
+  "initial_state_is_observed": true,
+  "later_cpu_flags_or_irq_decisions_injected": false,
+  "instrumented_host_sha256": "5e177a945ed1a6821e633fafcbdd8b9a9573b87864f079b9238a65c2ab62678c",
+  "source_capture_passed": true,
+  "capture_environment_and_all_commands_retained": true
+}

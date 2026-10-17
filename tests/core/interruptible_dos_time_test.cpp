@@ -1,10 +1,13 @@
 #include "core/interruptible_dos_time.hpp"
+#include "core/pic_work_clock.hpp"
 
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -27,6 +30,10 @@ struct Reader {
         return value;
     }
     uint16_t word() { return static_cast<uint16_t>(number(2)); }
+    uint64_t wide() {
+        const uint64_t low = number(4);
+        return low | (uint64_t{number(4)} << 32);
+    }
     std::vector<uint8_t> take(unsigned count) {
         require(cursor <= bytes.size() && count <= bytes.size() - cursor, "memory projection truncated");
         std::vector<uint8_t> result(bytes.begin() + cursor, bytes.begin() + cursor + count);
@@ -73,7 +80,7 @@ struct Memory {
             bytes[at] = static_cast<uint8_t>(value >> (i * 8)); known[at] = 1;
         }
     }
-    TimerIrqBus bus() {
+    TimerIrqBus bus(PicWorkClock* clock = nullptr) {
         return {
             [&](uint16_t s, uint16_t o) { return static_cast<uint8_t>(read(s, o, 1)); },
             [&](uint16_t s, uint16_t o) { return static_cast<uint16_t>(read(s, o, 2)); },
@@ -81,13 +88,18 @@ struct Memory {
             [&](uint16_t s, uint16_t o, uint8_t v) { write(s, o, v, 1); },
             [&](uint16_t s, uint16_t o, uint16_t v) { write(s, o, v, 2); },
             [&](uint16_t s, uint16_t o, uint32_t v) { write(s, o, v, 4); },
-            [&](uint16_t port) {
+            [&, clock](uint16_t port) {
+                if (clock) clock->chargePortRead();
                 if (!checkIo) { require(port == 0x61, "unexpected unit input port"); return port61; }
                 require(io < script.size() && !std::get<0>(script[io]) && std::get<1>(script[io]) == port,
                         "input port boundary differs");
                 return std::get<2>(script[io++]);
             },
-            [&](uint16_t port, uint8_t value) {
+            [&, clock](uint16_t port, uint8_t value) {
+                if (clock) {
+                    clock->chargePortWrite();
+                    if (port == 0x20 && value == 0x20) clock->nonspecificMasterEoi();
+                }
                 if (checkIo) require(io < script.size() && script[io++] == Io{true, port, value}, "ordered output differs");
                 if (port == 0x61) port61 = value;
             }
@@ -120,11 +132,68 @@ void seedGlobals(Memory& memory, uint16_t data, const std::vector<uint8_t>& glob
         index += count;
     }
 }
-std::size_t original(Reader reader) {
+using ClockCases = std::vector<std::vector<PicWorkClockSnapshot>>;
+ClockCases readClocks(Reader reader) {
+    require(reader.take(8) == std::vector<uint8_t>({'L','Z','P','C','L','K','0','1'}), "clock version differs");
+    const auto count = reader.number(4);
+    require(count > 0 && count <= 8, "clock case domain differs");
+    ClockCases result;
+    for (unsigned c = 0; c < count; ++c) {
+        const auto stateCount = reader.number(4);
+        require(stateCount >= 326 && stateCount <= 4097, "clock state domain differs");
+        std::vector<PicWorkClockSnapshot> states;
+        for (unsigned i = 0; i < stateCount; ++i) {
+            PicWorkClockSnapshot state;
+            state.cycles = std::bit_cast<int64_t>(reader.wide());
+            state.cycleLeft = std::bit_cast<int64_t>(reader.wide());
+            state.ioDelayRemoved = std::bit_cast<int64_t>(reader.wide());
+            state.ticks = reader.wide();
+            reader.take(14); // Observed flags, CS:IP and opcode/I/O metadata are not scheduler inputs.
+            state.activeLines = reader.word(); state.maskedLines = reader.word();
+            state.inserviceLines = reader.word(); state.pending = reader.word();
+            state.activeIrq = static_cast<uint8_t>(reader.number(1));
+            state.irq0Vector = static_cast<uint8_t>(reader.number(1));
+            state.special = reader.number(1) != 0; state.autoEoi = reader.number(1) != 0;
+            state.pitDelay = std::bit_cast<float>(reader.number(4));
+            state.pitStart = std::bit_cast<double>(reader.wide());
+            state.pitCount = reader.number(4); state.pitMode = static_cast<uint8_t>(reader.number(1));
+            state.pitUpdate = reader.number(1) != 0;
+            const auto events = reader.word(); require(events <= 64, "clock queue cap differs");
+            for (unsigned e = 0; e < events; ++e) {
+                const auto index = std::bit_cast<float>(reader.number(4));
+                const auto kind = static_cast<PicClockEventKind>(reader.number(1));
+                state.queue.push_back({index, kind, reader.wide()});
+            }
+            states.push_back(std::move(state));
+        }
+        result.push_back(std::move(states));
+    }
+    require(reader.cursor == reader.bytes.size(), "clock projection tail differs");
+    return result;
+}
+void compareClock(const PicWorkClock& operation, const PicWorkClockSnapshot& expected, const std::string& context) {
+    const auto& actual = operation.snapshot();
+    require(actual.cycles == expected.cycles && actual.cycleLeft == expected.cycleLeft &&
+        actual.ioDelayRemoved == expected.ioDelayRemoved && actual.ticks == expected.ticks,
+        context + " coupled CPU budget or I/O cost differs");
+    require(actual.activeLines == expected.activeLines && actual.maskedLines == expected.maskedLines &&
+        actual.inserviceLines == expected.inserviceLines && actual.pending == expected.pending &&
+        actual.activeIrq == expected.activeIrq, context + " coupled IRQ eligibility differs");
+    require(std::bit_cast<uint32_t>(actual.pitDelay) == std::bit_cast<uint32_t>(expected.pitDelay) &&
+        std::bit_cast<uint64_t>(actual.pitStart) == std::bit_cast<uint64_t>(expected.pitStart),
+        context + " coupled PIT phase differs");
+    require(actual.queue.size() == expected.queue.size(), context + " coupled queue length differs");
+    for (unsigned i = 0; i < actual.queue.size(); ++i)
+        require(std::bit_cast<uint32_t>(actual.queue[i].index) == std::bit_cast<uint32_t>(expected.queue[i].index) &&
+            actual.queue[i].kind == expected.queue[i].kind && actual.queue[i].value == expected.queue[i].value,
+            context + " coupled queue event differs");
+}
+std::size_t original(Reader reader, const ClockCases& clocks = {}) {
     require(reader.take(8) == std::vector<uint8_t>({'L','Z','D','T','I','R','0','1'}), "projection version differs");
     const auto count = reader.number(4);
     require(count > 0 && count <= 256, "case domain differs");
-    std::size_t comparisons = 0, delivered = 0;
+    require(clocks.empty() || clocks.size() == count, "CPU/clock case count differs");
+    std::size_t comparisons = 0, delivered = 0, predicted = 0;
     for (unsigned caseIndex = 0; caseIndex < count; ++caseIndex) {
         const auto game = reader.word(), base = reader.word(), psp = reader.word(), ss = reader.word();
         const auto entrySp = reader.word(), stackBase = reader.word(), stackLength = reader.word();
@@ -144,6 +213,11 @@ std::size_t original(Reader reader) {
             io.emplace_back(output, port, static_cast<uint8_t>(reader.number(1)));
         }
         for (bool restore : {false, true}) {
+            std::optional<PicWorkClock> clock;
+            if (!clocks.empty()) {
+                require(clocks[caseIndex].size() == stateCount, "CPU/clock state count differs");
+                clock.emplace(clocks[caseIndex].front());
+            }
             Memory memory; memory.script = io;
             memory.seed(bankSegment, bankOffset, bank);
             memory.seed(ss, legacy ? entrySp : stackBase, states[0].stack, true);
@@ -156,13 +230,14 @@ std::size_t original(Reader reader) {
             memory.seedNumber(0x40, 0x3f, states[0].drive, 1, true);
             memory.seedNumber(psp, 0x2e, states[0].pspStack, 4, true);
             InterruptibleDosTimeOperation operation(states[0].registers, base, psp, game, 0x200000);
-            const auto bus = memory.bus();
+            const auto bus = memory.bus(clock ? &*clock : nullptr);
             for (unsigned step = 0; step < stateCount; ++step) {
-                if (std::find(deliveries.begin(), deliveries.end(), step) != deliveries.end())
+                if (!clock && std::find(deliveries.begin(), deliveries.end(), step) != deliveries.end())
                     operation.deliverTimerInterrupt(bus);
                 const auto& expected = states[step];
                 auto actual = operation.registers(), wanted = expected.registers;
                 const auto context = "case=" + std::to_string(caseIndex) + " state=" + std::to_string(step);
+                if (clock) compareClock(*clock, clocks[caseIndex][step], context);
                 require(((actual.flags ^ wanted.flags) & expected.mask) == 0, context + " defined flags differ");
                 actual.flags = wanted.flags = 0;
                 require(actual == wanted, context + " registers differ");
@@ -184,8 +259,35 @@ std::size_t original(Reader reader) {
                 ++comparisons;
                 const auto before = operation.snapshot();
                 require(operation.advance(0, bus) == 0 && operation.snapshot() == before, "zero budget changed state");
-                if (step + 1 < stateCount) require(operation.advance(1, bus) == 1, "dispatch budget differs");
-                if (restore) operation = InterruptibleDosTimeOperation(operation.snapshot());
+                if (step + 1 < stateCount) {
+                    const auto beforeRegisters = operation.registers();
+                    const bool callback = beforeRegisters.cs == 0xf000 &&
+                        (operation.interruptInProgress() ? beforeRegisters.ip == 0xfea5 : beforeRegisters.ip == base + 1u);
+                    const bool iret = operation.interruptInProgress() ?
+                        (beforeRegisters.cs == 0xf000 && beforeRegisters.ip == 0xfeb6) ||
+                        (beforeRegisters.cs == game && beforeRegisters.ip == 0x1090) :
+                        beforeRegisters.ip == base + 14u;
+                    require(operation.advance(1, bus) == 1, "dispatch budget differs");
+                    if (clock) {
+                        const auto flags = operation.registers().flags;
+                        const bool picExit = iret && (flags & 0x200u) && clock->snapshot().pending;
+                        auto boundary = clock->nextDispatch(callback || picExit, flags);
+                        while (boundary.kind == PicClockBoundaryKind::NeedMillisecond) {
+                            clock->grantMillisecond();
+                            boundary = clock->nextDispatch(false, flags);
+                        }
+                        require(boundary.kind == PicClockBoundaryKind::Ready, context + " unsupported device or IRQ producer");
+                        if (boundary.timerDelivered) {
+                            require(!operation.returned(), context + " IRQ reached caller after DOS return");
+                            operation.deliverTimerInterrupt(bus);
+                            ++predicted;
+                        }
+                    }
+                }
+                if (restore) {
+                    operation = InterruptibleDosTimeOperation(operation.snapshot());
+                    if (clock) *clock = PicWorkClock(clock->snapshot());
+                }
             }
             require(operation.returned() && operation.advance(1, bus) == 0 && memory.io == ioCount, "terminal state differs");
             require(operation.snapshot().dos.dispatchedInstructions == 325 &&
@@ -196,7 +298,9 @@ std::size_t original(Reader reader) {
     }
     require(reader.cursor == reader.bytes.size(), "projection tail differs");
     std::cout << "interruptible_dos_time_original=ok cases=" << count << " comparisons=" << comparisons
-              << " delivered_irqs=" << delivered << " irq_instructions_skipped=0 output_state_injected=0 scheduler_claim=0\n";
+              << " delivered_irqs=" << delivered << " irq_instructions_skipped=0 output_state_injected=0 scheduler_claim=0"
+              << " coupled_clock=" << !clocks.empty() << " predicted_irqs=" << predicted
+              << " later_cpu_flags_injected=0 whole_game_clock_claim=0\n";
     return comparisons;
 }
 void unit() {
@@ -290,9 +394,14 @@ int main(int argc, char** argv) {
         unit();
         edges();
         if (argc > 1) {
-            require(argc == 2, "expected projection");
+            require(argc == 2 || argc == 3, "expected CPU projection and optional PIC projection");
             std::ifstream stream(argv[1], std::ios::binary); require(stream.good(), "projection missing");
-            original(Reader{{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()}});
+            ClockCases clocks;
+            if (argc == 3) {
+                std::ifstream clockStream(argv[2], std::ios::binary); require(clockStream.good(), "clock projection missing");
+                clocks = readClocks(Reader{{std::istreambuf_iterator<char>(clockStream), std::istreambuf_iterator<char>()}});
+            }
+            original(Reader{{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()}}, clocks);
         }
     } catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
 }

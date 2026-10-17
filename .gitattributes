@@ -28,6 +28,7 @@ tests/fixtures/game_keyboard/** -text
 tools/game_keyboard_probe/** text eol=lf
 tools/game_keyboard_probe/*.patch -whitespace
 tests/fixtures/frame_hud/** -text
+tests/fixtures/hud_objective/** -text
 tools/frame_hud_probe/** text eol=lf
 tools/frame_hud_probe/*.patch -whitespace
 tests/fixtures/frame_foreground/** -text

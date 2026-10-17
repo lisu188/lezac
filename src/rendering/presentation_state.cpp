@@ -143,18 +143,22 @@ void PresentationState::beginOriginalPlay(bool fromMenu) {
 
 void PresentationState::prepareHudObjectives(uint16_t frame, int collected, int destructionPercent,
                                              int requiredBonus, int requiredDestruction) {
-    if ((frame % 30) == 0) hudDestructionPercent_ = destructionPercent;
+    collected = static_cast<uint16_t>(collected);
+    if ((frame % 30) == 0) hudDestructionPercent_ = static_cast<uint8_t>(destructionPercent);
     // 79E8 calls 3184 only when an objective display is dirty.
     if (collected == hudPreviousCollected_ && hudDestructionPercent_ == hudPreviousDestruction_) return;
     if (collected != hudPreviousCollected_) {
         hudPreviousCollected_ = collected;
         hudPaletteQueue_.request(245, {63, 63, 63}, {1, 1, 41});
-        if (collected >= requiredBonus) hudBonusComplete_ = true;
+        if (core::hudBonusRemaining(static_cast<uint16_t>(requiredBonus), static_cast<uint16_t>(collected)) == 0)
+            hudBonusComplete_ = true;
     }
     if (hudDestructionPercent_ != hudPreviousDestruction_) {
         hudPreviousDestruction_ = hudDestructionPercent_;
         hudPaletteQueue_.request(246, {63, 63, 63}, {1, 1, 41});
-        if (hudDestructionPercent_ >= requiredDestruction) hudDestructionComplete_ = true;
+        if (core::hudDestructionRemaining(static_cast<uint8_t>(requiredDestruction),
+                                         static_cast<uint8_t>(hudDestructionPercent_)) == 0)
+            hudDestructionComplete_ = true;
     }
     // 325B requests the shared border whenever that dirty-only helper runs.
     if (hudBonusComplete_ && hudDestructionComplete_)

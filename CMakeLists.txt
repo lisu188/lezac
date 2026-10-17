@@ -710,6 +710,28 @@ if(BUILD_TESTING)
         add_test(NAME frame_hud_oracle COMMAND lezac_frame_hud_test --oracle ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-oracle.bin)
         set_tests_properties(frame_hud_oracle PROPERTIES FIXTURES_REQUIRED frame_hud_corpus
             PASS_REGULAR_EXPRESSION "frame_hud_oracle=ok cases=17 copy_modes=2 full_endpoint_flags=1 timer_boundaries=655")
+        add_executable(lezac_hud_objective_original_test tests/rendering/hud_objective_original_test.cpp)
+        target_link_libraries(lezac_hud_objective_original_test PRIVATE lezac_rendering)
+        add_test(NAME hud_objective_original COMMAND lezac_hud_objective_original_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-oracle.bin)
+        set_tests_properties(hud_objective_original PROPERTIES FIXTURES_REQUIRED frame_hud_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "hud_objective_original=ok cases=14 draws=84 indexed_pixels=13056 differences=0 flag_differences=0")
+        add_test(NAME hud_objective_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_hud_objective_fixture.py
+            --oracle ${CMAKE_CURRENT_BINARY_DIR}/hud-objective-oracle.bin)
+        set_tests_properties(hud_objective_fixture_contract PROPERTIES FIXTURES_SETUP hud_objective_corpus)
+        add_test(NAME hud_objective_boundaries COMMAND lezac_hud_objective_original_test
+            ${CMAKE_CURRENT_BINARY_DIR}/hud-objective-oracle.bin)
+        set_tests_properties(hud_objective_boundaries PROPERTIES FIXTURES_REQUIRED hud_objective_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "hud_objective_original=ok cases=17 draws=102 indexed_pixels=21504 differences=0 flag_differences=0")
+        add_test(NAME hud_objective_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_hud_objective_fixture.py)
+        set_tests_properties(hud_objective_fixture_rejections PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR}")
         add_test(NAME frame_hud_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_hud_fixture.py)
         add_test(NAME frame_display_instructions COMMAND lezac_frame_display_test --instructions

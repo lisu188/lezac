@@ -74,6 +74,23 @@ public:
         }
     }
 
+    void drawHudObjectiveNumber(int x, int y, int value) {
+        // 313D paints exactly two low decimal positions, right to left;
+        // 1156 copies every glyph byte, including palette index zero.
+        for (int digit = 1; digit >= 0; --digit) {
+            const auto* tile = assets_.tiles().tile(121 + value % 10);
+            if (!tile) throw std::runtime_error("HUD objective digit atlas overread");
+            value /= 10;
+            for (int row = 0; row < 8; ++row) {
+                for (int column = 0; column < 8; ++column) {
+                    const uint8_t index = tile[row * 8 + column];
+                    canvas_.indexedPixel(x + digit * 9 + column, y + row, index,
+                                         argb(presentation_.palette(), index));
+                }
+            }
+        }
+    }
+
     void drawHudScore(int x, int y, const lezac::core::HudScoreReel& score) {
         bool leading = true;
         for (int digit = 8; digit >= 0; --digit) {
@@ -229,16 +246,16 @@ public:
         }
         // The original displays the REMAINING objective (required - current),
         // counting down to zero as bonuses are collected / tiles destroyed.
-        int bonusRemaining =
-            std::max(0, static_cast<int>(hud_.requiredBonus) - hud_.collected);
-        drawHudNumber(159, y0 + 12, std::min(99, bonusRemaining), 2);
+        const int bonusRemaining = core::hudBonusRemaining(
+            hud_.requiredBonus, static_cast<uint16_t>(hud_.collected));
+        drawHudObjectiveNumber(159, y0 + 12, bonusRemaining);
         // Bottom icon: the fixed destruction-target star, CARO.CAR tile 117.
         if (!drawHudTile8(144, y0 + 28, kHudDestructionStarTile)) {
             canvas_.rect(144, y0 + 28, 8, 8, kYellow);
         }
-        int destRemaining = std::max(
-            0, static_cast<int>(hud_.requiredDestruction) - hud_.destructionPercent);
-        drawHudNumber(159, y0 + 28, std::min(99, destRemaining), 2);
+        const int destRemaining = core::hudDestructionRemaining(
+            hud_.requiredDestruction, static_cast<uint8_t>(hud_.destructionPercent));
+        drawHudObjectiveNumber(159, y0 + 28, destRemaining);
     }
 
     void drawHud() {

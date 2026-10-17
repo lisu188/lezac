@@ -184,3 +184,4 @@ tests/fixtures/abort_map_original.bin.gz -text
 tests/fixtures/original_work_clock/** -text
 tools/original_work_probe/** text eol=lf
 tests/fixtures/viewport_width/** -text
+tests/fixtures/survivor_viewport/** -text

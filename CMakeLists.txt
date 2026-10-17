@@ -590,6 +590,8 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_render_view_initialization_test PRIVATE lezac_rendering)
     add_executable(lezac_viewport_width_original_test tests/rendering/viewport_width_original_test.cpp)
     target_link_libraries(lezac_viewport_width_original_test PRIVATE lezac_rendering)
+    add_executable(lezac_survivor_viewport_original_test tests/rendering/survivor_viewport_original_test.cpp)
+    target_link_libraries(lezac_survivor_viewport_original_test PRIVATE lezac_rendering)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
@@ -624,6 +626,24 @@ if(BUILD_TESTING)
         add_test(NAME viewport_width_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_viewport_width_fixture.py)
         set_tests_properties(viewport_width_fixture_rejections PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR}")
+        add_test(NAME survivor_viewport_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_survivor_viewport_fixture.py
+            --oracle ${CMAKE_CURRENT_BINARY_DIR}/survivor-viewport.bin)
+        set_tests_properties(survivor_viewport_fixture_contract PROPERTIES FIXTURES_SETUP survivor_viewport_corpus)
+        add_test(NAME survivor_viewport_original COMMAND lezac_survivor_viewport_original_test
+            ${CMAKE_CURRENT_BINARY_DIR}/survivor-viewport.bin)
+        set_tests_properties(survivor_viewport_original PROPERTIES FIXTURES_REQUIRED survivor_viewport_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "survivor_viewport=ok profiles=8 stages=72 pixels=3686400 differences=0 retained_hud_checks=307200")
+        add_test(NAME survivor_viewport_app COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+            $<TARGET_FILE:lezac_cpp> --debug-survivor-viewport-original ${CMAKE_CURRENT_BINARY_DIR}/survivor-viewport.bin)
+        set_tests_properties(survivor_viewport_app PROPERTIES FIXTURES_REQUIRED survivor_viewport_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "survivor_viewport_app=ok profiles=8 stages=72 pixels=3686400 differences=0 countdown_boundary=60 configured_slots=2 survivor_fire_ownership=1 next_level_pitch=1")
+        add_test(NAME survivor_viewport_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_survivor_viewport_fixture.py)
+        set_tests_properties(survivor_viewport_fixture_rejections PROPERTIES
             ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR}")
         add_test(NAME original_capture_contract
             COMMAND ${Python3_EXECUTABLE} -S -B

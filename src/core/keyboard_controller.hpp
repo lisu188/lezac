@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <functional>
@@ -48,7 +49,8 @@ public:
         if (state.used > 32 || state.pos >= 32 || state.repeatKey >= KeyboardHardwareKey::Last ||
             state.repeatWait > 1000 || (state.repeatWait && state.repeatKey == KeyboardHardwareKey::None) ||
             state.repeatPause < 250 || state.repeatPause > 1000 || state.repeatPause % 250 ||
-            state.repeatRate < 33 || state.repeatRate > 500 || state.command > KeyboardControllerCommand::SetOutPort)
+            std::find(rates.begin(), rates.end(), state.repeatRate) == rates.end() ||
+            state.command > KeyboardControllerCommand::SetOutPort)
             throw std::invalid_argument("Keyboard controller state differs from the pinned profile");
     }
     const KeyboardControllerSnapshot& snapshot() const noexcept {return state_;}

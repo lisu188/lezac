@@ -172,7 +172,24 @@ void unit() {
         try {KeyboardController invalidController(bad);} catch (const std::invalid_argument&) {rejected = true;}
         require(rejected, "Invalid keyboard controller snapshot accepted");
     }
-    std::cout << "keyboard_controller_unit=ok transfer=1 repeat=1 release=1 double_read=1 snapshot_rejections=7\n";
+    constexpr std::array<uint32_t, 32> originalRates{33,37,42,46,50,54,58,63,67,75,83,92,100,109,118,125,
+        133,149,167,182,200,217,233,250,270,303,333,370,400,435,476,500};
+    unsigned rejectedRates = 0, acceptedRates = 0;
+    for (uint32_t rate = 0; rate < 1002; ++rate) {
+        auto restored = state;
+        restored.repeatRate = rate;
+        bool rejected = false;
+        try {KeyboardController restoredController(restored);} catch (const std::invalid_argument&) {rejected = true;}
+        const bool expected = std::find(originalRates.begin(), originalRates.end(), rate) != originalRates.end();
+        require(!rejected == expected, "Restored typematic rate membership differs at " + std::to_string(rate));
+        rejectedRates += rejected; acceptedRates += !rejected;
+    }
+    auto malformed = state; malformed.repeatRate = 34; malformed.repeatKey = KeyboardHardwareKey::Z;
+    bool rejected = false;
+    try {KeyboardController restoredController(malformed);} catch (const std::invalid_argument&) {rejected = true;}
+    require(rejected && rejectedRates == 970 && acceptedRates == 32, "Review typematic-rate counterexample was accepted");
+    std::cout << "keyboard_controller_unit=ok transfer=1 repeat=1 release=1 double_read=1 snapshot_rejections=7"
+              << " rate_rejections=970 rate_values=32 review_rate34_rejected=1\n";
 }
 }
 int main(int argc, char** argv) {

@@ -84,10 +84,17 @@ logs and source snapshots remain retained.
 Four new Python methods pass on both platforms: 40 changed/missing-input
 controls, matching-output mtime retention, failed sync/replace preservation and
 three protected-source output aliases. The earlier 13 IRQ fixture methods pass
-on Linux, including its paired-output transaction coverage. Eight compiling
+on Linux, including its paired-output transaction coverage. Nine compiling
 mutations are detected: serial delay, port-ready clearing, repeat after release,
-Pause tail, ring position, reset scanning, CPU reslice and keyboard ticker.
+Pause tail, ring position, reset scanning, CPU reslice, keyboard ticker and
+restoration of the range-only typematic check.
 Mutant runs preserve production sources unchanged.
+
+External review reproduced acceptance of a restored 34 ms typematic rate,
+which the original programming table cannot produce. Snapshot restoration now
+requires table membership. Exhaustive controls accept all 32 original values
+and reject all 970 other values from 0 through 1001, including the exact
+same-repeat-key counterexample. The original-function corpus remains unchanged.
 
 A fresh natural original run also completes 41 IRQ windows/3,388 states, with
 four private RAM/PNG samples each verifying 43,552 original code bytes. New

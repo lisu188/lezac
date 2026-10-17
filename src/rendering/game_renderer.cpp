@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <stdexcept>
 
 namespace lezac::rendering {
 using namespace gameplay;
@@ -10,6 +11,12 @@ using namespace resources;
 using namespace ui;
 
 namespace {
+void fillViewFrame(Canvas& canvas, const Palette& palette, int left, int width,
+                   uint8_t outline, uint8_t inner) {
+    canvas.indexedRect(left, 0, width, 160, outline, argb(palette, outline));
+    canvas.indexedRect(left + 1, 1, width - 2, 158, inner, argb(palette, inner));
+}
+
 class WorldPainter {
 public:
     WorldPainter(Canvas& canvas, TextRenderer& text, const AssetCatalog& assets,
@@ -41,60 +48,18 @@ public:
         }
     }
 
-    // The original frames every gameplay viewport: a 1px outline (row y0, row
-    // y159 and the outer columns) around a 3px inner border, with the world
-    // rendered inside. Single-player uses a white outline with a grey border;
-    // in two-player the left view keeps white/grey and the right view uses a
-    // dark-red outline with a light-red border (all measured from original
-    // captures).
-    void drawViewFrame(int x0, int w, uint8_t outline, uint8_t inner) {
-        const auto outlineColor = argb(presentation_.palette(), outline);
-        const auto innerColor = argb(presentation_.palette(), inner);
-        canvas_.indexedRect(x0 + 1, 1, w - 2, 3, inner, innerColor);
-        canvas_.indexedRect(x0 + 1, 156, w - 2, 3, inner, innerColor);
-        canvas_.indexedRect(x0 + 1, 1, 3, 158, inner, innerColor);
-        canvas_.indexedRect(x0 + w - 4, 1, 3, 158, inner, innerColor);
-        canvas_.indexedRect(x0, 0, w, 1, outline, outlineColor);
-        canvas_.indexedRect(x0, 159, w, 1, outline, outlineColor);
-        canvas_.indexedRect(x0, 0, 1, 160, outline, outlineColor);
-        canvas_.indexedRect(x0 + w - 1, 0, 1, 160, outline, outlineColor);
-    }
-
     void drawGame() {
         canvas_.resetClip();
-        if (world_.playerCount > 1) {
-            // The original two-player mode is a side-by-side split: each view
-            // is a 152x152 viewport inside its own 160px-wide frame.
-            for (size_t player = 0; player < 2; ++player) {
-                const int left = static_cast<int>(player) * 160;
-                // 7A13/7A35 skip camera, draw and presentation for state zero.
-                if (world_.players[player].globalState == 0) {
-                    refreshRetainedViewColors(left, 160);
-                    continue;
-                }
-                canvas_.rect(left, 0, 160, 160, argb(presentation_.palette(), 0));
-                drawWorldView(world_.players[player].player, left + 4, 4, 152, 152);
-                canvas_.resetClip();
-                drawViewFrame(left, 160, static_cast<uint8_t>(player == 0 ? 15 : 4),
-                              static_cast<uint8_t>(player == 0 ? 28 : 12));
-            }
-        } else if (world_.players[0].globalState != 0) {
-            // Single-player: one 312x152 viewport (x4..315, y4..155) inside
-            // the white/grey frame. The E/R width adjustment narrows the
-            // world view inside the frame.
-            int viewW = std::clamp(world_.viewWidth, 160, 312);
-            int viewX = 4 + (312 - viewW) / 2;
-            canvas_.rect(0, 0, kScreenW, 160, argb(presentation_.palette(), 0));
-            drawWorldView(world_.players[0].player, viewX, 4, viewW, 152);
-            canvas_.resetClip();
-            if (viewW < 312) {
-                canvas_.rect(viewX - 1, 16, 1, 140, 0xfff0d060u);
-                canvas_.rect(viewX + viewW, 16, 1, 140, 0xfff0d060u);
-            }
-            drawViewFrame(0, kScreenW, 15, 28);
-        } else {
-            refreshRetainedViewColors(0, kScreenW);
+        // Original frames are painted only by setup/resize, not by each view copy.
+        refreshRetainedViewColors(0, kScreenW);
+        const auto initialLayout = ViewportLayout::initialize(world_.playerCount, world_.viewWidth);
+        const auto& layout = world_.viewportLayout ? *world_.viewportLayout : initialLayout;
+        for (int player = 0; player < world_.playerCount; ++player) {
+            if (world_.players[static_cast<size_t>(player)].globalState == 0) continue;
+            drawWorldView(world_.players[static_cast<size_t>(player)].player,
+                          layout.left[static_cast<size_t>(player)] + 4, 4, layout.pitch - 8, 152);
         }
+        canvas_.resetClip();
     }
 
     void refreshRetainedViewColors(int left, int width) {
@@ -116,14 +81,15 @@ public:
         // fed the player visual entry DS:0xC21E by the main loop): the
         // routine splits the scroll into a tile-aligned coarse part
         // (DS:0xC216/0xC218 = (x - 0x78BC) & ~7 / (y - 80) & ~7 with 0x78BC
-        // = viewW/2 - 4) and a fine part (DS:0xC20A/0xC20C = x%8 / y%8)
+        // = floor((pitch/8 - 2)/2)*8) and a fine part (DS:C20A/C20C = x%8 / y%8)
         // that recombine to a CONTINUOUS, instantly-applied camera
-        // camX = x - (viewW/2 - 4), camY = y - 80. On the max clamps
+        // camX = x - 78BC, camY = y - 80. On the max clamps
         // (coarse > DS:2094 = (Wt-40)*8 / DS:2096 = (Ht-21)*8) the fine
         // part is forced to 7, so the effective displayed limits are
         // worldW-313 and worldH-161 -- verified against the level-6 spawn
         // (cam 1127/351 for clamps 1120/344) and every walk/jump capture.
-        int camX = std::clamp(static_cast<int>(cameraPlayer.x) - (viewW / 2 - 4),
+        const int cameraCenter = (((viewW + 8) / 8 - 2) / 2) * 8;
+        int camX = std::clamp(static_cast<int>(cameraPlayer.x) - cameraCenter,
                               0, std::max(0, worldW - (viewW + 8) + 7));
         int camY = std::clamp(static_cast<int>(cameraPlayer.y) - (viewH / 2 + 4),
                               0, std::max(0, worldH - (viewH + 16) + 7));
@@ -347,17 +313,28 @@ void GameRenderer::initializePlayfield(int playerCount, int viewWidth) {
     // for an already-out player. Per-frame view gates must not inherit intro pixels.
     canvas_.resetClip();
     canvas_.indexedRect(0, 0, kScreenW, kScreenH, 0, argb(presentation_.palette(), 0));
-    const auto frame = [&](int left, int width, uint8_t outline, uint8_t inner) {
-        canvas_.indexedRect(left, 0, width, 160, outline, argb(presentation_.palette(), outline));
-        canvas_.indexedRect(left + 1, 1, width - 2, 158, inner, argb(presentation_.palette(), inner));
-    };
     if (playerCount == 2) {
-        frame(0, 160, 15, 28);
-        frame(160, 160, 4, 12);
+        fillViewFrame(canvas_, presentation_.palette(), 0, 160, 15, 28);
+        fillViewFrame(canvas_, presentation_.palette(), 160, 160, 4, 12);
     } else if (playerCount == 1) {
-        const int width = std::clamp(viewWidth, 160, kScreenW);
-        frame((kScreenW - width) / 2, width, 15, 28);
+        const int width = std::clamp(viewWidth, 168, kScreenW);
+        fillViewFrame(canvas_, presentation_.palette(), (kScreenW - width) / 2, width, 15, 28);
     }
+}
+
+void GameRenderer::resizePlayfield(int viewWidth) {
+    // 820F..8283 clear only the playfield, preserving the existing HUD.
+    canvas_.resetClip();
+    canvas_.indexedRect(0, 0, kScreenW, 160, 0, argb(presentation_.palette(), 0));
+    const int width = std::clamp(viewWidth, 168, kScreenW);
+    fillViewFrame(canvas_, presentation_.palette(), (kScreenW - width) / 2, width, 15, 28);
+}
+
+void GameRenderer::clearEliminatedViewport(int playerIndex) {
+    if (playerIndex < 0 || playerIndex > 1) throw std::invalid_argument("Eliminated viewport index differs");
+    // 7CD3..7CE9 clears this physical half only when another player remains.
+    canvas_.resetClip();
+    canvas_.indexedRect(playerIndex * 160, 0, 160, 160, 0, argb(presentation_.palette(), 0));
 }
 
 void GameRenderer::drawWorldView(const WorldRenderView& world, const Player& cameraPlayer,

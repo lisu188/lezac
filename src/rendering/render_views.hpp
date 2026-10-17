@@ -3,6 +3,7 @@
 #include "gameplay/actor_models.hpp"
 #include "core/hud.hpp"
 #include "rendering/hud_ammo.hpp"
+#include "rendering/viewport_layout.hpp"
 #include "resources/levels.hpp"
 #include "resources/records.hpp"
 #include "ui/models.hpp"
@@ -40,6 +41,7 @@ struct WorldRenderView {
     uint16_t cameraShakeOffset;
     bool state2CursorPreview;
     bool state2RowPreview;
+    const ViewportLayout* viewportLayout = nullptr;
 };
 
 struct PlayerHudView {

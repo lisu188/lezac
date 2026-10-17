@@ -1,4 +1,5 @@
 #include "diagnostics/frame_inspector.hpp"
+#include "diagnostics/survivor_viewport_fixture.hpp"
 #include "diagnostics/monster_animation_fixture.hpp"
 #include "diagnostics/jolly_cloud_probe.hpp"
 #include "diagnostics/transient_storage_fixture.hpp"
@@ -852,14 +853,19 @@ public:
             presented = true;
             if (afterPresent) afterPresent();
         };
+        gameplayPalettePresentation_ = [&] {
+            if (canvas_.resolvePalette(palette_)) display_.present(canvas_);
+        };
         try {
             update(dt);
             if (!presented) gameplayPresentation_();
         } catch (...) {
             gameplayPresentation_ = {};
+            gameplayPalettePresentation_ = {};
             throw;
         }
         gameplayPresentation_ = {};
+        gameplayPalettePresentation_ = {};
     }
 
     // The one implementation of the interactive cadence. Events are polled
@@ -1354,10 +1360,10 @@ public:
         }
 
         int viewWidth = gameplayViewWidth_;
-        pushKeyDown(SDLK_r);
+        pushKeyDown(SDLK_e);
         processEvents(running);
         if (gameplayViewWidth_ >= viewWidth) {
-            throw std::runtime_error("R key did not reduce playfield width");
+            throw std::runtime_error("E key did not reduce playfield width");
         }
         int reducedViewWidth = gameplayViewWidth_;
         FrameInspection reducedWidthFrame =
@@ -1366,16 +1372,44 @@ public:
             throw std::runtime_error("reduced playfield width did not change frame");
         }
 
-        pushKeyDown(SDLK_e);
+        pushKeyDown(SDLK_r);
         processEvents(running);
         if (gameplayViewWidth_ != viewWidth) {
-            throw std::runtime_error("E key did not restore playfield width");
+            throw std::runtime_error("R key did not restore playfield width");
         }
         FrameInspection restoredWidthFrame =
             inspectRenderedFrame("controls-view-width-restored");
         if (restoredWidthFrame.hash != backgroundOffFrame.hash) {
             throw std::runtime_error("restored playfield width did not redraw original frame");
         }
+
+        const auto widthBackdrop = presentation_.backdropBuffer();
+        for (int step = 1; step <= 20; ++step) {
+            pushKeyDown(SDLK_e, true);
+            processEvents(running);
+            if (gameplayViewWidth_ != std::max(168, 320 - step * 8))
+                throw std::runtime_error("E key width step or lower bound differs from original");
+        }
+        inspectRenderedFrame("controls-view-width-minimum");
+        const auto minimumWidthPixels = fb_;
+        pushKeyDown(SDLK_e, true);
+        processEvents(running);
+        if (gameplayViewWidth_ != 168 || fb_ != minimumWidthPixels)
+            throw std::runtime_error("ignored minimum-width key repainted the playfield");
+        for (int step = 1; step <= 20; ++step) {
+            pushKeyDown(SDLK_r, true);
+            processEvents(running);
+            if (gameplayViewWidth_ != std::min(320, 168 + step * 8))
+                throw std::runtime_error("R key width step or upper bound differs from original");
+        }
+        const auto maximumWidthFrame = inspectRenderedFrame("controls-view-width-maximum");
+        const auto maximumWidthPixels = fb_;
+        pushKeyDown(SDLK_r, true);
+        processEvents(running);
+        if (gameplayViewWidth_ != 320 || fb_ != maximumWidthPixels ||
+            maximumWidthFrame.hash != backgroundOffFrame.hash || presentation_.backdropPitch() != 320 ||
+            presentation_.backdropBuffer() != widthBackdrop)
+            throw std::runtime_error("width changes lost the retained backdrop or repainted an ignored key");
 
         pushKeyDown(SDLK_PAGEUP);
         processEvents(running);
@@ -1494,7 +1528,8 @@ public:
                   << " view_width=" << viewWidth << "->" << reducedViewWidth
                   << "->" << gameplayViewWidth_
                   << " two_player_width_locked=1"
-                  << " frame_inspection=1 reentry_key_release=1 shared_fire_consumption=1\n";
+                  << " frame_inspection=1 reentry_key_release=1 shared_fire_consumption=1"
+                  << " width_step=8 width_min=168 width_max=320 ignored_bounds=2 backdrop_latched=1 width_repeat=1\n";
     }
 
     void smokeUi(int frames) {
@@ -2002,14 +2037,15 @@ public:
                 if (pixelDigest != fields.at("indexed_sha256")) throw std::runtime_error("palette indexed view changed");
                 if (presentation_.redPalettePhase() != value("before_phase")) throw std::runtime_error("palette pre-phase mismatch");
                 checkDac(bytes(fields.at("before_dac"), 768));
+                canvas_.clear(0xff000000u);
+                drawWorldView(player_, 4, 4, 312, 152);
+                canvas_.resetClip();
                 presentation_.updateRedPalette(static_cast<uint16_t>(expectedFrame));
                 if (expectedFrame % 5 == 0) ++writes;
                 if (presentation_.redPalettePhase() != value("after_phase")) throw std::runtime_error("palette post-phase mismatch");
                 const auto dac = bytes(fields.at("after_dac"), 768);
                 checkDac(dac);
-                std::fill(fb_.begin(), fb_.end(), 0xff000000u);
-                drawWorldView(player_, 4, 4, 312, 152);
-                canvas_.resetClip();
+                canvas_.resolvePalette(palette_);
                 size_t different = 0;
                 uint64_t hash = 1469598103934665603ull;
                 std::vector<uint32_t> pixels;
@@ -3442,6 +3478,58 @@ public:
         if (presentation_.redPalettePhase() != 27) throw std::runtime_error("palette updated on wrapped frame one");
         std::cout << "red_palette_lifecycle=ok gameplay_cadence=1 pause_menu_intro_hold=1 level_frame_preserved=1"
                      " new_game_frame_reset=1 phase_preserved=1 frame_wrap=1\n";
+    }
+
+    void debugGameplayPalettePresentation(const std::string& outDir) {
+        load();
+        initSdl();
+        resetLevel(0);
+        ui_.setMenu(false);
+        monsters_.clear();
+        spawnerStates_.clear();
+        // Controlled retained-border probes complement the natural HUD indices.
+        canvas_.indexedPixel(1, 1, 230, argb(palette_, 230));
+        canvas_.pixel(0, 0, 0xff123456u);
+        std::array<uint8_t, SDL_NUM_SCANCODES> keyboard{};
+        replayKeyboard_ = keyboard.data();
+        if (!outDir.empty()) std::filesystem::create_directories(outDir);
+        size_t indexedComparisons = 0, rgbComparisons = 0, recoloredWorld = 0, recoloredHud = 0;
+        for (int frame = 1; frame <= 80; ++frame) {
+            std::vector<uint8_t> indices, indexed;
+            std::vector<uint32_t> before;
+            int draws = 0;
+            tickAndPresent(0.04f, [&] {
+                ++draws;
+                indices = canvas_.paletteIndices();
+                indexed = canvas_.indexedPixels();
+                before = fb_;
+            });
+            if (draws != 1 || logicTick_ != static_cast<uint32_t>(frame) ||
+                indices != canvas_.paletteIndices() || indexed != canvas_.indexedPixels())
+                throw std::runtime_error("late palette presentation redrew or lost the pre-actor frame");
+            size_t mismatches = 0;
+            for (size_t at = 0; at < fb_.size(); ++at) {
+                const uint32_t expected = indexed[at] ? argb(palette_, indices[at]) : before[at];
+                if (fb_[at] != expected) ++mismatches;
+                if (indexed[at]) ++indexedComparisons;
+                else ++rgbComparisons;
+                if (expected != before[at]) {
+                    if (at < 160 * kScreenW) ++recoloredWorld;
+                    else ++recoloredHud;
+                }
+            }
+            if (mismatches)
+                throw std::runtime_error("late palette presentation frame=" + std::to_string(frame) +
+                                         " stale_pixels=" + std::to_string(mismatches));
+            if (!outDir.empty() && (frame == 4 || frame == 5 || frame == 10 || frame == 80))
+                writeArgbPpm(joinPath(outDir, "frame_" + std::to_string(frame) + ".ppm"), fb_, kScreenW, kScreenH);
+        }
+        replayKeyboard_ = nullptr;
+        if (!indexedComparisons || !rgbComparisons || !recoloredWorld || !recoloredHud)
+            throw std::runtime_error("late palette presentation lacks indexed, RGB, world or HUD coverage");
+        std::cout << "gameplay_palette_presentation=ok frames=80 pre_actor_frame_retained=1 indexed_pixels="
+                  << indexedComparisons << " rgb_pixels=" << rgbComparisons << " recolored_world=" << recoloredWorld
+                  << " recolored_hud=" << recoloredHud << " actual_tick_and_present=1 seeded_scene=1 natural_route=0 whole_game_parity=0\n";
     }
 
     void debugLevel1FrameInspection() {
@@ -26950,9 +27038,11 @@ public:
         writeArgbPpm(joinPath(outDir, "intro.ppm"), fb_, kScreenW, kScreenH);
         onKey(SDLK_RETURN, running);
         const uint32_t gameplaySeed = randomSeed_;
-        tickAndPresent(static_cast<float>(kGovernedTickMs / 1000.0));
-        dumpMapMemory("map-first-present.bin");
-        writeArgbPpm(joinPath(outDir, "first-present.ppm"), fb_, kScreenW, kScreenH);
+        tickAndPresent(static_cast<float>(kGovernedTickMs / 1000.0), [&] {
+            dumpMapMemory("map-first-present.bin");
+            writeArgbPpm(joinPath(outDir, "first-present.ppm"), fb_, kScreenW, kScreenH);
+        });
+        writeArgbPpm(joinPath(outDir, "first-late-palette.ppm"), fb_, kScreenW, kScreenH);
         const auto& backdrop = presentation_.backdropBuffer();
         std::ofstream background(joinPath(outDir, "backdrop.bin"), std::ios::binary);
         background.exceptions(std::ios::failbit | std::ios::badbit);
@@ -27396,14 +27486,115 @@ public:
         beginLevelForPlay(1);
         project(0, 1);
         render("050_next_level_p1_out");
-        for (int y = 0; y < 160; ++y) for (int x = 0; x < 160; ++x) {
+        if (remainingPlayerCount() != 1 || viewportLayout_.pitch != 320 ||
+            viewportLayout_.left != std::array<int, 2>{{0, 0}} ||
+            !frameInspector_.regionHasVariation(4, 4, 312, 152))
+            throw std::runtime_error("surviving App player did not receive the next level's full viewport");
+        for (int x = 0; x < 320; ++x) for (int y : {0, 159}) {
             const size_t at = static_cast<size_t>(y * kScreenW + x);
-            const uint8_t expected = x == 0 || x == 159 || y == 0 || y == 159 ? 15 : 28;
-            if (fb_[at] != argb(palette_, expected) || canvas_.indexedPixels()[at] != 1 || canvas_.paletteIndices()[at] != expected)
-                throw std::runtime_error("already-out App viewport inherited the previous level or intro");
+            if (fb_[at] != argb(palette_, 15) || canvas_.indexedPixels()[at] != 1 || canvas_.paletteIndices()[at] != 15)
+                throw std::runtime_error("surviving next-level viewport did not use the original white frame");
         }
         std::cout << "render_view_ownership=ok phases=6 app_state_projection=1 inactive_views_retained=1"
-                  << " palette_indices_retained=1 palette_resolved=1 waiting_view_redrawn=1 level_initialization=1 whole_frame_claim=0\n";
+                  << " palette_indices_retained=1 palette_resolved=1 waiting_view_redrawn=1 level_initialization=1 whole_frame_claim=0 survivor_relayout=1\n";
+    }
+
+    void debugSurvivorViewportOriginal(const std::string& fixturePath, const std::string& outDir) {
+        const auto fixture = lezac::diagnostics::readSurvivorViewportFixture(fixturePath);
+        load();
+        initSdl();
+        if (!outDir.empty()) {
+            if (std::filesystem::exists(outDir)) throw std::runtime_error("survivor capture output already exists");
+            std::filesystem::create_directories(outDir);
+        }
+        uint64_t compared = 0, differences = 0;
+        for (size_t index = 0; index < fixture.profiles.size(); ++index) {
+            const auto& profile = fixture.profiles[index];
+            playerCount_ = 2;
+            gameplayViewWidth_ = 320;
+            lives_ = profile.lost == 1 ? profile.reserve : 2;
+            lives2_ = profile.lost == 2 ? profile.reserve : 2;
+            resetLevel(0);
+            ui_.setMenu(false);
+            levelFlow_.setInteractiveEnabled(false);
+            levelFlow_.restoreIntro({});
+            level_.tiles = fixture.map;
+            for (auto& spawner : spawnerStates_) spawner.remaining = 0;
+            presentation_.setPalette(assets_.palette());
+            presentation_.initializeBackdropBufferForPitch(160);
+            presentation_.restoreBackdrop(fixture.backdrop);
+            player_.x = 104; player_.y = 168; player_.spriteIndex = 0;
+            player2_.x = 296; player2_.y = 168; player2_.spriteIndex = 0;
+            bool running = true;
+            for (size_t phase = 1; phase < profile.stages.size(); ++phase) {
+                const auto& stage = profile.stages[phase];
+                if (phase == 2) {
+                    auto& player = profile.lost == 1 ? player_ : player2_;
+                    auto& energy = profile.lost == 1 ? energy_ : energy2_;
+                    auto& lives = profile.lost == 1 ? lives_ : lives2_;
+                    auto& dead = profile.lost == 1 ? playerDead_ : player2Dead_;
+                    auto& timer = profile.lost == 1 ? reentryTimer_ : reentryTimer2_;
+                    auto& cooldown = profile.lost == 1 ? damageCooldown_ : damageCooldown2_;
+                    energy = 0; cooldown = 0;
+                    damagePlayer(player, energy, lives, dead, timer, cooldown, profile.lost);
+                    for (int tick = 0; tick < 59; ++tick)
+                        updateReentry(player, energy, lives, dead, timer, profile.lost, false);
+                    if (remainingPlayerCount() != 2 || lives != profile.reserve || timer != 1)
+                        throw std::runtime_error("survivor life-loss transition occurred before the original countdown boundary");
+                    updateReentry(player, energy, lives, dead, timer, profile.lost, false);
+                } else if (phase == 4) {
+                    pushKeyDown(SDLK_e);
+                    processEvents(running);
+                } else if (phase == 5) {
+                    for (int step = 0; step < (profile.target - 160) / 8; ++step) {
+                        pushKeyDown(SDLK_r, step != 0);
+                        processEvents(running);
+                    }
+                } else if (phase == 7) {
+                    // Original fixture executes frame/geometry blocks, not the entire level decoder.
+                    initializeGameplayView();
+                } else if (phase == 8) {
+                    presentation_.initializeBackdropBufferForPitch(viewportLayout_.pitch);
+                    if (presentation_.backdropBuffer() != stage.backdrop)
+                        throw std::runtime_error("actual App survivor backdrop regeneration differs from original bytes");
+                }
+                if (phase == 1 || phase == 3 || phase == 6 || phase == 9) drawGame();
+                if (remainingPlayerCount() != stage.remaining || originalPlayerState(1) != stage.states[0] ||
+                    originalPlayerState(2) != stage.states[1] || viewportLayout_.pitch != stage.geometry[1] ||
+                    presentation_.backdropPitch() != stage.geometry[2] || gameplayViewWidth_ != stage.geometry[4] * 8 ||
+                    viewportLayout_.left[0] != stage.geometry[5] - 1284 || viewportLayout_.left[1] != stage.geometry[6] - 1284)
+                    throw std::runtime_error("actual App survivor layout or player-state projection differs");
+                for (size_t player = 0; player < 2; ++player) if (stage.states[player]) {
+                    const auto& actual = player == 0 ? player_ : player2_;
+                    if (actual.x != lezac::diagnostics::survivorVisualWord(stage, player, 0) ||
+                        actual.y != lezac::diagnostics::survivorVisualWord(stage, player, 2) ||
+                        actual.spriteIndex != lezac::diagnostics::survivorSpriteIndex(fixture, stage, player))
+                        throw std::runtime_error("actual App waiting/surviving visual descriptor differs");
+                }
+                for (size_t at = 0; at < 51200; ++at) {
+                    ++compared;
+                    differences += fb_[at] != presentation_.backdropColor(stage.pixels[at]);
+                }
+                if (!outDir.empty()) writeArgbPpm(joinPath(outDir, "p" + std::to_string(index) +
+                    "_phase" + std::to_string(phase) + ".ppm"), fb_, kScreenW, kScreenH);
+            }
+            beginLevelForPlay(1);
+            if (viewportLayout_.pitch != (remainingPlayerCount() == 2 ? 160 : gameplayViewWidth_) ||
+                presentation_.backdropPitch() != viewportLayout_.pitch || playerCount_ != 2)
+                throw std::runtime_error("actual next level lost survivor geometry or configured player slots");
+            inspectRenderedFrame("survivor-next-level");
+            if (!outDir.empty()) writeArgbPpm(joinPath(outDir, "p" + std::to_string(index) + "_next_level.ppm"), fb_, kScreenW, kScreenH);
+            reentryFire1_ = reentryFire2_ = false;
+            const bool secondSurvives = profile.lost == 1;
+            pushKeyDown(secondSurvives ? SDLK_KP_0 : SDLK_n);
+            processEvents(running);
+            if ((secondSurvives ? !reentryFire2_ || reentryFire1_ : !reentryFire1_ || reentryFire2_))
+                throw std::runtime_error("survivor layout changed configured fire-key ownership");
+        }
+        if (differences) throw std::runtime_error("actual App survivor pixel differences=" + std::to_string(differences));
+        std::cout << "survivor_viewport_app=ok profiles=8 stages=72 pixels=" << compared
+                  << " differences=0 countdown_boundary=60 configured_slots=2 survivor_fire_ownership=1"
+                  << " next_level_pitch=1 normalized_rgb=1 natural_death_route=0 whole_game_claim=0\n";
     }
 
     void debugTwoPlayerHudPanel() {
@@ -27679,6 +27870,7 @@ private:
     lezac::rendering::PresentationState presentation_;
     const Palette& palette_ = presentation_.palette();
     std::function<void()> gameplayPresentation_;
+    std::function<void()> gameplayPalettePresentation_;
     std::function<void(size_t)> debugResultReelObserver_;
     std::function<void(size_t, uint32_t, uint32_t)> debugResultTypingObserver_;
     const Palette& backgroundPalette_ = assets_.backgroundPalette();
@@ -27733,6 +27925,8 @@ private:
     uint8_t bonusRainTicks_ = 0;
     std::vector<uint32_t>& fb_ = canvas_.pixels();
     int gameplayViewWidth_ = kScreenW;
+    lezac::rendering::ViewportLayout viewportLayout_;
+    int playfieldConfiguredCount_ = 0;
     int collected_ = 0;
     int destroyed_ = 0;
     int completeTimer_ = 0;
@@ -27822,7 +28016,8 @@ private:
                        (!e.key.repeat ||
                         (!ui_.snapshot().menu && !ui_.snapshot().paused && !levelFlow_.intro().active && !levelFlow_.outro().active &&
                          (isPlayer1FireKey(e.key.keysym.sym) ||
-                          (playerCount_ > 1 && isPlayer2FireKey(e.key.keysym.sym)))) ||
+                          (playerCount_ > 1 && isPlayer2FireKey(e.key.keysym.sym)) ||
+                          (remainingPlayerCount() == 1 && (e.key.keysym.sym == SDLK_e || e.key.keysym.sym == SDLK_r)))) ||
                         shouldAcceptRepeatedUiKey(e.key.keysym.sym))) {
                 onKey(e.key.keysym.sym, running, e.key.keysym.mod);
             } else if (e.type == SDL_KEYDOWN) {
@@ -27977,6 +28172,7 @@ private:
         // The original loads gran.mst at the end of level setup only when the
         // current-level byte DS:0x79B7 equals 7 (callsite 1000:2E78).
         if (levelIndex_ == 6) spawnLevel7Boss();
+        initializeGameplayView();
     }
 
     LevelIntroPattern makeLevelIntroPattern() {
@@ -28049,7 +28245,6 @@ private:
         reentryTimer2_ = countdown2;
         noActivePlayerTicks_ = fallback;
         player_.animation = ActorAnimation::initialize(2, 9, 1, 1);
-        gameRenderer_.initializePlayfield(playerCount_, gameplayViewWidth_);
         buildBackdropBuffer();
     }
 
@@ -28100,6 +28295,7 @@ private:
                 presentation_.setPalette(assets_.palette());
                 endScreenPattern_ = makeLevelIntroPattern();
             },
+            [this] { return remainingPlayerCount() == 1; },
         };
     }
 
@@ -28498,6 +28694,8 @@ private:
         updateBonusRain();
         presentation_.advanceHudPalette();
         presentation_.updateRedPalette(static_cast<uint16_t>(logicTick_));
+        // DAC writes recolor the already-painted VGA frame without an actor redraw.
+        if (gameplayPalettePresentation_) gameplayPalettePresentation_();
         updateLevelCompletion();
         pumpSoundLatch();
     }
@@ -30523,6 +30721,7 @@ private:
             timer = 0;
             state2VisualCursorFor(startMarker).active = false;
             state2EffectEntryFor(startMarker).active = false;
+            if (remainingPlayerCount() == 1) gameRenderer_.clearEliminatedViewport(startMarker - 1);
             if (allPlayersOutOfLives()) beginGameOver();
         }
     }
@@ -32086,16 +32285,31 @@ private:
     }
 
     void adjustGameplayViewWidth(int delta) {
-        gameplayViewWidth_ = std::clamp(gameplayViewWidth_ + delta, 160, kScreenW);
+        if (!viewportLayout_.adjustWidth(remainingPlayerCount(), delta)) return;
+        gameplayViewWidth_ = viewportLayout_.pitch;
+        gameRenderer_.resizePlayfield(gameplayViewWidth_);
+    }
+
+    int remainingPlayerCount() const {
+        return static_cast<int>(lives_ >= 0) + static_cast<int>(playerCount_ > 1 && lives2_ >= 0);
+    }
+
+    void initializeGameplayView() {
+        const int remaining = remainingPlayerCount();
+        viewportLayout_ = lezac::rendering::ViewportLayout::initialize(remaining, gameplayViewWidth_);
+        gameRenderer_.initializePlayfield(remaining, gameplayViewWidth_);
+        playfieldConfiguredCount_ = playerCount_;
     }
 
     void buildBackdropBuffer() {
+        if (playfieldConfiguredCount_ != playerCount_) initializeGameplayView();
         lezac::core::TurboRandom random(randomSeed_);
-        presentation_.buildBackdropBuffer(playerCount_, random);
+        presentation_.buildBackdropBufferForPitch(viewportLayout_.pitch, random);
         randomSeed_ = random.seed();
     }
 
     std::vector<SharedActorEntry> prepareRenderState() {
+        if (playfieldConfiguredCount_ != playerCount_) initializeGameplayView();
         adoptUnorderedActors();
         auto order = sharedActorEntries();
         // Actor update order and the original boss visual-block order differ.
@@ -32111,7 +32325,7 @@ private:
                   {player2_, player2Dead_, lives2_, state2Visual2_, state2Effect2_, originalPlayerState(2)}}},
                 bombs_, monsters_, bonusDrops_, flashes_, launchPadMarkers_, transientActors_, order,
                 gameplayViewWidth_, ui_.snapshot().showBackground, cameraShakeOffset_,
-                state2VisualCursorPreview_, state2VisualRowPreview_};
+                state2VisualCursorPreview_, state2VisualRowPreview_, &viewportLayout_};
     }
 
     lezac::rendering::HudView hudView() const {
@@ -33080,6 +33294,10 @@ int lezac::app::runApplication(int argc, char** argv) {
             app.debugRedPaletteLifecycle();
             return 0;
         }
+        if (argc > 1 && std::string(argv[1]) == "--debug-gameplay-palette-presentation") {
+            app.debugGameplayPalettePresentation(argc > 2 ? argv[2] : "");
+            return 0;
+        }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-actor-constructor-velocity") {
             if (argc != 3)
                 throw std::runtime_error("usage: --debug-original-actor-constructor-velocity OUTPUT");
@@ -33173,6 +33391,11 @@ int lezac::app::runApplication(int argc, char** argv) {
         if (argc > 1 && std::string(argv[1]) == "--debug-render-view-ownership") {
             if (argc > 3) throw std::runtime_error("usage: --debug-render-view-ownership [OUTPUT]");
             app.debugRenderViewOwnership(argc > 2 ? argv[2] : "");
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-survivor-viewport-original") {
+            if (argc < 3 || argc > 4) throw std::runtime_error("usage: --debug-survivor-viewport-original FIXTURE [OUTPUT]");
+            app.debugSurvivorViewportOriginal(argv[2], argc > 3 ? argv[3] : "");
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-level1-frame-inspection") {

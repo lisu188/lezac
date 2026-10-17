@@ -1,0 +1,41 @@
+{
+  "schema": "lezac-bios-keyboard-function-oracle-v1",
+  "cases": 65536,
+  "source_sha256": "880ef5796c968db80b7e0d23f2d5f68e86fd3d065b40f141bd77642ad2d89416",
+  "table_sha256": "8c2e95e44d39693782fd32b718b4f320e382ebe459d482fec7c9bee5db01c964",
+  "buffer_functions_sha256": "5b6584a8319b754b30df8adff2e0b05303fef3a5732a5233a6be3054a347be9e",
+  "handler_sha256": "ab39abe354330494f129aebe1174e258ef13cd6efd886c7069867e1921ec1c16",
+  "driver_sha256": "2967d871782dc367b54f3576d82d217ce8c0754ef1c764a793efac950a14feb8",
+  "producer_sha256": "28fb9858d3559510edc6c69b7db033a7f2c5e83008fd191601305ac063e04464",
+  "generated_source_sha256": "fde25f85bb03276422675698769f79bce290c043820a7f3d5a010364992ed329",
+  "binary_sha256": "e308d23dcfa802f34c582a1d3e1ffada746fe2f6491908158b8d93aec99351b6",
+  "oracle_sha256": "3d9b6ac0353d4f547868a380907ea816da00540c77658133fa41bf9d94b9540d",
+  "oracle_bytes": 20251540,
+  "sdl_version_header_sha256": "216caa833765dc08d8f7a269e0270e9d165888c53ec4e9419812fa503041e6af",
+  "build_argv": [
+    "c++",
+    "-std=c++23",
+    "-O2",
+    "-I/dev/shm/lezac-work-oracle-t190/sdk/usr/include/SDL",
+    "/dev/shm/lezac-clock-frontier-t215/bios-oracle/oracle.cpp",
+    "-o",
+    "/dev/shm/lezac-clock-frontier-t215/bios-oracle/oracle"
+  ],
+  "build_environment": {
+    "PATH": "/usr/bin:/bin",
+    "TMPDIR": "/dev/shm/lezac-clock-frontier-t215/bios-oracle",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "SDL_AUDIODRIVER": "dummy",
+    "SDL_VIDEODRIVER": "dummy"
+  },
+  "build_environment_is_complete": true,
+  "original_functions_changed": false,
+  "original_host_execution": false,
+  "keyboard_layout": "none",
+  "machine": 5,
+  "can_use_lock": true,
+  "pause_callback_idle_is_explicit_handoff": true,
+  "external_functions": "Bounded BIOS memory, no-layout false result, recorded I/O, explicit Pause idle handoff",
+  "whole_game_claim": false
+}

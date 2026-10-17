@@ -3,6 +3,8 @@
   "owners": {
     "core": {
       "runtime": [
+        "src/core/bios_keyboard.hpp",
+        "src/core/bios_keyboard_tables.hpp",
         "src/core/constants.hpp",
         "src/core/crt_delay.hpp",
         "src/core/crt_keyboard.hpp",
@@ -20,6 +22,8 @@
         "src/core/interruptible_dos_time.hpp",
         "src/core/interruptible_frame_clock.hpp",
         "src/core/interruptible_frame_display.hpp",
+        "src/core/keyboard_controller.hpp",
+        "src/core/keyboard_irq.hpp",
         "src/core/pic_work_clock.hpp",
         "src/core/pacing_device_clock.hpp",
         "src/core/progress.cpp",

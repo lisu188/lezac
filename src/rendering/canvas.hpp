@@ -1,5 +1,7 @@
 #pragma once
 
+#include "resources/types.hpp"
+
 #include <cstdint>
 #include <vector>
 
@@ -17,6 +19,7 @@ public:
     void clear(uint32_t color);
     void indexedPixel(int x, int y, uint8_t index, uint32_t color);
     void indexedRect(int x, int y, int w, int h, uint8_t index, uint32_t color);
+    bool resolvePalette(const resources::Palette& palette);
     const std::vector<uint8_t>& paletteIndices() const { return paletteIndices_; }
     const std::vector<uint8_t>& indexedPixels() const { return indexedPixels_; }
 

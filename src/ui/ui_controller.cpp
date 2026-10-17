@@ -122,8 +122,9 @@ void UiController::onKey(Key key, bool& running, int levelIndex, int playerCount
     else if (isPlayer1FireKey(key)) actions.firePlayer(1);
     else if (playerCount > 1 && isPlayer2FireKey(key)) actions.firePlayer(2);
     else if (key == Key::S) state_.showBackground = !state_.showBackground;
-    else if (key == Key::R && playerCount == 1) actions.adjustViewWidth(-32);
-    else if (key == Key::E && playerCount == 1) actions.adjustViewWidth(32);
+    else if ((key == Key::E || key == Key::R) &&
+             (actions.canAdjustViewWidth ? actions.canAdjustViewWidth() : playerCount == 1))
+        actions.adjustViewWidth(key == Key::E ? -8 : 8);
     if (state_.menu && state_.page == MenuPage::Main &&
         (wasPage == MenuPage::NameEntry || wasPage == MenuPage::GameOver || wasPage == MenuPage::CompletedGame)) {
         return;

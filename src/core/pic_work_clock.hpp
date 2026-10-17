@@ -11,7 +11,7 @@ namespace lezac::core {
 
 enum class PicClockEventKind : uint8_t {
     Pit0 = 1, Foreign = 2, VgaDrawPart = 3, VgaVertical = 4,
-    VgaDisplayLatch = 5, VgaPanningLatch = 6, VgaVerticalInterrupt = 7
+    VgaDisplayLatch = 5, VgaPanningLatch = 6, VgaVerticalInterrupt = 7, KeyboardTransfer = 8
 };
 struct PicClockEvent {
     float index = 0;
@@ -35,6 +35,7 @@ struct PicWorkClockSnapshot {
     std::vector<PicClockEvent> queue;
     PicClockPhase phase = PicClockPhase::Predecode;
     uint64_t dispatched = 0, timerDeliveries = 0, millisecondGrants = 0;
+    uint64_t keyboardDeliveries = 0;
     bool operator==(const PicWorkClockSnapshot&) const = default;
 };
 enum class PicClockBoundaryKind { Ready, NeedMillisecond, ForeignEvent, OtherIrq };
@@ -71,6 +72,17 @@ public:
 
     void chargePortRead() { chargeIo(1024); }
     void chargePortWrite() { chargeIo(1365); }
+    // Normal-core REP reimburses the decode decrement, then charges each transfer.
+    uint16_t chargeStringTransfers(uint16_t requested) {
+        if (state_.phase != PicClockPhase::Predecode || state_.cycles < 0 || state_.cycles >= state_.cycleMax)
+            throw std::logic_error("PIC string charge is outside a decoded instruction");
+        const int64_t available = state_.cycles + 1;
+        const auto transferred = static_cast<uint16_t>(std::min<int64_t>(requested, available));
+        if (requested > available) state_.cycles = 0;
+        else if (requested <= 1 && available <= 1) state_.cycles = available - 1;
+        else state_.cycles = available - requested;
+        return transferred;
+    }
     void nonspecificMasterEoi() {
         if (state_.activeIrq >= 8) return;
         state_.inserviceLines &= static_cast<uint16_t>(~(uint16_t{1} << state_.activeIrq));
@@ -79,6 +91,29 @@ public:
             state_.activeIrq = irq;
             break;
         }
+    }
+    void activateKeyboardIrq() {
+        state_.activeLines |= 2;
+        if (!(state_.maskedLines & 2u)) state_.pending |= 2;
+    }
+    void deliverKeyboardInterrupt() {
+        if (state_.phase != PicClockPhase::OtherIrq)
+            throw std::logic_error("Keyboard IRQ delivery is not pending at the PIC boundary");
+        for (uint8_t irq : priorityOrder) {
+            if (irq == state_.activeIrq) break;
+            const auto bit = static_cast<uint16_t>(uint16_t{1} << irq);
+            if (!(state_.activeLines & bit) || (state_.maskedLines & bit) || (irq >= 8 && (state_.maskedLines & 4u))) continue;
+            if (irq != 1) break;
+            state_.activeLines &= static_cast<uint16_t>(~uint16_t{2});
+            state_.pending &= static_cast<uint16_t>(~uint16_t{2});
+            state_.inserviceLines |= 2;
+            state_.activeIrq = 1;
+            ++state_.keyboardDeliveries;
+            --state_.cycles;
+            state_.phase = PicClockPhase::Predecode;
+            return;
+        }
+        throw std::logic_error("Keyboard IRQ is not the eligible PIC line");
     }
 
     // The input state is already at the observed predecode boundary. Callback and
@@ -169,16 +204,21 @@ public:
         return event;
     }
     void scheduleDeviceEvent(PicClockEvent event) {
-        if (state_.phase != PicClockPhase::Queue || !std::isfinite(event.index) ||
+        if ((state_.phase != PicClockPhase::Queue && state_.phase != PicClockPhase::Predecode) || !std::isfinite(event.index) ||
             std::abs(event.index) > 1024 || static_cast<unsigned>(event.kind) < 3 ||
-            static_cast<unsigned>(event.kind) > 7 || state_.queue.size() >= 64)
+            static_cast<unsigned>(event.kind) > 8 || state_.queue.size() >= 64)
             throw std::logic_error("PIC device scheduling is outside the recovered profile");
         const auto at = std::upper_bound(state_.queue.begin(), state_.queue.end(), event.index,
             [](float index, const PicClockEvent& candidate) { return index < candidate.index; });
         state_.queue.insert(at, event);
+        // Original AddEntry ends the active core slice when a newly queued deadline is earlier.
+        const auto cycles = static_cast<int64_t>(state_.cycleMax *
+            static_cast<double>(state_.queue.front().index - fractionalTickIndex()));
+        if (cycles < state_.cycles) {state_.cycleLeft += state_.cycles; state_.cycles = 0;}
     }
     void removeDeviceEvents(PicClockEventKind kind) {
-        if (state_.phase != PicClockPhase::Queue || static_cast<unsigned>(kind) < 3 || static_cast<unsigned>(kind) > 7)
+        if ((state_.phase != PicClockPhase::Queue && state_.phase != PicClockPhase::Predecode) ||
+            static_cast<unsigned>(kind) < 3 || static_cast<unsigned>(kind) > 8)
             throw std::logic_error("PIC device removal is outside the recovered profile");
         std::erase_if(state_.queue, [kind](const PicClockEvent& event) { return event.kind == kind; });
     }

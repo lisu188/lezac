@@ -18,6 +18,7 @@ struct PlayerRenderView {
     int lives;
     const gameplay::State2VisualCursor& state2Cursor;
     const gameplay::State2EffectEntry& state2Effect;
+    uint8_t globalState = 1; // The original viewport gate; zero retains its VGA view.
 };
 
 // Read-only world data needed for painting. Visual order is prepared by the

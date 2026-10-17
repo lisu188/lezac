@@ -584,8 +584,32 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^render_state_boundary=ok repeat_pixels=1 nonblank=1 rng_unchanged=1 actor_order_unchanged=1 palette_unchanged=1 live_map_alias=1")
 
+    add_executable(lezac_render_view_gate_test tests/rendering/render_view_gate_test.cpp)
+    target_link_libraries(lezac_render_view_gate_test PRIVATE lezac_rendering)
+    add_executable(lezac_render_view_initialization_test tests/rendering/render_view_initialization_test.cpp)
+    target_link_libraries(lezac_render_view_initialization_test PRIVATE lezac_rendering)
+
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME render_view_gate_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_render_view_gate_fixture.py
+            --oracle ${CMAKE_CURRENT_BINARY_DIR}/render-view-gate.bin
+            --initialization ${CMAKE_CURRENT_BINARY_DIR}/render-view-initialization.bin)
+        set_tests_properties(render_view_gate_fixture_contract PROPERTIES FIXTURES_SETUP render_view_gate_corpus)
+        add_test(NAME render_view_gate_original COMMAND lezac_render_view_gate_test
+            ${CMAKE_CURRENT_BINARY_DIR}/render-view-gate.bin)
+        set_tests_properties(render_view_gate_original PROPERTIES FIXTURES_REQUIRED render_view_gate_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "render_view_gate=ok cases=20 retained_pixels=512000 differences=0 ownership_differences=0 active_views=54")
+        add_test(NAME render_view_initialization_original COMMAND lezac_render_view_initialization_test
+            ${CMAKE_CURRENT_BINARY_DIR}/render-view-initialization.bin)
+        set_tests_properties(render_view_initialization_original PROPERTIES FIXTURES_REQUIRED render_view_gate_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "render_view_initialization=ok cases=2 palette_modes=2 pixels=256000 differences=0 ownership_differences=0")
+        add_test(NAME render_view_gate_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_render_view_gate_fixture.py)
+        set_tests_properties(render_view_gate_fixture_rejections PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR}")
         add_test(NAME original_capture_contract
             COMMAND ${Python3_EXECUTABLE} -S -B
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_original_capture_contract.py -v)
@@ -7040,6 +7064,12 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^two_player_hud_panel=ok split_views=2 p1_hud_visible=1 p1_world_visible=1 p2_hud_visible=1 p2_world_visible=1 objective_panel_visible=1 objective_panel_changed=1 panel_x=141 panel_w=37 p2_column_x=180 frame_inspection=1 original_art_claim=0")
+
+    add_test(NAME render_view_ownership
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+            $<TARGET_FILE:lezac_cpp> --debug-render-view-ownership)
+    set_tests_properties(render_view_ownership PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "render_view_ownership=ok phases=6 app_state_projection=1 inactive_views_retained=1 palette_indices_retained=1 palette_resolved=1 waiting_view_redrawn=1 level_initialization=1 whole_frame_claim=0")
 
     if(Python3_Interpreter_FOUND)
         add_test(NAME pickup_landing_guard

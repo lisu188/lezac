@@ -27321,6 +27321,91 @@ public:
                   << " progress_visible=1 frame_inspection=1\n";
     }
 
+    void debugRenderViewOwnership(const std::string& outDir) {
+        if (!outDir.empty()) {
+            if (std::filesystem::exists(outDir)) throw std::runtime_error("view ownership output already exists");
+            std::filesystem::create_directories(outDir);
+        }
+        playerCount_ = 2;
+        load();
+        initSdl();
+        resetLevel(0);
+        ui_.setMenu(false);
+        levelFlow_.setInteractiveEnabled(false);
+        levelFlow_.restoreIntro({});
+        player_.x = 96; player_.y = 168;
+        player2_.x = 272; player2_.y = 168;
+        lives_ = lives2_ = 2;
+        playerDead_ = player2Dead_ = pendingLifeLoss_ = pendingLifeLoss2_ = false;
+        levelRestartPromoted_ = false;
+        prepareHudObjectives();
+        updateHudScores();
+        presentation_.sampleHudInventory(0, bombInventory_, originalPlayerState(1));
+        presentation_.sampleHudInventory(1, bombInventory2_, originalPlayerState(2));
+        presentation_.updateHudEnergy(0, energy_, 1);
+        presentation_.updateHudEnergy(1, energy2_, 1);
+        const auto render = [&](const std::string& label) {
+            drawGame();
+            inspectRenderedFrame(label);
+            if (!outDir.empty()) writeArgbPpm(joinPath(outDir, label + ".ppm"), fb_, kScreenW, kScreenH);
+        };
+        const auto retained = [&](const lezac::rendering::Canvas& before, int left, int width) {
+            for (int y = 0; y < 160; ++y) for (int x = left; x < left + width; ++x) {
+                const size_t at = static_cast<size_t>(y * kScreenW + x);
+                const auto expected = before.indexedPixels()[at]
+                    ? argb(palette_, before.paletteIndices()[at]) : before.pixels()[at];
+                if (fb_[at] != expected || canvas_.paletteIndices()[at] != before.paletteIndices()[at] ||
+                    canvas_.indexedPixels()[at] != before.indexedPixels()[at])
+                    throw std::runtime_error("inactive App viewport lost pixels or palette ownership");
+            }
+        };
+        const auto project = [&](uint8_t first, uint8_t second) {
+            const std::vector<SharedActorEntry> empty;
+            const auto view = worldRenderView(empty);
+            if (view.players[0].globalState != first || view.players[1].globalState != second)
+                throw std::runtime_error("App viewport state projection differs from original state bytes");
+        };
+        project(1, 1);
+        render("000_both_active");
+        auto before = canvas_;
+        lives_ = -1; playerDead_ = true;
+        player_.x += 96; player2_.x += 32;
+        project(0, 1);
+        render("010_p1_out");
+        retained(before, 0, 160);
+        if (!frameInspector_.regionChanged(before.pixels(), 160, 0, 160, 160))
+            throw std::runtime_error("surviving App viewport stopped repainting");
+        before = canvas_;
+        presentation_.updateRedPalette(5);
+        render("020_p1_out_palette");
+        retained(before, 0, 160);
+        before = canvas_;
+        lives2_ = -1; player2Dead_ = true;
+        player_.x += 32; player2_.x += 32;
+        project(0, 0);
+        render("030_both_out");
+        retained(before, 0, 320);
+        before = canvas_;
+        lives_ = 0; player_.x = 320;
+        project(2, 0);
+        render("040_p1_waiting");
+        retained(before, 160, 160);
+        if (!frameInspector_.regionChanged(before.pixels(), 0, 0, 160, 160))
+            throw std::runtime_error("waiting App viewport did not resume repainting");
+        lives_ = -1; lives2_ = 2; player2Dead_ = false;
+        beginLevelForPlay(1);
+        project(0, 1);
+        render("050_next_level_p1_out");
+        for (int y = 0; y < 160; ++y) for (int x = 0; x < 160; ++x) {
+            const size_t at = static_cast<size_t>(y * kScreenW + x);
+            const uint8_t expected = x == 0 || x == 159 || y == 0 || y == 159 ? 15 : 28;
+            if (fb_[at] != argb(palette_, expected) || canvas_.indexedPixels()[at] != 1 || canvas_.paletteIndices()[at] != expected)
+                throw std::runtime_error("already-out App viewport inherited the previous level or intro");
+        }
+        std::cout << "render_view_ownership=ok phases=6 app_state_projection=1 inactive_views_retained=1"
+                  << " palette_indices_retained=1 palette_resolved=1 waiting_view_redrawn=1 level_initialization=1 whole_frame_claim=0\n";
+    }
+
     void debugTwoPlayerHudPanel() {
         load();
         initSdl();
@@ -27964,6 +28049,7 @@ private:
         reentryTimer2_ = countdown2;
         noActivePlayerTicks_ = fallback;
         player_.animation = ActorAnimation::initialize(2, 9, 1, 1);
+        gameRenderer_.initializePlayfield(playerCount_, gameplayViewWidth_);
         buildBackdropBuffer();
     }
 
@@ -32021,8 +32107,8 @@ private:
 
     lezac::rendering::WorldRenderView worldRenderView(const std::vector<SharedActorEntry>& order) const {
         return {level_, levelIndex_, playerCount_,
-                {{{player_, playerDead_, lives_, state2Visual_, state2Effect_},
-                  {player2_, player2Dead_, lives2_, state2Visual2_, state2Effect2_}}},
+                {{{player_, playerDead_, lives_, state2Visual_, state2Effect_, originalPlayerState(1)},
+                  {player2_, player2Dead_, lives2_, state2Visual2_, state2Effect2_, originalPlayerState(2)}}},
                 bombs_, monsters_, bonusDrops_, flashes_, launchPadMarkers_, transientActors_, order,
                 gameplayViewWidth_, ui_.snapshot().showBackground, cameraShakeOffset_,
                 state2VisualCursorPreview_, state2VisualRowPreview_};
@@ -33082,6 +33168,11 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-visual-order-original") {
             app.debugVisualOrderOriginal(argv[2], argc > 3 ? argv[3] : "");
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-render-view-ownership") {
+            if (argc > 3) throw std::runtime_error("usage: --debug-render-view-ownership [OUTPUT]");
+            app.debugRenderViewOwnership(argc > 2 ? argv[2] : "");
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-level1-frame-inspection") {

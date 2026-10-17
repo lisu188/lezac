@@ -47,40 +47,64 @@ public:
     // in two-player the left view keeps white/grey and the right view uses a
     // dark-red outline with a light-red border (all measured from original
     // captures).
-    void drawViewFrame(int x0, int w, uint32_t outline, uint32_t inner) {
-        canvas_.rect(x0 + 1, 1, w - 2, 3, inner);
-        canvas_.rect(x0 + 1, 156, w - 2, 3, inner);
-        canvas_.rect(x0 + 1, 1, 3, 158, inner);
-        canvas_.rect(x0 + w - 4, 1, 3, 158, inner);
-        canvas_.rect(x0, 0, w, 1, outline);
-        canvas_.rect(x0, 159, w, 1, outline);
-        canvas_.rect(x0, 0, 1, 160, outline);
-        canvas_.rect(x0 + w - 1, 0, 1, 160, outline);
+    void drawViewFrame(int x0, int w, uint8_t outline, uint8_t inner) {
+        const auto outlineColor = argb(presentation_.palette(), outline);
+        const auto innerColor = argb(presentation_.palette(), inner);
+        canvas_.indexedRect(x0 + 1, 1, w - 2, 3, inner, innerColor);
+        canvas_.indexedRect(x0 + 1, 156, w - 2, 3, inner, innerColor);
+        canvas_.indexedRect(x0 + 1, 1, 3, 158, inner, innerColor);
+        canvas_.indexedRect(x0 + w - 4, 1, 3, 158, inner, innerColor);
+        canvas_.indexedRect(x0, 0, w, 1, outline, outlineColor);
+        canvas_.indexedRect(x0, 159, w, 1, outline, outlineColor);
+        canvas_.indexedRect(x0, 0, 1, 160, outline, outlineColor);
+        canvas_.indexedRect(x0 + w - 1, 0, 1, 160, outline, outlineColor);
     }
 
     void drawGame() {
-        canvas_.clear(argb(presentation_.palette(), 0));
+        canvas_.resetClip();
         if (world_.playerCount > 1) {
             // The original two-player mode is a side-by-side split: each view
             // is a 152x152 viewport inside its own 160px-wide frame.
-            drawWorldView(world_.players[0].player, 4, 4, 152, 152);
-            drawWorldView(world_.players[1].player, 164, 4, 152, 152);
-            canvas_.resetClip();
-            drawViewFrame(0, 160, 0xffffffffu, 0xffb6b6b6u);
-            drawViewFrame(160, 160, 0xffaa0000u, 0xffff5555u);
-        } else {
+            for (size_t player = 0; player < 2; ++player) {
+                const int left = static_cast<int>(player) * 160;
+                // 7A13/7A35 skip camera, draw and presentation for state zero.
+                if (world_.players[player].globalState == 0) {
+                    refreshRetainedViewColors(left, 160);
+                    continue;
+                }
+                canvas_.rect(left, 0, 160, 160, argb(presentation_.palette(), 0));
+                drawWorldView(world_.players[player].player, left + 4, 4, 152, 152);
+                canvas_.resetClip();
+                drawViewFrame(left, 160, static_cast<uint8_t>(player == 0 ? 15 : 4),
+                              static_cast<uint8_t>(player == 0 ? 28 : 12));
+            }
+        } else if (world_.players[0].globalState != 0) {
             // Single-player: one 312x152 viewport (x4..315, y4..155) inside
             // the white/grey frame. The E/R width adjustment narrows the
             // world view inside the frame.
             int viewW = std::clamp(world_.viewWidth, 160, 312);
             int viewX = 4 + (312 - viewW) / 2;
+            canvas_.rect(0, 0, kScreenW, 160, argb(presentation_.palette(), 0));
             drawWorldView(world_.players[0].player, viewX, 4, viewW, 152);
             canvas_.resetClip();
             if (viewW < 312) {
                 canvas_.rect(viewX - 1, 16, 1, 140, 0xfff0d060u);
                 canvas_.rect(viewX + viewW, 16, 1, 140, 0xfff0d060u);
             }
-            drawViewFrame(0, kScreenW, 0xffffffffu, 0xffb6b6b6u);
+            drawViewFrame(0, kScreenW, 15, 28);
+        } else {
+            refreshRetainedViewColors(0, kScreenW);
+        }
+    }
+
+    void refreshRetainedViewColors(int left, int width) {
+        // VGA keeps the old indices, but DAC changes still affect their RGB.
+        const auto& indices = canvas_.paletteIndices();
+        const auto& indexed = canvas_.indexedPixels();
+        auto& pixels = canvas_.pixels();
+        for (int y = 0; y < 160; ++y) for (int x = left; x < left + width; ++x) {
+            const size_t at = static_cast<size_t>(y * kScreenW + x);
+            if (indexed[at]) pixels[at] = argb(presentation_.palette(), indices[at]);
         }
     }
 
@@ -316,6 +340,24 @@ private:
 void GameRenderer::drawGame(const WorldRenderView& world, const HudView& hud) {
     WorldPainter(canvas_, text_, assets_, presentation_, *this, world).drawGame();
     drawHud(hud);
+}
+
+void GameRenderer::initializePlayfield(int playerCount, int viewWidth) {
+    // 2C7A clears VGA after the intro; 2959 paints the configured frames even
+    // for an already-out player. Per-frame view gates must not inherit intro pixels.
+    canvas_.resetClip();
+    canvas_.indexedRect(0, 0, kScreenW, kScreenH, 0, argb(presentation_.palette(), 0));
+    const auto frame = [&](int left, int width, uint8_t outline, uint8_t inner) {
+        canvas_.indexedRect(left, 0, width, 160, outline, argb(presentation_.palette(), outline));
+        canvas_.indexedRect(left + 1, 1, width - 2, 158, inner, argb(presentation_.palette(), inner));
+    };
+    if (playerCount == 2) {
+        frame(0, 160, 15, 28);
+        frame(160, 160, 4, 12);
+    } else if (playerCount == 1) {
+        const int width = std::clamp(viewWidth, 160, kScreenW);
+        frame((kScreenW - width) / 2, width, 15, 28);
+    }
 }
 
 void GameRenderer::drawWorldView(const WorldRenderView& world, const Player& cameraPlayer,

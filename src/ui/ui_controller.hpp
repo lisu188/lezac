@@ -21,6 +21,7 @@ struct UiActions {
     std::function<void()> abortRun;
     std::function<void()> prepareRecordsPage;
     std::function<void()> prepareNameEntryPage;
+    std::function<bool()> canAdjustViewWidth;
 };
 
 class UiController {

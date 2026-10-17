@@ -4,8 +4,11 @@ import gzip
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import struct
+import sys
+import tempfile
 
 from original_capture_contract import read_canonical_assets
 from keyboard_irq_probe.project import projection, validate_opcodes
@@ -106,12 +109,66 @@ def read_fixture(root=FIXTURE, source_root=ROOT):
     return cpu, bios
 
 
+def remove_temporary(path):
+    if path is not None:
+        try:
+            path.unlink(missing_ok=True)
+        except OSError as error:
+            print(f'IRQ1 temporary file retained at {path}: {error}', file=sys.stderr)
+
+
 def export(cpu=None, bios=None):
+    """Stage the pair and roll back handled I/O failures; not a crash-atomic transaction."""
     require(not cpu or not bios or cpu.resolve() != bios.resolve(), 'IRQ1 outputs alias each other')
     payloads = read_fixture()
-    for path, raw in zip((cpu, bios), payloads):
-        if path and (not path.exists() or path.read_bytes() != raw):
-            path.write_bytes(raw)
+    for path in (cpu, bios):
+        if path:
+            require(not path.is_symlink() and (not path.exists() or path.is_file()),
+                    'IRQ1 output must be a regular file: ' + str(path))
+    entries, complete = [], False
+    try:
+        for path, raw in zip((cpu, bios), payloads):
+            if not path or (path.exists() and path.read_bytes() == raw):
+                continue
+            fd, name = tempfile.mkstemp(prefix='.' + path.name + '.', suffix='.stage', dir=path.parent)
+            entry = dict(path=path, stage=Path(name), backup=None, backed_up=False, published=False)
+            entries.append(entry)
+            with os.fdopen(fd, 'wb') as stream:
+                stream.write(raw)
+                stream.flush()
+                os.fsync(stream.fileno())
+            if path.exists():
+                fd, name = tempfile.mkstemp(prefix='.' + path.name + '.', suffix='.backup', dir=path.parent)
+                entry['backup'] = Path(name)
+                os.close(fd)
+        # All payloads and backup names are prepared before changing either destination.
+        for entry in entries:
+            if entry['backup'] is not None:
+                os.replace(entry['path'], entry['backup'])
+                entry['backed_up'] = True
+        for entry in entries:
+            os.replace(entry['stage'], entry['path'])
+            entry['published'] = True
+        complete = True
+    except BaseException as error:
+        failures = []
+        for entry in reversed(entries):
+            try:
+                if entry['backed_up']:
+                    os.replace(entry['backup'], entry['path'])
+                    entry['backed_up'] = False
+                elif entry['published']:
+                    entry['path'].unlink()
+            except OSError as rollback_error:
+                failures.append(f"{entry['path']} (backup {entry['backup']}): {rollback_error}")
+        if failures:
+            raise RuntimeError('IRQ1 rollback incomplete; retain recovery files: ' + '; '.join(failures)) from error
+        raise
+    finally:
+        for entry in entries:
+            remove_temporary(entry['stage'])
+            if complete or not entry['backed_up']:
+                remove_temporary(entry['backup'])
 
 
 if __name__ == '__main__':

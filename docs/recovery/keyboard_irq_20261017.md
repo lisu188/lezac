@@ -84,9 +84,19 @@ Later observed registers, memory and hardware state are targets, not inputs.
 The full Linux App builds and all 29 selected CTests pass. Retained CRT/game
 keyboard, PIC/pacing, HUD, actual-App controls, ownership and viewport checks
 are included. Native MSVC 14.44.35207 `/std:c++latest /W4 /WX` compilation,
-unit tests, both original corpora and five Python methods pass. The fixture
+unit tests, both original corpora and thirteen Python methods pass. The fixture
 tests reject 172 changed/missing-input and output-preservation controls, two
 output-alias cases, and terminal canonical-asset/exit failures.
+
+Current-head review found that a second output-write failure could replace the
+first output. The counterexample was reproduced before the fix. Both changed
+outputs are now written, flushed and synced to sibling staging files before
+either destination changes. Prior files are moved to recovery backups; handled
+replacement failures restore their bytes and modification times. Matching
+outputs remain untouched. Tests inject 88 staging/backup-allocation failures,
+24 replacement failures, missing second parents, and mixed new/existing pairs.
+An unsuccessful rollback preserves the original backup and reports its path.
+This is handled-failure recovery, not a crash-atomic or concurrent-writer claim.
 
 Eight compiling mutations fail: omitted held-byte write, release writing one,
 wrong far-call push order, skipped BIOS callback, omitted EOI, retained extended

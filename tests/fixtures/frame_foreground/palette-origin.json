@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "cases": 96,
+  "original_source_sha256": {
+    "src/gui/render.cpp": "3bce9f5aded634ec34497a0ee8875e89e0b90cdb7de6e72bbbb81482c09dc7fc",
+    "src/gui/sdlmain.cpp": "59e78cf3f7c3423e17a27adde5993c8c4156bdef0e2a03927e88fa6b7bf85c6b"
+  },
+  "producer_sha256": "624d1f70a0309a0426443bb2e04c9a907125c654f5ac8aabb83a7850d18216aa",
+  "driver_sha256": "af992818cd774d749cf1b6dc6cddf0668efb0c66c430d7b9935ea0a555544356",
+  "palette_function_sha256": "2d978338d4c0df014cadb6a0e4ff94ac0694e0f8c1d0adbd7b342a6c24b50135",
+  "mapping_function_sha256": "fadfa527ba809f81d16902f2815392d7d96c57cdbda2bf9024f059e25ed5dfba",
+  "generated_source_sha256": "b0df160025ffe5f40528bc13d902b87b3093b297f7821fb5c746c45f6d152965",
+  "binary_sha256": "5cc2a6fbcb380e7bab4c8cf7f6af957dfba5043cd10e8983439951fd8e593997",
+  "oracle_sha256": "71979553fba866bb92c2199c0cd77d928c26255f504c348e1410e44928292fd7",
+  "sdl_library_sha256": "b82090085ba665c89ea70909b9018a219c42029fdf9803e7d5e17c185d6d1d72",
+  "native_sdl_mapping": true,
+  "original_function_bodies_changed": false,
+  "original_host_execution": false,
+  "scope": "controlled RGB32 Check_Palette and GFX_GetRGB only; other branches not executed"
+}

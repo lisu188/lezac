@@ -200,6 +200,8 @@ if(BUILD_TESTING)
     add_executable(lezac_crt_keyboard_test tests/core/crt_keyboard_test.cpp)
     add_executable(lezac_game_keyboard_test tests/core/game_keyboard_test.cpp)
     add_executable(lezac_frame_hud_test tests/core/frame_hud_test.cpp)
+    add_executable(lezac_frame_foreground_test tests/core/frame_foreground_test.cpp)
+    target_link_libraries(lezac_frame_foreground_test PRIVATE lezac_core)
     target_link_libraries(lezac_frame_hud_test PRIVATE lezac_core)
     add_test(NAME frame_hud_unit COMMAND lezac_frame_hud_test)
     set_tests_properties(frame_hud_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_hud_unit=ok string_budget_cases=8")
@@ -674,6 +676,21 @@ if(BUILD_TESTING)
             --cpu ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-cpu.bin --clock ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-clock.bin
             --oracle ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-oracle.bin)
         set_tests_properties(frame_hud_fixture_contract PROPERTIES FIXTURES_SETUP frame_hud_corpus)
+        add_test(NAME frame_foreground_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_foreground_fixture.py
+            --cpu ${CMAKE_CURRENT_BINARY_DIR}/frame-foreground-cpu.bin --clock ${CMAKE_CURRENT_BINARY_DIR}/frame-foreground-clock.bin
+            --palette ${CMAKE_CURRENT_BINARY_DIR}/frame-foreground-palette.bin)
+        set_tests_properties(frame_foreground_fixture_contract PROPERTIES FIXTURES_SETUP frame_foreground_corpus)
+        add_test(NAME frame_foreground_original COMMAND lezac_frame_foreground_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-foreground-cpu.bin ${CMAKE_CURRENT_BINARY_DIR}/frame-foreground-clock.bin)
+        set_tests_properties(frame_foreground_original PROPERTIES FIXTURES_REQUIRED frame_foreground_corpus
+            PASS_REGULAR_EXPRESSION "frame_foreground_original=ok cases=2 comparisons=216686 transfers=0 millisecond_grants=36 device_callbacks=18 predicted_irqs=0")
+        add_test(NAME render_palette_original COMMAND lezac_frame_foreground_test --palette-oracle
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-foreground-palette.bin)
+        set_tests_properties(render_palette_original PROPERTIES FIXTURES_REQUIRED frame_foreground_corpus
+            PASS_REGULAR_EXPRESSION "render_palette_original=ok cases=96 callback_checks=384 profile_rejections=23")
+        add_test(NAME frame_foreground_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_foreground_fixture.py)
         add_test(NAME frame_hud_original COMMAND lezac_frame_hud_test --original
             ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-cpu.bin ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-clock.bin)
         set_tests_properties(frame_hud_original PROPERTIES FIXTURES_REQUIRED frame_hud_corpus

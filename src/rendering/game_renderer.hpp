@@ -15,6 +15,9 @@ public:
                  const PresentationState& presentation)
         : canvas_(canvas), text_(text), assets_(assets), presentation_(presentation) {}
     void drawGame(const WorldRenderView& world, const HudView& hud);
+    void initializePlayfield(int playerCount, int viewWidth);
+    void resizePlayfield(int viewWidth);
+    void clearEliminatedViewport(int playerIndex);
     void drawWorldView(const WorldRenderView& world, const gameplay::Player& cameraPlayer,
                        int viewX, int viewY, int viewW, int viewH);
     void drawHud(const HudView& hud);

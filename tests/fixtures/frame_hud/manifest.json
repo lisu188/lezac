@@ -1,0 +1,97 @@
+{
+  "schema": "lezac-frozen-frame-hud-v1",
+  "files": [
+    {
+      "name": "natural-recipe.json",
+      "bytes": 22698,
+      "sha256": "149499767232637308f71e10702b6fa2932756a7a219c921a66ced4ceafce553"
+    },
+    {
+      "name": "natural.csv.gz",
+      "bytes": 49381,
+      "sha256": "86c49b64314ca2c1068de21c223799aba67fcca8bfefcb3706375354025b5559"
+    },
+    {
+      "name": "oracle-origin.json",
+      "bytes": 4917,
+      "sha256": "440233edab8735599973555e1f32f09753841ffbf9540430e7df99f881c826de"
+    },
+    {
+      "name": "oracle.bin.gz",
+      "bytes": 2061,
+      "sha256": "39ace5bd6d40ed9aad306a011ea46dacbdf1fbb400138e1959a1ee00d5c14396"
+    }
+  ],
+  "sources": {
+    "tools/frame_hud_probe/build.py": "47b36fcfae5c85d7add93d3f20949bd398c561e4610833415fc9304564428500",
+    "tools/frame_hud_probe/capture.py": "6746ef2d2faf5910a5706eb202aab47df84c3d1febbb9efda0e30ebbf7870106",
+    "tools/frame_hud_probe/clock_hook.patch": "b61aedfbd911f46766bc3c32eb7c12df920ec9eed16928183aadc4732a260e44",
+    "tools/frame_hud_probe/dos_time_hook.patch": "7b7b24a70c4a032533eb404d948d27eb36336b5248bb531604d8e4f737c3cd4b",
+    "tools/frame_hud_probe/input_route.py": "cb1b2008045403cd1144704b5750912c2910e8e0f200357d8bbf422257180b5e",
+    "tools/frame_hud_probe/keyboard_clock_observation.inc": "7fb32b946df39756cbf4fad59ba15ace6383b070976bdd2d54cebeafff1753e3",
+    "tools/frame_hud_probe/lezac_clock_observation.h": "b03ce31c5fd6141f6a2bcfaa1d9496295060cc07c112fda20b97e2d565344e33",
+    "tools/frame_hud_probe/lezac_work_probe.h": "8c9e308b0010c9c5505f72a44f82fdfe9bf3e760b984c2c37f5e6c6f6860092c",
+    "tools/frame_hud_probe/mixer_clock_observation.inc": "b997f6b2a762f047b1cb1caa2d8a893039c405fb66f9abd024dc92035fcf0a58",
+    "tools/frame_hud_probe/oracle.py": "a67d0e679b96698ad73963e9e150d7a630938f4d8f0cda7157ddc7941664b956",
+    "tools/frame_hud_probe/pic_tickers_observation.inc": "0025c8d94219966e73c5d9bca004311de4d0c2335f7f8dfff7b608753486fa72",
+    "tools/frame_hud_probe/project.py": "4a0bd171977809f3d81efc28f68f5f15f2700c656841ed3fc0b2adbf98b4c5d2",
+    "tools/frame_hud_probe/rebuild.py": "14c147e9071742d5c8e7193f990ac110cd2ebbc881ee958c903220d359f0d0c6",
+    "tools/frame_hud_probe/render_clock_observation.inc": "0880a7de2304f89afb07c1feaff97473bd054ef5a37604b0efe51a2b0bff258e",
+    "tools/frame_hud_probe/trace.py": "75eb30d3d8e82109a252200e371a3d5f3f11e7b70528e13ecba83c3454d5cb56",
+    "tools/frame_hud_probe/vga_clock_observation.inc": "3dbee71ba4ff04fead3e3417c6a0ed2d9e28dbe0dcd3ba630f3e35d251f9c6e9",
+    "tools/original_capture_contract.py": "36e27f3441ae98db6e2a459ca64c561b72c964e1e98de854ca416321c33c33e0"
+  },
+  "states": 693,
+  "cases": [
+    {
+      "category": 3,
+      "entry_ip": 31208,
+      "states": 673,
+      "irq_boundaries": []
+    },
+    {
+      "category": 0,
+      "entry_ip": 31208,
+      "states": 20,
+      "irq_boundaries": []
+    }
+  ],
+  "cpu_sha256": "1aa3914791c3a80172e45e41abfaddbc03d54c5d05cd02257bcfda158a723087",
+  "clock_sha256": "0025a1331155b9efe2017eb0dc6dcacb91da7d37c5bc453301e0425d307b19a9",
+  "raw_sample_proofs": [
+    {
+      "name": "main",
+      "ram_sha256": "bab18eb489a5569f5958a0942c22106319de51b3beeed94e24fc524127990dbb",
+      "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "intro",
+      "ram_sha256": "e1b515a41c8f23d905c2dc4716f19b7d2c20bf1c5a9aac76977e9b91947d78c6",
+      "png_sha256": "050bcb8ea4ac9df754a563f9ae82401c077862622fe47e2fe96ac143948cd8e5",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "gameplay",
+      "ram_sha256": "38008a88fdabae29f208cce0c673294744ecb318dd6dd997fd52e16ba1e80595",
+      "png_sha256": "b18d9758fdefc30599cce1b0052e6d818b167bcf18e1d3673e75eb21c15e55e6",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "gameplay-middle",
+      "ram_sha256": "26d53d7e1b33a3bf30308fc06ce61bb9c5d4bdd86069b0bea4c304585d50ac43",
+      "png_sha256": "cde55112e81ff109edee3270944bb8626f42e5e6b5e3206e0f19ed83db93910b",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "search-end",
+      "ram_sha256": "a86de88b40f6d80b5888b1114b6d986c10bd473ae8554b97674f6f66c6054963",
+      "png_sha256": "dff1ca447aceedd4876d847a4ff3a7738a60b50e16718e4946bbfdb805623b6f",
+      "code_bytes_verified": 43552
+    }
+  ],
+  "raw_memory_published": false,
+  "raw_memory_available_to_frozen_checker": false,
+  "whole_game_parity": false,
+  "full_frame_claim": false
+}

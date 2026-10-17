@@ -1,0 +1,7177 @@
+{
+  "schema": "lezac-original-viewport-width-v1",
+  "cases": [
+    {
+      "kind": "control",
+      "index": 0,
+      "columns": 21,
+      "key": "e",
+      "players": 1,
+      "changed": false,
+      "fields": [
+        21,
+        168,
+        152,
+        80,
+        152,
+        72,
+        21
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ]
+      ],
+      "unicorn_steps": 55,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "620cae9fbeece38b70254233245418a51f56e7c0978f2f07158764547f935614",
+      "endpoint_registers": [
+        152,
+        4660,
+        22136,
+        160,
+        4951,
+        9320,
+        16382,
+        417,
+        3139,
+        64,
+        6322,
+        16360,
+        33411,
+        647
+      ],
+      "vga_sha256": "a62a45134507dff25b6a2e23ba1cf59c0c4cabe664f510d06128819d5b8795b9"
+    },
+    {
+      "kind": "control",
+      "index": 1,
+      "columns": 21,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        22,
+        176,
+        144,
+        76,
+        144,
+        80,
+        22
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 110944,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "fd1b5251f59c067be5de8a3542b41e06c5d9732924523ee112e2401d8840cadf",
+      "endpoint_registers": [
+        1356,
+        320,
+        0,
+        88,
+        4951,
+        50953,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        514
+      ],
+      "vga_sha256": "e3753258665d794a5e6c4f9f53f3287d1532c1b812744d5cec4f4e3b9d14a856"
+    },
+    {
+      "kind": "control",
+      "index": 2,
+      "columns": 22,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        21,
+        168,
+        152,
+        80,
+        152,
+        72,
+        21
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 108400,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "0fb2d93f8c8dee99bc9cb75da38a593f2ecd56ba6afa16dddf6e7f8e94231a41",
+      "endpoint_registers": [
+        1360,
+        320,
+        0,
+        84,
+        4951,
+        50957,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "25a09d6bffe24284eb65680657c8ae02cfe997d8fb3d775a98c48ef17e931a27"
+    },
+    {
+      "kind": "control",
+      "index": 3,
+      "columns": 22,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        23,
+        184,
+        136,
+        72,
+        136,
+        80,
+        23
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 113488,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "b800731e43e9e82d7b44b40d0c35d42bca2584db061784b6c00ddb5db4658810",
+      "endpoint_registers": [
+        1352,
+        320,
+        0,
+        92,
+        4951,
+        50949,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        518
+      ],
+      "vga_sha256": "c647740e788e1bf76c45c743b7e6dafb5fbe170e210c37eb618d49b530fee01d"
+    },
+    {
+      "kind": "control",
+      "index": 4,
+      "columns": 23,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        22,
+        176,
+        144,
+        76,
+        144,
+        80,
+        22
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 110944,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "fef6ea8e6a03521fea19d53d054516e306fdb93a6ea6cfec56b54afbb3b6109e",
+      "endpoint_registers": [
+        1356,
+        320,
+        0,
+        88,
+        4951,
+        50953,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "e3753258665d794a5e6c4f9f53f3287d1532c1b812744d5cec4f4e3b9d14a856"
+    },
+    {
+      "kind": "control",
+      "index": 5,
+      "columns": 23,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        24,
+        192,
+        128,
+        68,
+        128,
+        88,
+        24
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 116032,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "9b46de44e306b1f175ca40d347714c3c93337983e9b91a49ac7e7a818d469fe5",
+      "endpoint_registers": [
+        1348,
+        320,
+        0,
+        96,
+        4951,
+        50945,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        518
+      ],
+      "vga_sha256": "41f4d5798fa295378a7b3d2d3487a2acf7ec7598465a29f8f2a79edd85c27b22"
+    },
+    {
+      "kind": "control",
+      "index": 6,
+      "columns": 24,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        23,
+        184,
+        136,
+        72,
+        136,
+        80,
+        23
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 113488,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "b8f6fff45695e84da0535cc8af0b352ad3fbacd144b3f46b81d3287f66de655f",
+      "endpoint_registers": [
+        1352,
+        320,
+        0,
+        92,
+        4951,
+        50949,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "c647740e788e1bf76c45c743b7e6dafb5fbe170e210c37eb618d49b530fee01d"
+    },
+    {
+      "kind": "control",
+      "index": 7,
+      "columns": 24,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        25,
+        200,
+        120,
+        64,
+        120,
+        88,
+        25
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 118576,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "6ca455d9fc37664970914715003c52c1ea5c2577b10a8930df712bea17181a71",
+      "endpoint_registers": [
+        1344,
+        320,
+        0,
+        100,
+        4951,
+        50941,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        514
+      ],
+      "vga_sha256": "91946a938d9c40193943059d7258b5ac2631186b79ae81ee993bd173c216a957"
+    },
+    {
+      "kind": "control",
+      "index": 8,
+      "columns": 25,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        24,
+        192,
+        128,
+        68,
+        128,
+        88,
+        24
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 116032,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "ed5bfbb35f482d5215275d261e6e9a2b86e8b13ac6bd388fbffae4c3750ef204",
+      "endpoint_registers": [
+        1348,
+        320,
+        0,
+        96,
+        4951,
+        50945,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "41f4d5798fa295378a7b3d2d3487a2acf7ec7598465a29f8f2a79edd85c27b22"
+    },
+    {
+      "kind": "control",
+      "index": 9,
+      "columns": 25,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        26,
+        208,
+        112,
+        60,
+        112,
+        96,
+        26
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 121120,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "f9c0de4a0fc0bedb99d893ad698922a4550bca968c8120bc6c4e84cf54327b91",
+      "endpoint_registers": [
+        1340,
+        320,
+        0,
+        104,
+        4951,
+        50937,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        518
+      ],
+      "vga_sha256": "83a3f27362dab882cbc43adbf03aeb960dac8a8eec46014036b581850cc8c0c6"
+    },
+    {
+      "kind": "control",
+      "index": 10,
+      "columns": 26,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        25,
+        200,
+        120,
+        64,
+        120,
+        88,
+        25
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 118576,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "12aec771602f75a9e2e519d8684f053bd28c79f9f392b98cebcca576449b485b",
+      "endpoint_registers": [
+        1344,
+        320,
+        0,
+        100,
+        4951,
+        50941,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "91946a938d9c40193943059d7258b5ac2631186b79ae81ee993bd173c216a957"
+    },
+    {
+      "kind": "control",
+      "index": 11,
+      "columns": 26,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        27,
+        216,
+        104,
+        56,
+        104,
+        96,
+        27
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 123664,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "04ab286960946a7873b9d30d4e86970ad6eea993d296876d8fd4d4dc2a89cb3d",
+      "endpoint_registers": [
+        1336,
+        320,
+        0,
+        108,
+        4951,
+        50933,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        514
+      ],
+      "vga_sha256": "bdc17f5e7fa97ac82770b955c5abab0a9cef4812ae169d216b5867840e986eb7"
+    },
+    {
+      "kind": "control",
+      "index": 12,
+      "columns": 27,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        26,
+        208,
+        112,
+        60,
+        112,
+        96,
+        26
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 121120,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "41664299329097a6868b36ab1a8adbbcecd272e09dc302de121a68ebebfe6fd5",
+      "endpoint_registers": [
+        1340,
+        320,
+        0,
+        104,
+        4951,
+        50937,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "83a3f27362dab882cbc43adbf03aeb960dac8a8eec46014036b581850cc8c0c6"
+    },
+    {
+      "kind": "control",
+      "index": 13,
+      "columns": 27,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        28,
+        224,
+        96,
+        52,
+        96,
+        104,
+        28
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 126208,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "d60c05a8f856548aedd77da853ab5d70f8833db6c813dabd5c7036eaf55adf86",
+      "endpoint_registers": [
+        1332,
+        320,
+        0,
+        112,
+        4951,
+        50929,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        514
+      ],
+      "vga_sha256": "6f019c5441c5ae2534dcb1d9bc633f60f11b9f43c82409e3215c7e50902c04ca"
+    },
+    {
+      "kind": "control",
+      "index": 14,
+      "columns": 28,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        27,
+        216,
+        104,
+        56,
+        104,
+        96,
+        27
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 123664,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "47b576f7907e72add7cfa97cd38f3cc5b6cd424ba011c3bd00aaadddeb4b2ba9",
+      "endpoint_registers": [
+        1336,
+        320,
+        0,
+        108,
+        4951,
+        50933,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "bdc17f5e7fa97ac82770b955c5abab0a9cef4812ae169d216b5867840e986eb7"
+    },
+    {
+      "kind": "control",
+      "index": 15,
+      "columns": 28,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        29,
+        232,
+        88,
+        48,
+        88,
+        104,
+        29
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 128752,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "413c10b5cb2ab86eb0b19af21efbf97556d8114dc4b54eb9b390a7991fd7f8f2",
+      "endpoint_registers": [
+        1328,
+        320,
+        0,
+        116,
+        4951,
+        50925,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        518
+      ],
+      "vga_sha256": "0800393b3e5dded4c925a2e648eb2eebe673431bd7a966bd85d600e0b48b08bc"
+    },
+    {
+      "kind": "control",
+      "index": 16,
+      "columns": 29,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        28,
+        224,
+        96,
+        52,
+        96,
+        104,
+        28
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 126208,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "225d0bcf582c64389490149f5a718044707b642c6d945d118f1c2ce40492fa1b",
+      "endpoint_registers": [
+        1332,
+        320,
+        0,
+        112,
+        4951,
+        50929,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "6f019c5441c5ae2534dcb1d9bc633f60f11b9f43c82409e3215c7e50902c04ca"
+    },
+    {
+      "kind": "control",
+      "index": 17,
+      "columns": 29,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        30,
+        240,
+        80,
+        44,
+        80,
+        112,
+        30
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 131296,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "8bb3e16a6ab5afe89678eead4f271932fd534d09bf78cd4ad0a385a00b9148c8",
+      "endpoint_registers": [
+        1324,
+        320,
+        0,
+        120,
+        4951,
+        50921,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        514
+      ],
+      "vga_sha256": "f5717facb1c4159377fef85a9f6519f3fcb338419b22aec752e0c6c9d4a83dbf"
+    },
+    {
+      "kind": "control",
+      "index": 18,
+      "columns": 30,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        29,
+        232,
+        88,
+        48,
+        88,
+        104,
+        29
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 128752,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "7502190c0f21cc8e943097303ad1fddc7d2b2291a980972b98cafe1aa992f87f",
+      "endpoint_registers": [
+        1328,
+        320,
+        0,
+        116,
+        4951,
+        50925,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "0800393b3e5dded4c925a2e648eb2eebe673431bd7a966bd85d600e0b48b08bc"
+    },
+    {
+      "kind": "control",
+      "index": 19,
+      "columns": 30,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        31,
+        248,
+        72,
+        40,
+        72,
+        112,
+        31
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 133840,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "6fc83d5e81b16abc374799494b6c1d3f2485af6ce8c2217b7b3d8ffd0c17bc19",
+      "endpoint_registers": [
+        1320,
+        320,
+        0,
+        124,
+        4951,
+        50917,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        518
+      ],
+      "vga_sha256": "1863cec4cf8065435499461e8f5020ce1377e5cdde3319fcedc0cf40c1b158d8"
+    },
+    {
+      "kind": "control",
+      "index": 20,
+      "columns": 31,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        30,
+        240,
+        80,
+        44,
+        80,
+        112,
+        30
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 131296,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "6656bf2c9e241d56861e6721bac3c2ce63a8a409f97e0d311a89884c589505fc",
+      "endpoint_registers": [
+        1324,
+        320,
+        0,
+        120,
+        4951,
+        50921,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "f5717facb1c4159377fef85a9f6519f3fcb338419b22aec752e0c6c9d4a83dbf"
+    },
+    {
+      "kind": "control",
+      "index": 21,
+      "columns": 31,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        32,
+        256,
+        64,
+        36,
+        64,
+        120,
+        32
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 136384,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "ea21964e928955987aee75f679e67a6b2b8eef54efd61699f733f60499d35454",
+      "endpoint_registers": [
+        1316,
+        320,
+        0,
+        128,
+        4951,
+        50913,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        518
+      ],
+      "vga_sha256": "9111f3e7a0c9e84571555698a941d872614b25c38acf6065e7f58cd4ebb80740"
+    },
+    {
+      "kind": "control",
+      "index": 22,
+      "columns": 32,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        31,
+        248,
+        72,
+        40,
+        72,
+        112,
+        31
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 133840,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "2f417ff157f6cba636a6435791beb3519cede31da8e49eddd574bcad6272835a",
+      "endpoint_registers": [
+        1320,
+        320,
+        0,
+        124,
+        4951,
+        50917,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "1863cec4cf8065435499461e8f5020ce1377e5cdde3319fcedc0cf40c1b158d8"
+    },
+    {
+      "kind": "control",
+      "index": 23,
+      "columns": 32,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        33,
+        264,
+        56,
+        32,
+        56,
+        120,
+        33
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 138928,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "d04a4c3b168d07f271c37c5990dc172649093c0371aba5662d650f7707790108",
+      "endpoint_registers": [
+        1312,
+        320,
+        0,
+        132,
+        4951,
+        50909,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        514
+      ],
+      "vga_sha256": "3c6b6dcf34774002803c417f7d4c390ee013a060055dccd358ed779a68ba08f0"
+    },
+    {
+      "kind": "control",
+      "index": 24,
+      "columns": 33,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        32,
+        256,
+        64,
+        36,
+        64,
+        120,
+        32
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 136384,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "2e3f5f7cbab9de94ede975a27b12399d17a03c70c64eddc4094c08e995a0b8ea",
+      "endpoint_registers": [
+        1316,
+        320,
+        0,
+        128,
+        4951,
+        50913,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "9111f3e7a0c9e84571555698a941d872614b25c38acf6065e7f58cd4ebb80740"
+    },
+    {
+      "kind": "control",
+      "index": 25,
+      "columns": 33,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        34,
+        272,
+        48,
+        28,
+        48,
+        128,
+        34
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 141472,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "91bf50b903bfc82b5c5d3e4057cf503d9385ae071aaaafdd542eb55086f1784c",
+      "endpoint_registers": [
+        1308,
+        320,
+        0,
+        136,
+        4951,
+        50905,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        514
+      ],
+      "vga_sha256": "b725dd65b20bcd502c55e2bffeeae85faee29069e560aba7150a7ad46c19bfb4"
+    },
+    {
+      "kind": "control",
+      "index": 26,
+      "columns": 34,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        33,
+        264,
+        56,
+        32,
+        56,
+        120,
+        33
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 138928,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "498c38ebdb8aa9a57ca80669d7b5aaea5b1c6432625b10b0779cd673e6368c06",
+      "endpoint_registers": [
+        1312,
+        320,
+        0,
+        132,
+        4951,
+        50909,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "3c6b6dcf34774002803c417f7d4c390ee013a060055dccd358ed779a68ba08f0"
+    },
+    {
+      "kind": "control",
+      "index": 27,
+      "columns": 34,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        35,
+        280,
+        40,
+        24,
+        40,
+        128,
+        35
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 144016,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "ecd4f9bd022d5ecc842dae208e4f54bc0d6fc5fda48644e635234628f3bdbbf6",
+      "endpoint_registers": [
+        1304,
+        320,
+        0,
+        140,
+        4951,
+        50901,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        518
+      ],
+      "vga_sha256": "a9cfdc8825b4d665d62edb86310bee48e667fd34157ba3a64189cf255edf693e"
+    },
+    {
+      "kind": "control",
+      "index": 28,
+      "columns": 35,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        34,
+        272,
+        48,
+        28,
+        48,
+        128,
+        34
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 141472,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "1905afd100d57020cddef21dd1da2f581d143762ebbed5e73e79aaa6f31e5f34",
+      "endpoint_registers": [
+        1308,
+        320,
+        0,
+        136,
+        4951,
+        50905,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "b725dd65b20bcd502c55e2bffeeae85faee29069e560aba7150a7ad46c19bfb4"
+    },
+    {
+      "kind": "control",
+      "index": 29,
+      "columns": 35,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        36,
+        288,
+        32,
+        20,
+        32,
+        136,
+        36
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 146560,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "0c758f665d4d1fff4bc24b1430cd0c0ccaa0782bc304aea0e6e465a0c095a196",
+      "endpoint_registers": [
+        1300,
+        320,
+        0,
+        144,
+        4951,
+        50897,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        518
+      ],
+      "vga_sha256": "4c90b34a21a00af94641a6b6e4acc461c44cca090da06a334220081ff5d849fd"
+    },
+    {
+      "kind": "control",
+      "index": 30,
+      "columns": 36,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        35,
+        280,
+        40,
+        24,
+        40,
+        128,
+        35
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 144016,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "026904a03174b4308d67950186085385b5d56b34c7039d22045197ff5cd7283d",
+      "endpoint_registers": [
+        1304,
+        320,
+        0,
+        140,
+        4951,
+        50901,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "a9cfdc8825b4d665d62edb86310bee48e667fd34157ba3a64189cf255edf693e"
+    },
+    {
+      "kind": "control",
+      "index": 31,
+      "columns": 36,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        37,
+        296,
+        24,
+        16,
+        24,
+        136,
+        37
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 149104,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "94da6fc02d2817ca2651d59804543a07279f85be2b942c6c32e56d901631bcca",
+      "endpoint_registers": [
+        1296,
+        320,
+        0,
+        148,
+        4951,
+        50893,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        514
+      ],
+      "vga_sha256": "f9d2edad3d0998dbd2779e159e7a9ed2385ed1b11b2f5029bcda0c45a4eefad5"
+    },
+    {
+      "kind": "control",
+      "index": 32,
+      "columns": 37,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        36,
+        288,
+        32,
+        20,
+        32,
+        136,
+        36
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 146560,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "e2b23881b5f4b8fb821ac09d95c9cb621f0a7025a2fb2114bb87e17d0b7541ef",
+      "endpoint_registers": [
+        1300,
+        320,
+        0,
+        144,
+        4951,
+        50897,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "4c90b34a21a00af94641a6b6e4acc461c44cca090da06a334220081ff5d849fd"
+    },
+    {
+      "kind": "control",
+      "index": 33,
+      "columns": 37,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        38,
+        304,
+        16,
+        12,
+        16,
+        144,
+        38
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 151648,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "643de0c6a83ed4553ce10c4ef8ec0380df05768534356d1de5fd6e4e2b058345",
+      "endpoint_registers": [
+        1292,
+        320,
+        0,
+        152,
+        4951,
+        50889,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        518
+      ],
+      "vga_sha256": "f1904e359d782dc7214acc40817a92ec462a883746117da3269349f380852f23"
+    },
+    {
+      "kind": "control",
+      "index": 34,
+      "columns": 38,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        37,
+        296,
+        24,
+        16,
+        24,
+        136,
+        37
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 149104,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "1b3d3f2dd7a86e6ab757632a3950af0f7e9ea80c4a8863ed7c83bfdf7d51da68",
+      "endpoint_registers": [
+        1296,
+        320,
+        0,
+        148,
+        4951,
+        50893,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "f9d2edad3d0998dbd2779e159e7a9ed2385ed1b11b2f5029bcda0c45a4eefad5"
+    },
+    {
+      "kind": "control",
+      "index": 35,
+      "columns": 38,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        39,
+        312,
+        8,
+        8,
+        8,
+        144,
+        39
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 154192,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "4980d9714c871ea5c0f55996f562dd5913ab3c080c8d569457aaec7ce0092569",
+      "endpoint_registers": [
+        1288,
+        320,
+        0,
+        156,
+        4951,
+        50885,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        514
+      ],
+      "vga_sha256": "ad1d4535b12bba51bdc5ffb9b86664447ee0b589b4642f05819055f57cb824cd"
+    },
+    {
+      "kind": "control",
+      "index": 36,
+      "columns": 39,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        38,
+        304,
+        16,
+        12,
+        16,
+        144,
+        38
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 151648,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "bb2ca840be5e3d28b8e96672ff4bb086da3952345b6ab2ddded2ce48b406ab31",
+      "endpoint_registers": [
+        1292,
+        320,
+        0,
+        152,
+        4951,
+        50889,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "f1904e359d782dc7214acc40817a92ec462a883746117da3269349f380852f23"
+    },
+    {
+      "kind": "control",
+      "index": 37,
+      "columns": 39,
+      "key": "r",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        40,
+        320,
+        0,
+        4,
+        0,
+        152,
+        40
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 156736,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "ecc786b2aa454a3e564f1c32c3ff1538ee761ca5eca68e3453393ecb835b7772",
+      "endpoint_registers": [
+        1284,
+        320,
+        0,
+        160,
+        4951,
+        50881,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        514
+      ],
+      "vga_sha256": "8370343e5f5ee3bbb89a49056657d6a8d4aa99499152fed72475a1dc4b231453"
+    },
+    {
+      "kind": "control",
+      "index": 38,
+      "columns": 40,
+      "key": "e",
+      "players": 1,
+      "changed": true,
+      "fields": [
+        39,
+        312,
+        8,
+        8,
+        8,
+        144,
+        39
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ]
+      ],
+      "unicorn_steps": 154192,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "44b322603e7b26b0374c6f48c4e68529124d006b2b61e971c4fbc2aaa16df992",
+      "endpoint_registers": [
+        1288,
+        320,
+        0,
+        156,
+        4951,
+        50885,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "ad1d4535b12bba51bdc5ffb9b86664447ee0b589b4642f05819055f57cb824cd"
+    },
+    {
+      "kind": "control",
+      "index": 39,
+      "columns": 40,
+      "key": "r",
+      "players": 1,
+      "changed": false,
+      "fields": [
+        40,
+        320,
+        0,
+        4,
+        0,
+        152,
+        40
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ]
+      ],
+      "unicorn_steps": 55,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "2df3663a1a28e1b39c2c2994c6e7934219d24748b0d1f1fdb76464ed0e9b6556",
+      "endpoint_registers": [
+        0,
+        4660,
+        22136,
+        312,
+        4951,
+        9320,
+        16382,
+        417,
+        3139,
+        64,
+        6322,
+        16360,
+        33411,
+        582
+      ],
+      "vga_sha256": "a62a45134507dff25b6a2e23ba1cf59c0c4cabe664f510d06128819d5b8795b9"
+    },
+    {
+      "kind": "control",
+      "index": 40,
+      "columns": 20,
+      "key": "e",
+      "players": 2,
+      "changed": false,
+      "fields": [
+        20,
+        160,
+        160,
+        84,
+        160,
+        72,
+        20
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ]
+      ],
+      "unicorn_steps": 55,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "adc8e3438863162ea9e321bca6efd43ddbf6f0aa79a007460ff4d7d3bc63caba",
+      "endpoint_registers": [
+        160,
+        4660,
+        22136,
+        152,
+        4951,
+        9320,
+        16382,
+        417,
+        3139,
+        64,
+        6322,
+        16360,
+        33411,
+        647
+      ],
+      "vga_sha256": "a62a45134507dff25b6a2e23ba1cf59c0c4cabe664f510d06128819d5b8795b9"
+    },
+    {
+      "kind": "control",
+      "index": 41,
+      "columns": 20,
+      "key": "r",
+      "players": 2,
+      "changed": false,
+      "fields": [
+        20,
+        160,
+        160,
+        84,
+        160,
+        72,
+        20
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ]
+      ],
+      "unicorn_steps": 57,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "53f13ca2c66e03a924480f2426f9512b554e2e79f8ce9edc42b53040cc95947f",
+      "endpoint_registers": [
+        160,
+        4660,
+        22136,
+        152,
+        4951,
+        9320,
+        16382,
+        417,
+        3139,
+        64,
+        6322,
+        16360,
+        33411,
+        514
+      ],
+      "vga_sha256": "a62a45134507dff25b6a2e23ba1cf59c0c4cabe664f510d06128819d5b8795b9"
+    },
+    {
+      "kind": "control",
+      "index": 42,
+      "columns": 32,
+      "key": "x",
+      "players": 1,
+      "changed": false,
+      "fields": [
+        32,
+        256,
+        64,
+        36,
+        64,
+        120,
+        32
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ]
+      ],
+      "unicorn_steps": 53,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "f033d5388dea993531c6e08cddd84893270645d2fcd89351bd92e0c289e8afa1",
+      "endpoint_registers": [
+        64,
+        4660,
+        22136,
+        248,
+        4951,
+        9320,
+        16382,
+        417,
+        3139,
+        64,
+        6322,
+        16360,
+        33411,
+        518
+      ],
+      "vga_sha256": "a62a45134507dff25b6a2e23ba1cf59c0c4cabe664f510d06128819d5b8795b9"
+    },
+    {
+      "kind": "control",
+      "index": 43,
+      "columns": 32,
+      "key": "9",
+      "players": 1,
+      "changed": false,
+      "fields": [
+        32,
+        256,
+        64,
+        36,
+        64,
+        120,
+        32
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ]
+      ],
+      "unicorn_steps": 53,
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "fada4d87a70ed59043a84e49ce02b4a5970fd0346a52db099bb7dbd5a7390310",
+      "endpoint_registers": [
+        64,
+        4660,
+        22136,
+        248,
+        4951,
+        9320,
+        16382,
+        417,
+        3139,
+        64,
+        6322,
+        16360,
+        33411,
+        643
+      ],
+      "vga_sha256": "a62a45134507dff25b6a2e23ba1cf59c0c4cabe664f510d06128819d5b8795b9"
+    },
+    {
+      "kind": "view",
+      "index": 0,
+      "columns": 21,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        32,
+        0,
+        0,
+        0,
+        4,
+        168,
+        320,
+        152,
+        1360
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 280115,
+      "endpoint_registers": [
+        1,
+        160,
+        0,
+        986,
+        25544,
+        50000,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "713bc617681e2280e133bdfd6fc876e6e3e5c517112175d0883a54c452fe16bf",
+      "vga_sha256": "15f53ed224eca37a80d096757431a4bdeb3a84cddc516b50e65d2213a574bd4f"
+    },
+    {
+      "kind": "view",
+      "index": 1,
+      "columns": 21,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        168,
+        48,
+        6,
+        3,
+        381,
+        168,
+        320,
+        152,
+        1360
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 280078,
+      "endpoint_registers": [
+        1,
+        160,
+        0,
+        986,
+        26054,
+        50000,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "0189aef3400b4df234e51457f34d60d8b1e08635540cf07f99a52b32c5c2e3bf",
+      "vga_sha256": "815c59109028c04ba5d3bd90e1c054353d78423b70086dc178cc2824e190a406"
+    },
+    {
+      "kind": "view",
+      "index": 2,
+      "columns": 21,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        312,
+        96,
+        14,
+        7,
+        759,
+        168,
+        320,
+        152,
+        1360
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 201859,
+      "endpoint_registers": [
+        1,
+        160,
+        0,
+        986,
+        26734,
+        50000,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "75828b257a9f6801cc5c5e0e6030d6ea9417a9f2e4a94762969b23aebddb83d4",
+      "vga_sha256": "67e7f3030c2536249a0042956df5d3978c4e315aaef801b9fdec5d341dead7c3"
+    },
+    {
+      "kind": "view",
+      "index": 3,
+      "columns": 22,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        24,
+        0,
+        0,
+        0,
+        3,
+        176,
+        320,
+        144,
+        1356
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 289987,
+      "endpoint_registers": [
+        1,
+        152,
+        0,
+        986,
+        26760,
+        49996,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "44cae0f5d5d6791e642a3f1ab063d289447a07d3401a5685d3a3078fbe3b8043",
+      "vga_sha256": "18e33a72eafadef640f8c71ef286472ca6e74db5b165025a0fdac59ae445ac0c"
+    },
+    {
+      "kind": "view",
+      "index": 4,
+      "columns": 22,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        160,
+        48,
+        6,
+        3,
+        380,
+        176,
+        320,
+        144,
+        1356
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 289950,
+      "endpoint_registers": [
+        1,
+        152,
+        0,
+        986,
+        27294,
+        49996,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "34534d8fbd3ed393da7b0bba6261bd8ea15c642e04d2cd8d208ca66e44993f83",
+      "vga_sha256": "7dc0bb437b7ac2b384a0250cf2ca9b20b4b97fc0c47660be69e6099948f8b69e"
+    },
+    {
+      "kind": "view",
+      "index": 5,
+      "columns": 22,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        304,
+        96,
+        14,
+        7,
+        758,
+        176,
+        320,
+        144,
+        1356
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 208051,
+      "endpoint_registers": [
+        1,
+        152,
+        0,
+        986,
+        28006,
+        49996,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "0294407f0d75d3cb40c915c60446bf442cb2ce797284306a9659793c010984af",
+      "vga_sha256": "dfcc0a8e3cfb0400f78680218ad1e0e10b3782313c0180407a432caebc7201af"
+    },
+    {
+      "kind": "view",
+      "index": 6,
+      "columns": 23,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        24,
+        0,
+        0,
+        0,
+        3,
+        184,
+        320,
+        136,
+        1352
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 299859,
+      "endpoint_registers": [
+        1,
+        144,
+        0,
+        986,
+        27976,
+        49992,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "86c37792b866747b8223c7d3c895487c45551a6957e2e88305b047efc41d08e3",
+      "vga_sha256": "83819f3c6adb4fd9bae6b45efedc232d1bdbde4b4420949dbf118c954cc66415"
+    },
+    {
+      "kind": "view",
+      "index": 7,
+      "columns": 23,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        160,
+        48,
+        6,
+        3,
+        380,
+        184,
+        320,
+        136,
+        1352
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 299822,
+      "endpoint_registers": [
+        1,
+        144,
+        0,
+        986,
+        28534,
+        49992,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "bcad3211cafcea88ab73cac15e600e8cb2ba1328a6cc829520ee36c9c38b68ba",
+      "vga_sha256": "20490f253e9ce07a04d563d3aba70c815a778f0996d4134749a48f1ff8e4fc6f"
+    },
+    {
+      "kind": "view",
+      "index": 8,
+      "columns": 23,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        296,
+        96,
+        14,
+        7,
+        757,
+        184,
+        320,
+        136,
+        1352
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 214243,
+      "endpoint_registers": [
+        1,
+        144,
+        0,
+        986,
+        29278,
+        49992,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "c2fc22d933c23a79a9d4c6b0126a09dd46a75e635f9b7b15841efe049295e4f5",
+      "vga_sha256": "72f9833abc4995c1a1e086f26ff2ecd19cdcf022c94769a7f51fc1491135b0e6"
+    },
+    {
+      "kind": "view",
+      "index": 9,
+      "columns": 24,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        16,
+        0,
+        0,
+        0,
+        2,
+        192,
+        320,
+        128,
+        1348
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 309731,
+      "endpoint_registers": [
+        1,
+        136,
+        0,
+        986,
+        29192,
+        49988,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "b761dfa2ad537c922a9b1ba79c9ef73fb2b20b21ee633117633c973295f25a13",
+      "vga_sha256": "6ebfe73d4b8b17f6b89c9801ff3596871175ae58e69bb696f5d45c9915507aea"
+    },
+    {
+      "kind": "view",
+      "index": 10,
+      "columns": 24,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        152,
+        48,
+        6,
+        3,
+        379,
+        192,
+        320,
+        128,
+        1348
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 309694,
+      "endpoint_registers": [
+        1,
+        136,
+        0,
+        986,
+        29774,
+        49988,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "b67b902db832800b5e2442813c7819873a20e74f2473590f1dcd98b5eceea487",
+      "vga_sha256": "ffbf2d3b60394a0b9ec862f7001ede2df4ac7c077de3b17181dd925d4d48e0af"
+    },
+    {
+      "kind": "view",
+      "index": 11,
+      "columns": 24,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        288,
+        96,
+        14,
+        7,
+        756,
+        192,
+        320,
+        128,
+        1348
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 220435,
+      "endpoint_registers": [
+        1,
+        136,
+        0,
+        986,
+        30550,
+        49988,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "8ab17d375a66f3255e51498cf6de042db92017fafcab2b8489ea2c545fb9332b",
+      "vga_sha256": "130a92258ed98fb309680294b3194e5bfb1801e1caa7ef886b2d6a81289331e5"
+    },
+    {
+      "kind": "view",
+      "index": 12,
+      "columns": 25,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        16,
+        0,
+        0,
+        0,
+        2,
+        200,
+        320,
+        120,
+        1344
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 319603,
+      "endpoint_registers": [
+        1,
+        128,
+        0,
+        986,
+        30408,
+        49984,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "2ecef45bf83a71771b0f5d5c36943d5c83854570a657fbd8535860980cdb3796",
+      "vga_sha256": "e6a7739291e5268b07f2fda0621916141db96b48a51fec840346ec5b7978fa9b"
+    },
+    {
+      "kind": "view",
+      "index": 13,
+      "columns": 25,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        152,
+        48,
+        6,
+        3,
+        379,
+        200,
+        320,
+        120,
+        1344
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 319566,
+      "endpoint_registers": [
+        1,
+        128,
+        0,
+        986,
+        31014,
+        49984,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "c57c699bc148f6a4d7279642550e9b09836d4d7d1b79fc99440d55b5cfe31f9f",
+      "vga_sha256": "4cbb73e4ec2a4bb52bd5a911b74657da2b9571baced5d9073d548b02db571ea5"
+    },
+    {
+      "kind": "view",
+      "index": 14,
+      "columns": 25,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        280,
+        96,
+        14,
+        7,
+        755,
+        200,
+        320,
+        120,
+        1344
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 226627,
+      "endpoint_registers": [
+        1,
+        128,
+        0,
+        986,
+        31822,
+        49984,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "e5d3474623a631dfa20df5c9b62fce025de4ff8d9151abf6383ebcbbe30e1502",
+      "vga_sha256": "c19af95cfacccf98bafa82537aa42b410172dea592f58271e4c4c98f5af7b9bb"
+    },
+    {
+      "kind": "view",
+      "index": 15,
+      "columns": 26,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        8,
+        0,
+        0,
+        0,
+        1,
+        208,
+        320,
+        112,
+        1340
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 329475,
+      "endpoint_registers": [
+        1,
+        120,
+        0,
+        986,
+        31624,
+        49980,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "6bd8c310da3af547a4d2ae1335c5aba7d9040328f8f481e9136b18c3eca6b63c",
+      "vga_sha256": "ac6560bf13fb8263389f2c27a23fdcca9cf5197f3d130f91a74c3317a52b71ec"
+    },
+    {
+      "kind": "view",
+      "index": 16,
+      "columns": 26,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        144,
+        48,
+        6,
+        3,
+        378,
+        208,
+        320,
+        112,
+        1340
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 329438,
+      "endpoint_registers": [
+        1,
+        120,
+        0,
+        986,
+        32254,
+        49980,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "80d225254fb2d937b63048096a7373bd958add0333a1dcd7c8c34eab32448d7a",
+      "vga_sha256": "69e08908e639619627829c342369f8c06feedea52faa1a2a89c27ba2a77e5d25"
+    },
+    {
+      "kind": "view",
+      "index": 17,
+      "columns": 26,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        272,
+        96,
+        14,
+        7,
+        754,
+        208,
+        320,
+        112,
+        1340
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 232819,
+      "endpoint_registers": [
+        1,
+        120,
+        0,
+        986,
+        33094,
+        49980,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "97f37e0a814578a14bcd5cb22c5b0374ae93eae36cc1a1e88bea8fd59e5aa8ea",
+      "vga_sha256": "1222ce3eaba5cecf454d03ef0f67559ce2a765f04b9640182c4102ee0bb78c7a"
+    },
+    {
+      "kind": "view",
+      "index": 18,
+      "columns": 27,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        8,
+        0,
+        0,
+        0,
+        1,
+        216,
+        320,
+        104,
+        1336
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 339347,
+      "endpoint_registers": [
+        1,
+        112,
+        0,
+        986,
+        32840,
+        49976,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "1b72f9543b33c15c0e84b32aa673b662286e0b335311413d148fbbf0d9c90109",
+      "vga_sha256": "ced6dc8e04e3d975a0637bcebd33688466ac63537a9f6899b13c778907d60e51"
+    },
+    {
+      "kind": "view",
+      "index": 19,
+      "columns": 27,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        144,
+        48,
+        6,
+        3,
+        378,
+        216,
+        320,
+        104,
+        1336
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 339310,
+      "endpoint_registers": [
+        1,
+        112,
+        0,
+        986,
+        33494,
+        49976,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "d27ea22f84f613fdf7f99f117a76a2cc93fc1a9ca257e7e8bcb55c4558251c69",
+      "vga_sha256": "bd6cbca8b08b9ceac0aab2142f652214d04a4f853aa8a574b839861e82d1e9b8"
+    },
+    {
+      "kind": "view",
+      "index": 20,
+      "columns": 27,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        264,
+        96,
+        14,
+        7,
+        753,
+        216,
+        320,
+        104,
+        1336
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 239011,
+      "endpoint_registers": [
+        1,
+        112,
+        0,
+        986,
+        34366,
+        49976,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "1bfabcda3d824f2390d81bc4ad94a78007ca5e5c482d62b6a7e5931bf00f63f6",
+      "vga_sha256": "a9a1e7f187207060814366667b0d25bdeb3f45c4baad116ad7e26327bc9c5d4e"
+    },
+    {
+      "kind": "view",
+      "index": 21,
+      "columns": 28,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        224,
+        320,
+        96,
+        1332
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 349219,
+      "endpoint_registers": [
+        1,
+        104,
+        0,
+        986,
+        34056,
+        49972,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "dde5cb068fa4a862cb14a223c1df8d7f1e4dfd9cd5207b7e7013685e1f6bacfc",
+      "vga_sha256": "71a78f9e575c4fc81825a90b58ad605895f313d77c517839109720647b43316c"
+    },
+    {
+      "kind": "view",
+      "index": 22,
+      "columns": 28,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        136,
+        48,
+        6,
+        3,
+        377,
+        224,
+        320,
+        96,
+        1332
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 349182,
+      "endpoint_registers": [
+        1,
+        104,
+        0,
+        986,
+        34734,
+        49972,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "f2cc3a7f4649ac49d919e39fd79e1c921b2436d11da2297f4264fac9cf55ec0a",
+      "vga_sha256": "601142c43013a4309b31630d2bdce78b091bac25b25f1e9f87b9c516fcc0f076"
+    },
+    {
+      "kind": "view",
+      "index": 23,
+      "columns": 28,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        256,
+        96,
+        14,
+        7,
+        752,
+        224,
+        320,
+        96,
+        1332
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 245203,
+      "endpoint_registers": [
+        1,
+        104,
+        0,
+        986,
+        35638,
+        49972,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "efad987e1ee8c3eaf3aca5fc446ad558ef3ffeed01ccbdcada281b83e93db7c8",
+      "vga_sha256": "70ebd850b0b86c6aff28c6a06d0e23f3eae98ff8ff6476e59e258c4fb07e9459"
+    },
+    {
+      "kind": "view",
+      "index": 24,
+      "columns": 29,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        232,
+        320,
+        88,
+        1328
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 359091,
+      "endpoint_registers": [
+        1,
+        96,
+        0,
+        986,
+        35272,
+        49968,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "38d9ca002b72cde9c52167d9c6851f96c975f4d59ff034a029b868c3a4d5b879",
+      "vga_sha256": "7e0c68a31a063831936f199d55afde93089f4b0fa0f9aba1d6bc49f6653df301"
+    },
+    {
+      "kind": "view",
+      "index": 25,
+      "columns": 29,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        136,
+        48,
+        6,
+        3,
+        377,
+        232,
+        320,
+        88,
+        1328
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 359054,
+      "endpoint_registers": [
+        1,
+        96,
+        0,
+        986,
+        35974,
+        49968,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "0797bafda09a535228888f0e994b192e50bb90400190b8e29963c4c0cde125e0",
+      "vga_sha256": "b7cb59744b171c2b26536f93bd54a7566213af4ca6c7c2eff0025e7d7d18925e"
+    },
+    {
+      "kind": "view",
+      "index": 26,
+      "columns": 29,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        248,
+        96,
+        14,
+        7,
+        751,
+        232,
+        320,
+        88,
+        1328
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 251395,
+      "endpoint_registers": [
+        1,
+        96,
+        0,
+        986,
+        36910,
+        49968,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "b5b86c4e0f39bce04c025070e6fda3743b249f37fcff42421ae76164fb99e32c",
+      "vga_sha256": "d72a83ee5e5c459743e97d24a6b76c45eafc38d80d80c69456cc7f3a1d241137"
+    },
+    {
+      "kind": "view",
+      "index": 27,
+      "columns": 30,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        240,
+        320,
+        80,
+        1324
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 368977,
+      "endpoint_registers": [
+        1,
+        88,
+        0,
+        986,
+        36488,
+        49964,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "4156932d775ade70195f0c063cc5a6cd04c075078b8454829e0cf601192fa521",
+      "vga_sha256": "ee3dbaf566e5d4b4fa95c2b1a0a6e9f265aeabaadc8acee78a5cca91952abf0f"
+    },
+    {
+      "kind": "view",
+      "index": 28,
+      "columns": 30,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        128,
+        48,
+        6,
+        3,
+        376,
+        240,
+        320,
+        80,
+        1324
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 368926,
+      "endpoint_registers": [
+        1,
+        88,
+        0,
+        986,
+        37214,
+        49964,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "86f4ebb9e51c53e5097fe76832526f2ff16aa302d9ac231703da4c0b34a5af95",
+      "vga_sha256": "fd0ff62842341e4fb549d342b18e8ff5450ec73480b04a6c21d67fff783bef48"
+    },
+    {
+      "kind": "view",
+      "index": 29,
+      "columns": 30,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        240,
+        96,
+        14,
+        7,
+        750,
+        240,
+        320,
+        80,
+        1324
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 257587,
+      "endpoint_registers": [
+        1,
+        88,
+        0,
+        986,
+        38182,
+        49964,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "150c1d0384b4b59a2d874fd0271e13feb58e7727324f6d78dd1fa63001edd456",
+      "vga_sha256": "0ccba0898f3959078daf801e976ee2b4ff6e871db786c75e5b05e3bb46c17a0b"
+    },
+    {
+      "kind": "view",
+      "index": 30,
+      "columns": 31,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        248,
+        320,
+        72,
+        1320
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 378849,
+      "endpoint_registers": [
+        1,
+        80,
+        0,
+        986,
+        37704,
+        49960,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "99d1e7de6ad8c63052a44d37b2d692d870f44cfff5ca2a00727515c45e06100b",
+      "vga_sha256": "1b97471801d08843485bed372c070938c561533a206f4923e80ba72ea6434593"
+    },
+    {
+      "kind": "view",
+      "index": 31,
+      "columns": 31,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        128,
+        48,
+        6,
+        3,
+        376,
+        248,
+        320,
+        72,
+        1320
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 378798,
+      "endpoint_registers": [
+        1,
+        80,
+        0,
+        986,
+        38454,
+        49960,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "8fa990b3d12799ca03d408068b05afc0b5521020eb005a117c582f364a41a136",
+      "vga_sha256": "6abcde2c8aebcc7e6019e9b57528f16c007be3170e2cdb3f4613eb94bd4cd418"
+    },
+    {
+      "kind": "view",
+      "index": 32,
+      "columns": 31,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        232,
+        96,
+        14,
+        7,
+        749,
+        248,
+        320,
+        72,
+        1320
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 263779,
+      "endpoint_registers": [
+        1,
+        80,
+        0,
+        986,
+        39454,
+        49960,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "3d1ed1996ba78fbc9c10defdb0ad5eb7733669301d7c42073debd1dc6531bb18",
+      "vga_sha256": "f391681b1aead437cb887e693802657eef0df3fa52771a71bec376c6b08e2e7c"
+    },
+    {
+      "kind": "view",
+      "index": 33,
+      "columns": 32,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        256,
+        320,
+        64,
+        1316
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 388721,
+      "endpoint_registers": [
+        1,
+        72,
+        0,
+        986,
+        38920,
+        49956,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "5dbeb389ae9dba6766460dcbd62c676b0c71ab4fbfca2d77571bcb7381849873",
+      "vga_sha256": "aa0209cd51324d8e043d01dc9cdac453d97ec27fd2bf83227b1d55b279ff6eca"
+    },
+    {
+      "kind": "view",
+      "index": 34,
+      "columns": 32,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        120,
+        48,
+        6,
+        3,
+        375,
+        256,
+        320,
+        64,
+        1316
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 388670,
+      "endpoint_registers": [
+        1,
+        72,
+        0,
+        986,
+        39694,
+        49956,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "119d1b434218c6262e1016ce6fea530088db4cafff9ffbf6fba752edf4e6bdeb",
+      "vga_sha256": "a90e4bb6c605dd79b5401c9cb07f9068d1a79d7565de3c43efbc11831dda0e34"
+    },
+    {
+      "kind": "view",
+      "index": 35,
+      "columns": 32,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        224,
+        96,
+        14,
+        7,
+        748,
+        256,
+        320,
+        64,
+        1316
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 269971,
+      "endpoint_registers": [
+        1,
+        72,
+        0,
+        986,
+        40726,
+        49956,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "3cf176bd5c5c3d9192ecde39d0dbab9368315634c9ab252bfd0044f15eb70e12",
+      "vga_sha256": "7cfd36b9661e4d8b6ace4f7c6768eab5e24d56f92224852eaa1fdccc16e14637"
+    },
+    {
+      "kind": "view",
+      "index": 36,
+      "columns": 33,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        264,
+        320,
+        56,
+        1312
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 398593,
+      "endpoint_registers": [
+        1,
+        64,
+        0,
+        986,
+        40136,
+        49952,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "09068edd019817dbd6d21b6d1de8f2db7da591bfd50b547f502ba53cce26e32e",
+      "vga_sha256": "b2ecb5d5dc5f45981b8e4afdc2417f56e61c503f1c2503306be8f0848ebe21b6"
+    },
+    {
+      "kind": "view",
+      "index": 37,
+      "columns": 33,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        120,
+        48,
+        6,
+        3,
+        375,
+        264,
+        320,
+        56,
+        1312
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 398542,
+      "endpoint_registers": [
+        1,
+        64,
+        0,
+        986,
+        40934,
+        49952,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "a32689e79a06870b2c6f20dc35f89e001f51ef9173ece1911ffe9917d94540a8",
+      "vga_sha256": "e05d429608625430501aea650fc01d0fb420bdc57ae2bf9909a00c8a8f739998"
+    },
+    {
+      "kind": "view",
+      "index": 38,
+      "columns": 33,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        216,
+        96,
+        14,
+        7,
+        747,
+        264,
+        320,
+        56,
+        1312
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 276163,
+      "endpoint_registers": [
+        1,
+        64,
+        0,
+        986,
+        41998,
+        49952,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "3b5378736a39cda34d81fd31d8be0e52dbcd241838e527fcd5968b7215a2bca7",
+      "vga_sha256": "e0ee6fc069e0b2973b71b5f5bcb416c2c2b3c1281efb0d04eebfed0e932f39c9"
+    },
+    {
+      "kind": "view",
+      "index": 39,
+      "columns": 34,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        272,
+        320,
+        48,
+        1308
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 408465,
+      "endpoint_registers": [
+        1,
+        56,
+        0,
+        986,
+        41352,
+        49948,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "6d0a48c5bca8b879df05cb27a4cb4c3915d8074543cb4fcf022ad956f364b420",
+      "vga_sha256": "6f964f2ff4b5b5f3f52a812b705fb779b7cb2d1f1c69081884478a49cbb6e0be"
+    },
+    {
+      "kind": "view",
+      "index": 40,
+      "columns": 34,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        112,
+        48,
+        6,
+        3,
+        374,
+        272,
+        320,
+        48,
+        1308
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 408414,
+      "endpoint_registers": [
+        1,
+        56,
+        0,
+        986,
+        42174,
+        49948,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "abd3e9ff577adc9187a8f4e593a447e2c79c3702bc64b150406dbf2267126698",
+      "vga_sha256": "aee9b16c55edcd91d1b584b85c2caf1a8331d385d5bdac82dd898c46f059a5e9"
+    },
+    {
+      "kind": "view",
+      "index": 41,
+      "columns": 34,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        208,
+        96,
+        14,
+        7,
+        746,
+        272,
+        320,
+        48,
+        1308
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 282355,
+      "endpoint_registers": [
+        1,
+        56,
+        0,
+        986,
+        43270,
+        49948,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "19c6178454dd19f8158c0a3f9bf41e5c7ff0adf28fc648bfd610186d28f95f1e",
+      "vga_sha256": "5e7fe2059fc53746ecfb8eef1606bd6d74695e4c59a946169ef1ea5efca8be7b"
+    },
+    {
+      "kind": "view",
+      "index": 42,
+      "columns": 35,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        280,
+        320,
+        40,
+        1304
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 418337,
+      "endpoint_registers": [
+        1,
+        48,
+        0,
+        986,
+        42568,
+        49944,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "12e1acda7f70f781a6d09bb6498de875170ca469aaa01bea0e424989ddd91944",
+      "vga_sha256": "e0cf224a80f121b12b2b457cdd8ecb07a409e668fdfc8b56270560bcfb029d9d"
+    },
+    {
+      "kind": "view",
+      "index": 43,
+      "columns": 35,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        112,
+        48,
+        6,
+        3,
+        374,
+        280,
+        320,
+        40,
+        1304
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 418286,
+      "endpoint_registers": [
+        1,
+        48,
+        0,
+        986,
+        43414,
+        49944,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "b00db0f4b7361748523cf45cabd4f73608eefb292a67baae83c3632443145ae0",
+      "vga_sha256": "3bf62c2f1f1c7a44505136828520ac6fc0c4226fa409eb1a95cd36172e476349"
+    },
+    {
+      "kind": "view",
+      "index": 44,
+      "columns": 35,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        200,
+        96,
+        14,
+        7,
+        745,
+        280,
+        320,
+        40,
+        1304
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 288547,
+      "endpoint_registers": [
+        1,
+        48,
+        0,
+        986,
+        44542,
+        49944,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "b7368b61c0c312743ad2878252f13c5e45384b569652cedf35c0124e8d8b63b5",
+      "vga_sha256": "14fe46836c521afad5de60855d387f9386834ca364a47500c1ca952185696026"
+    },
+    {
+      "kind": "view",
+      "index": 45,
+      "columns": 36,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        288,
+        320,
+        32,
+        1300
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 428209,
+      "endpoint_registers": [
+        1,
+        40,
+        0,
+        986,
+        43784,
+        49940,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "03f0dfe1a19cf0d9166b82891b57e48c6a8926df6c1b1d7966f10665151d99c0",
+      "vga_sha256": "b9567f8626ea5fd647910943823e5e22cb0d1e85fe1ebb03fa56b6f08f396c93"
+    },
+    {
+      "kind": "view",
+      "index": 46,
+      "columns": 36,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        104,
+        48,
+        6,
+        3,
+        373,
+        288,
+        320,
+        32,
+        1300
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 428158,
+      "endpoint_registers": [
+        1,
+        40,
+        0,
+        986,
+        44654,
+        49940,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "487537ebcfba01eb79a2247892cd1288f4352fff2d694e95425ccbef8a3dc290",
+      "vga_sha256": "026f6cdb649df1bd96947ddd4beec41f0a16e246a9bef73b440146906c5aa33f"
+    },
+    {
+      "kind": "view",
+      "index": 47,
+      "columns": 36,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        192,
+        96,
+        14,
+        7,
+        744,
+        288,
+        320,
+        32,
+        1300
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 294739,
+      "endpoint_registers": [
+        1,
+        40,
+        0,
+        986,
+        45814,
+        49940,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "4a5a96c5a2c34a0eab4be19b5a0add04459459cb3277b16329f7b38230663ea3",
+      "vga_sha256": "30476651625348a57fa98a391506cedca7a6536e67436ff020ad469e9edcd907"
+    },
+    {
+      "kind": "view",
+      "index": 48,
+      "columns": 37,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        296,
+        320,
+        24,
+        1296
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 438081,
+      "endpoint_registers": [
+        1,
+        32,
+        0,
+        986,
+        45000,
+        49936,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "5fb5ecdd66c641b9444b512f727279c7b23d4f7b9789a238b7e9bf9351a68cd7",
+      "vga_sha256": "c070f107d0fa38748fbfff0fc00ae5729ce4c82cb70dc9a7268d9372e069c695"
+    },
+    {
+      "kind": "view",
+      "index": 49,
+      "columns": 37,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        104,
+        48,
+        6,
+        3,
+        373,
+        296,
+        320,
+        24,
+        1296
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 438030,
+      "endpoint_registers": [
+        1,
+        32,
+        0,
+        986,
+        45894,
+        49936,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "d8ae0a3bd577831b0b8b20b84d4a8b3b0a91842de701c96ff8c07a6735a816a7",
+      "vga_sha256": "ee696ff24c2043e9a5c902815001c1b044e102997b67fb128db0b8469bb22f9f"
+    },
+    {
+      "kind": "view",
+      "index": 50,
+      "columns": 37,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        184,
+        96,
+        14,
+        7,
+        743,
+        296,
+        320,
+        24,
+        1296
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 300931,
+      "endpoint_registers": [
+        1,
+        32,
+        0,
+        986,
+        47086,
+        49936,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "f296eef5ba1c5b19569a9e326bf0fb451bcf1f005068cf012346c9c65b4eb857",
+      "vga_sha256": "fef65b864a040e9b8ed84309615de448df0813e6af6aabb80635c71c292b1d42"
+    },
+    {
+      "kind": "view",
+      "index": 51,
+      "columns": 38,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        304,
+        320,
+        16,
+        1292
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 447953,
+      "endpoint_registers": [
+        1,
+        24,
+        0,
+        986,
+        46216,
+        49932,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "f7b7cbd399b5fc6f0dea4aabd7d3cf379c3019df0232b9bce2460312bbc1ee5d",
+      "vga_sha256": "4b67b53780fb5e33459ae0585a40c0c3e50a151ffff05f0bcfda0740b0300235"
+    },
+    {
+      "kind": "view",
+      "index": 52,
+      "columns": 38,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        96,
+        48,
+        6,
+        3,
+        372,
+        304,
+        320,
+        16,
+        1292
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 447902,
+      "endpoint_registers": [
+        1,
+        24,
+        0,
+        986,
+        47134,
+        49932,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "52c181f072b1dbc44cd37fef28938f5e7a3de97531758bab6d1e8cd116c0a73f",
+      "vga_sha256": "a1a4b90d78e095ad32e8fbf92dae59d07ca78622725413da33f30f9c621890c9"
+    },
+    {
+      "kind": "view",
+      "index": 53,
+      "columns": 38,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        176,
+        96,
+        14,
+        7,
+        742,
+        304,
+        320,
+        16,
+        1292
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 307123,
+      "endpoint_registers": [
+        1,
+        24,
+        0,
+        986,
+        48358,
+        49932,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "c45760bc28b52dfebe092fde540960eb2992feac28054d89050ab249793cd754",
+      "vga_sha256": "ef83b2da8e1f9d5fd9bc26d154439c9bb2a4cd0cdc7bd7c2b0c86b6abd165898"
+    },
+    {
+      "kind": "view",
+      "index": 54,
+      "columns": 39,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        312,
+        320,
+        8,
+        1288
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 457825,
+      "endpoint_registers": [
+        1,
+        16,
+        0,
+        986,
+        47432,
+        49928,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "fd3e17c50a1a9960ffeac28767cecd2854b427620789ed9c11bc038539aa2a15",
+      "vga_sha256": "82cb014eeea7b0125da64c60df6eb52083f3c66b476895bc217f0c5051f648a4"
+    },
+    {
+      "kind": "view",
+      "index": 55,
+      "columns": 39,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        96,
+        48,
+        6,
+        3,
+        372,
+        312,
+        320,
+        8,
+        1288
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 457774,
+      "endpoint_registers": [
+        1,
+        16,
+        0,
+        986,
+        48374,
+        49928,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "2a215e74273dfce6525b5a5ed3bf03883288a42bdaedd4dc00367d44954c9b4f",
+      "vga_sha256": "9f7647a5a684d0aad013e119c1d900a73542f11cfaf469306a8ab7db4098bed9"
+    },
+    {
+      "kind": "view",
+      "index": 56,
+      "columns": 39,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        168,
+        96,
+        14,
+        7,
+        741,
+        312,
+        320,
+        8,
+        1288
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 313315,
+      "endpoint_registers": [
+        1,
+        16,
+        0,
+        986,
+        49630,
+        49928,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "4917eff5c51dfe4981f5f7430f329f3b1fc42e5c9d09c1eda8c3acffe8a42893",
+      "vga_sha256": "62b593aecb508bcbd4f0f3a219a3fff233dd4e21d1998b045860c877dd8e4968"
+    },
+    {
+      "kind": "view",
+      "index": 57,
+      "columns": 40,
+      "x": 104,
+      "y": 64,
+      "shake": 0,
+      "background": 1,
+      "fields": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        320,
+        320,
+        0,
+        1284
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 467697,
+      "endpoint_registers": [
+        1,
+        8,
+        0,
+        986,
+        48648,
+        49924,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "116d5786f8436395ed0d140fd0d3e4c33e5d27f25602f304099173a9fe8d5afd",
+      "vga_sha256": "8db2def358cf12e6abde939cc23bf024bee4402d0fe7f1fe5ab2a5e64b33c25d"
+    },
+    {
+      "kind": "view",
+      "index": 58,
+      "columns": 40,
+      "x": 243,
+      "y": 131,
+      "shake": 3,
+      "background": 1,
+      "fields": [
+        88,
+        48,
+        6,
+        3,
+        371,
+        320,
+        320,
+        0,
+        1284
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 467646,
+      "endpoint_registers": [
+        1,
+        8,
+        0,
+        986,
+        49614,
+        49924,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "45c0d023f71ad4b1894f244cdf3247500129d5614882be5b0a161a322a684dae",
+      "vga_sha256": "bfa48475b61e7382e6a6a25dc27d72296a6f1e3619e7ba04dc75d089a7a8d10d"
+    },
+    {
+      "kind": "view",
+      "index": 59,
+      "columns": 40,
+      "x": 447,
+      "y": 240,
+      "shake": 7,
+      "background": 0,
+      "fields": [
+        160,
+        96,
+        14,
+        7,
+        740,
+        320,
+        320,
+        0,
+        1284
+      ],
+      "calls": [
+        [
+          0,
+          2104
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          10585
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          1989
+        ],
+        [
+          0,
+          13703
+        ],
+        [
+          2220,
+          244
+        ],
+        [
+          2220,
+          968
+        ]
+      ],
+      "unicorn_steps": 319507,
+      "endpoint_registers": [
+        1,
+        8,
+        0,
+        986,
+        50902,
+        49924,
+        16382,
+        417,
+        3139,
+        40960,
+        6322,
+        16360,
+        31319,
+        582
+      ],
+      "full_memory_and_register_control_identical": true,
+      "final_memory_sha256": "2b000cef4f89b4dbbfbdd34e8336cf771740508181ca388381f08f2f32c594cf",
+      "vga_sha256": "86c0c86d81c800e1f6f1ace5581e8f0e4b14536a287fd4dda1563f05bd335789"
+    }
+  ],
+  "sources": {
+    "tools/viewport_width_oracle.py": "25456e0601713e529b86d2959cfa15cb816ed4ee4c12236806ff72da26f9867a",
+    "tools/render_view_gate_oracle.py": "eb78520d858d74a9bf86439ee7270142413eccc11e9316aa2c923c40a76c2413",
+    "tools/render_view_gate_origin.py": "532d0e248c19a669e5414dd75a4faf05f5d3cd877e380d7ef34212e13f9c5fec"
+  },
+  "original_executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "source_capture_manifest_sha256": "dc3c9625e33cf53c8a18504a3ee465f37b525191af94cd952e9034967fbf2794",
+  "source_recipe_sha256": "6a36df22f8fd1e20ff6e5c65f74366d04bd8f5b562b9a34857ec7221a0ef3029",
+  "source_ram_sha256": "38ad4735735cbc3f7a6a902de25e4602a424635290aaf13ba94f05ffbc1d9485",
+  "source_sample": "gameplay-middle",
+  "code_segment": 417,
+  "data_segment": 3139,
+  "source_code_bytes_verified": 43552,
+  "initial_registers": [
+    42330,
+    4660,
+    22136,
+    43981,
+    4951,
+    9320,
+    16382,
+    417,
+    3139,
+    64,
+    6322,
+    16356,
+    33295,
+    514
+  ],
+  "control_blocks": [
+    [
+      2104,
+      65520,
+      "controlled near-call return and width argument"
+    ],
+    [
+      33295,
+      33411,
+      null
+    ]
+  ],
+  "view_blocks": [
+    [
+      2104,
+      65520,
+      "controlled near-call return and width argument"
+    ],
+    [
+      11386,
+      11401,
+      null
+    ],
+    [
+      11510,
+      11513,
+      null
+    ],
+    [
+      31251,
+      31319,
+      null
+    ]
+  ],
+  "controlled_block_transfers": true,
+  "configured_single_player_views": true,
+  "natural_two_player_elimination_claim": false,
+  "projection_bytes": 6721438,
+  "projection_sha256": "7c2338a3fd270a925179de2d71babd73e8a9779d892e3a13ad2bffca77fffdfe",
+  "compressed_bytes": 119614,
+  "compressed_sha256": "1207bd9c23298da34e7fe0b5b666305b8d6abe2790795029c5b38b6141934f60",
+  "unicorn": "2.1.4",
+  "original_calls_stubbed": 0,
+  "instruction_patches": 0,
+  "raw_memory_published": false,
+  "raw_memory_available_to_frozen_checker": false,
+  "controlled_geometry": true,
+  "controlled_single_visual": true,
+  "natural_route": false,
+  "interrupt_timing_claim": false,
+  "whole_game_fidelity_claim": false
+}

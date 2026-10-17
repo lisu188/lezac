@@ -199,6 +199,7 @@ if(BUILD_TESTING)
     add_executable(lezac_pacing_device_clock_test tests/core/pacing_device_clock_test.cpp)
     add_executable(lezac_crt_keyboard_test tests/core/crt_keyboard_test.cpp)
     add_executable(lezac_keyboard_irq_test tests/core/keyboard_irq_test.cpp)
+    add_executable(lezac_keyboard_controller_test tests/core/keyboard_controller_test.cpp)
     add_executable(lezac_game_keyboard_test tests/core/game_keyboard_test.cpp)
     add_executable(lezac_frame_hud_test tests/core/frame_hud_test.cpp)
     add_executable(lezac_frame_foreground_test tests/core/frame_foreground_test.cpp)
@@ -212,6 +213,9 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION "game_keyboard_unit=ok cases=10 timer_boundaries=445 masked_boundaries=26")
     target_link_libraries(lezac_crt_keyboard_test PRIVATE lezac_core)
     target_link_libraries(lezac_keyboard_irq_test PRIVATE lezac_core)
+    target_link_libraries(lezac_keyboard_controller_test PRIVATE lezac_core)
+    add_test(NAME keyboard_controller_unit COMMAND lezac_keyboard_controller_test)
+    set_tests_properties(keyboard_controller_unit PROPERTIES PASS_REGULAR_EXPRESSION "keyboard_controller_unit=ok")
     add_test(NAME keyboard_irq_unit COMMAND lezac_keyboard_irq_test)
     set_tests_properties(keyboard_irq_unit PROPERTIES
         PASS_REGULAR_EXPRESSION "keyboard_irq_unit=ok zero_budget=1 pause_handoff=1 pause_resume=1 invalid_entry=1 invalid_ring=1")
@@ -262,6 +266,11 @@ if(BUILD_TESTING)
     set_tests_properties(pattern_fill_unit PROPERTIES
         TIMEOUT 180 ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^pattern_fill=ok patterns=6400 compared_pixels=409600000 budgets=9 original_cursor_cases=3 semantic_stages=3 invalid_inputs=6 timing_claim=0")
+    add_executable(lezac_canvas_palette_test tests/rendering/canvas_palette_test.cpp)
+    target_link_libraries(lezac_canvas_palette_test PRIVATE lezac_rendering)
+    add_test(NAME canvas_palette_unit COMMAND lezac_canvas_palette_test)
+    set_tests_properties(canvas_palette_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "canvas_palette=ok indices=256 pixels=64000 rgb_preserved=1 ownership_preserved=1 clip_preserved=1 idempotent=1")
     add_executable(lezac_crt_delay_test tests/core/crt_delay_test.cpp)
     target_link_libraries(lezac_crt_delay_test PRIVATE lezac_resources)
     add_test(NAME crt_delay_original COMMAND lezac_crt_delay_test
@@ -739,6 +748,18 @@ if(BUILD_TESTING)
         add_test(NAME keyboard_irq_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_keyboard_irq_fixture.py)
         set_tests_properties(keyboard_irq_fixture_rejections PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR}")
+        add_test(NAME keyboard_device_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_keyboard_device_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/keyboard-device.bin)
+        set_tests_properties(keyboard_device_fixture_contract PROPERTIES FIXTURES_SETUP keyboard_device_corpus)
+        add_test(NAME keyboard_controller_original COMMAND lezac_keyboard_controller_test
+            --original ${CMAKE_CURRENT_BINARY_DIR}/keyboard-device.bin)
+        set_tests_properties(keyboard_controller_original PROPERTIES FIXTURES_REQUIRED keyboard_device_corpus
+            PASS_REGULAR_EXPRESSION "keyboard_port_clock_original=ok cases=20 early_core_slices=14")
+        add_test(NAME keyboard_device_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_keyboard_device_fixture.py)
+        set_tests_properties(keyboard_device_fixture_rejections PROPERTIES
             ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR}")
         add_test(NAME game_keyboard_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_game_keyboard_fixture.py
@@ -1491,6 +1512,31 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "red_palette_fixture=ok captures=2 lf_crlf=1 truncated_rejected=2 mutations_rejected=42 indexed_hashes=1 no_output_files=1")
+    endif()
+
+    add_test(NAME gameplay_palette_presentation
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-gameplay-palette-presentation)
+    set_tests_properties(gameplay_palette_presentation PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "gameplay_palette_presentation=ok frames=80 pre_actor_frame_retained=1 indexed_pixels=[0-9]+ rgb_pixels=[0-9]+ recolored_world=[0-9]+ recolored_hud=[0-9]+ actual_tick_and_present=1 seeded_scene=1 natural_route=0 whole_game_parity=0")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND Python3_Interpreter_FOUND)
+        add_library(lezac_sdl_present_observer SHARED tests/rendering/sdl_present_observer.cpp)
+        target_include_directories(lezac_sdl_present_observer PRIVATE ${SDL2_INCLUDE_DIRS})
+        target_link_libraries(lezac_sdl_present_observer PRIVATE ${SDL2_LIBRARIES} ${CMAKE_DL_LIBS})
+        target_link_directories(lezac_sdl_present_observer PRIVATE ${SDL2_LIBRARY_DIRS})
+        add_test(NAME gameplay_palette_sdl_submission
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gameplay_palette_present.py
+                --exe $<TARGET_FILE:lezac_cpp> --observer $<TARGET_FILE:lezac_sdl_present_observer>)
+        set_tests_properties(gameplay_palette_sdl_submission PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "gameplay_palette_sdl=ok pixels=64000 exact_scale=3 late_palette_submitted=1 seeded_scene=1 natural_route=0 whole_game_parity=0")
+        add_test(NAME gameplay_palette_check_failures
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_gameplay_palette_present.py)
+        set_tests_properties(gameplay_palette_check_failures PROPERTIES
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
     endif()
 
     foreach(capacity_mode IN ITEMS bomb spawner)

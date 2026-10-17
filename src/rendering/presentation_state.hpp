@@ -50,6 +50,8 @@ public:
     void setPalette(const resources::Palette& palette) { palette_ = palette; }
     void initializeBackdropBuffer(int playerCount);
     void buildBackdropBuffer(int playerCount, core::TurboRandom& random);
+    void initializeBackdropBufferForPitch(int pitch);
+    void buildBackdropBufferForPitch(int pitch, core::TurboRandom& random);
     void beginLevel(size_t mapTileCount);
     std::vector<uint8_t> decodeLevelPlane(const std::vector<uint8_t>& encoded, size_t outputSize);
     resources::DecodedLevelPlane decodeLevelPlaneWithTail(const std::vector<uint8_t>& encoded, size_t outputSize);

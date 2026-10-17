@@ -294,6 +294,11 @@ class StartupTests(unittest.TestCase):
                         validate_intro_caption(pixels, fidelity.read_ppm(FIXTURE / frame))
                     else:
                         self.assertGreater(len(set(pixels)), 8)
+                first_frame = fidelity.read_ppm(output / "first-present.ppm")
+                late_frame = fidelity.read_ppm(output / "first-late-palette.ppm")
+                self.assertEqual(len(late_frame), 320 * 200 * 3)
+                self.assertEqual(first_frame[:320 * 160 * 3], late_frame[:320 * 160 * 3])
+                self.assertNotEqual(first_frame[320 * 160 * 3:], late_frame[320 * 160 * 3:])
                 if clocks:
                     self.assertEqual(seed, first["initialized_rng"])
                     self.assertEqual((output / "backdrop.bin").read_bytes(), (FIXTURE / "backdrop.bin").read_bytes())

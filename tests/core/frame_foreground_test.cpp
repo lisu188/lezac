@@ -174,16 +174,20 @@ void paletteOracle(const char* path) {
     }
     std::cout<<"render_palette_original=ok cases="<<count<<" callback_checks="<<checks<<" profile_rejections="<<rejected<<" native_sdl_mapping=1 whole_host_claim=0\n";
 }
-void original(const char* cpuPath,const char* clockPath) {
+void original(const char* cpuPath,const char* clockPath,bool live=false,const char* dumpPath=nullptr) {
     const auto clockCases=clocks(clockPath);Reader reader(cpuPath);
     require(reader.take(8)==std::vector<uint8_t>({'L','Z','F','F','G','D','0','1'}),"Foreground CPU version differs");
     const auto count=reader.number(4);require(count==clockCases.size(),"Foreground CPU/clock cases differ");
-    uint64_t comparisons=0,transfers=0,grants=0,callbacks=0,irqs=0;
+    uint64_t comparisons=0,transfers=0,grants=0,callbacks=0,irqs=0,expectedIrqs=0;
+    std::vector<uint8_t> visual={'L','Z','H','U','D','P','I','X'};
+    const auto number=[&](uint32_t value){for(unsigned i=0;i<4;++i)visual.push_back(static_cast<uint8_t>(value>>(8*i)));};
+    number(count);
     struct State {DosGetTimeRegisters r;uint32_t mask,io;std::vector<uint8_t> stack,crt,bios,sound,last,hud,pixels,psp,frame,display,pacing;};
     for(unsigned c=0;c<count;++c) {
         const auto game=reader.word(),keyboard=reader.word(),ss=reader.word(),stackBase=reader.word(),entryIp=reader.word();
         const auto bankSegment=reader.word(),bankOffset=reader.word(),bankLength=reader.word(),dos=reader.word(),psp=reader.word();
         const auto size=reader.number(4),ioCount=reader.number(4),irqCount=reader.number(4);
+        expectedIrqs+=2u*irqCount;
         require(size==clockCases[c].size() && bankLength==780 && entryIp==0x7903,"Foreground CPU scope differs");
         reader.take(4*irqCount);const auto bank=reader.take(bankLength),font=reader.take(640);std::vector<State> states;
         for(unsigned i=0;i<size;++i) {
@@ -192,6 +196,9 @@ void original(const char* cpuPath,const char* clockPath) {
         }
         std::vector<std::tuple<bool,uint16_t,uint8_t>> events;
         for(unsigned i=0;i<ioCount;++i){const bool output=reader.number(1)!=0;const auto port=reader.word();events.emplace_back(output,port,static_cast<uint8_t>(reader.number(1)));}
+        if(live)require(ioCount==irqCount && std::all_of(events.begin(),events.end(),[](const auto& event){
+            return event==std::tuple{true,uint16_t{0x20},uint8_t{0x20}};
+        }),"Live corpus left the idle-sound EOI-only profile; external port-read inputs are unsupported");
         for(bool restore:{false,true}) {
             Memory memory;memory.script=events;const auto data=static_cast<uint16_t>(game+0xaa2);
             memory.seed(ss,stackBase,states[0].stack);memory.seed(0x40,0,states[0].bios);memory.seed(data,0x7f6d,states[0].crt);
@@ -248,16 +255,34 @@ void original(const char* cpuPath,const char* clockPath) {
             require(operation.snapshot().hud.has_value(),"Foreground HUD handoff missing");
             transfers+=operation.snapshot().hud->stringTransfers;grants+=clock.snapshot().clock.millisecondGrants;callbacks+=clock.snapshot().deviceCallbacks;
             require(operation.snapshot().pacing.dispatchedInstructions+operation.snapshot().hud->dispatchedInstructions==size-1,"Foreground work was lost at handoff");
+            if(dumpPath && !restore) {
+                number(c);number(states[0].pacing[0]|(uint32_t{states[0].pacing[1]}<<8));
+                const auto palette=clock.snapshot().palette;require(palette.has_value(),"HUD dump has no computed palette");
+                for(auto rgb:palette->rgb)for(unsigned shift:{16u,8u,0u})visual.push_back(static_cast<uint8_t>(rgb>>shift));
+                for(unsigned block=0;block<2;++block)for(unsigned row=0;row<8;++row)for(unsigned x=0;x<17;++x)
+                    visual.push_back(memory.read(0xa000,static_cast<uint16_t>((166+block*16+row)*320+159+x)));
+                visual.insert(visual.end(),states.back().pixels.begin(),states.back().pixels.end());
+            }
         }
     }
     require(reader.stream.get()<0,"Foreground CPU tail differs");
     require(callbacks>0 && grants>0,"Foreground corpus did not exercise live device timing");
-    std::cout<<"frame_foreground_original=ok cases="<<count<<" comparisons="<<comparisons<<" transfers="<<transfers
-        <<" millisecond_grants="<<grants<<" device_callbacks="<<callbacks<<" predicted_irqs="<<irqs<<" later_state_injected=0 whole_game_parity=0\n";
+    require(irqs==expectedIrqs,"Computed and observed timer delivery counts differ");
+    if(live)require(transfers>0 && irqs>0,"Live foreground corpus missed changed glyphs or natural timer delivery");
+    if(dumpPath) {
+        require(!std::ifstream(dumpPath,std::ios::binary).good(),"HUD dump already exists");
+        std::ofstream dump(dumpPath,std::ios::binary);dump.write(reinterpret_cast<const char*>(visual.data()),static_cast<std::streamsize>(visual.size()));
+        require(dump.good(),"HUD dump write failed");
+    }
+    std::cout<<(live?"frame_foreground_live=ok cases=":"frame_foreground_original=ok cases=")<<count<<" comparisons="<<comparisons<<" transfers="<<transfers
+        <<" millisecond_grants="<<grants<<" device_callbacks="<<callbacks<<" predicted_irqs="<<irqs<<" later_state_injected=0 whole_game_parity=0";
+    if(live)std::cout<<" external_port_read_inputs=0";
+    std::cout<<'\n';
 }
 }
 int main(int argc,char** argv) {
-    try {require(argc==3,"Expected original foreground CPU and clock projections");
-        if(std::string(argv[1])=="--palette-oracle")paletteOracle(argv[2]);else original(argv[1],argv[2]);}
+    try {require(argc==3 || ((argc==4 || argc==5) && std::string(argv[1])=="--live"),"Expected original foreground CPU and clock projections");
+        if(argc>=4)original(argv[2],argv[3],true,argc==5?argv[4]:nullptr);
+        else if(std::string(argv[1])=="--palette-oracle")paletteOracle(argv[2]);else original(argv[1],argv[2]);}
     catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
 }

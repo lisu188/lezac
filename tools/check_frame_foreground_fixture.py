@@ -75,4 +75,4 @@ if __name__=='__main__':
     args=parser.parse_args();outputs=read_fixture()
     for name,raw in zip(('cpu','clock','palette'),outputs):
         path=getattr(args,name)
-        if path:path.write_bytes(raw)
+        if path and (not path.exists() or sha(path.read_bytes())!=sha(raw)):path.write_bytes(raw)

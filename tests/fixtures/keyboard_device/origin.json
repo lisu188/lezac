@@ -1,0 +1,38 @@
+{
+  "adapters": "Recorded PIC scheduling/removal/IRQ, A20, gate2/speaker effects; logging discarded",
+  "app_cadence_claim": false,
+  "binary_sha256": "7342331868376defc8e8f3a57ce6db9c16c3a146a9eea25bb83389183bf702d6",
+  "build_argv": [
+    "c++",
+    "-std=c++23",
+    "-O2",
+    "/dev/shm/lezac-keyboard-device-t216/oracle/oracle.cpp",
+    "-o",
+    "/dev/shm/lezac-keyboard-device-t216/oracle/oracle"
+  ],
+  "cases": 31296,
+  "complete_environment": {
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "PATH": "/usr/bin:/bin",
+    "SDL_AUDIODRIVER": "dummy",
+    "SDL_VIDEODRIVER": "dummy",
+    "TMPDIR": "/dev/shm/lezac-keyboard-device-t216/oracle"
+  },
+  "driver_sha256": "decef7bbe9f7d53e586d1770fc9e2a95ab3027b9e015c680abaf4f8f4e915da7",
+  "enum_sha256": "d22324a26cf6b04a2d92edebc8cd8f6f2c53b628dc72cf424e2a90aed9c4340c",
+  "functions_sha256": "cc428a6b31c56adc651e1995e7f4e0450184b6ce2585886c1e8135d2bb983d74",
+  "generated_source_sha256": "1ded517d5cb0953ad6721262d262ad213842f4b0d0e4e2767fca92d9e76dd8c7",
+  "machine": "VGA",
+  "oracle_bytes": 8910328,
+  "oracle_sha256": "6477b5159f31dc55b16c6ac89dbedcd7fa3042b2bba809b389b4cd2304d4f1f3",
+  "original_functions_changed": false,
+  "original_host_execution": false,
+  "original_source_sha256": {
+    "include/keyboard.h": "e1badf7a53fd38441077402419102e716764b9116f5f6e684f8c9d51cd8b0009",
+    "src/hardware/keyboard.cpp": "d3ee2544a1cef6c4006e634ceb0729d550f755a6c1fe5aff20020f6e196d5afd"
+  },
+  "producer_sha256": "a23ad7e7a87a9287b51709b4113f3aac5311d2bbe4bdd06de8bce18a217ba26c",
+  "schema": "lezac-keyboard-device-function-oracle-v1",
+  "whole_game_claim": false
+}

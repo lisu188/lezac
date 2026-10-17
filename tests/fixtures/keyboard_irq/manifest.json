@@ -1,0 +1,133 @@
+{
+  "schema": "lezac-keyboard-irq-fixture-v1",
+  "sources": {
+    "tools/frame_foreground_live_probe/rebuild.py": "5bf31da0876c160d877bc25e960e06ccc416388ffb3416f1141a2902bc0ac2a4",
+    "tools/frame_foreground_probe/clock_hook.patch": "b61aedfbd911f46766bc3c32eb7c12df920ec9eed16928183aadc4732a260e44",
+    "tools/frame_foreground_probe/dos_time_hook.patch": "7b7b24a70c4a032533eb404d948d27eb36336b5248bb531604d8e4f737c3cd4b",
+    "tools/frame_foreground_probe/gfx_clock_observation.inc": "c7e3007fee0a62b4fe485e94c46a6de2807bc8b636ab745491f2111e1af8178d",
+    "tools/frame_foreground_probe/keyboard_clock_observation.inc": "7fb32b946df39756cbf4fad59ba15ace6383b070976bdd2d54cebeafff1753e3",
+    "tools/frame_foreground_probe/lezac_clock_observation.h": "749b34dbe8e94689601159893c360b9779a7c52014e6d989b6d6e51d25c28936",
+    "tools/frame_foreground_probe/mixer_clock_observation.inc": "b997f6b2a762f047b1cb1caa2d8a893039c405fb66f9abd024dc92035fcf0a58",
+    "tools/frame_foreground_probe/pic_tickers_observation.inc": "0025c8d94219966e73c5d9bca004311de4d0c2335f7f8dfff7b608753486fa72",
+    "tools/frame_foreground_probe/render_clock_observation.inc": "9b5f82d789472d01d3179106b7bb3f3a278c3133025e326770c51ecd9e984471",
+    "tools/frame_foreground_probe/vga_clock_observation.inc": "3dbee71ba4ff04fead3e3417c6a0ed2d9e28dbe0dcd3ba630f3e35d251f9c6e9",
+    "tools/keyboard_irq_probe/bios_oracle_driver.cpp": "2967d871782dc367b54f3576d82d217ce8c0754ef1c764a793efac950a14feb8",
+    "tools/keyboard_irq_probe/build_bios_oracle.py": "28fb9858d3559510edc6c69b7db033a7f2c5e83008fd191601305ac063e04464",
+    "tools/keyboard_irq_probe/capture.py": "d9dfc5fa853040d5ad8f3f3116bcf0ea6083f058cf4b1d3d439c18699dffe07f",
+    "tools/keyboard_irq_probe/contract.py": "9c27a6e39e6ec5170909a6a8f84944f364a4d3f81ada81ad53b5a964694b7c81",
+    "tools/keyboard_irq_probe/keyboard_irq_api.h": "ca6369153dffe0ea4310559367aee4eaeb003faad3ac7a30856430236e314247",
+    "tools/keyboard_irq_probe/keyboard_irq_observation.inc": "555c409dbdfa6176b1bb36566746bab5f5abd1fdfb1e73e5792004cc57fadb86",
+    "tools/keyboard_irq_probe/lezac_work_probe.h": "dec6c49b91cf6dcf8e0b2d615e759f109a979ee84394184bfa6a848618e2a839",
+    "tools/keyboard_irq_probe/project.py": "72e20b10036410762819dd3ed234ac069f30fb7d4fe6fad3c7b12f14a35dc3ed",
+    "tools/keyboard_irq_probe/rebuild.py": "9c5d9acf1a2bddae032a6f3b3ed285abe98e43df55a761b80f88facb15f15a9c",
+    "tools/keyboard_irq_probe/trace.py": "5ef3098a59276524890cfd7e70591369b3b86ae28cd7c9c4ae11f351b03e5393",
+    "tools/original_capture_contract.py": "36e27f3441ae98db6e2a459ca64c561b72c964e1e98de854ca416321c33c33e0",
+    "tools/seed_original_level.py": "b2e6a4fc80e6e612718baf10ff4aabc8e2c438524f5d24547b9a97fd483551fe"
+  },
+  "files": [
+    {
+      "name": "natural-r5.csv.gz",
+      "bytes": 130912,
+      "sha256": "be77181d25b6402426081666506c7a36ccb60b57a63bfa856a8048890887324f"
+    },
+    {
+      "name": "natural-r5-recipe.json",
+      "bytes": 31634,
+      "sha256": "b576c00021e17a0ea8523a7484d0021a278c842768ef447de62ba018e8a7fbfe"
+    },
+    {
+      "name": "natural-r6.csv.gz",
+      "bytes": 130470,
+      "sha256": "7193819862980e476066d5eea621c8297cbfd4669d23d23dfe35b0d248c3e896"
+    },
+    {
+      "name": "natural-r6-recipe.json",
+      "bytes": 31630,
+      "sha256": "bdc91a80dfd2478d802760a9ef3b832f3e44e279cfafde087cd3e98257e730ea"
+    },
+    {
+      "name": "bios.bin.gz",
+      "bytes": 348030,
+      "sha256": "cfc774bfed8cf58f930187a3fca8a17ec14d0c869390ad137900a8b9f5f91924"
+    },
+    {
+      "name": "bios-origin.json",
+      "bytes": 1879,
+      "sha256": "e4b9eda92d6fec64ff615f2a567adb4d27a34d8d747e64f021c7ffeeee0aa3c9"
+    }
+  ],
+  "cases": 82,
+  "states": 6776,
+  "natural_runs": 2,
+  "cpu_bytes": 3213886,
+  "cpu_sha256": "c6e91ccbb1fef9f37c9f5271f2415b2a51fedcd03d15d4665bdfb49317b99bbe",
+  "bios_bytes": 20251540,
+  "bios_sha256": "3d9b6ac0353d4f547868a380907ea816da00540c77658133fa41bf9d94b9540d",
+  "bios_cases": 65536,
+  "assets": {
+    "BOMOMIMK.SPR": {
+      "bytes": 20168,
+      "sha256": "08dfd0e59ba191c52af2529bdfa140fd15a57829f0c6c13bbb78e156769ac0d1"
+    },
+    "BOMPAL.PAL": {
+      "bytes": 768,
+      "sha256": "f2559164074ca529ba6c275a9831b11c6da9e6317f09b3d9228c299d6f8f8319"
+    },
+    "CARO.CAR": {
+      "bytes": 8450,
+      "sha256": "949cce4db6071d6675a291c978d725c6e4ee1730b2c7a428bc1c8a8185cbd8d8"
+    },
+    "ENGLISH.DOC": {
+      "bytes": 3522,
+      "sha256": "e2fd2f2521b0277f2fca0c8f2a265408412542932bb6e977bf1ab3d0aabdfed9"
+    },
+    "FONTS.SPR": {
+      "bytes": 5425,
+      "sha256": "f65aa9bbba2a66ee69f1b279a32c448e36012feb53441fbbb8e64e31bee87a0e"
+    },
+    "GRAN.MST": {
+      "bytes": 399,
+      "sha256": "3f0cf17706d557ca863d6e39bfa6641fba777a88815ba3f0a22e5ac89e0e39e2"
+    },
+    "ITALIANO.DOC": {
+      "bytes": 4392,
+      "sha256": "5ea7481d3179e60b6f1229aa114dc4b47c95f7c1200c7888ad5c259f161317c1"
+    },
+    "LEZAC.EXE": {
+      "bytes": 52384,
+      "sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
+    },
+    "LIVELS.SCH": {
+      "bytes": 41047,
+      "sha256": "d8b553871014108515d6af05b0853de8ccc22e4d3e44d63533ba1167fdc8c7b2"
+    },
+    "PROEFS.SON": {
+      "bytes": 782,
+      "sha256": "b5bc702a27ac85554cc76a62fced07567921b07d5c16f2027a62fbc956df701d"
+    },
+    "PROVA.SPR": {
+      "bytes": 21250,
+      "sha256": "d6d6b634f8613251f6e82e9a15c5c68e2be437892bfa25c53eb4bcd9094188b7"
+    },
+    "RECS.DAT": {
+      "bytes": 92,
+      "sha256": "27197ebb56fb339e4d41baf6ad5282cd79bb66b642c81ae406e607a263c80eb8"
+    },
+    "SETUP.LOG": {
+      "bytes": 566,
+      "sha256": "4c86cd7436be442663b10b1425bbcd7a179b7955b67c23632bf20a8180144a14"
+    },
+    "SFONLEF.ZBG": {
+      "bytes": 34292,
+      "sha256": "b1b7cc03122510318c1a3670f151712406e9e3fa60aabd8fb558320766c3835c"
+    }
+  },
+  "original_executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "host_sha256": "f74c3a0c885d687cc6205dcfc004f1edc49811721eafde30e32473ea63fac108",
+  "raw_memory_published": false,
+  "raw_memory_available_to_frozen_checker": false,
+  "full_arithmetic_flags_claim": false,
+  "irq_eligibility_claim": false,
+  "app_cadence_claim": false,
+  "whole_game_claim": false
+}

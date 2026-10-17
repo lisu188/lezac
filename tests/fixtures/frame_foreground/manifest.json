@@ -1,9 +1,11 @@
 {
   "schema": "lezac-frozen-frame-foreground-v1",
   "sources": {
+    "tools/frame_foreground_probe/README.md": "6717eb95534781fc0017dc0b2fe1bd3ae6a248c8564b5e072df3ed6c175d25af",
     "tools/frame_foreground_probe/build.py": "dcafda4d27bb584a0ebde7a3d76b9753518eaba7ba5f91e3a40f9e83d37308ef",
-    "tools/frame_foreground_probe/build_palette_oracle.py": "624d1f70a0309a0426443bb2e04c9a907125c654f5ac8aabb83a7850d18216aa",
+    "tools/frame_foreground_probe/build_palette_oracle.py": "bb75bbb1131f11f9c3ad99d972786842a0d873083d9b0d8f3c939d157f6fb26d",
     "tools/frame_foreground_probe/capture.py": "658379524ef8000b7e6ab7e110780a95c3a32f5a472abc28939eb5920ab01ef2",
+    "tools/frame_foreground_probe/check_sdl_runtime.py": "0fda694c22f456efcc4fac15ed1736b6a1ed72f4c11ba507e315b6d2e3c4acdd",
     "tools/frame_foreground_probe/clock_hook.patch": "b61aedfbd911f46766bc3c32eb7c12df920ec9eed16928183aadc4732a260e44",
     "tools/frame_foreground_probe/dos_time_hook.patch": "7b7b24a70c4a032533eb404d948d27eb36336b5248bb531604d8e4f737c3cd4b",
     "tools/frame_foreground_probe/gfx_clock_observation.inc": "c7e3007fee0a62b4fe485e94c46a6de2807bc8b636ab745491f2111e1af8178d",
@@ -12,11 +14,12 @@
     "tools/frame_foreground_probe/lezac_clock_observation.h": "749b34dbe8e94689601159893c360b9779a7c52014e6d989b6d6e51d25c28936",
     "tools/frame_foreground_probe/lezac_work_probe.h": "c6128c9f297ee0b639b331adaa65b71515521bebfbe6c15a1c55053af272ebaa",
     "tools/frame_foreground_probe/mixer_clock_observation.inc": "b997f6b2a762f047b1cb1caa2d8a893039c405fb66f9abd024dc92035fcf0a58",
-    "tools/frame_foreground_probe/palette_oracle_driver.cpp": "af992818cd774d749cf1b6dc6cddf0668efb0c66c430d7b9935ea0a555544356",
+    "tools/frame_foreground_probe/palette_oracle_driver.cpp": "6738bbe22f2aada3451dc8ba6e17c8f054af871dd9ceab303258c37369610ed6",
     "tools/frame_foreground_probe/pic_tickers_observation.inc": "0025c8d94219966e73c5d9bca004311de4d0c2335f7f8dfff7b608753486fa72",
     "tools/frame_foreground_probe/project.py": "07d3d338185dcfeecce256b69ec992bc7506c2d5e7047716a1243085134907dd",
     "tools/frame_foreground_probe/rebuild.py": "ef578582a8fb1628ed1dbba7c982a88a2dda8a9adb58051edeecf920b23fe6e8",
     "tools/frame_foreground_probe/render_clock_observation.inc": "9b5f82d789472d01d3179106b7bb3f3a278c3133025e326770c51ecd9e984471",
+    "tools/frame_foreground_probe/sdl_provenance.py": "d86ebe4c38496caa5beebebd9d2719016145dca28c19e9f89c6e7952a14da370",
     "tools/frame_foreground_probe/trace.py": "1cb498791c85b1b535495174ca9976aa2708bdae22a986ff3522a90e0950d47d",
     "tools/frame_foreground_probe/vga_clock_observation.inc": "3dbee71ba4ff04fead3e3417c6a0ed2d9e28dbe0dcd3ba630f3e35d251f9c6e9",
     "tools/original_capture_contract.py": "36e27f3441ae98db6e2a459ca64c561b72c964e1e98de854ca416321c33c33e0"
@@ -39,8 +42,8 @@
     },
     {
       "name": "palette-origin.json",
-      "bytes": 1201,
-      "sha256": "29df086fcd51e9e0fab042f94b1fb3805283f5e0dfd4f668ea460108ef8d2349"
+      "bytes": 2559,
+      "sha256": "e68bbe23c0e7bdd8c54c6bdbd7e1f2f35e1c39277d32fabbfd07eddb721199a8"
     },
     {
       "name": "palette.bin.gz",

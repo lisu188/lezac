@@ -9,7 +9,7 @@ from pathlib import Path
 from frame_foreground_probe.project import projections,clock_projection
 
 ROOT=Path(__file__).resolve().parents[1];FIXTURE=ROOT/'tests/fixtures/frame_foreground'
-MANIFEST_SHA='6d57348388f33ffab1a6892ff5818049ab78eacea82a80e377e71b30baae3f89'
+MANIFEST_SHA='dfc7d3dfef4a813b9c2d96d9d3a7b0e0d19fa3fc150b1daeaf6db875b6e62f69'
 sha=lambda raw:hashlib.sha256(raw).hexdigest()
 
 def require(value,message):
@@ -58,6 +58,12 @@ def read_fixture(root=FIXTURE):
         origin['driver_sha256']==manifest['sources']['tools/frame_foreground_probe/palette_oracle_driver.cpp'] and
         origin['native_sdl_mapping'] is True and origin['original_function_bodies_changed'] is False and
         origin['original_host_execution'] is False,'Foreground native palette oracle differs')
+    runtime=origin['sdl_runtime_library']
+    require(runtime['verified'] is True and runtime['sha256']==origin['sdl_library_sha256']==origin['sdl_link_library_sha256'] and
+        origin['runtime_identity_producer_sha256']==manifest['sources']['tools/frame_foreground_probe/sdl_provenance.py'] and
+        origin['build_environment_is_complete'] is True and 'LD_PRELOAD' not in origin['build_environment'] and
+        origin['run_environment_is_complete'] is True and 'LD_PRELOAD' not in origin['run_environment'] and
+        bool(origin['run_environment']['LD_LIBRARY_PATH']),'Foreground actual SDL runtime provenance differs')
     require(manifest['raw_memory_published'] is False and manifest['raw_memory_available_to_frozen_checker'] is False and
         manifest['whole_game_parity'] is False and manifest['full_frame_claim'] is False,'Foreground evidence scope differs')
     print('frame_foreground_fixture=ok natural_cases=2 states=108343 palette_cases=96 raw_ram_files_verified=0 full_frame_claim=0')

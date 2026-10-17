@@ -55,9 +55,10 @@ and does not claim to recover the renderer full-frame flag.
 
 ## Validation
 
-All 57 focused CTests pass, including the 53 existing pacing, clock, HUD,
+All 58 focused CTests pass, including the 53 existing pacing, clock, HUD,
 keyboard and source-ownership checks. Native MSVC `/std:c++latest /W4 /WX`
-compilation, original replay, palette oracle and four fixture tests pass with
+compilation, original replay, palette oracle, four fixture tests and two SDL
+runtime-identity tests pass with
 all temporary output in RAM. Eight isolated palette/foreground mutations are
 detected; the baseline passes both replay probes. Source ownership covers 124
 production files and all 19 guard controls pass.
@@ -65,6 +66,28 @@ production files and all 19 guard controls pass.
 These local checks do not replace current-head external review or the full
 Linux/Windows GitHub suites. No actual-App foreground integration build or
 new candidate-App screenshot is claimed.
+
+## SDL Runtime Review
+
+The first external review identified a real loader-provenance gap: `-L` pins
+link-time selection but does not select the library loaded by the executed
+oracle. A retained external-SDK regression reproduces this mismatch with a
+distinct, identity-marked copy of the SDL image. Without a loader pin the
+process selects the system image; the corrected producer selects the SDK
+image and verifies its identity. The original SDK is unchanged by that test.
+
+The corrected driver reports the actual image containing `SDL_MapRGB` through
+`dladdr`. The producer uses complete build/run environments, supplies the SDK
+loader directory explicitly, excludes inherited preload overrides, and checks
+the resolved runtime path and hash against the expected SDK image. Missing,
+ambiguous, unreadable, changed and mismatched identities fail closed.
+
+The pinned SDK in the real capture environment aliases the system SDL image;
+the corrected observation confirms its hash is
+`b82090085ba665c89ea70909b9018a219c42029fdf9803e7d5e17c185d6d1d72`.
+The regenerated 96-case oracle remains byte-identical. C++, original natural
+observations and all decoded projection bytes are unchanged; only producer
+provenance, regression coverage and the frozen manifest are updated.
 
 ## Limits
 

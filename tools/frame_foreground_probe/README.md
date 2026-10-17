@@ -25,6 +25,13 @@ execute native SDL mapping; they are function-level evidence, not whole-host
 or gameplay evidence. Non-RGB32, locked, blit, inactive and incoherent backend
 profiles are unsupported and rejected by the recovered clock.
 
+The oracle process uses an explicit SDK loader path and a complete environment
+without inherited loader overrides. Its driver reports the actual SDL image
+containing `SDL_MapRGB` through `dladdr`; the producer verifies that resolved
+path and its bytes against the expected SDK image before accepting a report.
+`check_sdl_runtime.py` retains a real external-SDK loader counterexample and
+verifies that the corrected run selects the intended image.
+
 The natural fixture has no timer IRQ deliveries and no changed-HUD glyph
 copies. Those paths retain their earlier subsystem fixtures. This work is not
 wired into the App loop and does not establish full-frame or whole-game parity.

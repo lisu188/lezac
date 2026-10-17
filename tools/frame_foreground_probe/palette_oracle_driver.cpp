@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <dlfcn.h>
 
 using Bit8u=uint8_t;using Bit16u=uint16_t;using Bit32u=uint32_t;using Bitu=uint64_t;
 enum {scalerMode8,scalerMode15,scalerMode16,scalerMode32};
@@ -25,6 +26,9 @@ void state() {
     for(auto value:render.pal.modified)std::putchar(value);
 }
 int main() {
+    Dl_info library = {};
+    if (!dladdr(reinterpret_cast<void*>(SDL_MapRGB),&library) || !library.dli_fname)return 2;
+    std::fprintf(stderr,"lezac_sdl_library=%s\n",library.dli_fname);
     std::fwrite("LZPAL001",1,8,stdout);number(96);
     const unsigned orders[6][3]={{16,8,0},{16,0,8},{8,16,0},{8,0,16},{0,16,8},{0,8,16}};
     for(const auto& shifts:orders)for(bool alpha:{false,true})for(unsigned profile=0;profile<8;++profile) {

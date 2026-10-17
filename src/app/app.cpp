@@ -27038,9 +27038,11 @@ public:
         writeArgbPpm(joinPath(outDir, "intro.ppm"), fb_, kScreenW, kScreenH);
         onKey(SDLK_RETURN, running);
         const uint32_t gameplaySeed = randomSeed_;
-        tickAndPresent(static_cast<float>(kGovernedTickMs / 1000.0));
-        dumpMapMemory("map-first-present.bin");
-        writeArgbPpm(joinPath(outDir, "first-present.ppm"), fb_, kScreenW, kScreenH);
+        tickAndPresent(static_cast<float>(kGovernedTickMs / 1000.0), [&] {
+            dumpMapMemory("map-first-present.bin");
+            writeArgbPpm(joinPath(outDir, "first-present.ppm"), fb_, kScreenW, kScreenH);
+        });
+        writeArgbPpm(joinPath(outDir, "first-late-palette.ppm"), fb_, kScreenW, kScreenH);
         const auto& backdrop = presentation_.backdropBuffer();
         std::ofstream background(joinPath(outDir, "backdrop.bin"), std::ios::binary);
         background.exceptions(std::ios::failbit | std::ios::badbit);

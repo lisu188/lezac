@@ -1533,6 +1533,10 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy"
             PASS_REGULAR_EXPRESSION "gameplay_palette_sdl=ok pixels=64000 exact_scale=3 late_palette_submitted=1 seeded_scene=1 natural_route=0 whole_game_parity=0")
+        add_test(NAME gameplay_palette_check_failures
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_gameplay_palette_present.py)
+        set_tests_properties(gameplay_palette_check_failures PROPERTIES
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
     endif()
 
     foreach(capacity_mode IN ITEMS bomb spawner)

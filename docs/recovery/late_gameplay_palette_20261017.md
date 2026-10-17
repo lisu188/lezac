@@ -31,7 +31,7 @@ RGB clear now also clears obsolete index ownership in this diagnostic.
 ## Validation
 
 - Full Linux App and affected rendering test targets build.
-- Eighteen focused CTests and 19 source-guardrail controls pass on the final
+- Twenty-two focused CTests and 19 source-guardrail controls pass on the final
   source, with all 130 runtime sources still mapped.
 - The real App's 80-frame regression preserves the pre-actor image and all
   index ownership, comparing 2,295,762 indexed and 2,824,238 direct-RGB pixels.
@@ -47,6 +47,8 @@ RGB clear now also clears obsolete index ownership in this diagnostic.
   64,000-pixel submission with the late-palette App frame. This is a controlled
   renderer submission check, not observation of monitor scanout or an original
   instruction clock.
+- Three failure controls verify that a missing canonical asset, binary or SDL
+  observer leaves a failed report with its error rather than losing evidence.
 - A compiling fault that resolves the palette but omits the late SDL submission
   passes the buffer regression and fails SDL readback with five stale pixels.
   Production sources remain unchanged by the fault injection.
@@ -54,6 +56,24 @@ RGB clear now also clears obsolete index ownership in this diagnostic.
   pass. The initial strict build exposed the existing integer-zero `std::fill`
   conversion warning; making that fill value explicitly `uint8_t{0}` preserves
   behavior and removes the warning. The failed log is retained locally.
+
+The first published head exposed a packaging regression: `debugStartupRng`
+saved `first-present.ppm` only after `tickAndPresent` returned. Its new late
+palette colors differed from the original pre-actor presentation by 72 HUD
+pixels. That diagnostic now saves the first image and its map memory in the
+existing after-present callback, and separately retains
+`first-late-palette.ppm`. The original comparator and frozen first-present
+fixture are unchanged. Additional controls require identical world pixels but
+different HUD colors between those two startup boundaries. The failed CI log
+and the pre-fix local build remain retained; later palette state is not
+relabeled as first-presentation parity.
+
+The corrected source passes the unchanged original startup pixel comparison
+and six startup map boundaries. A fresh isolated Linux package passes all nine
+startup checks, validates all 20 original/JSON assets, and compares 128,000
+intro/first-presentation RGB pixels with zero differences. This is local
+isolated-package proof, not a claim that the queued replacement CI jobs or
+native Windows App have passed.
 
 ## Visual Evidence And Limits
 

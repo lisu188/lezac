@@ -18,17 +18,19 @@ from original_capture_contract import read_canonical_assets
 
 def check(exe, observer, out):
     root = Path(__file__).resolve().parents[1]
-    canonical = read_canonical_assets(root)
     environment = {key: os.environ[key] for key in ('HOME', 'PATH', 'LANG') if key in os.environ}
     environment.update(SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', SDL_RENDER_DRIVER='software',
                        LEZAC_LOAD_ORIGINAL_ASSETS='1', PYTHONDONTWRITEBYTECODE='1', TMPDIR=str(out),
                        LD_PRELOAD=str(observer), LEZAC_PRESENT_LAST_FRAME=str(out / 'last-frame.argb'))
     command = [str(exe), '--debug-gameplay-palette-presentation', str(out / 'frames')]
     sha = lambda raw: hashlib.sha256(raw).hexdigest()
-    report = dict(argv=command, environment=environment, binary_sha256=sha(exe.read_bytes()),
-                  observer_sha256=sha(observer.read_bytes()), natural_route=False, whole_game_parity=False,
+    report = dict(argv=command, environment=environment, binary=str(exe), observer=str(observer),
+                  natural_route=False, whole_game_parity=False,
                   status='failed')
     try:
+        canonical = read_canonical_assets(root)
+        report['binary_sha256'] = sha(exe.read_bytes())
+        report['observer_sha256'] = sha(observer.read_bytes())
         result = subprocess.run(command, cwd=root, env=environment, capture_output=True, timeout=60)
         (out / 'process.log').write_bytes(result.stdout + result.stderr)
         report['returncode'] = result.returncode
@@ -55,6 +57,9 @@ def check(exe, observer, out):
         report['status'] = 'passed'
         print('gameplay_palette_sdl=ok pixels=64000 exact_scale=3 late_palette_submitted=1 '
               'seeded_scene=1 natural_route=0 whole_game_parity=0')
+    except BaseException as error:
+        report['error'] = repr(error)
+        raise
     finally:
         (out / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
 

@@ -185,3 +185,5 @@ tests/fixtures/original_work_clock/** -text
 tools/original_work_probe/** text eol=lf
 tests/fixtures/viewport_width/** -text
 tests/fixtures/survivor_viewport/** -text
+tests/fixtures/keyboard_irq/** -text
+tools/keyboard_irq_probe/** text eol=lf

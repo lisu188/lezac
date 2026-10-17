@@ -198,6 +198,7 @@ if(BUILD_TESTING)
     add_executable(lezac_frame_clock_test tests/core/frame_clock_test.cpp)
     add_executable(lezac_pacing_device_clock_test tests/core/pacing_device_clock_test.cpp)
     add_executable(lezac_crt_keyboard_test tests/core/crt_keyboard_test.cpp)
+    add_executable(lezac_keyboard_irq_test tests/core/keyboard_irq_test.cpp)
     add_executable(lezac_game_keyboard_test tests/core/game_keyboard_test.cpp)
     add_executable(lezac_frame_hud_test tests/core/frame_hud_test.cpp)
     add_executable(lezac_frame_foreground_test tests/core/frame_foreground_test.cpp)
@@ -210,6 +211,10 @@ if(BUILD_TESTING)
     set_tests_properties(game_keyboard_unit PROPERTIES
         PASS_REGULAR_EXPRESSION "game_keyboard_unit=ok cases=10 timer_boundaries=445 masked_boundaries=26")
     target_link_libraries(lezac_crt_keyboard_test PRIVATE lezac_core)
+    target_link_libraries(lezac_keyboard_irq_test PRIVATE lezac_core)
+    add_test(NAME keyboard_irq_unit COMMAND lezac_keyboard_irq_test)
+    set_tests_properties(keyboard_irq_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "keyboard_irq_unit=ok zero_budget=1 pause_handoff=1 pause_resume=1 invalid_entry=1 invalid_ring=1")
     add_test(NAME crt_keyboard_unit COMMAND lezac_crt_keyboard_test)
     set_tests_properties(crt_keyboard_unit PROPERTIES
         PASS_REGULAR_EXPRESSION "crt_keyboard_unit=ok timer_boundaries=91 masked_boundaries=5")
@@ -721,6 +726,20 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "crt_keyboard_pending_oracle=ok cases=510 pending_inputs=255")
         add_test(NAME crt_keyboard_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_crt_keyboard_fixture.py)
+        add_test(NAME keyboard_irq_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_keyboard_irq_fixture.py
+            --cpu ${CMAKE_CURRENT_BINARY_DIR}/keyboard-irq-cpu.bin --bios ${CMAKE_CURRENT_BINARY_DIR}/keyboard-irq-bios.bin)
+        set_tests_properties(keyboard_irq_fixture_contract PROPERTIES FIXTURES_SETUP keyboard_irq_corpus)
+        add_test(NAME keyboard_irq_original COMMAND lezac_keyboard_irq_test --original ${CMAKE_CURRENT_BINARY_DIR}/keyboard-irq-cpu.bin)
+        set_tests_properties(keyboard_irq_original PROPERTIES FIXTURES_REQUIRED keyboard_irq_corpus
+            PASS_REGULAR_EXPRESSION "keyboard_irq_original=ok cases=82 comparisons=13552 instructions=13388 ordered_io=492")
+        add_test(NAME bios_keyboard_original COMMAND lezac_keyboard_irq_test --bios ${CMAKE_CURRENT_BINARY_DIR}/keyboard-irq-bios.bin)
+        set_tests_properties(bios_keyboard_original PROPERTIES FIXTURES_REQUIRED keyboard_irq_corpus
+            PASS_REGULAR_EXPRESSION "bios_keyboard_original=ok cases=65536 bytes=9961472 pause_handoffs=64")
+        add_test(NAME keyboard_irq_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_keyboard_irq_fixture.py)
+        set_tests_properties(keyboard_irq_fixture_rejections PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR}")
         add_test(NAME game_keyboard_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_game_keyboard_fixture.py
             --cpu ${CMAKE_CURRENT_BINARY_DIR}/game-keyboard-cpu.bin)

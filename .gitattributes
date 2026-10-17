@@ -11,6 +11,36 @@ tests/fixtures/pic_work_clock/** -text
 tools/pic_clock_probe/** text eol=lf
 # Unified-patch context retains pinned upstream indentation and blank lines.
 tools/pic_clock_probe/*.patch -whitespace
+tests/fixtures/frame_elapsed/** -text
+tests/fixtures/frame_clock/** -text
+tests/fixtures/frame_display/** -text
+tests/fixtures/frame_display_controls/** -text
+tests/fixtures/full_pacing/** -text
+tools/full_pacing_probe/** text eol=lf
+tools/full_pacing_probe/*.patch -whitespace
+tests/fixtures/pacing_device_clock/** -text
+tools/pacing_clock_probe/** text eol=lf
+tools/pacing_clock_probe/*.patch -whitespace
+tests/fixtures/crt_keyboard/** -text
+tools/crt_keyboard_probe/** text eol=lf
+tools/crt_keyboard_probe/*.patch -whitespace
+tests/fixtures/game_keyboard/** -text
+tools/game_keyboard_probe/** text eol=lf
+tools/game_keyboard_probe/*.patch -whitespace
+tests/fixtures/frame_hud/** -text
+tests/fixtures/hud_objective/** -text
+tests/fixtures/render_view_gate/** -text
+tools/frame_hud_probe/** text eol=lf
+tools/frame_hud_probe/*.patch -whitespace
+tests/fixtures/frame_foreground/** -text
+tools/frame_foreground_probe/** text eol=lf
+tools/frame_foreground_probe/*.patch -whitespace
+tests/fixtures/foreground_live/** -text
+tools/frame_foreground_live_probe/** text eol=lf
+tools/frame_display_probe/** text eol=lf
+tools/frame_display_probe/*.patch -whitespace
+tools/frame_clock_probe/** text eol=lf
+tools/frame_clock_probe/*.patch -whitespace
 tools/timer_irq_probe/** text eol=lf
 tests/fixtures/timer_irq/** -text
 tests/fixtures/startup_timing/** -text
@@ -153,3 +183,9 @@ tests/fixtures/abort_map_original.json -text
 tests/fixtures/abort_map_original.bin.gz -text
 tests/fixtures/original_work_clock/** -text
 tools/original_work_probe/** text eol=lf
+tests/fixtures/viewport_width/** -text
+tests/fixtures/survivor_viewport/** -text
+tests/fixtures/keyboard_irq/** -text
+tools/keyboard_irq_probe/** text eol=lf
+tests/fixtures/keyboard_device/** -text
+tools/keyboard_device_probe/** text eol=lf

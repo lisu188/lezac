@@ -1,0 +1,8 @@
+--- a/src/dos/dos.cpp
++++ b/src/dos/dos.cpp
+@@ -80,0 +81 @@
++#include "../cpu/lezac_work_probe.h"
+@@ -81,0 +83 @@
++	if (reg_ah == 0x2c) LezacDosTimeCallback("service_before", dos.psp());
+@@ -397,0 +400 @@
++		LezacDosTimeCallback("service_after", dos.psp());

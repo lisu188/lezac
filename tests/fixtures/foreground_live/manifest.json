@@ -1,0 +1,113 @@
+{
+  "schema": "lezac-frozen-foreground-live-v1",
+  "sources": {
+    "tools/frame_foreground_live_probe/capture.py": "c2611a54921a180c14996df5d1b9dad8e32c975c384da3e57c8cd0e2060a0897",
+    "tools/frame_foreground_live_probe/lezac_work_probe.h": "68fe30b3f8df287463c906a8b9f582fc2ced9f131ffb4b47eb2c3c1e450abc29",
+    "tools/frame_foreground_live_probe/project.py": "454a844d52e2ae9e8c18bbfaae97a92e3fd49aaf152194b87cb3c8cb427982fe",
+    "tools/frame_foreground_live_probe/rebuild.py": "5bf31da0876c160d877bc25e960e06ccc416388ffb3416f1141a2902bc0ac2a4",
+    "tools/frame_foreground_live_probe/render_hud.py": "2221847ff74811c52650ac1149f115eef6702c1ef93f2cb2eed6c5cff95745ea",
+    "tools/frame_foreground_live_probe/trace.py": "e6a0db30438f53cec8e0d71f721dcf06a7b26ebba26fff16f71b537e6b4eb1b5",
+    "tools/frame_foreground_probe/clock_hook.patch": "b61aedfbd911f46766bc3c32eb7c12df920ec9eed16928183aadc4732a260e44",
+    "tools/frame_foreground_probe/dos_time_hook.patch": "7b7b24a70c4a032533eb404d948d27eb36336b5248bb531604d8e4f737c3cd4b",
+    "tools/frame_foreground_probe/lezac_clock_observation.h": "749b34dbe8e94689601159893c360b9779a7c52014e6d989b6d6e51d25c28936",
+    "tools/frame_foreground_probe/input_route.py": "cb1b2008045403cd1144704b5750912c2910e8e0f200357d8bbf422257180b5e",
+    "tools/frame_foreground_probe/trace.py": "1cb498791c85b1b535495174ca9976aa2708bdae22a986ff3522a90e0950d47d",
+    "tools/frame_foreground_probe/project.py": "07d3d338185dcfeecce256b69ec992bc7506c2d5e7047716a1243085134907dd",
+    "tools/frame_foreground_probe/vga_clock_observation.inc": "3dbee71ba4ff04fead3e3417c6a0ed2d9e28dbe0dcd3ba630f3e35d251f9c6e9",
+    "tools/frame_foreground_probe/render_clock_observation.inc": "9b5f82d789472d01d3179106b7bb3f3a278c3133025e326770c51ecd9e984471",
+    "tools/frame_foreground_probe/gfx_clock_observation.inc": "c7e3007fee0a62b4fe485e94c46a6de2807bc8b636ab745491f2111e1af8178d",
+    "tools/frame_foreground_probe/keyboard_clock_observation.inc": "7fb32b946df39756cbf4fad59ba15ace6383b070976bdd2d54cebeafff1753e3",
+    "tools/frame_foreground_probe/mixer_clock_observation.inc": "b997f6b2a762f047b1cb1caa2d8a893039c405fb66f9abd024dc92035fcf0a58",
+    "tools/frame_foreground_probe/pic_tickers_observation.inc": "0025c8d94219966e73c5d9bca004311de4d0c2335f7f8dfff7b608753486fa72",
+    "tools/original_capture_contract.py": "36e27f3441ae98db6e2a459ca64c561b72c964e1e98de854ca416321c33c33e0"
+  },
+  "files": [
+    {
+      "name": "natural-recipe.json",
+      "bytes": 25065,
+      "sha256": "6a36df22f8fd1e20ff6e5c65f74366d04bd8f5b562b9a34857ec7221a0ef3029"
+    },
+    {
+      "name": "natural.csv.gz",
+      "bytes": 7166558,
+      "sha256": "9cfb3fa0b12010b31628dc45d1f29ca141ce8e205dc3e6b8a6f82ebfd2f24729"
+    }
+  ],
+  "states": 144505,
+  "cases": [
+    {
+      "category": 0,
+      "entry_ip": 30979,
+      "states": 96517,
+      "irq_boundaries": []
+    },
+    {
+      "category": 1,
+      "entry_ip": 30979,
+      "states": 47988,
+      "irq_boundaries": [
+        32893
+      ]
+    }
+  ],
+  "live_windows": [
+    {
+      "category": 0,
+      "counter": 0,
+      "entry_delay": 16,
+      "pit_due_ms": 50.350228963216146,
+      "hud_entries": 1,
+      "rep_dispatches": 40,
+      "irq_entries": 0,
+      "pixel_state_changes": 32
+    },
+    {
+      "category": 1,
+      "counter": 134,
+      "entry_delay": 8,
+      "pit_due_ms": 5.482262451171875,
+      "hud_entries": 0,
+      "rep_dispatches": 0,
+      "irq_entries": 1,
+      "pixel_state_changes": 0
+    }
+  ],
+  "cpu_sha256": "c3ecd187aa8865aed43ac5cb303c9c34d772a8c18dc1c0a5c6bee28d8a71157c",
+  "clock_sha256": "0ec40163bf75fe7e87f679aeb14db1305733d88141512bae267b58ebbbbca97a",
+  "raw_sample_proofs": [
+    {
+      "name": "main",
+      "ram_sha256": "c291f9b55e76822950013c3162f6d8877470f33576d42d5561bb42fb45b0f987",
+      "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "intro",
+      "ram_sha256": "5ccdf4c7b23c1438e7d83829f4065b614660c462c672f2075a9b394c8805602e",
+      "png_sha256": "b57d4ef6cf6132618abe080c7c7a8149e71aa9368ca0c69298957f113039c474",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "gameplay",
+      "ram_sha256": "c50c2cdc83d411aa899429c3d27a066453c93b1f13e428d4604a2b88cfddb757",
+      "png_sha256": "eb42ec5a10fc0aaaeb994884d7c8d05e510d5f598fa9cb37ac364da84afb4486",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "gameplay-middle",
+      "ram_sha256": "38ad4735735cbc3f7a6a902de25e4602a424635290aaf13ba94f05ffbc1d9485",
+      "png_sha256": "18f54b683ac81920fe982e2b10e85c9e94ffaddb9f4c44d17b6899e52afcec92",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "search-end",
+      "ram_sha256": "f61778ac18b2a3fe3258145896afb68e477e99a058e06cd0f45add8193efefbb",
+      "png_sha256": "cd6ea7c3b5d85cd89bddb76fd622dacde6ef8e6c77d62c772feaae727992cd2e",
+      "code_bytes_verified": 43552
+    }
+  ],
+  "raw_memory_published": false,
+  "raw_memory_available_to_frozen_checker": false,
+  "whole_game_parity": false,
+  "actual_app_integration": false
+}

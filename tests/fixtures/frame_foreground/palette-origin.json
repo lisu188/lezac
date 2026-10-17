@@ -1,0 +1,59 @@
+{
+  "status": "passed",
+  "cases": 96,
+  "original_source_sha256": {
+    "src/gui/render.cpp": "3bce9f5aded634ec34497a0ee8875e89e0b90cdb7de6e72bbbb81482c09dc7fc",
+    "src/gui/sdlmain.cpp": "59e78cf3f7c3423e17a27adde5993c8c4156bdef0e2a03927e88fa6b7bf85c6b"
+  },
+  "producer_sha256": "bb75bbb1131f11f9c3ad99d972786842a0d873083d9b0d8f3c939d157f6fb26d",
+  "driver_sha256": "6738bbe22f2aada3451dc8ba6e17c8f054af871dd9ceab303258c37369610ed6",
+  "palette_function_sha256": "2d978338d4c0df014cadb6a0e4ff94ac0694e0f8c1d0adbd7b342a6c24b50135",
+  "mapping_function_sha256": "fadfa527ba809f81d16902f2815392d7d96c57cdbda2bf9024f059e25ed5dfba",
+  "generated_source_sha256": "c3fdb2da858f9dc21e2e6d40bd184dda5e74a4b739f080b8db9e5a0f9da7747a",
+  "binary_sha256": "d5b665084d052c79483b8dd6b6ade91086ed001a4c61206461223e223ceacb4b",
+  "oracle_sha256": "71979553fba866bb92c2199c0cd77d928c26255f504c348e1410e44928292fd7",
+  "sdl_library_sha256": "b82090085ba665c89ea70909b9018a219c42029fdf9803e7d5e17c185d6d1d72",
+  "sdl_link_library_sha256": "b82090085ba665c89ea70909b9018a219c42029fdf9803e7d5e17c185d6d1d72",
+  "sdl_runtime_library": {
+    "path": "/usr/lib/x86_64-linux-gnu/libSDL-1.2.so.1.2.68",
+    "sha256": "b82090085ba665c89ea70909b9018a219c42029fdf9803e7d5e17c185d6d1d72",
+    "verified": true
+  },
+  "runtime_identity_producer_sha256": "d86ebe4c38496caa5beebebd9d2719016145dca28c19e9f89c6e7952a14da370",
+  "build_argv": [
+    "g++",
+    "-std=c++17",
+    "-O2",
+    "-I/dev/shm/lezac-work-oracle-t190/sdk/usr/include/SDL",
+    "/dev/shm/lezac-clock-frontier-t209/palette-oracle-fixed2/oracle.cpp",
+    "-L/dev/shm/lezac-work-oracle-t190/sdk/usr/lib/x86_64-linux-gnu",
+    "-lSDL",
+    "-ldl",
+    "-o",
+    "/dev/shm/lezac-clock-frontier-t209/palette-oracle-fixed2/oracle"
+  ],
+  "build_environment": {
+    "PATH": "/usr/bin:/bin",
+    "TMPDIR": "/dev/shm",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8"
+  },
+  "build_environment_is_complete": true,
+  "run_argv": [
+    "/dev/shm/lezac-clock-frontier-t209/palette-oracle-fixed2/oracle"
+  ],
+  "run_environment": {
+    "PATH": "/usr/bin:/bin",
+    "TMPDIR": "/dev/shm",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "SDL_AUDIODRIVER": "dummy",
+    "SDL_VIDEODRIVER": "dummy",
+    "LD_LIBRARY_PATH": "/dev/shm/lezac-work-oracle-t190/sdk/usr/lib/x86_64-linux-gnu"
+  },
+  "run_environment_is_complete": true,
+  "native_sdl_mapping": true,
+  "original_function_bodies_changed": false,
+  "original_host_execution": false,
+  "scope": "controlled RGB32 Check_Palette and GFX_GetRGB only; other branches not executed"
+}

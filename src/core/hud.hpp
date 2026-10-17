@@ -1,11 +1,23 @@
 #pragma once
 
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
 
 namespace lezac::core {
+
+inline int hudBonusRemaining(uint16_t required, uint16_t collected) {
+    // 31CF..31DA store the low subtraction word, then test it as signed.
+    const auto remaining = std::bit_cast<int16_t>(static_cast<uint16_t>(required - collected));
+    return remaining > 0 ? remaining : 0;
+}
+
+inline int hudDestructionRemaining(uint8_t required, uint8_t current) {
+    // 3218..3240 zero-extend both bytes before the signed word comparison.
+    return current < required ? required - current : 0;
+}
 
 struct HudEnergyBar {
     uint8_t cached = 255;

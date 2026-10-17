@@ -71,8 +71,73 @@ void unit() {
     }
     std::cout<<"pacing_device_clock_unit=ok callback_kinds=5 profile_rejections=12 snapshot_restore=1 idle_silent_tickers=2\n";
 }
+PacingDeviceClockSnapshot activeInput() {
+    auto state = input();
+    state.clock.queue = {{50, PicClockEventKind::Pit0, 0}};
+    state.clock.maskedLines = 1;
+    state.keyboard = KeyboardControllerSnapshot{};
+    state.keyboard->repeatPause = 1000;
+    state.keyboard->repeatRate = 63;
+    return state;
+}
+void activeKeyboard() {
+    auto state = activeInput();
+    state.clock.cycles = 2000; state.clock.cycleLeft = 3000;
+    PacingDeviceClock slice(state);
+    const auto before = slice.workClock().tickIndex();
+    slice.addKeyboardKey(KeyboardHardwareKey::Z, true);
+    require(slice.workClock().snapshot().cycles == 0 && slice.workClock().snapshot().cycleLeft == 5000 &&
+            slice.workClock().tickIndex() == before, "Keyboard event failed to end the earlier core slice");
+    require(slice.snapshot().keyboard->scheduled && slice.snapshot().clock.queue.front().kind == PicClockEventKind::KeyboardTransfer,
+            "Physical key did not schedule a serial transfer");
+    state = activeInput(); state.clock.cycles = 0; state.clock.cycleLeft = 0;
+    PacingDeviceClock repeated(state);
+    repeated.addKeyboardKey(KeyboardHardwareKey::Z, true);
+    std::vector<uint64_t> ticks;
+    for (uint64_t dispatch = 0; dispatch < 7000000 && ticks.size() < 3; ++dispatch) {
+        const auto boundary = repeated.nextDispatch(false, 0x202);
+        if (boundary.kind == PicClockBoundaryKind::NeedMillisecond) {
+            repeated.grantMillisecond();
+            repeated = PacingDeviceClock(repeated.snapshot());
+        } else if (boundary.kind == PicClockBoundaryKind::OtherIrq) {
+            const auto cycles = repeated.workClock().snapshot().cycles;
+            repeated.workClock().deliverKeyboardInterrupt();
+            require(repeated.workClock().snapshot().cycles == cycles - 1 &&
+                    repeated.workClock().snapshot().activeIrq == 1 && repeated.workClock().snapshot().inserviceLines == 2,
+                    "Keyboard IRQ core-entry budget or PIC service state differs");
+            ticks.push_back(repeated.workClock().snapshot().ticks);
+            require(repeated.readKeyboardPort(0x60) == 0x2c && repeated.readKeyboardPort(0x60) == 0x2c,
+                    "Clock-coupled IRQ reads did not retain make byte");
+            repeated.workClock().nonspecificMasterEoi();
+            repeated = PacingDeviceClock(repeated.snapshot());
+        }
+    }
+    require(ticks == std::vector<uint64_t>{1, 1000, 1063}, "Clock-coupled initial/repeat ticker phase differs");
+    require(repeated.workClock().snapshot().keyboardDeliveries == 3, "Keyboard IRQ delivery accounting differs");
+    repeated.addKeyboardKey(KeyboardHardwareKey::Z, false);
+    require(repeated.snapshot().keyboard->repeatWait == 0, "Clock-coupled release retained typematic repeat");
+    state = activeInput();
+    state.keyboard->buffer[0] = 0x2c; state.keyboard->used = 1; state.keyboard->scheduled = true;
+    state.devices[19] = state.devices[20] = 1;
+    state.clock.queue.insert(state.clock.queue.begin(), {0.98f, PicClockEventKind::KeyboardTransfer, 0});
+    for (unsigned blocked = 0; blocked < 3; ++blocked) {
+        auto deferred = state;
+        if (blocked == 1) deferred.clock.maskedLines |= 2;
+        if (blocked == 2) {deferred.clock.activeIrq = 0; deferred.clock.inserviceLines = 1;}
+        PacingDeviceClock device(deferred);
+        const auto flags = blocked == 0 ? 2u : 0x202u;
+        require(device.nextDispatch(true, flags).kind == PicClockBoundaryKind::Ready, "Ineligible keyboard IRQ was delivered");
+        require(device.workClock().snapshot().activeLines & 2u, "Deferred keyboard IRQ line was lost");
+        if (blocked == 1) require(!(device.workClock().snapshot().pending & 2u), "Masked keyboard IRQ became pending");
+        bool rejected = false;
+        try {device.workClock().deliverKeyboardInterrupt();} catch (const std::logic_error&) {rejected = true;}
+        require(rejected, "Keyboard IRQ accepted outside its eligible boundary");
+    }
+    std::cout << "pacing_keyboard_clock=ok core_reslice=1 delivery=3 first_repeat_delta=999 next_repeat_delta=63"
+              << " deferred_profiles=3 snapshot_restore=1 original_host_clock_claim=0 app_cadence_claim=0\n";
+}
 }
 int main() {
-    try {unit();}
+    try {unit(); activeKeyboard();}
     catch(const std::exception& error) {std::cerr<<error.what()<<'\n';return 1;}
 }

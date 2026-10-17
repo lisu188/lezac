@@ -22,7 +22,13 @@ using resources::vga6To8;
 // Pitch is latched at initialization: 320 for P1, 160 for split-screen.
 // Later viewport narrowing does not regenerate or repack this buffer.
 void PresentationState::initializeBackdropBuffer(int playerCount) {
-    backdropPitch_ = playerCount > 1 ? 160 : 320;
+    initializeBackdropBufferForPitch(playerCount > 1 ? 160 : 320);
+}
+
+void PresentationState::initializeBackdropBufferForPitch(int pitch) {
+    if (pitch < 160 || pitch > 320 || pitch % 8 != 0)
+        throw std::invalid_argument("Backdrop pitch differs from the original tile geometry");
+    backdropPitch_ = pitch;
     backdropBuffer_.resize(60000);
     // Driver init fills exactly 60000 bytes, including byte wrap past 255.
     for (int k = 0; k < 60000; ++k) {
@@ -32,7 +38,11 @@ void PresentationState::initializeBackdropBuffer(int playerCount) {
 }
 
 void PresentationState::buildBackdropBuffer(int playerCount, core::TurboRandom& random) {
-    initializeBackdropBuffer(playerCount);
+    buildBackdropBufferForPitch(playerCount > 1 ? 160 : 320, random);
+}
+
+void PresentationState::buildBackdropBufferForPitch(int pitch, core::TurboRandom& random) {
+    initializeBackdropBufferForPitch(pitch);
     // City skyline: the original generates ten buildings from the live
     // Turbo Pascal RNG on each game start (file 0x7f64). Building 1 is
     // the fixed wide base (cols 0..160, top row 130); each of the others

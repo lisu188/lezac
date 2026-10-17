@@ -1,4 +1,5 @@
 #include "rendering/canvas.hpp"
+#include "rendering/color.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -34,7 +35,7 @@ void Canvas::rect(int x, int y, int w, int h, uint32_t color) {
 
 void Canvas::clear(uint32_t color) {
     std::fill(fb_.begin(), fb_.end(), color);
-    std::fill(indexedPixels_.begin(), indexedPixels_.end(), 0);
+    std::fill(indexedPixels_.begin(), indexedPixels_.end(), uint8_t{0});
 }
 
 void Canvas::indexedPixel(int x, int y, uint8_t index, uint32_t color) {
@@ -49,6 +50,19 @@ void Canvas::indexedRect(int x, int y, int w, int h, uint8_t index, uint32_t col
     for (int yy = std::max(clipTop_, y); yy < std::min(clipBottom_, y + h); ++yy)
         for (int xx = std::max(clipLeft_, x); xx < std::min(clipRight_, x + w); ++xx)
             indexedPixel(xx, yy, index, color);
+}
+
+bool Canvas::resolvePalette(const resources::Palette& palette) {
+    bool changed = false;
+    for (size_t at = 0; at < fb_.size(); ++at) {
+        if (!indexedPixels_[at]) continue;
+        const uint32_t color = argb(palette, paletteIndices_[at]);
+        if (fb_[at] != color) {
+            fb_[at] = color;
+            changed = true;
+        }
+    }
+    return changed;
 }
 
 }

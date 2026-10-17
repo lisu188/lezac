@@ -115,13 +115,18 @@ retained. It does not establish original E/R host timing.
 
 ## Remaining Fidelity Work
 
-Original DS:79B8 counts active players. The configured two-player case is
+Original DS:79B8 counts players not yet eliminated, including waiting state 2.
+The configured two-player case is
 blocked here, but natural elimination can change that count and has its own
 viewport clearing/reconfiguration path. Equivalence after a player is naturally
 eliminated is not proved by these controlled state/width cases and needs a fresh
 end-to-end investigation. Global App keyboard queue draining/coalescing and
 instruction-work timing also remain unrecovered; accepting future E/R repeats
 does not claim multiple queued events are applied at the original phase.
+
+The later [survivor viewport investigation](survivor_viewport_20261017.md)
+recovers controlled elimination, survivor resize and next-level pitch behavior.
+It does not close the natural-death-route or keyboard-phase limits above.
 
 Whole-game cadence/owner-bus integration, natural interrupt delivery during
 rendering, IRQ1, sound waveform fidelity, all campaign paths and owner visual

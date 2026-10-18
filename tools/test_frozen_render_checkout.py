@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 
 
-FAMILIES = ("frame_view_copy", "frame_camera", "frame_world_raster", "frame_spawner")
+FAMILIES = ("frame_view_copy", "frame_camera", "frame_world_raster", "frame_spawner", "waiting_placement")
 RULES = tuple(f"tests/fixtures/{name}/** -text" for name in FAMILIES)
 
 
@@ -40,7 +40,8 @@ def check(root, out, git):
             continue
         manifest = directory / "manifest.json"
         manifests.append(manifest)
-        paths.extend((manifest, directory / "oracle.bin.gz"))
+        stream = directory / "oracle.bin.gz" if (root / directory / "oracle.bin.gz").exists() else directory / "oracle.bin"
+        paths.extend((manifest, stream))
         paths.extend(path.relative_to(root) for path in sorted(
             (root / "tools").glob(name + "_*.py")))
     if not manifests:

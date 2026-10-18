@@ -2012,6 +2012,19 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "^active_fire_fixture=ok cases=64 mutations=103 newline_variants=2 silent_children=1")
     endif()
 
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME waiting_map_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_waiting_placement_fixture.py)
+        set_tests_properties(waiting_map_fixture_contract PROPERTIES FIXTURES_SETUP waiting_map_corpus)
+        add_test(NAME waiting_map_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_waiting_placement_fixture.py --exe $<TARGET_FILE:lezac_cpp> -v)
+    endif()
+    add_test(NAME waiting_map_original COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+        $<TARGET_FILE:lezac_cpp> --debug-waiting-map-original
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/waiting_placement/oracle.bin)
+    set_tests_properties(waiting_map_original PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        FIXTURES_REQUIRED waiting_map_corpus PASS_REGULAR_EXPRESSION
+        "waiting_map_original=ok cases=320 production_prepass=1 map_layouts=4 shared_cursor=1 controlled=1 natural=0 whole_game_parity=0")
     add_test(NAME state2_prepass_original
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-state2-prepass-original

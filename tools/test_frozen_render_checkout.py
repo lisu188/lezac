@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 
 
-FAMILIES = ("frame_view_copy", "frame_camera", "frame_world_raster", "frame_spawner", "frame_render")
+FAMILIES = ("frame_view_copy", "frame_camera", "frame_world_raster", "frame_spawner", "frame_render", "reserve_hud")
 RULES = tuple(f"tests/fixtures/{name}/** -text" for name in FAMILIES)
 
 

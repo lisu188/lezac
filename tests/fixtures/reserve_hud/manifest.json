@@ -1,0 +1,267 @@
+{
+  "actual_library_mapping_verified": true,
+  "calls_stubbed": 0,
+  "cases": 756,
+  "compressed_bytes": 604667,
+  "compressed_sha256": "25ab689641056ac9a5fa449916df588ecb0184a3bf90688fafc78fe3a0ddfba5",
+  "controlled_initial_memory": true,
+  "endpoint_all_flags_compared": true,
+  "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "executed_instructions": [
+    [
+      4096,
+      4438
+    ],
+    [
+      4096,
+      4442
+    ],
+    [
+      4096,
+      4445
+    ],
+    [
+      4096,
+      4446
+    ],
+    [
+      4096,
+      4447
+    ],
+    [
+      4096,
+      4450
+    ],
+    [
+      4096,
+      4454
+    ],
+    [
+      4096,
+      4455
+    ],
+    [
+      4096,
+      4458
+    ],
+    [
+      4096,
+      4460
+    ],
+    [
+      4096,
+      4464
+    ],
+    [
+      4096,
+      4465
+    ],
+    [
+      4096,
+      4467
+    ],
+    [
+      4096,
+      10715
+    ],
+    [
+      4096,
+      10716
+    ],
+    [
+      4096,
+      10718
+    ],
+    [
+      4096,
+      10721
+    ],
+    [
+      4096,
+      10726
+    ],
+    [
+      4096,
+      10729
+    ],
+    [
+      4096,
+      10732
+    ],
+    [
+      4096,
+      10736
+    ],
+    [
+      4096,
+      10739
+    ],
+    [
+      4096,
+      10742
+    ],
+    [
+      4096,
+      10744
+    ],
+    [
+      4096,
+      10748
+    ],
+    [
+      4096,
+      10751
+    ],
+    [
+      4096,
+      10754
+    ],
+    [
+      4096,
+      10757
+    ],
+    [
+      4096,
+      10760
+    ],
+    [
+      4096,
+      10763
+    ],
+    [
+      4096,
+      10764
+    ],
+    [
+      4096,
+      10767
+    ],
+    [
+      4096,
+      10770
+    ],
+    [
+      4096,
+      10773
+    ],
+    [
+      4096,
+      10778
+    ],
+    [
+      4096,
+      10780
+    ],
+    [
+      4096,
+      10783
+    ],
+    [
+      4096,
+      10786
+    ],
+    [
+      4096,
+      10788
+    ],
+    [
+      4096,
+      10791
+    ],
+    [
+      4096,
+      10793
+    ],
+    [
+      4096,
+      10796
+    ],
+    [
+      4096,
+      10799
+    ],
+    [
+      4096,
+      10802
+    ],
+    [
+      4096,
+      10807
+    ],
+    [
+      4096,
+      10811
+    ],
+    [
+      4096,
+      10813
+    ],
+    [
+      4096,
+      10814
+    ],
+    [
+      6432,
+      1247
+    ],
+    [
+      6432,
+      1250
+    ],
+    [
+      6432,
+      1252
+    ],
+    [
+      6432,
+      1254
+    ],
+    [
+      6432,
+      1256
+    ],
+    [
+      6432,
+      1258
+    ],
+    [
+      6432,
+      1262
+    ],
+    [
+      6432,
+      1264
+    ],
+    [
+      6432,
+      1265
+    ],
+    [
+      6432,
+      1268
+    ]
+  ],
+  "full_frame_claim": false,
+  "full_memory_observer_control": true,
+  "hardware_io": 0,
+  "instruction_patches": 0,
+  "interrupts_delivered": 0,
+  "natural_capture": false,
+  "ordered_writes": 104976,
+  "producer_sha256": "6c08781c85e41d6a8bb40b040c6b6e5ade74c6993a26cc9058425332828f45f4",
+  "projection_bytes": 8571482,
+  "projection_sha256": "dd71ccc1a6ce1dab41aecb865e473341cd0ebf01ab0669c44b499b69f6b334e5",
+  "raw_memory_published": false,
+  "register_states": 241599,
+  "rep_trace_policy": "raw-unicorn-transfer-and-zero-count-observations",
+  "rep_zero_observations": 18072,
+  "runtime_errors": 3,
+  "schema": "lezac-controlled-reserve-hud-v1",
+  "shared_oracle_sha256": "7f277672f407c3d8054ef954e2b16958a139d827d9f3b2da0c7a36ed717d90b9",
+  "shipped_glyph_cases": 512,
+  "tile_atlas_sha256": "949cce4db6071d6675a291c978d725c6e4ee1730b2c7a428bc1c8a8185cbd8d8",
+  "trace_arithmetic_flags_compared": false,
+  "unicorn_library_sha256": "ddb196ec82b52e502c18e4a34478bf7b9f61c83c2ebaa95c74d8ded45a95da9c",
+  "unicorn_version": "2.1.4",
+  "work_clock_claim": false
+}

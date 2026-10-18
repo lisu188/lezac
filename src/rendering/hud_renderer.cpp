@@ -108,15 +108,14 @@ public:
         }
     }
 
-    void drawOriginalHudFigure(int x, int y, uint32_t color) {
-        // Player-life marker: the original blits CARO.CAR tile 115 (a green
-        // walking figure); fall back to a small stick glyph if unavailable.
-        if (drawHudTile8(x, y - 1, kHudLifeMarkerTile)) return;
-        static const char* kGlyph[7] = {
-            " X ", " X ", "XXX", " X ", " X ", "X X", "X X"};
-        for (int gy = 0; gy < 7; ++gy) {
-            for (int gx = 0; gx < 3; ++gx) {
-                if (kGlyph[gy][gx] == 'X') canvas_.pixel(x + gx, y + gy, color);
+    void drawReserveSlots(int x, int y, int lives) {
+        // Original 29DB paints three opaque slots via 1156, including tile zero.
+        for (int slot = 0; slot < 3; ++slot) {
+            const auto* tile = assets_.tiles().tile(slot < std::clamp(lives, 0, 3) ? kHudLifeMarkerTile : 0);
+            if (!tile) throw std::runtime_error("HUD reserve atlas overread");
+            for (int row = 0; row < 8; ++row) for (int column = 0; column < 8; ++column) {
+                const uint8_t index = tile[row * 8 + column];
+                canvas_.indexedPixel(x + slot * 9 + column, y + row, index, argb(presentation_.palette(), index));
             }
         }
     }
@@ -133,7 +132,6 @@ public:
         constexpr uint32_t kYellow = 0xffffff55u;
         constexpr uint32_t kBlue = 0xff0018dbu;
         constexpr uint32_t kCyan = 0xff00aaaau;
-        constexpr uint32_t kGreen = 0xff00f300u;
         constexpr uint32_t kBoxGrey = 0xffa2a2a2u;
         const int y0 = kScreenH - 46;
 
@@ -159,9 +157,7 @@ public:
 
         // The stored count is already the original reserve byte: two at a
         // fresh start, zero on the last playable life, and -1 when out.
-        for (int i = 0; i < std::clamp(lives, 0, 6); ++i) {
-            drawOriginalHudFigure(xoff + i * 9, y0 + 39, kGreen);
-        }
+        drawReserveSlots(xoff, y0 + 38, lives);
 
         // The painted icon and count are retained independently by the HUD
         // dirty-byte helper; a reentry refill need not repaint either one.

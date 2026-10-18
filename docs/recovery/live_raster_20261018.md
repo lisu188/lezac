@@ -138,3 +138,14 @@ renderer, original CPU, ownership, mutation, checkout and scout checks pass.
 
 This scheduling allowance does not turn the cancelled run into a pass. Fresh
 full Linux/Windows CI and exact-head review remain required before merging.
+
+## Reserve-HUD Main Integration
+
+After #436 merged, the only conflicts were the frozen-fixture attributes and
+cold-checkout family list. Both the raster and reserve-HUD protections are
+retained. CMake keeps both complete test families. The integrated App, original
+raster replay and reserve-HUD targets build; all 22 selected raster/owner,
+compiled mutation, reserve-HUD, pickup, state-2, boss-reentry and cold-checkout
+checks pass. The reserve production changes are retained from current main,
+not replaced by the older renderer branch. This new merge head requires a
+fresh external review and full CI; the earlier clean review covers `f9cfa4a`.

@@ -63,7 +63,8 @@ private:
     gameplay::ActorStorage::Descriptor descriptor(size_t index) const;
     void initializeAssets();
     void prepare(const WorldRenderView& world, const PresentationState& presentation, int pitch);
-    void execute(const WorldRenderView& world, const PresentationState& presentation, Canvas& canvas);
+    void execute(const WorldRenderView& world, const PresentationState& presentation, Canvas& canvas,
+                 const gameplay::Player* camera = nullptr);
     uint8_t read(uint16_t segment, uint32_t offset, const WorldRenderView& world,
                  const PresentationState& presentation, const Canvas& canvas) const;
     void write(uint16_t segment, uint32_t offset, uint8_t value,

@@ -1,4 +1,4 @@
-"""Require live-raster ownership controls to reject five isolated faults."""
+"""Require live-raster ownership controls to reject seven isolated faults."""
 import argparse
 import hashlib
 import json
@@ -9,7 +9,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run(cxx, libraries, viewport_oracle, out):
+def run(cxx, libraries, viewport_oracle, camera_oracle, out):
     out = out / str(time.time_ns())
     out.mkdir(parents=True)
     paths = ('src/rendering/world_raster.cpp', 'src/gameplay/map_plane_memory.hpp', 'src/rendering/game_renderer.cpp')
@@ -23,7 +23,13 @@ def run(cxx, libraries, viewport_oracle, out):
         ('caller_bypass', paths[2], 'worldRaster_.drawGame(world, presentation_, canvas_);', 'preview.drawGame();'),
         ('unknown_data_zero_fill', paths[0],
          'throw std::out_of_range("World raster reached unrecovered data byte " + std::to_string(offset));',
-         'return 0;'))
+         'return 0;'),
+        ('camera_overwrites_player_visual', paths[0],
+         'execute(world,presentation,canvas,&camera);',
+         'word(0xc21e,static_cast<uint16_t>(static_cast<int>(camera.x))); '
+         'word(0xc220,static_cast<uint16_t>(static_cast<int>(camera.y))); execute(world,presentation,canvas);'),
+        ('camera_identity_alias', paths[0], 'if (camera) {',
+         'if (camera && camera == &world.players[1].player) {'))
     report = dict(status='failed', faults=[], original_sha256={
         name: hashlib.sha256(raw).hexdigest() for name, raw in originals.items()})
     try:
@@ -38,6 +44,10 @@ def run(cxx, libraries, viewport_oracle, out):
             cpp = target if target.suffix == '.cpp' else ROOT / paths[0]
             test = 'viewport_width_original_test.cpp' if relative == paths[2] else 'world_raster_test.cpp'
             arguments = [str(viewport_oracle)] if relative == paths[2] else []
+            camera_fault = name.startswith('camera_')
+            if camera_fault:
+                test = 'standalone_camera_original_test.cpp'
+                arguments = [str(camera_oracle)]
             exe = variant / 'test'
             command = [cxx, '-std=c++23', '-O2', '-Wall', '-Wextra', '-Werror', '-pedantic',
                        '-I', str(variant), '-I', str(ROOT / 'src'),
@@ -50,7 +60,8 @@ def run(cxx, libraries, viewport_oracle, out):
             checked = subprocess.run([str(exe), *arguments], cwd=ROOT, stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT, timeout=30)
             (variant / 'replay.log').write_bytes(checked.stdout)
-            expected = b'GameRenderer bypassed the recovered render caller' if relative == paths[2] else b'world_raster_owners=failed'
+            expected = (b'standalone_camera_original=failed' if camera_fault else
+                b'GameRenderer bypassed the recovered render caller' if relative == paths[2] else b'world_raster_owners=failed')
             if checked.returncode != 1 or expected not in checked.stdout:
                 raise ValueError('Live-raster fault was not detected: ' + name)
             report['faults'].append(dict(name=name, exit_code=checked.returncode,
@@ -65,7 +76,7 @@ def run(cxx, libraries, viewport_oracle, out):
         (out / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     if not report['original_source_preserved']:
         raise ValueError('Live-raster source changed during mutation checks')
-    print('world_raster_mutations=ok faults=5 original_source_preserved=1 report=' + str(out / 'report.json'))
+    print('world_raster_mutations=ok faults=7 original_source_preserved=1 report=' + str(out / 'report.json'))
 
 
 if __name__ == '__main__':
@@ -74,5 +85,6 @@ if __name__ == '__main__':
     parser.add_argument('--library', type=Path, action='append', required=True)
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--viewport-oracle', type=Path, required=True)
+    parser.add_argument('--camera-oracle', type=Path, required=True)
     args = parser.parse_args()
-    run(args.cxx, args.library, args.viewport_oracle, args.out)
+    run(args.cxx, args.library, args.viewport_oracle, args.camera_oracle, args.out)

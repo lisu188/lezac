@@ -198,7 +198,8 @@ void WorldRaster::write(uint16_t segment, uint32_t offset, uint8_t value,
     } else throw std::out_of_range("World raster wrote an unowned segment");
 }
 
-void WorldRaster::execute(const WorldRenderView& world, const PresentationState& presentation, Canvas& canvas) {
+void WorldRaster::execute(const WorldRenderView& world, const PresentationState& presentation, Canvas& canvas,
+                          const gameplay::Player* camera) {
     core::TimerIrqBus bus;
     bus.readByte = [&](uint16_t segment, uint16_t offset) { return read(segment,offset,world,presentation,canvas); };
     bus.readWord = [&](uint16_t segment, uint16_t offset) {
@@ -213,7 +214,19 @@ void WorldRaster::execute(const WorldRenderView& world, const PresentationState&
     core::DosGetTimeRegisters registers;
     registers.cs = Game; registers.ds = Data; registers.ss = Stack;
     registers.sp = 0x3fe4; registers.bp = 0x3ffe; registers.ip = 0x7a13;
-    core::FrameRenderOperation operation(registers,Game);
+    auto state = core::FrameRenderOperation(registers,Game).snapshot();
+    if (camera) {
+        // Enter the original camera callee with independent Pascal arguments;
+        // its return resumes the unchanged raster/copy caller at 7A25.
+        bus.writeWord(Stack,0x3fe2,static_cast<uint16_t>(static_cast<int>(camera->x)));
+        bus.writeWord(Stack,0x3fe0,static_cast<uint16_t>(static_cast<int>(camera->y)));
+        bus.writeWord(Stack,0x3fde,0x7a25);
+        registers.sp = 0x3fde;
+        registers.ip = 0x3587;
+        state.registers = registers;
+        state.callee = core::FrameCameraOperation(registers,Game).snapshot();
+    }
+    core::FrameRenderOperation operation(state);
     operation.advance(5000000,bus,[](uint16_t requested) { return requested; });
     if (!operation.returned() || operation.snapshot().registers.sp != 0x3fe4)
         throw std::runtime_error("World raster did not return to its owned caller");
@@ -234,11 +247,9 @@ void WorldRaster::drawView(const WorldRenderView& world, const gameplay::Player&
                            const PresentationState& presentation, Canvas& canvas) {
     if (height != 152) throw std::invalid_argument("World raster view height differs");
     prepare(world,presentation,width+8);
-    word(0xc21e,static_cast<uint16_t>(static_cast<int>(camera.x)));
-    word(0xc220,static_cast<uint16_t>(static_cast<int>(camera.y)));
     byte(0x79e6,1); byte(0x79e7,0);
     word(0x79f0,static_cast<uint16_t>(y*320+x));
-    execute(world,presentation,canvas);
+    execute(world,presentation,canvas,&camera);
 }
 
 } // namespace lezac::rendering

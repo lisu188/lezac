@@ -635,6 +635,8 @@ if(BUILD_TESTING)
 
     add_executable(lezac_world_raster_owners_test tests/rendering/world_raster_test.cpp)
     target_link_libraries(lezac_world_raster_owners_test PRIVATE lezac_rendering)
+    add_executable(lezac_standalone_camera_original_test tests/rendering/standalone_camera_original_test.cpp)
+    target_link_libraries(lezac_standalone_camera_original_test PRIVATE lezac_rendering)
     add_test(NAME world_raster_owners COMMAND lezac_world_raster_owners_test)
     set_tests_properties(world_raster_owners PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy"
@@ -658,11 +660,12 @@ if(BUILD_TESTING)
                 --library $<TARGET_FILE:lezac_rendering> --library $<TARGET_FILE:lezac_ui>
                 --library $<TARGET_FILE:lezac_resources> --library $<TARGET_FILE:lezac_core>
                 --viewport-oracle ${CMAKE_CURRENT_BINARY_DIR}/viewport-width.bin
+                --camera-oracle ${CMAKE_CURRENT_BINARY_DIR}/standalone-camera.bin
                 --out ${CMAKE_CURRENT_BINARY_DIR}/world-raster-mutations)
             set_tests_properties(world_raster_owner_mutations PROPERTIES
                 ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR}"
-                FIXTURES_REQUIRED viewport_width_corpus
-                PASS_REGULAR_EXPRESSION "world_raster_mutations=ok faults=5 original_source_preserved=1")
+                FIXTURES_REQUIRED "viewport_width_corpus;standalone_camera_corpus"
+                PASS_REGULAR_EXPRESSION "world_raster_mutations=ok faults=7 original_source_preserved=1")
         endif()
         add_test(NAME active_live_trace_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_active_live_probe.py)
@@ -941,6 +944,18 @@ if(BUILD_TESTING)
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_camera_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/frame-camera.bin --report ${CMAKE_CURRENT_BINARY_DIR}/frame-camera-report.json)
         set_tests_properties(frame_camera_fixture_contract PROPERTIES FIXTURES_SETUP frame_camera_corpus)
+        add_test(NAME standalone_camera_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_standalone_camera_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/standalone-camera.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/standalone-camera-report.json)
+        set_tests_properties(standalone_camera_fixture_contract PROPERTIES FIXTURES_SETUP standalone_camera_corpus)
+        add_test(NAME standalone_camera_original COMMAND lezac_standalone_camera_original_test
+            ${CMAKE_CURRENT_BINARY_DIR}/standalone-camera.bin)
+        set_tests_properties(standalone_camera_original PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            FIXTURES_REQUIRED standalone_camera_corpus ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "standalone_camera_original=ok cases=24 pixels=1536000 differences=0 live_owners=1")
+        add_test(NAME standalone_camera_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_standalone_camera_fixture.py)
         add_test(NAME frame_camera_original COMMAND lezac_frame_camera_test ${CMAKE_CURRENT_BINARY_DIR}/frame-camera.bin)
         set_tests_properties(frame_camera_original PROPERTIES FIXTURES_REQUIRED frame_camera_corpus
             PASS_REGULAR_EXPRESSION "frame_camera_original=ok cases=1876 replays=7504 comparisons=438001 runtime_errors=3 full_frame_claim=0")

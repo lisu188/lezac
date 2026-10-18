@@ -93,6 +93,7 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
     first_level5 = None
     gate_ticks = []
     final = None
+    baseline_words = bytes.fromhex(endpoint['words_hex'])
     fire_tick = next(tick for tick, action, key in PATTERNS[pattern]
                      if action == 'down' and key == 'n')
     observations = []
@@ -204,17 +205,34 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
                           (fire_tick + 9 <= tick <= fire_tick + 180 and
                            (tick - fire_tick) % 10 == 0) or present_counts != previous_counts)
             if noteworthy and len(observations) < 120:
-                short_bombs = []
-                for bomb in bombs[:3]:
-                    encoded = json.dumps(bomb, separators=(',', ':'))
-                    short_bombs.append(bomb if len(encoded) <= 1200 else
-                                       dict(truncated=True, byte_count=len(encoded)))
+                def compact(values, limit):
+                    result = []
+                    for value in values[:limit]:
+                        encoded = json.dumps(value, separators=(',', ':'))
+                        result.append(value if len(encoded) <= 1200 else
+                                      dict(truncated=True, byte_count=len(encoded)))
+                    return result
+                current_words = bytes.fromhex(state['words_hex'])
+                check(len(current_words) == len(baseline_words),
+                      'candidate word plane changed size')
+                deltas = []
+                changed_words = 0
+                for index in range(0, len(current_words), 2):
+                    if current_words[index:index + 2] != baseline_words[index:index + 2]:
+                        changed_words += 1
+                        if len(deltas) < 16:
+                            deltas.append(dict(cell=index // 2,
+                                before=int.from_bytes(baseline_words[index:index + 2], 'little'),
+                                after=int.from_bytes(current_words[index:index + 2], 'little')))
                 observations.append(dict(tick=tick, player_xy=[player['x'], player['y']],
                     health=health, medium_ammo=player['inventory'][1],
                     destroyed=state['progress'][1], bomb_count=len(bombs),
-                    bombs=short_bombs, flame_count=len(state.get('flames', [])),
+                    bombs=compact(bombs, 3), flame_count=len(state.get('flames', [])),
+                    flames=compact(state.get('flames', []), 16),
                     effect_count=len(state.get('effects', [])),
-                    collapse_count=len(state.get('collapse', []))))
+                    effects=compact(state.get('effects', []), 3),
+                    collapse_count=len(state.get('collapse', [])),
+                    changed_word_cells=changed_words, changed_words_sample=deltas))
             previous_counts = present_counts
             next_tick = tick + 1
             snapshots += 1
@@ -390,6 +408,8 @@ class ScoutChecks(unittest.TestCase):
         self.assertEqual((report['post_update_states'], report['checked_cplusplus_images']), (2, 2))
         self.assertEqual(report['event_observations'][0]['tick'], BASE)
         self.assertEqual(report['event_observations'][0]['bomb_count'], 0)
+        self.assertEqual(report['event_observations'][0]['changed_word_cells'], 0)
+        self.assertEqual(report['event_observations'][0]['flames'], [])
         self.assertIsNone(report['first_active_bomb_tick'])
         self.assertFalse(report['original_game_verified'])
 

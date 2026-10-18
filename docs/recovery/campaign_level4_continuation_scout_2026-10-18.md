@@ -41,8 +41,9 @@ checkpoint/frame rejection. The summary reports additional destruction, minimum 
 candidates and any **C++-only** Level 5 entry. The alternate-route follow-up
 also retains bounded per-tick observations near bomb placement and when active
 bomb count, ammunition, health, destruction, or flames change. These observations
-include player positions and up to three small typed bomb projections; they do
-not publish complete guest RAM or entire gameplay traces. Their purpose is to
+include player positions, bounded bomb/flame/effect projections, and counts and
+samples of word-plane changes relative to the authenticated starting checkpoint.
+They do not publish complete guest RAM or entire gameplay traces. Their purpose is to
 identify why a candidate destroys no eligible structure before selecting
 further movement and placement inputs.
 

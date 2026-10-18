@@ -74,9 +74,17 @@ The completed trace is 12,529,380 gzip bytes and 145,632,448 expanded encoded
 bytes. The projector retains explicit failed reports, rejects existing output
 directories and never labels a partial failure as successful. Ten Python
 controls pass on Linux; seven format controls pass on native Windows, with
-three Linux-only projector controls explicitly skipped there. All 35 selected
+three Linux-only projector controls explicitly skipped there. All 36 selected
 CTests pass, including the unchanged foreground/render corpora and fixture
 rejection tests. No recovered runtime source changed in this proof step.
+
+The subsequent exporter-family audit and repair are recorded in
+`frame_export_aliases_20261018.md`. Six shared path-alias tests cover all four
+exporters in this tree, and native Windows verifies all four pre-created
+hardlink pairs without changing bytes or timestamps. Replay RAM/palette dumps
+also reject existing entries and broken symbolic links before opening files;
+three direct preservation controls pass, as does native Windows reuse of an
+existing output prefix with all four prior files preserved.
 
 ## Reproduction
 

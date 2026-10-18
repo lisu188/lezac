@@ -104,7 +104,14 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
                 continue
             check(header_seen, 'missing C++ scout header')
             if row['kind'] == 'complete':
-                check(not complete and row['ticks'] == last and row['candidate_only'] is True and
+                check(not complete and last_seq is not None and row['ticks'] == last and
+                      row['frames'] == last - BASE + 1 and
+                      row['retained_checkpoints'] == checkpoint_count and
+                      row['checkpoints'] == last_seq + 1 and
+                      row['events'] == sum(map(len, events.values())) and
+                      row['capture_from_tick'] == BASE and
+                      row['level1_route_complete'] is True and
+                      row['candidate_only'] is True and
                       row['original_fidelity_claim'] is False and
                       row['port_functionally_complete'] is False, 'bad C++ scout footer')
                 complete = True
@@ -112,6 +119,13 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
             check(not complete and row['kind'] == 'checkpoint' and
                   row['phase'] in ('input', 'present', 'after_nonplayers', 'post_update'), 'bad C++ state boundary')
             tick = row['tick']
+            check(row['events'] == events.get(tick - 1, []) and
+                  row['time_ms'] == (tick - 1) * settings['step_us'] // 1000,
+                  'scout input or time boundary differs')
+            if last_seq is not None:
+                check(row['seq'] == last_seq + 1, 'missing C++ checkpoint sequence')
+            last_seq = row['seq']
+            checkpoint_count += 1
             if row['phase'] == 'present' and (tick in (BASE, last) or tick % 100 == 0):
                 check(row['frame'] == f'frame_{tick:06d}.ppm', 'incorrect presentation filename')
                 pixels = fidelity.read_ppm(directory / row['frame'])
@@ -120,7 +134,7 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
                 checked_images += 1
             if row['phase'] != 'post_update':
                 continue
-            check(next_tick <= tick <= last, 'out-of-order C++ post-update state')
+            check(tick == next_tick and tick <= last, 'missing or reordered C++ post-update state')
             state = row['state']
             if tick == BASE:
                 check(not found and state['level'] == 4 and state['progress'][:2] == [3, 244] and
@@ -147,7 +161,8 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
             next_tick = tick + 1
             snapshots += 1
             final = state
-    check(found and complete and snapshots >= 2, 'incomplete C++ candidate trace')
+    check(found and complete and snapshots == last - BASE + 1 and next_tick == last + 1,
+          'incomplete C++ candidate trace')
     return dict(status='candidate_only', pattern=pattern, original_game_verified=False,
                 level4_complete_verified=False, original_level5_handoff_verified=False,
                 route_end_tick=last, baseline_destroyed=244, best_destroyed=best_destroyed,

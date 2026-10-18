@@ -3,6 +3,7 @@
   "owners": {
     "core": {
       "runtime": [
+        "src/core/actor_animation.hpp",
         "src/core/bios_keyboard.hpp",
         "src/core/bios_keyboard_tables.hpp",
         "src/core/constants.hpp",

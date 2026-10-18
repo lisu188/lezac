@@ -237,6 +237,11 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_frame_camera_test PRIVATE lezac_core)
     add_test(NAME frame_camera_unit COMMAND lezac_frame_camera_test)
     add_executable(lezac_player_start_test tests/core/player_start_test.cpp)
+    add_executable(lezac_actor_animation_test tests/core/actor_animation_test.cpp)
+    target_link_libraries(lezac_actor_animation_test PRIVATE lezac_core)
+    add_test(NAME actor_animation_unit COMMAND lezac_actor_animation_test)
+    set_tests_properties(actor_animation_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "actor_animation_unit=ok entry_rejections=3 oversized_copy_rejected=1 zero_copy_stalls=1")
     target_link_libraries(lezac_player_start_test PRIVATE lezac_core)
     add_test(NAME player_start_unit COMMAND lezac_player_start_test)
     set_tests_properties(player_start_unit PROPERTIES PASS_REGULAR_EXPRESSION "player_start_unit=ok entry_rejections=3")
@@ -1042,6 +1047,24 @@ if(BUILD_TESTING)
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_camera_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/frame-camera.bin --report ${CMAKE_CURRENT_BINARY_DIR}/frame-camera-report.json)
         set_tests_properties(frame_camera_fixture_contract PROPERTIES FIXTURES_SETUP frame_camera_corpus)
+        add_test(NAME actor_animation_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_animation_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/actor-animation.bin --report ${CMAKE_CURRENT_BINARY_DIR}/actor-animation-report.json)
+        set_tests_properties(actor_animation_fixture_contract PROPERTIES FIXTURES_SETUP actor_animation_corpus)
+        add_test(NAME actor_animation_original COMMAND lezac_actor_animation_test
+            ${CMAKE_CURRENT_BINARY_DIR}/actor-animation.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_animation_original PROPERTIES FIXTURES_REQUIRED actor_animation_corpus
+            PASS_REGULAR_EXPRESSION "actor_animation_original=ok cases=1011 replays=4044 comparisons=71759 writes=14347 string_bytes=1897")
+        add_test(NAME actor_animation_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_animation_fixture.py)
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME actor_animation_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_animation_mutations.py --cxx ${CMAKE_CXX_COMPILER}
+                --fixture ${CMAKE_CURRENT_BINARY_DIR}/actor-animation.bin --out ${CMAKE_CURRENT_BINARY_DIR}/actor-animation-mutations)
+            set_tests_properties(actor_animation_mutations PROPERTIES FIXTURES_REQUIRED actor_animation_corpus
+                ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR}"
+                PASS_REGULAR_EXPRESSION "actor_animation_mutations=ok faults=8 original_source_preserved=1")
+        endif()
         add_test(NAME standalone_camera_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_standalone_camera_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/standalone-camera.bin

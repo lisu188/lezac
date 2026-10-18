@@ -185,6 +185,10 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_frame_active_test tests/core/frame_active_test.cpp)
+    target_link_libraries(lezac_frame_active_test PRIVATE lezac_core)
+    add_test(NAME frame_active_unit COMMAND lezac_frame_active_test)
+    set_tests_properties(frame_active_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_active_unit=ok render_irq_cases=5")
     add_executable(lezac_frame_render_test tests/core/frame_render_test.cpp)
     target_link_libraries(lezac_frame_render_test PRIVATE lezac_core)
     add_test(NAME frame_render_unit COMMAND lezac_frame_render_test)
@@ -626,6 +630,15 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        if(UNIX AND NOT APPLE)
+            add_test(NAME active_observer_builder_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_active_observer_builder.py)
+            add_test(NAME frame_active_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_active_frame_mutations.py
+                --cxx ${CMAKE_CXX_COMPILER} --out ${CMAKE_CURRENT_BINARY_DIR}/active-mutations)
+            set_tests_properties(frame_active_mutations PROPERTIES
+                PASS_REGULAR_EXPRESSION "frame_active_mutations=ok faults=4 original_source_preserved=1")
+        endif()
         add_test(NAME frame_render_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_render_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/frame-render.bin --report ${CMAKE_CURRENT_BINARY_DIR}/frame-render-report.json)
@@ -634,6 +647,10 @@ if(BUILD_TESTING)
             ${CMAKE_CURRENT_BINARY_DIR}/frame-render.bin ${CMAKE_CURRENT_SOURCE_DIR})
         set_tests_properties(frame_render_original PROPERTIES FIXTURES_REQUIRED frame_render_corpus
             PASS_REGULAR_EXPRESSION "frame_render_original=ok cases=26 replays=78 writes=6334308 runtime_errors=6 full_frame_claim=0")
+        add_test(NAME active_render_original COMMAND lezac_frame_render_test --active
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-render.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(active_render_original PROPERTIES FIXTURES_REQUIRED frame_render_corpus
+            PASS_REGULAR_EXPRESSION "active_render=ok frame_render_original=ok cases=26 replays=78 writes=6334308 runtime_errors=6 full_frame_claim=0")
         add_test(NAME frame_render_memory COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_render_memory.py
             --exe $<TARGET_FILE:lezac_frame_render_test> --out ${CMAKE_CURRENT_BINARY_DIR}/frame-render-memory)
@@ -895,6 +912,14 @@ if(BUILD_TESTING)
             ${CMAKE_CURRENT_BINARY_DIR}/foreground-live-cpu.bin ${CMAKE_CURRENT_BINARY_DIR}/foreground-live-clock.bin)
         set_tests_properties(foreground_live_original PROPERTIES FIXTURES_REQUIRED foreground_live_corpus
             PASS_REGULAR_EXPRESSION "frame_foreground_live=ok cases=2 comparisons=289010 transfers=304 millisecond_grants=48 device_callbacks=22 predicted_irqs=2")
+        add_test(NAME active_foreground_original COMMAND lezac_frame_foreground_test --active frozen
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-foreground-cpu.bin ${CMAKE_CURRENT_BINARY_DIR}/frame-foreground-clock.bin)
+        set_tests_properties(active_foreground_original PROPERTIES FIXTURES_REQUIRED frame_foreground_corpus
+            PASS_REGULAR_EXPRESSION "active_handoff=ok frame_foreground_original=ok cases=2 comparisons=216686")
+        add_test(NAME active_foreground_live_original COMMAND lezac_frame_foreground_test --active live
+            ${CMAKE_CURRENT_BINARY_DIR}/foreground-live-cpu.bin ${CMAKE_CURRENT_BINARY_DIR}/foreground-live-clock.bin)
+        set_tests_properties(active_foreground_live_original PROPERTIES FIXTURES_REQUIRED foreground_live_corpus
+            PASS_REGULAR_EXPRESSION "active_handoff=ok frame_foreground_live=ok cases=2 comparisons=289010 transfers=304 millisecond_grants=48 device_callbacks=22 predicted_irqs=2")
         add_test(NAME foreground_live_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_foreground_live_fixture.py)
         add_test(NAME frame_hud_original COMMAND lezac_frame_hud_test --original

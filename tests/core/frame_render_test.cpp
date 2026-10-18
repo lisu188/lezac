@@ -1,4 +1,5 @@
 #include "core/frame_render.hpp"
+#include "core/frame_active.hpp"
 
 #include <algorithm>
 #include <array>
@@ -128,6 +129,14 @@ void dumpMemory(const std::filesystem::path& path,const Memory& m) {
     std::ofstream file(path,std::ios::binary);file.write(reinterpret_cast<const char*>(m.bytes.data()),static_cast<std::streamsize>(m.bytes.size()));
     require(file.good(),"Render memory dump failed");
 }
+FrameActiveOperation activeRender(const DosGetTimeRegisters& registers) {
+    auto initial=registers;initial.ip=0x7903;
+    auto state=FrameActiveOperation(initial,0,0,0,0x1000,0).snapshot();
+    state.render=FrameRenderOperation(registers,0x1000).snapshot();return FrameActiveOperation(state);
+}
+const FrameRenderSnapshot& renderState(const FrameRenderOperation& op) {return op.snapshot();}
+const FrameRenderSnapshot& renderState(const FrameActiveOperation& op) {return *op.snapshot().render;}
+template<class Operation=FrameRenderOperation>
 void replay(const char* corpus,const std::filesystem::path& root,const std::filesystem::path& dump) {
     Reader r{readFile(corpus)};for(char c:std::string("LZREND01")) require(r.number(1)==static_cast<uint8_t>(c),"Render magic differs");
     const auto count=r.number(4);require(count==26,"Render case count differs");Assets assets(root);uint64_t replays=0,writes=0,errors=0;
@@ -141,12 +150,13 @@ void replay(const char* corpus,const std::filesystem::path& root,const std::file
         for(const auto& budget:std::array<Budget,3>{{{1,1},{17,3},{4096,65535}}}) {
             auto m=initialMemory(s,assets);require(m.fingerprint()==s.initialFingerprint,"Render complete initial memory differs");
             if(!dump.empty() && budget.instructions==4096) dumpMemory(dump/(std::to_string(index)+"-initial.ram"),m);
-            const auto bus=m.bus();const auto grant=[&](uint16_t n){return std::min(n,budget.words);};FrameRenderOperation op(s.initial,0x1000);
+            const auto bus=m.bus();const auto grant=[&](uint16_t n){return std::min(n,budget.words);};
+            auto op=[&] {if constexpr(std::is_same_v<Operation,FrameActiveOperation>) return activeRender(s.initial);else return Operation(s.initial,0x1000);}();
             const auto before=op.snapshot();require(op.advance(0,bus,grant)==0 && op.snapshot()==before && m.writes.empty(),"Zero render budget changed state");
             uint64_t steps=0;
-            while(!op.finished()) {const auto used=op.advance(budget.instructions,bus,grant);require(used && used<=budget.instructions,"Render dispatch budget differs");steps+=used;require(steps<4000000,"Render did not finish");op=FrameRenderOperation(op.snapshot());}
-            require(op.returned()!=s.error,"Render outcome differs");require(op.snapshot().registers==s.final,"Render endpoint registers/flags differ");
-            require(op.snapshot().transferredWords==s.transfers,"Render REP transfer count differs");
+            while(!op.finished()) {const auto used=op.advance(budget.instructions,bus,grant);require(used && used<=budget.instructions,"Render dispatch budget differs");steps+=used;require(steps<4000000,"Render did not finish");op=Operation(op.snapshot());}
+            require(op.returned()!=s.error,"Render outcome differs");require(renderState(op).registers==s.final,"Render endpoint registers/flags differ");
+            require(renderState(op).transferredWords==s.transfers,"Render REP transfer count differs");
             require(m.writes==s.writes,"Render original write sequence differs");require(m.fingerprint()==s.finalFingerprint,"Render complete final memory differs");
             if(budget.words==1) require(steps+s.repStops==s.steps,"Render single-word dispatch count differs");
             if(!dump.empty() && budget.instructions==4096) dumpMemory(dump/(std::to_string(index)+"-final.ram"),m);
@@ -155,6 +165,7 @@ void replay(const char* corpus,const std::filesystem::path& root,const std::file
         }
     }
     require(r.at==r.bytes.size(),"Render corpus tail differs");
+    if constexpr(std::is_same_v<Operation,FrameActiveOperation>) std::cout<<"active_render=ok ";
     std::cout<<"frame_render_original=ok cases="<<count<<" replays="<<replays<<" writes="<<writes<<" runtime_errors="<<errors<<" full_frame_claim=0\n";
 }
 void unit() {
@@ -168,4 +179,4 @@ void unit() {
     std::cout<<"frame_render_unit=ok entry_rejections=3\n";
 }
 }
-int main(int argc,char** argv) {try{if(argc==1)unit();else if(argc==3 || argc==4)replay(argv[1],argv[2],argc==4?argv[3]:"");else throw std::runtime_error("Expected corpus, assets and optional RAM dump directory");return 0;}catch(const std::exception& e){std::cerr<<"frame_render=failed "<<e.what()<<'\n';return 1;}}
+int main(int argc,char** argv) {try{if(argc==1)unit();else if(argc==4 && std::string(argv[1])=="--active")replay<FrameActiveOperation>(argv[2],argv[3],"");else if(argc==3 || argc==4)replay(argv[1],argv[2],argc==4?argv[3]:"");else throw std::runtime_error("Expected corpus, assets and optional RAM dump directory");return 0;}catch(const std::exception& e){std::cerr<<"frame_render=failed "<<e.what()<<'\n';return 1;}}

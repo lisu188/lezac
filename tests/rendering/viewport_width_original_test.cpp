@@ -148,10 +148,14 @@ int main(int argc, char** argv) {
             renderer.initializePlayfield(1, width);
             rendering::WorldRenderView world{level, 0, 1,
                 {{{first, false, 2, cursor, effect, 1}, {second, false, 2, cursor, effect, 0}}},
-                bombs, monsters, bonuses, flashes, markers, transients, order, width, background, shake, false, false};
+                bombs, monsters, bonuses, flashes, markers, transients, order, width, background, shake, false, false,
+                nullptr, nullptr, nullptr, true};
             rendering::HudView hud{1, {{{{}, 0, 2, ammo}, {{}, 0, 2, ammo}}},
                 level.objectiveTile, level.requiredBonus, level.requiredDestruction, 0, 0, false, false};
             renderer.drawGame(world, hud);
+            require(renderer.lastCompletedWorldRasterWork().dispatchedInstructions > 0 &&
+                    renderer.lastCompletedWorldRasterWork().transferredWords > 0,
+                    "GameRenderer bypassed the recovered render caller");
             for (size_t at = 0; at < 51200; ++at) {
                 ++viewPixels;
                 viewDifferences += canvas.pixels()[at] != presentation.backdropColor(expected[at]);

@@ -21,6 +21,7 @@
 #include "gameplay/initial_damage_data.hpp"
 #include "gameplay/monster_damage.hpp"
 #include "gameplay/monster_spawners.hpp"
+#include "gameplay/player_start.hpp"
 #include "ui/models.hpp"
 #include "rendering/presentation_state.hpp"
 #include <SDL.h>
@@ -10655,7 +10656,8 @@ public:
         auto inspectHud = [&](const std::string& label) {
             inspectRenderedFrame(label);
             for (int marker = 1; marker <= playerCount_; ++marker) {
-                const int reserves = marker == 1 ? lives_ : lives2_;
+                // 29DB compares the stored reserve byte, including FF when out.
+                const auto reserves = static_cast<uint8_t>(marker == 1 ? lives_ : lives2_);
                 const int x = marker == 1 ? 0 : 180;
                 for (int slot = 0; slot < 3; ++slot) {
                     if (frameInspector_.regionHasVariation(x + slot * 9, 192, 8, 8) != (slot < reserves)) {
@@ -15478,6 +15480,80 @@ public:
         const auto frame = inspectRenderedFrame("active_fire_drop");
         std::cout << "active_fire_original=ok cases=" << cases
                   << " players=2 governed_input=1 seeded=1 natural=0 whole_game_parity=0 frame_hash=" << std::hex << frame.hash << std::dec << '\n';
+    }
+
+    void debugWaitingPlacementOriginal(const std::string& fixture) {
+        namespace wire = lezac::diagnostics::transient_storage;
+        load();
+        std::ifstream input(fixture, std::ios::binary);
+        if (!input) throw std::runtime_error("waiting-map: cannot open fixture");
+        std::string magic(8, '\0'); input.read(magic.data(), 8);
+        const auto low = wire::word(input);
+        const uint32_t count = low | (uint32_t{wire::word(input)} << 16);
+        if (magic != "LZWMAP01" || count != 320) throw std::runtime_error("waiting-map: invalid header");
+        const auto raw = [](float value) { return static_cast<uint16_t>(static_cast<int>(value)); };
+        for (uint32_t index = 0; index < count; ++index) {
+            std::array<uint16_t, 18> p{};
+            for (auto& value : p) value = wire::word(input);
+            if (p[0] != index || p[1] > 3 || p[2] > 3 || p[3] > 1 || p[4] > 1 || p[9] > 255 || p[10] > 255)
+                throw std::runtime_error("waiting-map: invalid case fields");
+            playerCount_ = 2; lives_ = lives2_ = 1; resetLevel(0); ui_.setMenu(false);
+            level_.tiles.assign(1980, 0); level_.wordLayer.assign(1980, 0);
+            mapPlaneMemory_.restoreSeparatedPlanesForFixture();
+            if (p[1] != 0) mapPlaneMemory_.beginLevel({}, {}, 1980);
+            std::vector<std::pair<uint16_t, uint8_t>> seeds;
+            for (unsigned player = 0; player < 2; ++player) if (p[2] & (1u << player)) {
+                const auto x = p[5 + player * 2], y = p[6 + player * 2];
+                const auto cell = static_cast<uint16_t>((((static_cast<uint16_t>(y + 7) >> 3) + 1) * 60) + (x >> 3));
+                seeds.emplace_back(cell, static_cast<uint8_t>(p[9]));
+                seeds.emplace_back(static_cast<uint16_t>(cell + 1), static_cast<uint8_t>(p[10]));
+            }
+            if (p[1] == 3) {
+                mapPlaneMemory_.restoreSeparatedPlanesForFixture();
+                mapPlaneMemory_.beginLevel({}, {}, 2400);
+                std::vector<uint8_t> oldTiles(2400); std::vector<uint16_t> oldWords(2400);
+                for (const auto& [at, value] : seeds) if (at < oldTiles.size()) oldTiles[at] = value;
+                mapPlaneMemory_.beginLevel(oldTiles, oldWords, 1980);
+            }
+            std::vector<uint8_t> tail(16);
+            for (const auto& [at, value] : seeds) {
+                if (at < level_.tiles.size()) mapPlaneMemory_.writeObject(at, value, level_.tiles, level_.wordLayer);
+                else if (p[1] == 1 && at >= 1980 && at < 1996) tail[at - 1980] = value;
+                else if (p[1] == 2 && at >= 2000 && at < 2004) {
+                    const auto word = static_cast<size_t>((at - 2000) / 2);
+                    const unsigned shift = (at & 1u) * 8;
+                    const auto mask = static_cast<uint16_t>(0xffu << shift);
+                    level_.wordLayer[word] = static_cast<uint16_t>((level_.wordLayer[word] & ~mask) | (uint16_t{value} << shift));
+                } else if (p[1] == 0) mapPlaneMemory_.writeObject(at, value, level_.tiles, level_.wordLayer);
+                else if (p[1] != 3) throw std::runtime_error("waiting-map: seed outside declared layout");
+            }
+            if (p[1] == 1) mapPlaneMemory_.retainObjectDecoderTail(tail, level_.tiles, level_.wordLayer);
+            for (unsigned player = 0; player < 2; ++player) {
+                auto& target = player == 0 ? player_ : player2_;
+                const auto coordinate = [&](uint16_t value) {
+                    return static_cast<float>(p[3] ? static_cast<int16_t>(value) : int{value});
+                };
+                target.x = coordinate(p[5 + player * 2]); target.y = coordinate(p[6 + player * 2]);
+            }
+            playerDead_ = player2Dead_ = true;
+            lives_ = p[2] & 1 ? 1 : -1; lives2_ = p[2] & 2 ? 1 : -1;
+            reentryTimer_ = p[2] & 1 ? 65535 : 0; reentryTimer2_ = p[2] & 2 ? 65535 : 0;
+            pendingLifeLoss_ = pendingLifeLoss2_ = false;
+            deathStateTimer_ = deathStateTimer2_ = 0;
+            levelRestartPromoted_ = false; reentryGate_ = p[4] != 0;
+            reentryFire1_ = reentryFire2_ = false; noActivePlayerTicks_ = 0;
+            sound_.writeSharedCursor(0x5aa5);
+            const auto tiles = level_.tiles; const auto words = level_.wordLayer;
+            updatePlayerReentryPrepass(FrameControls{});
+            if (raw(player_.x) != p[5] || raw(player2_.x) != p[7] || raw(player_.y) != p[11] || raw(player2_.y) != p[12] ||
+                sound_.requestCursor() != p[13] || reentryTimer_ != p[14] || reentryTimer2_ != p[15] ||
+                (originalPlayerState(1) | (originalPlayerState(2) << 8)) != p[16] || noActivePlayerTicks_ != p[17] ||
+                level_.tiles != tiles || level_.wordLayer != words)
+                throw std::runtime_error("waiting-map: production mismatch case " + std::to_string(index));
+        }
+        if (input.peek() != std::char_traits<char>::eof()) throw std::runtime_error("waiting-map: trailing bytes");
+        std::cout << "waiting_map_original=ok cases=" << count
+                  << " production_prepass=1 map_layouts=4 shared_cursor=1 controlled=1 natural=0 whole_game_parity=0\n";
     }
 
     void debugState2PrepassOriginal(const std::string& fixture) {
@@ -25138,6 +25214,55 @@ public:
                   << std::hex << inspected.hash << std::dec << '\n';
     }
 
+    void debugPlayerStartOriginal(const std::string& fixturePath) {
+        const auto data = readFile(fixturePath);
+        if (data.size() != 17720 || lezac::diagnostics::level1::fingerprint(data) != "bbb65138c6cba1e7")
+            throw std::runtime_error("player start fixture fingerprint differs");
+        size_t offset = 0;
+        const auto magic = lezac::resources::getBytes(data, offset, 8);
+        const auto countLow = lezac::resources::getU16(data, offset);
+        const auto countHigh = lezac::resources::getU16(data, offset);
+        if (std::string(magic.begin(), magic.end()) != "LZSTAPP1" || countLow != 1040 || countHigh != 0)
+            throw std::runtime_error("player start fixture header differs");
+        load();
+        for (unsigned index = 0; index < 1040; ++index) {
+            const auto id = lezac::resources::getU16(data, offset), marker = lezac::resources::getU16(data, offset);
+            const auto count = lezac::resources::getU16(data, offset);
+            const auto x = lezac::resources::getU16(data, offset), y = lezac::resources::getU16(data, offset);
+            if (id != index || (marker != 1 && marker != 2) || count > 3)
+                throw std::runtime_error("player start fixture case differs");
+            std::vector<LevelPortal> portals;
+            for (unsigned i = 0; i < count; ++i) {
+                LevelPortal portal;
+                portal.key = lezac::resources::getU16(data, offset); portal.x = lezac::resources::getU16(data, offset);
+                portal.y = lezac::resources::getU16(data, offset); portal.marker = lezac::resources::getU8(data, offset);
+                portals.push_back(portal);
+            }
+            playerCount_ = 2; lives_ = lives2_ = 2; resetLevel(0); ui_.setMenu(false);
+            level_.portals = portals;
+            auto& target = marker == 1 ? player_ : player2_;
+            const auto placed = [&] { return target.x == x && target.y == y && target.idleTicks == 0; };
+            placePlayerAtStart(target, static_cast<uint8_t>(marker));
+            if (!placed()) throw std::runtime_error("player start startup mismatch case " + std::to_string(index));
+            std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+            std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+            mapPlaneMemory_.restoreSeparatedPlanesForFixture();
+            target.x = 400; target.y = 500; target.idleTicks = 86;
+            target.vx8 = -111; target.vy8 = 222; target.fracX = 33; target.fracY = 44;
+            playerDead_ = player2Dead_ = true;
+            lives_ = marker == 1 ? 2 : -1; lives2_ = marker == 2 ? 2 : -1;
+            reentryTimer_ = marker == 1 ? 1 : 0; reentryTimer2_ = marker == 2 ? 1 : 0;
+            pendingLifeLoss_ = pendingLifeLoss2_ = false;
+            deathStateTimer_ = deathStateTimer2_ = 0;
+            reentryGate_ = true; reentryFire1_ = reentryFire2_ = false; levelRestartPromoted_ = false;
+            updatePlayerReentryPrepass(FrameControls{});
+            if (!placed() || target.vx8 != -111 || target.vy8 != 222 || target.fracX != 33 || target.fracY != 44)
+                throw std::runtime_error("player start reentry mismatch case " + std::to_string(index));
+        }
+        if (offset != data.size()) throw std::runtime_error("player start fixture tail differs");
+        std::cout << "player_start_app=ok cases=1040 startup_placement=1040 reentry=1040 controlled=1 natural=0 whole_game_parity=0\n";
+    }
+
     void debugWalkerLedgeOriginal(const std::string& fixturePath) {
         if (std::filesystem::file_size(fixturePath) != 2193) {
             throw std::runtime_error("walker ledge fixture size differs");
@@ -27365,6 +27490,108 @@ public:
                   << " frame_inspection=1\n";
     }
 
+    void debugFrameWaitingOriginal(const std::string& path) {
+        const auto bytes = lezac::resources::readFile(path);
+        uint64_t fingerprint = 14695981039346656037ull;
+        for (uint8_t byte : bytes) { fingerprint ^= byte; fingerprint *= 1099511628211ull; }
+        constexpr std::array<uint8_t, 12> signature{'L','Z','W','F','A','P','0','1',68,0,0,0};
+        if (bytes.size() != 4364 || fingerprint != 0xc08b764df32df65aull ||
+            !std::equal(signature.begin(), signature.end(), bytes.begin()))
+            throw std::runtime_error("waiting App fixture fingerprint differs");
+        load();
+        initSdl();
+        playerCount_ = 2;
+        unsigned active = 0, waiting = 0;
+        for (size_t index = 0; index < 68; ++index) {
+            const size_t at = 12 + index * 64;
+            const auto word = [&](size_t offset) {
+                return static_cast<uint16_t>(bytes[at + offset] | (uint16_t{bytes[at + offset + 1]} << 8));
+            };
+            resetLevel(0); ui_.setMenu(false);
+            playerDead_ = bytes[at + 3] == 2; player2Dead_ = bytes[at + 4] == 2;
+            lives_ = bytes[at + 13]; lives2_ = bytes[at + 14];
+            reentryTimer_ = word(17); reentryTimer2_ = word(19);
+            pendingLifeLoss_ = pendingLifeLoss2_ = false;
+            deathStateTimer_ = deathStateTimer2_ = 0;
+            levelRestartPromoted_ = false; reentryGate_ = bytes[at + 2] != 0;
+            reentryFire1_ = bytes[at + 5] != 0; reentryFire2_ = bytes[at + 6] != 0;
+            noActivePlayerTicks_ = 13;
+            for (size_t player = 0; player < 2; ++player) {
+                auto& inventory = player == 0 ? bombInventory_ : bombInventory2_;
+                inventory.selected = static_cast<BombType>(bytes[at + 7 + player]);
+                inventory.hudDirty = bytes[at + 9 + player];
+                for (size_t weapon = 0; weapon < 4; ++weapon)
+                    inventory.counts[weapon] = bytes[at + 25 + player * 4 + weapon];
+            }
+            corpseRewardRoll_ = bytes[at + 11];
+            updatePlayerReentryPrepass(FrameControls{});
+            const auto fail = [&](const char* field) {
+                throw std::runtime_error(std::string("waiting App ") + field + " mismatch case " + std::to_string(word(0)));
+            };
+            if (corpseRewardRoll_ != bytes[at + 12]) fail("shared scratch");
+            if (lives_ != bytes[at + 15] || lives2_ != bytes[at + 16] ||
+                reentryTimer_ != word(21) || reentryTimer2_ != word(23) ||
+                originalPlayerState(1) != bytes[at + 43] || originalPlayerState(2) != bytes[at + 44] ||
+                reentryFire1_ != (bytes[at + 45] != 0) || reentryFire2_ != (bytes[at + 46] != 0)) fail("reentry state");
+            for (size_t player = 0; player < 2; ++player) {
+                const auto& inventory = player == 0 ? bombInventory_ : bombInventory2_;
+                if (inventory.hudDirty != bytes[at + 41 + player]) fail("dirty byte");
+                for (size_t weapon = 0; weapon < 4; ++weapon)
+                    if (inventory.counts[weapon] != bytes[at + 33 + player * 4 + weapon]) fail("inventory");
+            }
+            bytes[at + 3] == 1 ? ++active : ++waiting;
+        }
+        std::cout << "frame_waiting_app=ok cases=68 active=40 waiting=28 inventory_bytes=544 shared_scratch=68"
+                  << " controlled=1 natural=0 whole_game_parity=0\n";
+    }
+
+    void debugAmmoHudOriginal(const std::string& path) {
+        const auto bytes = lezac::resources::readFile(path);
+        uint64_t fingerprint = 14695981039346656037ull;
+        for (uint8_t byte : bytes) { fingerprint ^= byte; fingerprint *= 1099511628211ull; }
+        constexpr std::array<uint8_t, 12> signature{'L','Z','A','M','A','P','P','1',0,8,0,0};
+        if (bytes.size() != 18444 || fingerprint != 0x6b0062d1c6eb95dbull ||
+            !std::equal(signature.begin(), signature.end(), bytes.begin())) {
+            throw std::runtime_error("ammunition HUD App fixture fingerprint differs");
+        }
+        load();
+        initSdl();
+        playerCount_ = 2;
+        resetLevel(0);
+        unsigned admitted = 0, noCall = 0;
+        for (unsigned index = 0; index < 2048; ++index) {
+            const size_t at = 12 + static_cast<size_t>(index) * 9;
+            const auto player = static_cast<size_t>(bytes[at] - 1);
+            const auto selected = static_cast<uint8_t>(bytes[at + 1] - 1u);
+            const auto ammo = bytes[at + 2], dirty = bytes[at + 3];
+            if (player > 1 || selected > 3) throw std::runtime_error("ammunition HUD App case differs");
+            auto& inventory = player == 0 ? bombInventory_ : bombInventory2_;
+            BombInventory baseline;
+            baseline.selected = static_cast<BombType>((selected + 1) % 4);
+            baseline.counts[static_cast<size_t>(baseline.selected)] = 17;
+            baseline.hudDirty = 2;
+            sampleHudInventory(player, baseline, 1);
+            corpseRewardRoll_ = bytes[at + 5];
+            damageLaneData_[kLaneHelperNeighborLaneScratch] = bytes[at + 4];
+            inventory.selected = static_cast<BombType>(selected);
+            inventory.counts[selected] = ammo;
+            inventory.hudDirty = dirty;
+            sampleHudInventory(player, inventory, 1);
+            const auto& panel = presentation_.hudAmmoPanels()[player];
+            if (inventory.hudDirty != bytes[at + 8] ||
+                panel.icon != (dirty > 1 ? inventory.selected : baseline.selected) ||
+                panel.count != (dirty ? bytes[at + 7] : 17) ||
+                corpseRewardRoll_ != bytes[at + (dirty ? 6 : 5)] ||
+                hudView().spriteInk != bytes[at + 4]) {
+                throw std::runtime_error("ammunition HUD App state mismatch case " + std::to_string(index));
+            }
+            dirty ? ++admitted : ++noCall;
+        }
+        std::cout << "ammo_hud_app=ok cases=2048 admitted=" << admitted
+                  << " no_call_controls=" << noCall
+                  << " shared_scratch=2048 ink_owner=2048 controlled=1 natural=0 whole_game_parity=0\n";
+    }
+
     void debugHudStatsLive() {
         load();
         initSdl();
@@ -27379,7 +27606,7 @@ public:
 
         drainPlayerDamageCounters();
         updateHudScores();
-        presentation_.sampleHudInventory(0, bombInventory_, originalPlayerState(1));
+        sampleHudInventory(0, bombInventory_, originalPlayerState(1));
         const int hudY = kScreenH - 46;
         FrameInspection first = inspectRenderedFrame("hud-stats-live-first");
         std::vector<uint32_t> firstPixels = fb_;
@@ -27395,7 +27622,7 @@ public:
         bombInventory_.counts[3] = 0;
         bombInventory_.hudDirty = 2;
         drainPlayerDamageCounters();
-        presentation_.sampleHudInventory(0, bombInventory_, originalPlayerState(1));
+        sampleHudInventory(0, bombInventory_, originalPlayerState(1));
         FrameInspection second = inspectRenderedFrame("hud-stats-live-second");
         if (second.hash == first.hash ||
             !frameInspector_.regionChanged(firstPixels, 0, hudY, kScreenW, 46) ||
@@ -27430,8 +27657,8 @@ public:
         levelRestartPromoted_ = false;
         prepareHudObjectives();
         updateHudScores();
-        presentation_.sampleHudInventory(0, bombInventory_, originalPlayerState(1));
-        presentation_.sampleHudInventory(1, bombInventory2_, originalPlayerState(2));
+        sampleHudInventory(0, bombInventory_, originalPlayerState(1));
+        sampleHudInventory(1, bombInventory2_, originalPlayerState(2));
         presentation_.updateHudEnergy(0, energy_, 1);
         presentation_.updateHudEnergy(1, energy2_, 1);
         const auto render = [&](const std::string& label) {
@@ -28151,17 +28378,8 @@ private:
             state.cooldown = spawner.cooldown;
             spawnerStates_.push_back(state);
         }
-        if (const LevelPortal* start = findStartPortal(1)) {
-            player_.x = static_cast<float>(start->x);
-            player_.y = static_cast<float>(start->y);
-        }
-        if (const LevelPortal* start = findStartPortal(2)) {
-            player2_.x = static_cast<float>(start->x);
-            player2_.y = static_cast<float>(start->y);
-        } else {
-            player2_.x = std::min(player_.x + 16.0f, std::max(16.0f, level_.width * 8.0f - 16.0f));
-            player2_.y = player_.y;
-        }
+        placePlayerAtStart(player_, 1);
+        placePlayerAtStart(player2_, 2);
         if (playerCount_ > 1) {
             playerDead_ = lives_ < 0;
             player2Dead_ = lives2_ < 0;
@@ -28256,13 +28474,11 @@ private:
         levelFlow_.updateLevelIntro(now);
     }
 
-    const LevelPortal* findStartPortal(uint8_t marker) const {
-        for (const LevelPortal& portal : level_.portals) {
-            if (portal.key == 0 && portal.marker == marker) {
-                return &portal;
-            }
-        }
-        return nullptr;
+    void placePlayerAtStart(Player& player, uint8_t marker) const {
+        const auto [x, y] = lezac::gameplay::playerStart(level_.portals, marker);
+        player.x = static_cast<float>(x);
+        player.y = static_cast<float>(y);
+        player.idleTicks = 0;
     }
 
     UiActions uiActions() {
@@ -28591,24 +28807,35 @@ private:
         updateWithControls(controlsFromKeyboard(replayKeyboard_ ? replayKeyboard_ : SDL_GetKeyboardState(nullptr)), dt);
     }
 
+    void sampleHudInventory(size_t player, BombInventory& inventory, uint8_t globalState) {
+        // 326E writes DS:79A3 when repainting the icon, before clearing its dirty byte.
+        if (globalState == 1 && inventory.hudDirty > 1) corpseRewardRoll_ = 18;
+        presentation_.sampleHudInventory(player, inventory, globalState);
+    }
+
     void updatePlayerReentryPrepass(const FrameControls& controls) {
         // State-2 countdown precedes both actor passes (1000:7C89).
         // 1000:7E9D/7EA2 clear BOTH latches on the first successful reentry.
         if (!reentryGate_) noActivePlayerTicks_ = kSharedReentryTicks - 1;
         reentryFire1_ = reentryFire1_ || controls.p1Reenter;
         reentryFire2_ = reentryFire2_ || controls.p2Reenter;
-        presentation_.sampleHudInventory(0, bombInventory_, originalPlayerState(1));
+        sampleHudInventory(0, bombInventory_, originalPlayerState(1));
         if (playerDead_) {
             updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
                           playerCount_ == 1 || player2Dead_);
-            if (reentryFire1_) tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_, damageCooldown_, 1);
         }
-        if (playerCount_ > 1) presentation_.sampleHudInventory(1, bombInventory2_, originalPlayerState(2));
+        // 7DB5 samples each latch into DS:79A3 before reentry clears both.
+        corpseRewardRoll_ = static_cast<uint8_t>(reentryGate_ && reentryFire1_);
+        if (playerDead_ && reentryFire1_)
+            tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_, damageCooldown_, 1);
+        if (playerCount_ > 1) sampleHudInventory(1, bombInventory2_, originalPlayerState(2));
         if (playerCount_ > 1 && player2Dead_) {
             updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
                           playerDead_);
-            if (reentryFire2_) tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, damageCooldown2_, 2);
         }
+        corpseRewardRoll_ = static_cast<uint8_t>(reentryGate_ && reentryFire2_);
+        if (playerCount_ > 1 && player2Dead_ && reentryFire2_)
+            tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, damageCooldown2_, 2);
     }
 
     void updateWithControls(const FrameControls& controls, float dt) {
@@ -30853,12 +31080,14 @@ private:
     }
 
     void updateWaitingPlayerPlacement(Player& player) {
-        const uint16_t x = static_cast<uint16_t>(player.x);
-        const uint16_t y = static_cast<uint16_t>(player.y);
+        const uint16_t x = static_cast<uint16_t>(static_cast<int>(player.x));
+        const uint16_t y = static_cast<uint16_t>(static_cast<int>(player.y));
         const uint16_t row = (static_cast<uint16_t>(y + 7) >> 3) + 1;
         const uint16_t cell = static_cast<uint16_t>(row * level_.width + (x >> 3));
+        // DS:2074 is shared by this map scan and sound-request construction.
+        sound_.writeSharedCursor(cell);
         auto solid = [&](uint16_t at) {
-            const uint8_t tile = at < level_.tiles.size() ? level_.tiles[at] : 0;
+            const uint8_t tile = mapPlaneMemory_.readObject(at, level_.tiles, level_.wordLayer);
             return tile >= 1 && tile <= 76;
         };
         // 1000:7E41 jumps directly to DEC on the left cell. Only the right
@@ -30882,11 +31111,7 @@ private:
             if (lives >= 0 && !ui_.snapshot().menu) {
                 // 1000:7D11 calls the start-marker locator at 056B before
                 // waiting for input; it preserves motion and animation bytes.
-                if (const LevelPortal* start = findStartPortal(startMarker)) {
-                    player.x = static_cast<float>(start->x);
-                    player.y = static_cast<float>(start->y);
-                }
-                player.idleTicks = 0;
+                placePlayerAtStart(player, startMarker);
                 player.spriteIndex = 0x27 - 1;
                 player.singlePixelSprite = !reentryGate_;
                 auto& inventory = startMarker == 2 ? bombInventory2_ : bombInventory_;
@@ -30950,10 +31175,7 @@ private:
         player.vx = 0.0f;
         player.vy = 0.0f;
         player.grounded = false;
-        if (const LevelPortal* start = findStartPortal(startMarker)) {
-            player.x = static_cast<float>(start->x);
-            player.y = static_cast<float>(start->y);
-        }
+        placePlayerAtStart(player, startMarker);
     }
 
     void restartCurrentLevelAfterDeath() {
@@ -32335,7 +32557,7 @@ private:
                 level_.objectiveTile, level_.requiredBonus, level_.requiredDestruction,
                 collected_, presentation_.hudDestructionPercent(),
                 levelFlow_.interactiveEnabled() ? levelFlow_.outro().active : isComplete(), levelFlow_.outro().active,
-                presentation_.hudScores(), presentation_.hudColumnReady()};
+                presentation_.hudScores(), presentation_.hudColumnReady(), damageLaneData_[kLaneHelperNeighborLaneScratch]};
     }
 
     lezac::rendering::MenuView menuRenderView() const {
@@ -32969,6 +33191,10 @@ int lezac::app::runApplication(int argc, char** argv) {
             app.debugWalkerLedgeOriginal(argv[2]);
             return 0;
         }
+        if (argc > 2 && std::string(argv[1]) == "--debug-player-start-original") {
+            app.debugPlayerStartOriginal(argv[2]);
+            return 0;
+        }
         if (argc > 2 && std::string(argv[1]) == "--debug-monster-animation-original") {
             app.debugMonsterAnimationOriginal(argv[2]);
             return 0;
@@ -33174,6 +33400,14 @@ int lezac::app::runApplication(int argc, char** argv) {
             app.debugObjectCollisionJumpLive();
             return 0;
         }
+        if (argc > 2 && std::string(argv[1]) == "--debug-frame-waiting-original") {
+            app.debugFrameWaitingOriginal(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-ammo-hud-original") {
+            app.debugAmmoHudOriginal(argv[2]);
+            return 0;
+        }
         if (argc > 1 && std::string(argv[1]) == "--debug-hud-stats-live") {
             app.debugHudStatsLive();
             return 0;
@@ -33362,6 +33596,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-state2-prepass-original") {
             app.debugState2PrepassOriginal(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-waiting-map-original") {
+            app.debugWaitingPlacementOriginal(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-reentry-original") {

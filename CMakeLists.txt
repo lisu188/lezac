@@ -185,6 +185,16 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_frame_waiting_test tests/core/frame_waiting_test.cpp)
+    target_link_libraries(lezac_frame_waiting_test PRIVATE lezac_core)
+    add_test(NAME frame_waiting_unit COMMAND lezac_frame_waiting_test)
+    set_tests_properties(frame_waiting_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_waiting_unit=ok entry_rejections=5")
+    add_executable(lezac_ammo_hud_test tests/core/ammo_hud_test.cpp)
+    target_link_libraries(lezac_ammo_hud_test PRIVATE lezac_core)
+    add_test(NAME ammo_hud_unit COMMAND lezac_ammo_hud_test)
+    set_tests_properties(ammo_hud_unit PROPERTIES PASS_REGULAR_EXPRESSION "ammo_hud_unit=ok entry_rejections=6")
+    add_executable(lezac_ammo_hud_renderer_test tests/rendering/ammo_hud_original_test.cpp)
+    target_link_libraries(lezac_ammo_hud_renderer_test PRIVATE lezac_rendering)
     add_executable(lezac_reserve_hud_test tests/core/reserve_hud_test.cpp)
     target_link_libraries(lezac_reserve_hud_test PRIVATE lezac_core)
     add_test(NAME reserve_hud_unit COMMAND lezac_reserve_hud_test)
@@ -203,6 +213,10 @@ if(BUILD_TESTING)
     add_executable(lezac_frame_camera_test tests/core/frame_camera_test.cpp)
     target_link_libraries(lezac_frame_camera_test PRIVATE lezac_core)
     add_test(NAME frame_camera_unit COMMAND lezac_frame_camera_test)
+    add_executable(lezac_player_start_test tests/core/player_start_test.cpp)
+    target_link_libraries(lezac_player_start_test PRIVATE lezac_core)
+    add_test(NAME player_start_unit COMMAND lezac_player_start_test)
+    set_tests_properties(player_start_unit PROPERTIES PASS_REGULAR_EXPRESSION "player_start_unit=ok entry_rejections=3")
     set_tests_properties(frame_camera_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_camera_unit=ok entry_rejections=3")
     add_executable(lezac_frame_display_test tests/core/frame_display_test.cpp)
     target_link_libraries(lezac_frame_display_test PRIVATE lezac_core)
@@ -629,6 +643,63 @@ if(BUILD_TESTING)
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
         find_package(Git QUIET)
+        add_test(NAME frame_waiting_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_waiting_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-waiting.bin)
+        set_tests_properties(frame_waiting_fixture_contract PROPERTIES FIXTURES_SETUP frame_waiting_corpus)
+        add_test(NAME frame_waiting_original COMMAND lezac_frame_waiting_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-waiting.bin ${CMAKE_CURRENT_SOURCE_DIR}/LEZAC.EXE)
+        set_tests_properties(frame_waiting_original PROPERTIES FIXTURES_REQUIRED frame_waiting_corpus TIMEOUT 180
+            PASS_REGULAR_EXPRESSION "frame_waiting_original=ok cases=238 replays=2856 comparisons=1145574 dispatches=2928864 transfers=1036800 end_run_handoffs=2 runtime_errors=6 computed_irq_cases=5 end_run_ui=0 full_frame_claim=0 work_clock_claim=0")
+        add_test(NAME frame_waiting_app_original COMMAND lezac_cpp --debug-frame-waiting-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/frame_waiting/app.bin)
+        set_tests_properties(frame_waiting_app_original PROPERTIES FIXTURES_REQUIRED frame_waiting_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;LEZAC_LOAD_ORIGINAL_ASSETS=1;LEZAC_LOAD_JSON_ASSETS=0"
+            PASS_REGULAR_EXPRESSION "frame_waiting_app=ok cases=68 active=40 waiting=28 inventory_bytes=544 shared_scratch=68 controlled=1 natural=0 whole_game_parity=0")
+        add_test(NAME frame_waiting_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_waiting_fixture.py --exe $<TARGET_FILE:lezac_cpp> -v)
+        set_tests_properties(frame_waiting_fixture_rejections PROPERTIES TIMEOUT 180
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
+        if(NOT WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME frame_waiting_mutation_controls COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_waiting_mutations.py
+                --compiler ${CMAKE_CXX_COMPILER} --fixture ${CMAKE_CURRENT_BINARY_DIR}/frame-waiting.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/frame-waiting-mutations)
+            set_tests_properties(frame_waiting_mutation_controls PROPERTIES FIXTURES_REQUIRED frame_waiting_corpus
+                TIMEOUT 300 PASS_REGULAR_EXPRESSION "frame_waiting_mutations=ok compiled=11 rejected=10 production_source_unchanged=1")
+        endif()
+        add_test(NAME ammo_hud_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ammo_hud_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/ammo-hud.bin)
+        set_tests_properties(ammo_hud_fixture_contract PROPERTIES FIXTURES_SETUP ammo_hud_corpus)
+        add_test(NAME ammo_hud_original COMMAND lezac_ammo_hud_test
+            ${CMAKE_CURRENT_BINARY_DIR}/ammo-hud.bin ${CMAKE_CURRENT_SOURCE_DIR}/LEZAC.EXE)
+        set_tests_properties(ammo_hud_original PROPERTIES FIXTURES_REQUIRED ammo_hud_corpus TIMEOUT 180
+            PASS_REGULAR_EXPRESSION "ammo_hud_original=ok cases=2226 replays=26712 comparisons=11968936 dispatches=30615144 transfers=5776200 runtime_errors=7 computed_irq_cases=2 full_frame_claim=0 work_clock_claim=0")
+        add_test(NAME ammo_hud_renderer_original COMMAND lezac_ammo_hud_renderer_test
+            ${CMAKE_CURRENT_BINARY_DIR}/ammo-hud.bin)
+        set_tests_properties(ammo_hud_renderer_original PROPERTIES FIXTURES_REQUIRED ammo_hud_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "ammo_hud_renderer=ok cases=1024 indexed_pixels=393216 sprite_cases=32 sprite_pixels=4144 original_call_timing=0 whole_game_parity=0")
+        add_test(NAME ammo_hud_app_original COMMAND lezac_cpp --debug-ammo-hud-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ammo_hud/app.bin)
+        set_tests_properties(ammo_hud_app_original PROPERTIES FIXTURES_REQUIRED ammo_hud_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;LEZAC_LOAD_ORIGINAL_ASSETS=1;LEZAC_LOAD_JSON_ASSETS=0"
+            PASS_REGULAR_EXPRESSION "ammo_hud_app=ok cases=2048 admitted=1536 no_call_controls=512 shared_scratch=2048 ink_owner=2048 controlled=1 natural=0 whole_game_parity=0")
+        add_test(NAME ammo_hud_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_ammo_hud_fixture.py --exe $<TARGET_FILE:lezac_cpp> -v)
+        set_tests_properties(ammo_hud_fixture_rejections PROPERTIES TIMEOUT 180
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
+        if(NOT WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME ammo_hud_mutation_controls COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_ammo_hud_mutations.py
+                --compiler ${CMAKE_CXX_COMPILER} --fixture ${CMAKE_CURRENT_BINARY_DIR}/ammo-hud.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/ammo-hud-mutations)
+            set_tests_properties(ammo_hud_mutation_controls PROPERTIES FIXTURES_REQUIRED ammo_hud_corpus
+                TIMEOUT 300 PASS_REGULAR_EXPRESSION "ammo_hud_mutations=ok compiled=9 rejected=8 production_source_unchanged=1")
+        endif()
         add_test(NAME reserve_hud_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_reserve_hud_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/reserve-hud.bin)
@@ -641,7 +712,7 @@ if(BUILD_TESTING)
             ${CMAKE_CURRENT_BINARY_DIR}/reserve-hud.bin)
         set_tests_properties(reserve_hud_renderer_original PROPERTIES FIXTURES_REQUIRED reserve_hud_corpus
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy"
-            PASS_REGULAR_EXPRESSION "reserve_hud_renderer=ok cases=512 indexed_pixels=98304 no_extra_slot_pixels=110592 original_call_timing=0 whole_game_parity=0")
+            PASS_REGULAR_EXPRESSION "reserve_hud_renderer=ok cases=512 indexed_pixels=98304 no_extra_slot_pixels=110592 original_call_timing=0 whole_game_parity=0 sentinel_cases=2 sentinel_pixels=384")
         add_test(NAME reserve_hud_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_reserve_hud_fixture.py -v)
         set_tests_properties(reserve_hud_fixture_rejections PROPERTIES
@@ -864,6 +935,29 @@ if(BUILD_TESTING)
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_camera_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/frame-camera.bin --report ${CMAKE_CURRENT_BINARY_DIR}/frame-camera-report.json)
         set_tests_properties(frame_camera_fixture_contract PROPERTIES FIXTURES_SETUP frame_camera_corpus)
+        add_test(NAME player_start_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_player_start_fixture.py --out ${CMAKE_CURRENT_BINARY_DIR}/player-start.bin)
+        set_tests_properties(player_start_fixture_contract PROPERTIES FIXTURES_SETUP player_start_corpus)
+        add_test(NAME player_start_cpu_original COMMAND lezac_player_start_test
+            ${CMAKE_CURRENT_BINARY_DIR}/player-start.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(player_start_cpu_original PROPERTIES FIXTURES_REQUIRED player_start_corpus
+            PASS_REGULAR_EXPRESSION "player_start_cpu=ok cases=1043 replays=4172 comparisons=97877 writes=14053 runtime_errors=3 whole_game_parity=0")
+        add_test(NAME player_start_app_original COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+            $<TARGET_FILE:lezac_cpp> --debug-player-start-original ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/player_start/app.bin)
+        set_tests_properties(player_start_app_original PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            FIXTURES_REQUIRED player_start_corpus PASS_REGULAR_EXPRESSION
+            "player_start_app=ok cases=1040 startup_placement=1040 reentry=1040 controlled=1 natural=0 whole_game_parity=0")
+        add_test(NAME player_start_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_player_start_fixture.py --exe $<TARGET_FILE:lezac_cpp> -v)
+        set_tests_properties(player_start_fixture_rejections PROPERTIES ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR}")
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME player_start_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_player_start_mutations.py --cxx ${CMAKE_CXX_COMPILER}
+                --fixture ${CMAKE_CURRENT_BINARY_DIR}/player-start.bin --out ${CMAKE_CURRENT_BINARY_DIR}/player-start-mutations)
+            set_tests_properties(player_start_mutations PROPERTIES FIXTURES_REQUIRED player_start_corpus
+                ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR}"
+                PASS_REGULAR_EXPRESSION "player_start_mutations=ok faults=5 source_preserved=1")
+        endif()
         add_test(NAME frame_camera_original COMMAND lezac_frame_camera_test ${CMAKE_CURRENT_BINARY_DIR}/frame-camera.bin)
         set_tests_properties(frame_camera_original PROPERTIES FIXTURES_REQUIRED frame_camera_corpus
             PASS_REGULAR_EXPRESSION "frame_camera_original=ok cases=1876 replays=7504 comparisons=438001 runtime_errors=3 full_frame_claim=0")
@@ -2043,6 +2137,19 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "^active_fire_fixture=ok cases=64 mutations=103 newline_variants=2 silent_children=1")
     endif()
 
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME waiting_map_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_waiting_placement_fixture.py)
+        set_tests_properties(waiting_map_fixture_contract PROPERTIES FIXTURES_SETUP waiting_map_corpus)
+        add_test(NAME waiting_map_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_waiting_placement_fixture.py --exe $<TARGET_FILE:lezac_cpp> -v)
+    endif()
+    add_test(NAME waiting_map_original COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+        $<TARGET_FILE:lezac_cpp> --debug-waiting-map-original
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/waiting_placement/oracle.bin)
+    set_tests_properties(waiting_map_original PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        FIXTURES_REQUIRED waiting_map_corpus PASS_REGULAR_EXPRESSION
+        "waiting_map_original=ok cases=320 production_prepass=1 map_layouts=4 shared_cursor=1 controlled=1 natural=0 whole_game_parity=0")
     add_test(NAME state2_prepass_original
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-state2-prepass-original
@@ -7639,12 +7746,21 @@ if(BUILD_TESTING)
     find_program(XDOTOOL_EXECUTABLE xdotool)
     if(BASH_EXECUTABLE AND XVFB_RUN_EXECUTABLE AND XDOTOOL_EXECUTABLE)
         if(Python3_Interpreter_FOUND)
+            set(LEZAC_BIOS_XVFB_ARGS "-screen 0 1280x1024x24 -noreset")
+            add_test(NAME bios_menu_xvfb_lifetime
+                COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_bios_menu_xvfb_lifetime.py
+                    --xvfb-run ${XVFB_RUN_EXECUTABLE} "--server-args=${LEZAC_BIOS_XVFB_ARGS}"
+                    --out ${CMAKE_CURRENT_BINARY_DIR}/bios-menu-server-checks)
+            set_tests_properties(bios_menu_xvfb_lifetime PROPERTIES TIMEOUT 45
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR}"
+                PASS_REGULAR_EXPRESSION "bios_menu_xvfb_lifetime=ok retained=1 reset_control=1 silent=1")
             add_test(NAME bios_menu_input_live_xvfb
                 COMMAND ${CMAKE_COMMAND} -E env SDL_AUDIODRIVER=dummy
-                        ${XVFB_RUN_EXECUTABLE} -a ${Python3_EXECUTABLE} -B
+                        ${XVFB_RUN_EXECUTABLE} -a -s "${LEZAC_BIOS_XVFB_ARGS}" ${Python3_EXECUTABLE} -B
                         ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_bios_menu_input_xdotool.py
                         --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/bios-menu-input-checks)
             set_tests_properties(bios_menu_input_live_xvfb PROPERTIES
+                ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1"
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 180
                 PASS_REGULAR_EXPRESSION "bios_menu_live=ok control_noncharacters=15 enhanced_cases=8 alt_release=1 alt_modulo=1 alt_zero=1 alt_overlap=1 intro_noncharacters=1 intro_release=1 normal_entry_point=1 audio=dummy gameplay_seeded=0 whole_game_parity=0 keypad_alt=6 keypad_control=5 keypad_intro=1 alt_decimal_zero=1")
             add_test(NAME buffered_menu_repeat_live_xvfb

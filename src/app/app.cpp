@@ -10645,6 +10645,46 @@ public:
                   << " early_fire_blocked=1 reserve_zero_playable=1\n";
     }
 
+    void debugBossPhysicalOwnership() {
+        load();
+        legacyActorSeedsEnabled_ = false;
+        playerCount_ = 1; lives_ = lives2_ = 2;
+        resetLevel(6); ui_.setMenu(false);
+        size_t initialCursorDifferences = 0, coordinateDifferences = 0;
+        const auto word = [](const auto& bytes, size_t offset) {
+            return static_cast<int16_t>(uint16_t{bytes[offset]} | (uint16_t{bytes[offset+1]} << 8));
+        };
+        for (const auto& monster : monsters_) {
+            if (!isBossMotionBehavior(monster.behavior)) continue;
+            const auto cursor = lezac::gameplay::monsterAnimation(monster).packed();
+            const auto& raw = actorSlots_.actor(monster.actorOrder);
+            for (size_t i = 0; i < cursor.size(); ++i) initialCursorDifferences += cursor[i] != raw[22+i];
+        }
+        for (unsigned tick = 1; tick <= 8; ++tick) {
+            ++logicTick_;
+            updateBossLinks();
+            updateMonsters(1.0f/60.0f);
+            for (const auto& monster : monsters_) {
+                if (!isBossMotionBehavior(monster.behavior)) continue;
+                const auto& raw = actorSlots_.actor(monster.actorOrder);
+                const auto& row = actorSlots_.state().visuals[raw[1]];
+                const auto x = static_cast<int16_t>(monster.x);
+                const auto y = static_cast<int16_t>(monster.y+monster.hotspotY);
+                if (word(row,0) != x || word(row,2) != y) {
+                    ++coordinateDifferences;
+                    if (coordinateDifferences == 1)
+                        std::cout << "boss_physical_first_mismatch tick=" << tick << " order=" << monster.actorOrder
+                            << " typed=" << x << ',' << y << " physical=" << word(row,0) << ',' << word(row,2) << '\n';
+                }
+            }
+        }
+        std::cout << "boss_physical_ownership initial_cursor_byte_differences=" << initialCursorDifferences
+            << " coordinate_mismatches=" << coordinateDifferences << " ticks=8 legacy_adapter=0"
+            << " actual_App_helpers=1 natural_route=0 original_comparison=0\n";
+        if (initialCursorDifferences || coordinateDifferences)
+            throw std::runtime_error("boss physical visual/animation owner is stale");
+    }
+
     void debugReserveLifeLifecycle(const std::string& outDir) {
         load();
         initSdl();
@@ -32947,6 +32987,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-return-model") {
             app.debugOriginalState2ReturnModel();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-boss-physical-ownership") {
+            app.debugBossPhysicalOwnership();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-reserve-life-lifecycle") {

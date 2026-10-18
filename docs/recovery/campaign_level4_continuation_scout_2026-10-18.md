@@ -37,9 +37,14 @@ ordered checkpoint, the full presentation/post-update count and the replay
 footer. Selected captured RGB buffers are checked against their reported FNV
 fingerprints. Twelve focused regression tests include corrupted routes, changed
 player state, invalid checkpoint state, invalid phase transitions, and omitted
-checkpoint/frame rejection. The summary reports
-additional destruction, minimum health, completion-gate candidates and any
-**C++-only** Level 5 entry.
+checkpoint/frame rejection. The summary reports additional destruction, minimum health, completion-gate
+candidates and any **C++-only** Level 5 entry. The alternate-route follow-up
+also retains bounded per-tick observations near bomb placement and when active
+bomb count, ammunition, health, destruction, or flames change. These observations
+include player positions and up to three small typed bomb projections; they do
+not publish complete guest RAM or entire gameplay traces. Their purpose is to
+identify why a candidate destroys no eligible structure before selecting
+further movement and placement inputs.
 
 **No output of this scout establishes original behavior.** A positive candidate
 must be reproduced against unchanged `LEZAC.EXE` with read-only,

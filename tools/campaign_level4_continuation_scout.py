@@ -77,6 +77,10 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
     header_seen = False
     last_seq = None
     checkpoint_count = 0
+    previous_phase = None
+    previous_tick = None
+    previous_state = None
+    phase_order = ('input', 'present', 'after_nonplayers', 'post_update')
     found = False
     complete = False
     snapshots = 0
@@ -125,6 +129,19 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
             check(not complete and row['kind'] == 'checkpoint' and
                   row['phase'] in ('input', 'present', 'after_nonplayers', 'post_update'), 'bad C++ state boundary')
             tick = row['tick']
+            phase = row['phase']
+            if previous_phase is None:
+                check((tick, phase) == (BASE, 'input'), 'invalid first C++ checkpoint')
+            else:
+                prev_index = phase_order.index(previous_phase)
+                allowed = ({(previous_tick, phase_order[prev_index + 1])} if prev_index < 3
+                           else {(previous_tick + 1, 'input')})
+                if previous_phase == 'present' and (
+                        previous_state.get('flow', [0] * 5)[3] or
+                        previous_state.get('flow', [0] * 5)[4]):
+                    allowed.add((previous_tick, 'post_update'))
+                check((tick, phase) in allowed, 'invalid C++ checkpoint phase progression')
+            previous_phase, previous_tick, previous_state = phase, tick, row['state']
             check(row['events'] == events.get(tick - 1, []) and
                   row['time_ms'] == (tick - 1) * settings['step_us'] // 1000,
                   'scout input or time boundary differs')
@@ -305,7 +322,9 @@ class ScoutChecks(unittest.TestCase):
                              capture_from_tick=BASE, level1_route_complete=True,
                              candidate_only=True, original_fidelity_claim=False,
                              port_functionally_complete=False))
-            if mutation == 'route':
+            if mutation == 'phase_substitution':
+                rows[1]['phase'] = 'after_nonplayers'
+            elif mutation == 'route':
                 rows[0]['route_fnv1a64'] = '0' * 16
             elif mutation == 'player':
                 rows[4]['state']['players'][0]['x'] = 256
@@ -334,6 +353,10 @@ class ScoutChecks(unittest.TestCase):
         self.assertEqual((report['post_update_states'], report['checked_cplusplus_images']), (2, 2))
         self.assertFalse(report['original_game_verified'])
 
+    def test_phase_substitution_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'invalid C.. checkpoint phase progression'):
+            self.attempt_trace('phase_substitution')
+
     def test_route_substitution_rejected(self):
         with self.assertRaisesRegex(ValueError, 'provenance'):
             self.attempt_trace('route')
@@ -344,7 +367,7 @@ class ScoutChecks(unittest.TestCase):
 
     def test_omitted_post_update_or_present_rejected(self):
         for mutation in ('missing', 'missing_present'):
-            with self.assertRaisesRegex(ValueError, 'incomplete C++ candidate trace'):
+            with self.assertRaisesRegex(ValueError, r'(missing|invalid|incomplete)'):
                 self.attempt_trace(mutation)
 
 
@@ -362,7 +385,7 @@ def main():
             unittest.defaultTestLoader.loadTestsFromTestCase(ScoutChecks))
         if not result.wasSuccessful():
             raise SystemExit(1)
-        print('campaign_level4_continuation_scout=ok checks=10 candidates=3')
+        print('campaign_level4_continuation_scout=ok checks=11 candidates=3')
         return
     check(args.exe is not None and args.out is not None, 'executable and output required')
     report = replay(args.exe, args.out, args.pattern, args.ticks, args.timeout)

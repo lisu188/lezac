@@ -21,6 +21,7 @@
 #include "gameplay/initial_damage_data.hpp"
 #include "gameplay/monster_damage.hpp"
 #include "gameplay/monster_spawners.hpp"
+#include "gameplay/player_start.hpp"
 #include "ui/models.hpp"
 #include "rendering/presentation_state.hpp"
 #include <SDL.h>
@@ -25138,6 +25139,55 @@ public:
                   << std::hex << inspected.hash << std::dec << '\n';
     }
 
+    void debugPlayerStartOriginal(const std::string& fixturePath) {
+        const auto data = readFile(fixturePath);
+        if (data.size() != 17720 || lezac::diagnostics::level1::fingerprint(data) != "bbb65138c6cba1e7")
+            throw std::runtime_error("player start fixture fingerprint differs");
+        size_t offset = 0;
+        const auto magic = lezac::resources::getBytes(data, offset, 8);
+        const auto countLow = lezac::resources::getU16(data, offset);
+        const auto countHigh = lezac::resources::getU16(data, offset);
+        if (std::string(magic.begin(), magic.end()) != "LZSTAPP1" || countLow != 1040 || countHigh != 0)
+            throw std::runtime_error("player start fixture header differs");
+        load();
+        for (unsigned index = 0; index < 1040; ++index) {
+            const auto id = lezac::resources::getU16(data, offset), marker = lezac::resources::getU16(data, offset);
+            const auto count = lezac::resources::getU16(data, offset);
+            const auto x = lezac::resources::getU16(data, offset), y = lezac::resources::getU16(data, offset);
+            if (id != index || (marker != 1 && marker != 2) || count > 3)
+                throw std::runtime_error("player start fixture case differs");
+            std::vector<LevelPortal> portals;
+            for (unsigned i = 0; i < count; ++i) {
+                LevelPortal portal;
+                portal.key = lezac::resources::getU16(data, offset); portal.x = lezac::resources::getU16(data, offset);
+                portal.y = lezac::resources::getU16(data, offset); portal.marker = lezac::resources::getU8(data, offset);
+                portals.push_back(portal);
+            }
+            playerCount_ = 2; lives_ = lives2_ = 2; resetLevel(0); ui_.setMenu(false);
+            level_.portals = portals;
+            auto& target = marker == 1 ? player_ : player2_;
+            const auto placed = [&] { return target.x == x && target.y == y && target.idleTicks == 0; };
+            placePlayerAtStart(target, static_cast<uint8_t>(marker));
+            if (!placed()) throw std::runtime_error("player start startup mismatch case " + std::to_string(index));
+            std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+            std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+            mapPlaneMemory_.restoreSeparatedPlanesForFixture();
+            target.x = 400; target.y = 500; target.idleTicks = 86;
+            target.vx8 = -111; target.vy8 = 222; target.fracX = 33; target.fracY = 44;
+            playerDead_ = player2Dead_ = true;
+            lives_ = marker == 1 ? 2 : -1; lives2_ = marker == 2 ? 2 : -1;
+            reentryTimer_ = marker == 1 ? 1 : 0; reentryTimer2_ = marker == 2 ? 1 : 0;
+            pendingLifeLoss_ = pendingLifeLoss2_ = false;
+            deathStateTimer_ = deathStateTimer2_ = 0;
+            reentryGate_ = true; reentryFire1_ = reentryFire2_ = false; levelRestartPromoted_ = false;
+            updatePlayerReentryPrepass(FrameControls{});
+            if (!placed() || target.vx8 != -111 || target.vy8 != 222 || target.fracX != 33 || target.fracY != 44)
+                throw std::runtime_error("player start reentry mismatch case " + std::to_string(index));
+        }
+        if (offset != data.size()) throw std::runtime_error("player start fixture tail differs");
+        std::cout << "player_start_app=ok cases=1040 startup_placement=1040 reentry=1040 controlled=1 natural=0 whole_game_parity=0\n";
+    }
+
     void debugWalkerLedgeOriginal(const std::string& fixturePath) {
         if (std::filesystem::file_size(fixturePath) != 2193) {
             throw std::runtime_error("walker ledge fixture size differs");
@@ -28151,17 +28201,8 @@ private:
             state.cooldown = spawner.cooldown;
             spawnerStates_.push_back(state);
         }
-        if (const LevelPortal* start = findStartPortal(1)) {
-            player_.x = static_cast<float>(start->x);
-            player_.y = static_cast<float>(start->y);
-        }
-        if (const LevelPortal* start = findStartPortal(2)) {
-            player2_.x = static_cast<float>(start->x);
-            player2_.y = static_cast<float>(start->y);
-        } else {
-            player2_.x = std::min(player_.x + 16.0f, std::max(16.0f, level_.width * 8.0f - 16.0f));
-            player2_.y = player_.y;
-        }
+        placePlayerAtStart(player_, 1);
+        placePlayerAtStart(player2_, 2);
         if (playerCount_ > 1) {
             playerDead_ = lives_ < 0;
             player2Dead_ = lives2_ < 0;
@@ -28256,13 +28297,11 @@ private:
         levelFlow_.updateLevelIntro(now);
     }
 
-    const LevelPortal* findStartPortal(uint8_t marker) const {
-        for (const LevelPortal& portal : level_.portals) {
-            if (portal.key == 0 && portal.marker == marker) {
-                return &portal;
-            }
-        }
-        return nullptr;
+    void placePlayerAtStart(Player& player, uint8_t marker) const {
+        const auto [x, y] = lezac::gameplay::playerStart(level_.portals, marker);
+        player.x = static_cast<float>(x);
+        player.y = static_cast<float>(y);
+        player.idleTicks = 0;
     }
 
     UiActions uiActions() {
@@ -30882,11 +30921,7 @@ private:
             if (lives >= 0 && !ui_.snapshot().menu) {
                 // 1000:7D11 calls the start-marker locator at 056B before
                 // waiting for input; it preserves motion and animation bytes.
-                if (const LevelPortal* start = findStartPortal(startMarker)) {
-                    player.x = static_cast<float>(start->x);
-                    player.y = static_cast<float>(start->y);
-                }
-                player.idleTicks = 0;
+                placePlayerAtStart(player, startMarker);
                 player.spriteIndex = 0x27 - 1;
                 player.singlePixelSprite = !reentryGate_;
                 auto& inventory = startMarker == 2 ? bombInventory2_ : bombInventory_;
@@ -30950,10 +30985,7 @@ private:
         player.vx = 0.0f;
         player.vy = 0.0f;
         player.grounded = false;
-        if (const LevelPortal* start = findStartPortal(startMarker)) {
-            player.x = static_cast<float>(start->x);
-            player.y = static_cast<float>(start->y);
-        }
+        placePlayerAtStart(player, startMarker);
     }
 
     void restartCurrentLevelAfterDeath() {
@@ -32967,6 +32999,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-walker-ledge-original") {
             app.debugWalkerLedgeOriginal(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-player-start-original") {
+            app.debugPlayerStartOriginal(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-monster-animation-original") {

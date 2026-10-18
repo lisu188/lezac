@@ -128,6 +128,7 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
                 continue
             check(not complete and row['kind'] == 'checkpoint' and
                   row['phase'] in ('input', 'present', 'after_nonplayers', 'post_update'), 'bad C++ state boundary')
+            fidelity.validate_state(row['state'])
             tick = row['tick']
             phase = row['phase']
             if previous_phase is None:
@@ -330,6 +331,8 @@ class ScoutChecks(unittest.TestCase):
                 rows[0]['route_fnv1a64'] = '0' * 16
             elif mutation == 'player':
                 rows[4]['state']['players'][0]['x'] = 256
+            elif mutation == 'invalid_state':
+                rows[-2]['state']['players'][0]['health'][0] = -1
             elif mutation == 'missing':
                 rows.pop(-2)
                 rows[-1]['retained_checkpoints'] = 7
@@ -346,6 +349,9 @@ class ScoutChecks(unittest.TestCase):
             with mock.patch.object(support, 'fixture', return_value=[{}, expected, {}]), \
                  mock.patch.object(support.recovered, 'check_cpp'), \
                  mock.patch.object(fidelity, 'ASSETS', ()), \
+                 mock.patch.object(fidelity, 'validate_state',
+                     side_effect=lambda x: check(x['players'][0]['health'][0] >= 0,
+                                                 'invalid checkpoint health')), \
                  mock.patch.object(fidelity, 'read_ppm', return_value=b'pixel'):
                 return inspect_trace(root, endpoint, 'right_long_medium', BASE + 1,
                                      route, dict(seed=seed, step_us=step), {})
@@ -359,6 +365,10 @@ class ScoutChecks(unittest.TestCase):
         for variant in ('phase_substitution', 'phase_middle'):
             with self.assertRaisesRegex(ValueError, 'invalid'):
                 self.attempt_trace(variant)
+
+    def test_invalid_checkpoint_state_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'invalid checkpoint health'):
+            self.attempt_trace('invalid_state')
 
     def test_route_substitution_rejected(self):
         with self.assertRaisesRegex(ValueError, 'provenance'):
@@ -388,7 +398,7 @@ def main():
             unittest.defaultTestLoader.loadTestsFromTestCase(ScoutChecks))
         if not result.wasSuccessful():
             raise SystemExit(1)
-        print('campaign_level4_continuation_scout=ok checks=11 candidates=3')
+        print('campaign_level4_continuation_scout=ok checks=12 candidates=3')
         return
     check(args.exe is not None and args.out is not None, 'executable and output required')
     report = replay(args.exe, args.out, args.pattern, args.ticks, args.timeout)

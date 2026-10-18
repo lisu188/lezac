@@ -194,6 +194,10 @@ if(BUILD_TESTING)
     add_test(NAME frame_view_copy_unit COMMAND lezac_frame_view_copy_test)
     set_tests_properties(frame_view_copy_unit PROPERTIES
         PASS_REGULAR_EXPRESSION "frame_view_copy_unit=ok rejections=7")
+    add_executable(lezac_frame_camera_test tests/core/frame_camera_test.cpp)
+    target_link_libraries(lezac_frame_camera_test PRIVATE lezac_core)
+    add_test(NAME frame_camera_unit COMMAND lezac_frame_camera_test)
+    set_tests_properties(frame_camera_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_camera_unit=ok entry_rejections=3")
     add_executable(lezac_frame_display_test tests/core/frame_display_test.cpp)
     target_link_libraries(lezac_frame_display_test PRIVATE lezac_core)
     add_test(NAME frame_display_unit COMMAND lezac_frame_display_test)
@@ -804,6 +808,23 @@ if(BUILD_TESTING)
             set_tests_properties(frame_world_raster_mutations PROPERTIES
                 ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR}"
                 PASS_REGULAR_EXPRESSION "frame_world_raster_mutations=ok faults=4 original_source_preserved=1")
+        endif()
+        add_test(NAME frame_camera_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_camera_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-camera.bin --report ${CMAKE_CURRENT_BINARY_DIR}/frame-camera-report.json)
+        set_tests_properties(frame_camera_fixture_contract PROPERTIES FIXTURES_SETUP frame_camera_corpus)
+        add_test(NAME frame_camera_original COMMAND lezac_frame_camera_test ${CMAKE_CURRENT_BINARY_DIR}/frame-camera.bin)
+        set_tests_properties(frame_camera_original PROPERTIES FIXTURES_REQUIRED frame_camera_corpus
+            PASS_REGULAR_EXPRESSION "frame_camera_original=ok cases=1876 replays=7504 comparisons=438001 runtime_errors=3 full_frame_claim=0")
+        add_test(NAME frame_camera_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_camera_fixture.py)
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME frame_camera_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_camera_mutations.py
+                --cxx ${CMAKE_CXX_COMPILER} --out ${CMAKE_CURRENT_BINARY_DIR}/camera-mutations)
+            set_tests_properties(frame_camera_mutations PROPERTIES
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR}"
+                PASS_REGULAR_EXPRESSION "frame_camera_mutations=ok faults=4 original_source_preserved=1")
         endif()
         add_test(NAME frame_hud_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_hud_fixture.py

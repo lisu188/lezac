@@ -144,3 +144,34 @@ All generated local artifacts remain RAM-only while C: exceeds the disk reserve.
 The next execution target is the behavior gate at `654E`, its `5CB0` contact
 scanner path and the following tile-cache/behavior branches, preserving this
 same caller-owned frame and bus.
+
+## Constructor Review Repair
+
+The exact-head review of `f83105db8c` found that direct `6053` construction
+bypassed `FrameActorEntryOperation` validation. Unsupported ID-toggle masks
+were accepted until the first register query, dispatch or interrupt operation.
+Matched outer/child snapshot masks could bypass construction-time rejection too.
+Both counterexamples fail the new regression against the reviewed implementation.
+
+All three `FrameActorPrecontactOperation` constructors now call one validator.
+It checks the supported masks (`0` and `0x200000`) and retains the existing
+callee ownership check. The unit test covers both valid masks at all five
+entries (`6053`, `615A`, `7A57`, `7EBB` and full-prefix `7903`), with immediate
+register access, zero-budget dispatch, snapshot reconstruction and rejected
+masked IRQ delivery. Five unsupported masks are rejected during both initial
+construction and matched-mask snapshot reconstruction: 10 valid profiles and
+50 rejection controls. CTest requires those exact coverage counts.
+
+The fixed candidate passes strict GCC C++23, native MSVC C++ latest and complete
+ASan/UBSan replays. All five actor-precontact CTests pass, including authenticated
+fixture rejections and all ten compiled fault controls with source preservation.
+The separate source-guardrail self-test passes too. No new actual-App build,
+visible runtime or local full-platform suite is claimed for this host-validation
+repair.
+
+This repair changes no recovered instruction, original producer or fixture
+bytes. The complete 3,158-case corpus still requires 28,422 replays, 32,378,298
+register/control comparisons, 91,599,084 dispatches, 1,421,524 ordered writes
+and all 14 computed IRQ checks. It does not expand the runtime or fidelity
+claims above. Fresh exact-head review and full hosted platform CI remain gates
+before integration.

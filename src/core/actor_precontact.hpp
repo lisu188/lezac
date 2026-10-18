@@ -666,14 +666,11 @@ public:
     FrameActorPrecontactOperation(DosGetTimeRegisters r,uint16_t game,uint32_t idToggle)
         : state_{r.ip==0x615a ? FrameActorPrecontactCallee{ActorPrecontactOperation(r,game,idToggle).snapshot()} :
             r.ip==0x6053 ? FrameActorPrecontactCallee{FrameActorEntrySnapshot{ActorAnimationOperation(r,game).snapshot(),game,idToggle}} :
-            FrameActorPrecontactCallee{FrameActorEntryOperation(r,game,idToggle).snapshot()},game,idToggle} {}
+            FrameActorPrecontactCallee{FrameActorEntryOperation(r,game,idToggle).snapshot()},game,idToggle} { validate(); }
     FrameActorPrecontactOperation(DosGetTimeRegisters r,uint16_t dos,uint16_t keyboard,uint16_t psp,
                                  uint16_t game,uint32_t idToggle)
-        : state_{FrameActorEntryOperation(r,dos,keyboard,psp,game,idToggle).snapshot(),game,idToggle} {}
-    explicit FrameActorPrecontactOperation(FrameActorPrecontactSnapshot state) : state_(state) {
-        if (!std::visit([&](const auto& child) { return child.gameSegment==state_.gameSegment && child.idToggleMask==state_.idToggleMask; },state_.callee))
-            throw std::invalid_argument("Frame actor precontact callee ownership differs");
-    }
+        : state_{FrameActorEntryOperation(r,dos,keyboard,psp,game,idToggle).snapshot(),game,idToggle} { validate(); }
+    explicit FrameActorPrecontactOperation(FrameActorPrecontactSnapshot state) : state_(state) { validate(); }
     const FrameActorPrecontactSnapshot& snapshot() const noexcept { return state_; }
     DosGetTimeRegisters registers() const {
         return std::visit([](const auto& child) -> DosGetTimeRegisters {
@@ -739,6 +736,11 @@ public:
     }
 private:
     FrameActorPrecontactSnapshot state_;
+    void validate() const {
+        if ((state_.idToggleMask!=0 && state_.idToggleMask!=0x200000) ||
+            !std::visit([&](const auto& child) { return child.gameSegment==state_.gameSegment && child.idToggleMask==state_.idToggleMask; },state_.callee))
+            throw std::invalid_argument("Frame actor precontact ID-toggle/callee ownership differs");
+    }
 };
 
 } // namespace lezac::core

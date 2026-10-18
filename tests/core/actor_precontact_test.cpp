@@ -221,13 +221,42 @@ void unit() {
     require(rejected==5,"Precontact accepted invalid entry/callee ownership");
     Memory memory;const auto bus=memory.bus();FrameActorPrecontactOperation operation(r,0x1000,0);
     const auto before=operation.snapshot();const auto copies=[](uint16_t n) { return n; };
+    unsigned profiles=0,profileRejections=0;
+    for (uint16_t ip : {uint16_t{0x6053},uint16_t{0x7903},uint16_t{0x7a57},uint16_t{0x7ebb},uint16_t{0x615a}}) {
+        auto entry=r;entry.ip=ip;
+        const auto construct=[&](uint32_t mask) {
+            return ip==0x7903 ? FrameActorPrecontactOperation(entry,0x140,0x160,0x900,0x1000,mask) :
+                FrameActorPrecontactOperation(entry,0x1000,mask);
+        };
+        for (uint32_t mask : {uint32_t{0},uint32_t{0x200000}}) {
+            auto accepted=construct(mask);const auto initial=accepted.snapshot();
+            require(accepted.registers()==entry,"Precontact constructor changed entry registers");
+            require(accepted.advance(0,bus,copies)==0 && accepted.snapshot()==initial && memory.writes.empty(),
+                "Precontact profile zero budget changed state");
+            accepted=FrameActorPrecontactOperation(initial);
+            require(accepted.snapshot()==initial && accepted.registers()==entry,"Precontact profile snapshot differs");
+            bool blocked=false;try { accepted.deliverTimerInterrupt(bus); } catch (const std::logic_error&) { blocked=true; }
+            require(blocked && accepted.snapshot()==initial && memory.writes.empty(),"Precontact profile masked IRQ changed state");
+            ++profiles;
+        }
+        for (uint32_t mask : {uint32_t{1},uint32_t{0x1fffff},uint32_t{0x200001},uint32_t{0x80000000},uint32_t{0xffffffff}}) {
+            bool blocked=false;try { auto wrong=construct(mask);(void)wrong; } catch (const std::invalid_argument&) { blocked=true; }
+            require(blocked,"Precontact constructor accepted unsupported ID mask");++profileRejections;
+            auto wrong=construct(0).snapshot();wrong.idToggleMask=mask;
+            std::visit([&](auto& child) { child.idToggleMask=mask; },wrong.callee);
+            blocked=false;try { FrameActorPrecontactOperation restored(wrong); } catch (const std::invalid_argument&) { blocked=true; }
+            require(blocked,"Precontact snapshot accepted unsupported ID mask");++profileRejections;
+        }
+    }
+    require(profiles==10 && profileRejections==50 && memory.writes.empty(),"Precontact constructor profile coverage differs");
     require(operation.advance(0,bus,copies)==0 && operation.snapshot()==before && memory.writes.empty(),"Zero precontact budget changed state");
     bool masked=false;try { operation.deliverTimerInterrupt(bus); } catch (const std::logic_error&) { masked=true; }
     require(masked && operation.snapshot()==before && memory.writes.empty(),"Masked precontact admitted IRQ");
     r.ip=0x7903;FrameActorPrecontactOperation full(r,0x140,0x160,0x900,0x1000,0);
     const auto fullBefore=full.snapshot();
     require(full.advance(0,bus,copies)==0 && full.snapshot()==fullBefore && memory.writes.empty(),"Zero full-prefix precontact budget changed state");
-    std::cout << "actor_precontact_unit=ok entry_rejections=5 live_stack=1 masked_irq_rejected=1 full_prefix_constructor=1\n";
+    std::cout << "actor_precontact_unit=ok entry_rejections=5 live_stack=1 masked_irq_rejected=1 full_prefix_constructor=1"
+        << " constructor_profiles=" << profiles << " profile_rejections=" << profileRejections << '\n';
 }
 }
 int main(int argc,char** argv) {

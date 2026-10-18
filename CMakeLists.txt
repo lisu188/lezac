@@ -190,7 +190,7 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_actor_precontact_test PRIVATE lezac_core)
     add_test(NAME actor_precontact_unit COMMAND lezac_actor_precontact_test)
     set_tests_properties(actor_precontact_unit PROPERTIES
-        PASS_REGULAR_EXPRESSION "actor_precontact_unit=ok entry_rejections=5 live_stack=1 masked_irq_rejected=1 full_prefix_constructor=1")
+        PASS_REGULAR_EXPRESSION "actor_precontact_unit=ok entry_rejections=5 live_stack=1 masked_irq_rejected=1 full_prefix_constructor=1 constructor_profiles=10 profile_rejections=50")
     add_executable(lezac_frame_actor_entry_test tests/core/frame_actor_entry_test.cpp)
     target_link_libraries(lezac_frame_actor_entry_test PRIVATE lezac_core)
     add_test(NAME frame_actor_entry_unit COMMAND lezac_frame_actor_entry_test)

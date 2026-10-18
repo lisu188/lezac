@@ -186,6 +186,11 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_frame_actor_entry_test tests/core/frame_actor_entry_test.cpp)
+    target_link_libraries(lezac_frame_actor_entry_test PRIVATE lezac_core)
+    add_test(NAME frame_actor_entry_unit COMMAND lezac_frame_actor_entry_test)
+    set_tests_properties(frame_actor_entry_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "frame_actor_entry_unit=ok entry_rejections=5 full_prefix_constructor=1")
     add_executable(lezac_frame_prefix_test tests/core/frame_prefix_test.cpp)
     target_link_libraries(lezac_frame_prefix_test PRIVATE lezac_core)
     add_test(NAME frame_prefix_unit COMMAND lezac_frame_prefix_test)
@@ -742,6 +747,28 @@ if(BUILD_TESTING)
         add_test(NAME frame_export_alias_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_export_aliases.py)
         find_package(Git QUIET)
+        add_test(NAME frame_actor_entry_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_actor_entry_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-entry.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-entry-report.json)
+        set_tests_properties(frame_actor_entry_fixture_contract PROPERTIES FIXTURES_SETUP frame_actor_entry_corpus TIMEOUT 180)
+        add_test(NAME frame_actor_entry_original COMMAND lezac_frame_actor_entry_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-entry.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(frame_actor_entry_original PROPERTIES FIXTURES_REQUIRED frame_actor_entry_corpus TIMEOUT 300
+            PASS_REGULAR_EXPRESSION "frame_actor_entry_original=ok cases=1034 replays=9306 comparisons=30145116 dispatches=85353309 writes=1293667 computed_irq_cases=9 later_state_injected=0 actor_body_executed=0 actual_app_integration=0 full_frame_claim=0")
+        add_test(NAME frame_actor_entry_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_actor_entry_fixture.py -v)
+        set_tests_properties(frame_actor_entry_fixture_rejections PROPERTIES TIMEOUT 300
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME frame_actor_entry_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_actor_entry_mutations.py --cxx ${CMAKE_CXX_COMPILER}
+                --fixture ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-entry.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-entry-mutations)
+            set_tests_properties(frame_actor_entry_mutations PROPERTIES FIXTURES_REQUIRED frame_actor_entry_corpus TIMEOUT 300
+                ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1"
+                PASS_REGULAR_EXPRESSION "frame_actor_entry_mutations=ok faults=9 source_preserved=1")
+        endif()
         add_test(NAME frame_prefix_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_prefix_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/frame-prefix.bin)

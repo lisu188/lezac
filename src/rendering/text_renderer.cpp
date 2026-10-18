@@ -119,11 +119,14 @@ void TextRenderer::text(int x, int y, const std::string& s, uint32_t color, bool
         }
     }
 
-void TextRenderer::drawSprite(const Sprite& sprite, int x0, int y0){
+void TextRenderer::drawSprite(const Sprite& sprite, int x0, int y0,
+                              uint8_t background, uint8_t ink){
         for (int y = 0; y < sprite.height; ++y) {
             for (int x = 0; x < sprite.width; ++x) {
-                uint8_t c = sprite.pixels[static_cast<size_t>(y) * sprite.width + x];
-                if (c != 0) canvas_.indexedPixel(x0 + x, y0 + y, c, argb(palette_, c));
+                const uint8_t source = sprite.pixels[static_cast<size_t>(y) * sprite.width + x];
+                if (source == 0 && background == 0) continue;
+                const uint8_t c = source == 0 ? background : source == 1 ? ink : source;
+                canvas_.indexedPixel(x0 + x, y0 + y, c, argb(palette_, c));
             }
         }
     }

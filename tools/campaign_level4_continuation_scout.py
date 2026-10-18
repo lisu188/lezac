@@ -79,6 +79,7 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
     complete = False
     snapshots = 0
     checked_images = 0
+    presented_frames = 0
     next_tick = BASE
     best_destroyed = 244
     first_gain = None
@@ -129,6 +130,8 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
                 check(row['seq'] == last_seq + 1, 'missing C++ checkpoint sequence')
             last_seq = row['seq']
             checkpoint_count += 1
+            if row['phase'] == 'present':
+                presented_frames += 1
             if row['phase'] == 'present' and (tick in (BASE, last) or tick % 100 == 0):
                 check(row['frame'] == f'frame_{tick:06d}.ppm', 'incorrect presentation filename')
                 pixels = fidelity.read_ppm(directory / row['frame'])
@@ -169,7 +172,8 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
             next_tick = tick + 1
             snapshots += 1
             final = state
-    check(found and complete and snapshots == last - BASE + 1 and next_tick == last + 1,
+    check(found and complete and snapshots == last - BASE + 1 and
+          presented_frames == last - BASE + 1 and next_tick == last + 1,
           'incomplete C++ candidate trace')
     return dict(status='candidate_only', pattern=pattern, original_game_verified=False,
                 level4_complete_verified=False, original_level5_handoff_verified=False,

@@ -67,6 +67,11 @@ def pinned():
 
 def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
     check((directory / 'trace.jsonl').is_file(), 'missing scout trace')
+    expected_route_hash = fidelity.fnv1a64(route.read_bytes())
+    asset_hashes = {name: fidelity.fnv1a64((ROOT / name).read_bytes()) for name in fidelity.ASSETS}
+    header_seen = False
+    last_seq = None
+    checkpoint_count = 0
     found = False
     complete = False
     snapshots = 0
@@ -83,10 +88,21 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
             check(0 < len(line) <= 12 * 1024 * 1024, 'bad scout trace line')
             row = fidelity.strict_json(line)
             if row['kind'] == 'header':
-                check(snapshots == 0 and row['ticks'] == last and row['capture_from_tick'] == BASE and
+                check(not header_seen and snapshots == 0 and row['ticks'] == last and
+                      row['schema'] == 'lezac.level1.scout.v1' and
+                      row['source'] == 'cpp' and row['capture_from_tick'] == BASE and
+                      row['phase_model'] == 'cpp-pre-actors-v2' and
+                      row['state_scope'] == 'level1-observations-v2' and
+                      row['input_model'] == 'sdl-events-original-intro-wait-v1' and
+                      row['seed'] == settings['seed'] and row['step_us'] == settings['step_us'] and
+                      row['route_fnv1a64'] == expected_route_hash and
+                      row['asset_fnv1a64'] == asset_hashes and
+                      (row['width'], row['height']) == (320, 200) and
                       row['candidate_only'] is True and row['original_fidelity_claim'] is False,
                       'unexpected C++ capture provenance')
+                header_seen = True
                 continue
+            check(header_seen, 'missing C++ scout header')
             if row['kind'] == 'complete':
                 check(not complete and row['ticks'] == last and row['candidate_only'] is True and
                       row['original_fidelity_claim'] is False and

@@ -43,6 +43,7 @@ tests/fixtures/reserve_hud/** -text
 tests/fixtures/ammo_hud/** -text
 tests/fixtures/waiting_placement/** -text
 tests/fixtures/frame_waiting/** -text
+tests/fixtures/frame_prefix/** -text
 tools/frame_foreground_probe/** text eol=lf
 tools/frame_foreground_probe/*.patch -whitespace
 tests/fixtures/foreground_live/** -text

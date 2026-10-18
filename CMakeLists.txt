@@ -186,6 +186,10 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_frame_prefix_test tests/core/frame_prefix_test.cpp)
+    target_link_libraries(lezac_frame_prefix_test PRIVATE lezac_core)
+    add_test(NAME frame_prefix_unit COMMAND lezac_frame_prefix_test)
+    set_tests_properties(frame_prefix_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_prefix_unit=ok entry_rejections=5 stage_handoffs=3")
     add_executable(lezac_frame_waiting_test tests/core/frame_waiting_test.cpp)
     target_link_libraries(lezac_frame_waiting_test PRIVATE lezac_core)
     add_test(NAME frame_waiting_unit COMMAND lezac_frame_waiting_test)
@@ -720,6 +724,26 @@ if(BUILD_TESTING)
         add_test(NAME frame_export_alias_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_export_aliases.py)
         find_package(Git QUIET)
+        add_test(NAME frame_prefix_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_prefix_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-prefix.bin)
+        set_tests_properties(frame_prefix_fixture_contract PROPERTIES FIXTURES_SETUP frame_prefix_corpus)
+        add_test(NAME frame_prefix_original COMMAND lezac_frame_prefix_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-prefix.bin ${CMAKE_CURRENT_SOURCE_DIR}/LEZAC.EXE)
+        set_tests_properties(frame_prefix_original PROPERTIES FIXTURES_REQUIRED frame_prefix_corpus TIMEOUT 180
+            PASS_REGULAR_EXPRESSION "frame_prefix_original=ok cases=238 replays=2856 comparisons=1552630 dispatches=3973452 transfers=1034496 end_run_handoffs=2 runtime_errors=8 computed_irq_cases=8 active_prefix_executed=0 end_run_ui=0 full_frame_claim=0 work_clock_claim=0")
+        add_test(NAME frame_prefix_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_prefix_fixture.py -v)
+        set_tests_properties(frame_prefix_fixture_rejections PROPERTIES TIMEOUT 180
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
+        if(NOT WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME frame_prefix_mutation_controls COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_prefix_mutations.py
+                --compiler ${CMAKE_CXX_COMPILER} --fixture ${CMAKE_CURRENT_BINARY_DIR}/frame-prefix.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/frame-prefix-mutations)
+            set_tests_properties(frame_prefix_mutation_controls PROPERTIES FIXTURES_REQUIRED frame_prefix_corpus
+                TIMEOUT 300 PASS_REGULAR_EXPRESSION "frame_prefix_mutations=ok compiled=12 rejected=11 production_source_unchanged=1")
+        endif()
         add_test(NAME frame_waiting_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_waiting_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/frame-waiting.bin)

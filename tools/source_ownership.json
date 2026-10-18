@@ -11,6 +11,7 @@
         "src/core/dos_time.hpp",
         "src/core/fixed_point.hpp",
         "src/core/frame_active.hpp",
+        "src/core/frame_prefix.hpp",
         "src/core/frame_camera.hpp",
         "src/core/frame_display.hpp",
         "src/core/frame_elapsed.hpp",

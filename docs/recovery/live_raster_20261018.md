@@ -149,3 +149,37 @@ compiled mutation, reserve-HUD, pickup, state-2, boss-reentry and cold-checkout
 checks pass. The reserve production changes are retained from current main,
 not replaced by the older renderer branch. This new merge head requires a
 fresh external review and full CI; the earlier clean review covers `f9cfa4a`.
+
+## Independent Camera Ownership
+
+Review of integration PR #439 at `886d3f3` found that standalone `drawWorldView`
+replaced player 1's visual coordinates with the requested camera coordinates.
+With nearby players, selecting player 2 therefore rendered player 2 twice and
+omitted player 1. The owner regression reproduced this before the repair.
+
+Standalone rendering now enters the recovered near-Pascal camera callee at
+`1000:3587` with its own X/Y stack arguments and return address `7A25`. The
+unchanged caller then executes the original raster/copy continuation through
+`7A57`. Neither player visual row is changed. The full-game caller still starts
+at `7A13`; this adapter does not claim to execute the caller's skipped argument
+pushes, or to bind an interactive instruction work clock.
+
+Two independent runs of the unchanged original instructions produce identical
+24-case controlled corpora. They cover both player cameras, an independent
+camera and a copied player-2 camera, three viewport rectangles, and background
+enabled/disabled. The observed/unobserved complete 1 MiB memory and all 14
+endpoint registers agree; ordered writes reconstruct memory, all 43,552 code
+bytes remain unchanged and both player visual rows are preserved. No guest
+patch, stub, interrupt or I/O is used. This is not a natural gameplay capture.
+
+The public C++ `GameRenderer::drawWorldView` with live map and physical visual
+owners matches all 1,536,000 indexed pixels. Compiled mutations reintroducing
+the row-zero overwrite and pointer-identity camera selection are rejected.
+The seven owner mutations preserve the production sources. Native MSVC
+C++latest `/W4 /WX /O2` passes the expanded owner regression. The compact frozen
+corpus includes authenticated assets/producer bytes, bounded decompression,
+failed-report/output-retention controls and autocrlf cold-checkout protection.
+
+Raw original memory and screenshot files remain RAM-only. The displayed pair
+uses a shared normalized palette; it is not a live DAC equivalence claim.
+Fresh current-head review and full Linux/Windows CI remain merge gates.

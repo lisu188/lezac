@@ -36,6 +36,7 @@ int main() {
         slots.resetForLevel({16,16,0,0});
         gameplay::Player first, second;
         first.x = 104; first.y = 168;
+        second.x = 136; second.y = 168; second.spriteIndex = 1;
         const gameplay::State2VisualCursor cursor;
         const gameplay::State2EffectEntry effect;
         const std::vector<gameplay::Bomb> bombs;
@@ -65,6 +66,18 @@ int main() {
             raster.lastCompletedWork().dispatchedInstructions > 0,
             "Raster did not dispatch with the live physical visual owner");
         const auto baseline = canvas.pixels();
+
+        const auto split = rendering::ViewportLayout::initialize(2,320);
+        auto twoPlayers = world;
+        twoPlayers.playerCount = 2; twoPlayers.players[1].globalState = 1; twoPlayers.viewportLayout = &split;
+        rendering::Canvas full, oneView;
+        raster.drawGame(twoPlayers,presentation,full);
+        raster.drawView(twoPlayers,second,164,4,152,152,presentation,oneView);
+        for (size_t y = 4; y < 156; ++y) for (size_t x = 164; x < 316; ++x) {
+            const size_t at = y*320+x;
+            require(oneView.paletteIndices()[at] == full.paletteIndices()[at],
+                "Second-player camera overwrote the first player's visual position");
+        }
 
         const auto& sprite = assets.sprites().sprites.front().pixels;
         const auto nonzero = std::find_if(sprite.begin(),sprite.end(),[](uint8_t value) { return value != 0; });

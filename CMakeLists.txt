@@ -185,6 +185,10 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_frame_world_raster_test tests/core/frame_world_raster_test.cpp)
+    target_link_libraries(lezac_frame_world_raster_test PRIVATE lezac_core)
+    add_test(NAME frame_world_raster_unit COMMAND lezac_frame_world_raster_test)
+    set_tests_properties(frame_world_raster_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_world_raster_unit=ok rejections=5")
     add_executable(lezac_frame_display_test tests/core/frame_display_test.cpp)
     target_link_libraries(lezac_frame_display_test PRIVATE lezac_core)
     add_test(NAME frame_display_unit COMMAND lezac_frame_display_test)
@@ -770,6 +774,24 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "game_keyboard_original=ok cases=3 comparisons=260 reads=6")
         add_test(NAME game_keyboard_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_game_keyboard_fixture.py)
+        add_test(NAME frame_world_raster_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_world_raster_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-world-raster.bin --report ${CMAKE_CURRENT_BINARY_DIR}/frame-world-raster-report.json)
+        set_tests_properties(frame_world_raster_fixture_contract PROPERTIES FIXTURES_SETUP frame_world_raster_corpus)
+        add_test(NAME frame_world_raster_original COMMAND lezac_frame_world_raster_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-world-raster.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(frame_world_raster_original PROPERTIES FIXTURES_REQUIRED frame_world_raster_corpus
+            PASS_REGULAR_EXPRESSION "frame_world_raster_original=ok cases=22 replays=66 writes=2860080 full_frame_claim=0")
+        add_test(NAME frame_world_raster_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_world_raster_fixture.py)
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME frame_world_raster_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_world_raster_mutations.py
+                --cxx ${CMAKE_CXX_COMPILER} --out ${CMAKE_CURRENT_BINARY_DIR}/raster-mutations)
+            set_tests_properties(frame_world_raster_mutations PROPERTIES
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR}"
+                PASS_REGULAR_EXPRESSION "frame_world_raster_mutations=ok faults=4 original_source_preserved=1")
+        endif()
         add_test(NAME frame_hud_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_hud_fixture.py
             --cpu ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-cpu.bin --clock ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-clock.bin

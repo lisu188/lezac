@@ -122,6 +122,15 @@ class SourceGuardrailTests(unittest.TestCase):
         self.assertEqual(gran.check_source(self.root), (15, 2, 9, 1, 1, 1, 1))
         self.assertEqual(check_inventory(self.root), 5)
 
+    def test_gran_header_include_does_not_allow_data_access(self):
+        self.split_gran()
+        path = self.root / "src/gameplay/boss.cpp"
+        path.write_text('#include "gameplay/gran_group.hpp"\n' + path.read_text())
+        self.assertEqual(gran.check_source(self.root), (15, 2, 9, 1, 1, 1, 1))
+        path.write_text(path.read_text() + '\nvoid Boss::unexpected() { use(gran_.records); }\n')
+        with self.assertRaisesRegex(RuntimeError, "unexpected live GRAN references"):
+            gran.check_source(self.root)
+
     def test_gran_deleted_live_consumer(self):
         self.split_gran()
         self.write("src/gameplay/boss.cpp", "")

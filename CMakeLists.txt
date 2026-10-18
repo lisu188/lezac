@@ -237,6 +237,8 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_frame_camera_test PRIVATE lezac_core)
     add_test(NAME frame_camera_unit COMMAND lezac_frame_camera_test)
     add_executable(lezac_player_start_test tests/core/player_start_test.cpp)
+    add_executable(lezac_gran_group_original_test tests/gameplay/gran_group_original_test.cpp)
+    target_link_libraries(lezac_gran_group_original_test PRIVATE lezac_resources)
     target_link_libraries(lezac_player_start_test PRIVATE lezac_core)
     add_test(NAME player_start_unit COMMAND lezac_player_start_test)
     set_tests_properties(player_start_unit PROPERTIES PASS_REGULAR_EXPRESSION "player_start_unit=ok entry_rejections=3")
@@ -1042,6 +1044,16 @@ if(BUILD_TESTING)
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_camera_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/frame-camera.bin --report ${CMAKE_CURRENT_BINARY_DIR}/frame-camera-report.json)
         set_tests_properties(frame_camera_fixture_contract PROPERTIES FIXTURES_SETUP frame_camera_corpus)
+        add_test(NAME gran_loader_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gran_loader_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/gran-loader.bin --report ${CMAKE_CURRENT_BINARY_DIR}/gran-loader-report.json)
+        set_tests_properties(gran_loader_fixture_contract PROPERTIES FIXTURES_SETUP gran_loader_corpus)
+        add_test(NAME gran_group_original COMMAND lezac_gran_group_original_test
+            ${CMAKE_CURRENT_BINARY_DIR}/gran-loader.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(gran_group_original PROPERTIES FIXTURES_REQUIRED gran_loader_corpus
+            PASS_REGULAR_EXPRESSION "gran_group_original=ok cases=24 complete_storage_bytes=75600 preserved_inactive_tail=1 owner_bindings=24")
+        add_test(NAME gran_loader_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_gran_loader_fixture.py)
         add_test(NAME standalone_camera_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_standalone_camera_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/standalone-camera.bin
@@ -4757,6 +4769,12 @@ if(BUILD_TESTING)
     add_test(NAME reserve_life_lifecycle
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-reserve-life-lifecycle)
+    add_test(NAME boss_physical_ownership
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+            LEZAC_LOAD_ORIGINAL_ASSETS=1 LEZAC_LOAD_JSON_ASSETS=0
+            $<TARGET_FILE:lezac_cpp> --debug-boss-physical-ownership)
+    set_tests_properties(boss_physical_ownership PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "boss_physical_ownership=ok initial_cursor_byte_differences=0 coordinate_mismatches=0 animation_byte_mismatches=0 ticks=8 physical_links=48 rendered_frames=2 frame_changed=1 death_conversions=7")
     set_tests_properties(reserve_life_lifecycle PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION

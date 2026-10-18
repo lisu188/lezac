@@ -131,6 +131,7 @@
         "src/app/app.cpp",
         "src/gameplay/actor_models.hpp",
         "src/gameplay/actor_storage.hpp",
+        "src/gameplay/gran_group.hpp",
         "src/gameplay/actor_slots.hpp",
         "src/gameplay/collapse_rectangle.hpp",
         "src/gameplay/collapse_removal.hpp",

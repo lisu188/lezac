@@ -27365,6 +27365,52 @@ public:
                   << " frame_inspection=1\n";
     }
 
+    void debugAmmoHudOriginal(const std::string& path) {
+        const auto bytes = lezac::resources::readFile(path);
+        uint64_t fingerprint = 14695981039346656037ull;
+        for (uint8_t byte : bytes) { fingerprint ^= byte; fingerprint *= 1099511628211ull; }
+        constexpr std::array<uint8_t, 12> signature{'L','Z','A','M','A','P','P','1',0,8,0,0};
+        if (bytes.size() != 18444 || fingerprint != 0x459f0d07ac301043ull ||
+            !std::equal(signature.begin(), signature.end(), bytes.begin())) {
+            throw std::runtime_error("ammunition HUD App fixture fingerprint differs");
+        }
+        load();
+        initSdl();
+        playerCount_ = 2;
+        resetLevel(0);
+        unsigned admitted = 0, noCall = 0;
+        for (unsigned index = 0; index < 2048; ++index) {
+            const size_t at = 12 + static_cast<size_t>(index) * 9;
+            const auto player = static_cast<size_t>(bytes[at] - 1);
+            const auto selected = bytes[at + 1], ammo = bytes[at + 2], dirty = bytes[at + 3];
+            if (player > 1 || selected > 3) throw std::runtime_error("ammunition HUD App case differs");
+            auto& inventory = player == 0 ? bombInventory_ : bombInventory2_;
+            BombInventory baseline;
+            baseline.selected = static_cast<BombType>((selected + 1) % 4);
+            baseline.counts[static_cast<size_t>(baseline.selected)] = 17;
+            baseline.hudDirty = 2;
+            sampleHudInventory(player, baseline, 1);
+            corpseRewardRoll_ = bytes[at + 5];
+            damageLaneData_[kLaneHelperNeighborLaneScratch] = bytes[at + 4];
+            inventory.selected = static_cast<BombType>(selected);
+            inventory.counts[selected] = ammo;
+            inventory.hudDirty = dirty;
+            sampleHudInventory(player, inventory, 1);
+            const auto& panel = presentation_.hudAmmoPanels()[player];
+            if (inventory.hudDirty != bytes[at + 8] ||
+                panel.icon != (dirty > 1 ? inventory.selected : baseline.selected) ||
+                panel.count != (dirty ? bytes[at + 7] : 17) ||
+                corpseRewardRoll_ != bytes[at + (dirty ? 6 : 5)] ||
+                hudView().spriteInk != bytes[at + 4]) {
+                throw std::runtime_error("ammunition HUD App state mismatch case " + std::to_string(index));
+            }
+            dirty ? ++admitted : ++noCall;
+        }
+        std::cout << "ammo_hud_app=ok cases=2048 admitted=" << admitted
+                  << " no_call_controls=" << noCall
+                  << " shared_scratch=2048 ink_owner=2048 controlled=1 natural=0 whole_game_parity=0\n";
+    }
+
     void debugHudStatsLive() {
         load();
         initSdl();
@@ -27379,7 +27425,7 @@ public:
 
         drainPlayerDamageCounters();
         updateHudScores();
-        presentation_.sampleHudInventory(0, bombInventory_, originalPlayerState(1));
+        sampleHudInventory(0, bombInventory_, originalPlayerState(1));
         const int hudY = kScreenH - 46;
         FrameInspection first = inspectRenderedFrame("hud-stats-live-first");
         std::vector<uint32_t> firstPixels = fb_;
@@ -27395,7 +27441,7 @@ public:
         bombInventory_.counts[3] = 0;
         bombInventory_.hudDirty = 2;
         drainPlayerDamageCounters();
-        presentation_.sampleHudInventory(0, bombInventory_, originalPlayerState(1));
+        sampleHudInventory(0, bombInventory_, originalPlayerState(1));
         FrameInspection second = inspectRenderedFrame("hud-stats-live-second");
         if (second.hash == first.hash ||
             !frameInspector_.regionChanged(firstPixels, 0, hudY, kScreenW, 46) ||
@@ -27430,8 +27476,8 @@ public:
         levelRestartPromoted_ = false;
         prepareHudObjectives();
         updateHudScores();
-        presentation_.sampleHudInventory(0, bombInventory_, originalPlayerState(1));
-        presentation_.sampleHudInventory(1, bombInventory2_, originalPlayerState(2));
+        sampleHudInventory(0, bombInventory_, originalPlayerState(1));
+        sampleHudInventory(1, bombInventory2_, originalPlayerState(2));
         presentation_.updateHudEnergy(0, energy_, 1);
         presentation_.updateHudEnergy(1, energy2_, 1);
         const auto render = [&](const std::string& label) {
@@ -28591,19 +28637,25 @@ private:
         updateWithControls(controlsFromKeyboard(replayKeyboard_ ? replayKeyboard_ : SDL_GetKeyboardState(nullptr)), dt);
     }
 
+    void sampleHudInventory(size_t player, BombInventory& inventory, uint8_t globalState) {
+        // 326E writes DS:79A3 when repainting the icon, before clearing its dirty byte.
+        if (globalState == 1 && inventory.hudDirty > 1) corpseRewardRoll_ = 18;
+        presentation_.sampleHudInventory(player, inventory, globalState);
+    }
+
     void updatePlayerReentryPrepass(const FrameControls& controls) {
         // State-2 countdown precedes both actor passes (1000:7C89).
         // 1000:7E9D/7EA2 clear BOTH latches on the first successful reentry.
         if (!reentryGate_) noActivePlayerTicks_ = kSharedReentryTicks - 1;
         reentryFire1_ = reentryFire1_ || controls.p1Reenter;
         reentryFire2_ = reentryFire2_ || controls.p2Reenter;
-        presentation_.sampleHudInventory(0, bombInventory_, originalPlayerState(1));
+        sampleHudInventory(0, bombInventory_, originalPlayerState(1));
         if (playerDead_) {
             updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
                           playerCount_ == 1 || player2Dead_);
             if (reentryFire1_) tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_, damageCooldown_, 1);
         }
-        if (playerCount_ > 1) presentation_.sampleHudInventory(1, bombInventory2_, originalPlayerState(2));
+        if (playerCount_ > 1) sampleHudInventory(1, bombInventory2_, originalPlayerState(2));
         if (playerCount_ > 1 && player2Dead_) {
             updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
                           playerDead_);
@@ -32335,7 +32387,7 @@ private:
                 level_.objectiveTile, level_.requiredBonus, level_.requiredDestruction,
                 collected_, presentation_.hudDestructionPercent(),
                 levelFlow_.interactiveEnabled() ? levelFlow_.outro().active : isComplete(), levelFlow_.outro().active,
-                presentation_.hudScores(), presentation_.hudColumnReady()};
+                presentation_.hudScores(), presentation_.hudColumnReady(), damageLaneData_[kLaneHelperNeighborLaneScratch]};
     }
 
     lezac::rendering::MenuView menuRenderView() const {
@@ -33172,6 +33224,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-object-collision-jump-live") {
             app.debugObjectCollisionJumpLive();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-ammo-hud-original") {
+            app.debugAmmoHudOriginal(argv[2]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-hud-stats-live") {

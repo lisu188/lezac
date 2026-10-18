@@ -185,6 +185,12 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_ammo_hud_test tests/core/ammo_hud_test.cpp)
+    target_link_libraries(lezac_ammo_hud_test PRIVATE lezac_core)
+    add_test(NAME ammo_hud_unit COMMAND lezac_ammo_hud_test)
+    set_tests_properties(ammo_hud_unit PROPERTIES PASS_REGULAR_EXPRESSION "ammo_hud_unit=ok entry_rejections=6")
+    add_executable(lezac_ammo_hud_renderer_test tests/rendering/ammo_hud_original_test.cpp)
+    target_link_libraries(lezac_ammo_hud_renderer_test PRIVATE lezac_rendering)
     add_executable(lezac_reserve_hud_test tests/core/reserve_hud_test.cpp)
     target_link_libraries(lezac_reserve_hud_test PRIVATE lezac_core)
     add_test(NAME reserve_hud_unit COMMAND lezac_reserve_hud_test)
@@ -629,6 +635,37 @@ if(BUILD_TESTING)
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
         find_package(Git QUIET)
+        add_test(NAME ammo_hud_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ammo_hud_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/ammo-hud.bin)
+        set_tests_properties(ammo_hud_fixture_contract PROPERTIES FIXTURES_SETUP ammo_hud_corpus)
+        add_test(NAME ammo_hud_original COMMAND lezac_ammo_hud_test
+            ${CMAKE_CURRENT_BINARY_DIR}/ammo-hud.bin ${CMAKE_CURRENT_SOURCE_DIR}/LEZAC.EXE)
+        set_tests_properties(ammo_hud_original PROPERTIES FIXTURES_REQUIRED ammo_hud_corpus TIMEOUT 180
+            PASS_REGULAR_EXPRESSION "ammo_hud_original=ok cases=2226 replays=26712 comparisons=11968936 dispatches=30615144 transfers=5776200 runtime_errors=7 computed_irq_cases=2 full_frame_claim=0 work_clock_claim=0")
+        add_test(NAME ammo_hud_renderer_original COMMAND lezac_ammo_hud_renderer_test
+            ${CMAKE_CURRENT_BINARY_DIR}/ammo-hud.bin)
+        set_tests_properties(ammo_hud_renderer_original PROPERTIES FIXTURES_REQUIRED ammo_hud_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "ammo_hud_renderer=ok cases=1024 indexed_pixels=393216 sprite_cases=32 sprite_pixels=4144 original_call_timing=0 whole_game_parity=0")
+        add_test(NAME ammo_hud_app_original COMMAND lezac_cpp --debug-ammo-hud-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ammo_hud/app.bin)
+        set_tests_properties(ammo_hud_app_original PROPERTIES FIXTURES_REQUIRED ammo_hud_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;LEZAC_LOAD_ORIGINAL_ASSETS=1;LEZAC_LOAD_JSON_ASSETS=0"
+            PASS_REGULAR_EXPRESSION "ammo_hud_app=ok cases=2048 admitted=1536 no_call_controls=512 shared_scratch=2048 ink_owner=2048 controlled=1 natural=0 whole_game_parity=0")
+        add_test(NAME ammo_hud_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_ammo_hud_fixture.py --exe $<TARGET_FILE:lezac_cpp> -v)
+        set_tests_properties(ammo_hud_fixture_rejections PROPERTIES TIMEOUT 180
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
+        if(NOT WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME ammo_hud_mutation_controls COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_ammo_hud_mutations.py
+                --compiler ${CMAKE_CXX_COMPILER} --fixture ${CMAKE_CURRENT_BINARY_DIR}/ammo-hud.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/ammo-hud-mutations)
+            set_tests_properties(ammo_hud_mutation_controls PROPERTIES FIXTURES_REQUIRED ammo_hud_corpus
+                TIMEOUT 300 PASS_REGULAR_EXPRESSION "ammo_hud_mutations=ok compiled=9 rejected=8 production_source_unchanged=1")
+        endif()
         add_test(NAME reserve_hud_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_reserve_hud_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/reserve-hud.bin)

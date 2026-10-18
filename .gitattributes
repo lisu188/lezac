@@ -38,6 +38,7 @@ tests/fixtures/frame_camera/** -text
 tests/fixtures/frame_world_raster/** -text
 tests/fixtures/frame_spawner/** -text
 tests/fixtures/reserve_hud/** -text
+tests/fixtures/ammo_hud/** -text
 tools/frame_foreground_probe/** text eol=lf
 tools/frame_foreground_probe/*.patch -whitespace
 tests/fixtures/foreground_live/** -text

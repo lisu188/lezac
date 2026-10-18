@@ -67,6 +67,9 @@ def pinned():
 
 def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
     check((directory / 'trace.jsonl').is_file(), 'missing scout trace')
+    expected_native = support.fixture()[-2]
+    check((expected_native['section'], expected_native['index'], expected_native['phase']) ==
+          ('level4', BASE, 'post_update'), 'wrong original-backed checkpoint')
     expected_route_hash = fidelity.fnv1a64(route.read_bytes())
     asset_hashes = {name: fidelity.fnv1a64((ROOT / name).read_bytes()) for name in fidelity.ASSETS}
     header_seen = False
@@ -141,9 +144,14 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
                       state['words_hex'] == endpoint['words_hex'] and
                       state['tiles_hex'] == endpoint['tiles_hex'] and
                       state['random_seed'] == endpoint['random_seed'] and
-                      state['players'][0]['inventory'] == endpoint['players'][0]['inventory'] and
-                      state['players'][0]['health'][0] == endpoint['players'][0]['health'][0],
+                      state['logic_tick'] == endpoint['logic_tick'] and
+                      all(state['players'][0][key] == endpoint['players'][0][key] for key in
+                          ('x', 'y', 'vx8', 'vy8', 'frac_x', 'frac_y', 'score',
+                           'animation', 'inventory', 'hud_score')) and
+                      state['players'][0]['health'][:2] == endpoint['players'][0]['health'] and
+                      state['players'][1]['inventory'] == endpoint['players'][1]['inventory'],
                       'candidate diverges before the new input')
+                support.recovered.check_cpp(state, expected_native)
                 found = True
             if state['level'] == 4:
                 destroyed = state['progress'][1]

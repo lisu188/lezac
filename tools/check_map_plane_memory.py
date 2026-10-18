@@ -10,6 +10,8 @@ import subprocess
 import sys
 import tempfile
 
+from source_guardrails import function_ranges, mask_cpp
+
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / 'tests/gameplay/map_planes_original.bin.gz'
 EXPECTED = ROOT / 'tests/gameplay/map_planes_expected.bin.gz'
@@ -23,18 +25,24 @@ def sha(raw):
 
 def contract(source):
     required = (
-        'return mapPlaneMemory_.readObject(index, level_.tiles, level_.wordLayer);',
-        'mapPlaneMemory_.writeObject(index, value, level_.tiles, level_.wordLayer);',
-        'return mapPlaneMemory_.readWord(index, level_.tiles, level_.wordLayer);',
-        'mapPlaneMemory_.writeWord(index, value, level_.tiles, level_.wordLayer);',
-        'const int dest = static_cast<uint16_t>(pos + delta);',
-        'mapPlaneMemory_.restoreSeparatedPlanesForFixture();',
-        'resetLevel(index, false);',
+        ('updateDebrisRecords', 'return mapPlaneMemory_.readObject(index, level_.tiles, level_.wordLayer);'),
+        ('updateDebrisRecords', 'mapPlaneMemory_.writeObject(index, value, level_.tiles, level_.wordLayer);'),
+        ('updateDebrisRecords', 'return mapPlaneMemory_.readWord(index, level_.tiles, level_.wordLayer);'),
+        ('updateDebrisRecords', 'mapPlaneMemory_.writeWord(index, value, level_.tiles, level_.wordLayer);'),
+        ('updateDebrisRecords', 'const int dest = static_cast<uint16_t>(pos + delta);'),
+        ('debugOriginalDebrisUpdate', 'mapPlaneMemory_.restoreSeparatedPlanesForFixture();'),
+        ('finishLevelIntro', 'resetLevel(index, false);'),
+        ('resetLevel', 'mapPlaneMemory_.beginLevel(level_.tiles, level_.wordLayer,'),
+        ('beginLevelForPlay', 'mapPlaneMemory_.beginLevel(level_.tiles, level_.wordLayer,'),
     )
-    if any(source.count(text) != 1 for text in required):
-        raise ValueError('production map-plane integration differs')
-    if source.count('mapPlaneMemory_.beginLevel(level_.tiles, level_.wordLayer,') != 2:
-        raise ValueError('map allocation lifecycle differs')
+    ranges = function_ranges(source, (name for name, _ in required))
+    lines = mask_cpp(source).splitlines(keepends=True)
+    for name, text in required:
+        if name not in ranges:
+            raise ValueError('production map-plane owner missing: ' + name)
+        start, end = ranges[name]
+        if ''.join(lines[start - 1:end]).count(text) != 1:
+            raise ValueError('production map-plane integration differs in ' + name)
     return required
 
 
@@ -118,14 +126,34 @@ def main():
     required = contract(source)
     request, expected = streams(data)
     if args.self_check:
-        changes = [(text, '') for text in required]
-        changes.append(('mapPlaneMemory_.beginLevel(level_.tiles, level_.wordLayer,', 'unusedBeginLevel('))
-        for old, new in changes:
+        ranges = function_ranges(source, (name for name, _ in required))
+        lines = source.splitlines(keepends=True)
+        diagnostic = '\nvoid debugUnrelatedMapSetup() {\n' + '\n'.join(
+            text for _, text in required) + '\n}\n'
+        contract(source + diagnostic)
+        source_mutants = 0
+        for name, text in required:
+            start, end = ranges[name]
+            body = ''.join(lines[start - 1:end])
+            # A diagnostic copy or commented-out production call cannot stand
+            # in for the operation in its required owner.
+            for replacement in ('', '/* ' + text + ' */'):
+                changed = ''.join(lines[:start - 1]) + body.replace(text, replacement) + ''.join(lines[end:])
+                try:
+                    contract(changed + diagnostic)
+                except ValueError:
+                    source_mutants += 1
+                    continue
+                raise ValueError('map-plane contract accepted a source mutation in ' + name)
+        for name in sorted(ranges):
+            start, end = ranges[name]
+            duplicated = source + ''.join(lines[start - 1:end])
             try:
-                contract(source.replace(old, new))
-            except ValueError:
+                contract(duplicated)
+            except RuntimeError:
+                source_mutants += 1
                 continue
-            raise ValueError('map-plane contract accepted a source mutation')
+            raise ValueError('map-plane contract accepted a duplicate owner: ' + name)
         for offset in (0, 12, len(expected) - 1):
             changed = bytearray(expected)
             changed[offset] ^= 1
@@ -134,7 +162,8 @@ def main():
             except ValueError:
                 continue
             raise ValueError('map-plane comparator accepted a mutation')
-        print('map_plane_memory_checker=ok source_mutants=8 output_mutants=3 production_app=0')
+        print('map_plane_memory_checker=ok source_mutants=' + str(source_mutants) +
+              ' diagnostic_copies=1 output_mutants=3 production_app=0')
         return
     if not args.exe:
         print('map_plane_memory_fixture=ok scenes=12 events=168 reads=88 writes=80 production_app=0 natural_route=0')

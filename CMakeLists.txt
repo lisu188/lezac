@@ -7379,6 +7379,12 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 30 LABELS "level3;original;evidence-guard;natural-route;portal"
             PASS_REGULAR_EXPRESSION "\"mutations_rejected\":38.*\"producer_mutations_rejected\":12.*\"status\":\"guarded\".*\"typed_field_mutations_rejected\":291")
+        add_test(NAME campaign_level4_continuation_scout
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/campaign_level4_continuation_scout.py self-test)
+        set_tests_properties(campaign_level4_continuation_scout PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 30 LABELS "campaign;level4;candidate;route-integrity"
+            PASS_REGULAR_EXPRESSION "campaign_level4_continuation_scout=ok checks=6 candidates=3")
         add_test(NAME campaign_boundary_checks
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_campaign_boundary_checks.py)
         set_tests_properties(campaign_boundary_checks PROPERTIES

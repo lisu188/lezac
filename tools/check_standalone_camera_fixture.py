@@ -9,6 +9,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT/'tests/fixtures/standalone_camera'
 MANIFEST_SHA = 'bc634442c50f8182c11be74de3c02cb46b21b7914da068d68df3daf696a1c520'
+INPUTS = ('LEZAC.EXE','CARO.CAR','BOMOMIMK.SPR','BOMPAL.PAL',
+    'tools/standalone_camera_oracle.py','tools/frame_world_raster_inputs.py','tools/frame_camera_oracle.py')
 sha = lambda raw: hashlib.sha256(raw).hexdigest()
 
 
@@ -37,6 +39,12 @@ def read_fixture(root=ROOT,fixture=FIXTURE):
 
 
 def run(root,fixture,out=None,report=None):
+    protected = [root/name for name in INPUTS]+[fixture/'manifest.json',fixture/'oracle.bin.gz']
+    for candidate in (out,report):
+        if candidate:
+            require(all(candidate.resolve() != path.resolve() and not (
+                candidate.exists() and path.exists() and candidate.samefile(path)) for path in protected),
+                'Camera output must not replace an authenticated input')
     if out and report:
         require(out.resolve() != report.resolve() and not (
             out.exists() and report.exists() and out.samefile(report)), 'Camera report/export overlap')

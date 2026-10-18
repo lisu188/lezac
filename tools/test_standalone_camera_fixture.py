@@ -53,6 +53,13 @@ class FixtureTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 checker.run(root,fixture,output,report)
             self.assertEqual(output.read_bytes(),b'preserve existing export')
+            for name in paths:
+                path = root/name
+                before = path.read_bytes()
+                with self.subTest(protected=name):
+                    with self.assertRaises(ValueError):
+                        checker.run(root,fixture,output,path)
+                    self.assertEqual(path.read_bytes(),before)
             with self.assertRaises(ValueError):
                 checker.run(root,fixture,output,output)
             self.assertEqual(output.read_bytes(),b'preserve existing export')

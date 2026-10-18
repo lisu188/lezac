@@ -213,18 +213,20 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
                         result.append(value if len(encoded) <= 1200 else
                                       dict(truncated=True, byte_count=len(encoded)))
                     return result
-                current_words = bytes.fromhex(state['words_hex'])
-                check(len(current_words) == len(baseline_words),
-                      'candidate word plane changed size')
                 deltas = []
-                changed_words = 0
-                for index in range(0, len(current_words), 2):
-                    if current_words[index:index + 2] != baseline_words[index:index + 2]:
-                        changed_words += 1
-                        if len(deltas) < 16:
-                            deltas.append(dict(cell=index // 2,
-                                before=int.from_bytes(baseline_words[index:index + 2], 'little'),
-                                after=int.from_bytes(current_words[index:index + 2], 'little')))
+                changed_words = None
+                if state['level'] == 4:
+                    current_words = bytes.fromhex(state['words_hex'])
+                    check(len(current_words) == len(baseline_words),
+                          'Level 4 checkpoint word plane changed size')
+                    changed_words = 0
+                    for index in range(0, len(current_words), 2):
+                        if current_words[index:index + 2] != baseline_words[index:index + 2]:
+                            changed_words += 1
+                            if len(deltas) < 16:
+                                deltas.append(dict(cell=index // 2,
+                                    before=int.from_bytes(baseline_words[index:index + 2], 'little'),
+                                    after=int.from_bytes(current_words[index:index + 2], 'little')))
                 observations.append(dict(tick=tick, player_xy=[player['x'], player['y']],
                     health=health, medium_ammo=player['inventory'][1],
                     destroyed=state['progress'][1], bomb_count=len(bombs),
@@ -381,6 +383,9 @@ class ScoutChecks(unittest.TestCase):
                 rows[4]['state']['players'][0]['x'] = 256
             elif mutation == 'invalid_state':
                 rows[-2]['state']['players'][0]['health'][0] = -1
+            elif mutation == 'level5':
+                rows[-2]['state']['level'] = 5
+                rows[-2]['state']['words_hex'] = '00000000'
             elif mutation == 'extra_input':
                 more = copy.deepcopy(rows[-2])
                 more.update(seq=8, tick=BASE + 2, phase='input', events=[],
@@ -420,6 +425,9 @@ class ScoutChecks(unittest.TestCase):
         self.assertEqual(report['event_observations'][0]['flames'], [])
         self.assertIsNone(report['first_active_bomb_tick'])
         self.assertFalse(report['original_game_verified'])
+        level5 = self.attempt_trace('level5')
+        self.assertEqual(level5['cpp_level5_first_tick'], BASE + 1)
+        self.assertIsNone(level5['event_observations'][-1]['changed_word_cells'])
 
     def test_phase_substitution_rejected(self):
         for variant in ('phase_substitution', 'phase_middle'):

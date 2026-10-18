@@ -1,5 +1,6 @@
 #include "rendering/game_renderer.hpp"
 #include "rendering/color.hpp"
+#include "rendering/world_camera.hpp"
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -74,27 +75,12 @@ public:
     }
 
     void drawWorldView(const Player& cameraPlayer, int viewX, int viewY, int viewW, int viewH) {
-        int worldW = world_.level.width * 8;
-        int worldH = world_.level.height * 8;
         canvas_.setClip(viewX, viewY, viewX + viewW, viewY + viewH);
-        // Camera fully decoded from the original scroll routine (file 0x3cf7,
-        // fed the player visual entry DS:0xC21E by the main loop): the
-        // routine splits the scroll into a tile-aligned coarse part
-        // (DS:0xC216/0xC218 = (x - 0x78BC) & ~7 / (y - 80) & ~7 with 0x78BC
-        // = floor((pitch/8 - 2)/2)*8) and a fine part (DS:C20A/C20C = x%8 / y%8)
-        // that recombine to a CONTINUOUS, instantly-applied camera
-        // camX = x - 78BC, camY = y - 80. On the max clamps
-        // (coarse > DS:2094 = (Wt-40)*8 / DS:2096 = (Ht-21)*8) the fine
-        // part is forced to 7, so the effective displayed limits are
-        // worldW-313 and worldH-161 -- verified against the level-6 spawn
-        // (cam 1127/351 for clamps 1120/344) and every walk/jump capture.
-        const int cameraCenter = (((viewW + 8) / 8 - 2) / 2) * 8;
-        int camX = std::clamp(static_cast<int>(cameraPlayer.x) - cameraCenter,
-                              0, std::max(0, worldW - (viewW + 8) + 7));
-        int camY = std::clamp(static_cast<int>(cameraPlayer.y) - (viewH / 2 + 4),
-                              0, std::max(0, worldH - (viewH + 16) + 7));
-        const int fineX = (camX & 7) + world_.cameraShakeOffset;
-        camX += world_.cameraShakeOffset;  // 1000:36F6 adds to the fine X scroll.
+        const auto camera = cameraForViewport(static_cast<int>(cameraPlayer.x),
+            static_cast<int>(cameraPlayer.y), world_.level.width, world_.level.height,
+            viewW + 8, world_.cameraShakeOffset);
+        const int camX = camera.pixelX(), camY = camera.pixelY();
+        const int fineX = camera.fineX;
         int drawCamX = camX - viewX;
         int drawCamY = camY - viewY;
         drawGradientSky(viewX, viewY, viewW, viewH, camX, camY);

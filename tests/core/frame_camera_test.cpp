@@ -1,4 +1,5 @@
 #include "core/frame_camera.hpp"
+#include "rendering/world_camera.hpp"
 
 #include <algorithm>
 #include <array>
@@ -95,6 +96,7 @@ void replay(const char* path) {
     const auto count=reader.number(4); require(count==1876,"Camera case count differs");
     uint64_t comparisons=0;
     uint32_t errors=0;
+    uint32_t liveComparisons=0;
     for (uint32_t index=0;index<count;++index) {
         Case sample;
         for (auto& value : sample.profile) value=static_cast<uint16_t>(reader.number(2));
@@ -110,6 +112,16 @@ void replay(const char* path) {
             sample.writes.push_back({address,value});
         }
         errors+=sample.profile[10];
+        if (!sample.profile[10]) {
+            const auto& p=sample.profile;
+            const auto camera=lezac::rendering::calculateWorldCamera({p[4],p[5],p[1],
+                static_cast<uint16_t>(p[3]*4-8),static_cast<uint16_t>((p[3]*4-8)/8),
+                static_cast<uint16_t>((p[1]-p[3])*8),static_cast<uint16_t>(p[2]*8-160),p[6]});
+            const std::array<uint16_t,5> fields={camera.coarseX,camera.coarseY,
+                camera.mapOffset,camera.fineX,camera.fineY};
+            require(fields==sample.fields,"Live world camera differs from original context");
+            ++liveComparisons;
+        }
         for (uint64_t budget : {1u,2u,17u,4096u}) {
             auto memory=initialMemory(sample); const auto bus=memory.bus();
             FrameCameraOperation operation(sample.initial,0x1000);
@@ -136,10 +148,39 @@ void replay(const char* path) {
         }
     }
     require(reader.at==reader.bytes.size() && errors==3,"Camera corpus tail/outcomes differ");
+    require(liveComparisons==1873,"Live world camera coverage differs");
+    std::cout << "world_camera_original=ok cases=" << liveComparisons << " context_words="
+        << liveComparisons*5 << " copied_world_bytes=0\n";
     std::cout << "frame_camera_original=ok cases=" << count << " replays=" << count*4 << " comparisons=" << comparisons
         << " runtime_errors=" << errors << " full_frame_claim=0\n";
 }
 void unit() {
+    using lezac::rendering::cameraForViewport;
+    const auto atEdge=cameraForViewport(319,183,60,33,320,0);
+    require(atEdge.pixelX()==167 && atEdge.pixelY()==103 && atEdge.fineX==7 && atEdge.fineY==7,
+        "Live world camera edge differs");
+    const auto negative=cameraForViewport(-1,-1,60,33,320,0);
+    require(negative.pixelX()==0 && negative.pixelY()==0,"Live world camera negative clamp differs");
+    const auto wrapped=cameraForViewport(159,80,60,33,320,65534);
+    require(wrapped.fineX==5 && wrapped.pixelX()==5,"Live world camera shake did not wrap at 16 bits");
+    const auto signedCoordinates=cameraForViewport(65535,65535,60,33,320,0);
+    require(signedCoordinates==negative,"Live world camera did not interpret visual words as signed");
+    const auto narrow=cameraForViewport(104,168,60,33,168,0);
+    require(narrow.pixelX()==32 && narrow.pixelY()==88,
+        "Live world camera rounded an odd-column viewport center incorrectly");
+    unsigned badGeometry=0;
+    for (int pitch : {0,152,161,328}) {
+        try { (void)cameraForViewport(0,0,60,33,pitch,0); }
+        catch (const std::invalid_argument&) { ++badGeometry; }
+    }
+    for (int dimension : {0,-1,32768}) {
+        try { (void)cameraForViewport(0,0,dimension,33,320,0); }
+        catch (const std::invalid_argument&) { ++badGeometry; }
+        try { (void)cameraForViewport(0,0,60,dimension,320,0); }
+        catch (const std::invalid_argument&) { ++badGeometry; }
+    }
+    require(badGeometry==10,"Live world camera geometry validation differs");
+    std::cout << "world_camera_unit=ok geometry_rejections=10\n";
     DosGetTimeRegisters r; r.cs=0x1000;r.ds=0x1aa2;r.ss=0x7000;r.sp=0x3fe4;r.ip=0x3587;
     uint32_t rejected=0;
     for (unsigned field=0;field<3;++field) {

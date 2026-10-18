@@ -7494,6 +7494,12 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 60 LABELS "level4;original;evidence-guard;natural-route;reward;animation"
             PASS_REGULAR_EXPRESSION "\"animation_mutations_rejected\":7.*\"equal_size_descriptor_cases\":4.*\"status\":\"guarded\"")
+        add_test(NAME campaign_destruction_frontier
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/campaign_destruction_frontier.py --self-test)
+        set_tests_properties(campaign_destruction_frontier PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 30 LABELS "campaign;level4;scout;fixture-guard"
+            PASS_REGULAR_EXPRESSION "campaign_destruction_frontier=ok level=4 remaining=191 additional=61 clusters=10 mutants_rejected=5")
         add_test(NAME natural_level4_support_column_original
             COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                     ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level4_support_column.py replay

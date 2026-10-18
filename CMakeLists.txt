@@ -189,6 +189,11 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_frame_world_raster_test PRIVATE lezac_core)
     add_test(NAME frame_world_raster_unit COMMAND lezac_frame_world_raster_test)
     set_tests_properties(frame_world_raster_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_world_raster_unit=ok rejections=5")
+    add_executable(lezac_frame_view_copy_test tests/core/frame_view_copy_test.cpp)
+    target_link_libraries(lezac_frame_view_copy_test PRIVATE lezac_core)
+    add_test(NAME frame_view_copy_unit COMMAND lezac_frame_view_copy_test)
+    set_tests_properties(frame_view_copy_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "frame_view_copy_unit=ok rejections=7")
     add_executable(lezac_frame_display_test tests/core/frame_display_test.cpp)
     target_link_libraries(lezac_frame_display_test PRIVATE lezac_core)
     add_test(NAME frame_display_unit COMMAND lezac_frame_display_test)
@@ -797,6 +802,17 @@ if(BUILD_TESTING)
             --cpu ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-cpu.bin --clock ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-clock.bin
             --oracle ${CMAKE_CURRENT_BINARY_DIR}/frame-hud-oracle.bin)
         set_tests_properties(frame_hud_fixture_contract PROPERTIES FIXTURES_SETUP frame_hud_corpus)
+        add_test(NAME frame_view_copy_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_view_copy_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-view-copy.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/frame-view-copy-report.json)
+        set_tests_properties(frame_view_copy_fixture_contract PROPERTIES FIXTURES_SETUP frame_view_copy_corpus)
+        add_test(NAME frame_view_copy_original COMMAND lezac_frame_view_copy_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-view-copy.bin)
+        set_tests_properties(frame_view_copy_original PROPERTIES FIXTURES_REQUIRED frame_view_copy_corpus
+            PASS_REGULAR_EXPRESSION "frame_view_copy_original=ok cases=12 replays=144 word_wrap_faults=3 full_frame_claim=0")
+        add_test(NAME frame_view_copy_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_view_copy_fixture.py)
         add_test(NAME frame_foreground_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_foreground_fixture.py
             --cpu ${CMAKE_CURRENT_BINARY_DIR}/frame-foreground-cpu.bin --clock ${CMAKE_CURRENT_BINARY_DIR}/frame-foreground-clock.bin

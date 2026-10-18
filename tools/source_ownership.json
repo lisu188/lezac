@@ -17,6 +17,7 @@
         "src/core/frame_pacing.hpp",
         "src/core/frame_pacing_calculation.hpp",
         "src/core/frame_pacing_operation.hpp",
+        "src/core/frame_view_copy.hpp",
         "src/core/frame_world_raster.hpp",
         "src/core/game_keyboard.hpp",
         "src/core/hud.hpp",

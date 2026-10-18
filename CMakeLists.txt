@@ -565,7 +565,7 @@ if(BUILD_TESTING)
     set_tests_properties(monster_animation_original_app PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 30
-        PASS_REGULAR_EXPRESSION "^monster_animation_original=ok cases=53 updates=636 production_app=1 diagnostic_stop_after_prologue=1 boss_backup_copies=14 seeded=1 natural_route=0 whole_game_claim=0")
+        PASS_REGULAR_EXPRESSION "^monster_animation_original=ok cases=53 updates=636 production_app=1 diagnostic_stop_after_prologue=1 boss_backup_copies=14 seeded=1 natural_route=0 whole_game_claim=0 boss_physical_resets=2 boss_capacity_rejections=2")
     add_test(NAME corpse_animation_original_app
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-corpse-animation-original ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_animation_original.txt)
     set_tests_properties(corpse_animation_original_app PROPERTIES

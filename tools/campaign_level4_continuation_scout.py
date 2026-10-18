@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -9,6 +10,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 import uuid
 
 import level1_fidelity as fidelity
@@ -261,6 +263,89 @@ class ScoutChecks(unittest.TestCase):
         source, endpoint = pinned()
         self.assertEqual(hashlib.sha256(source).hexdigest(), SHA256)
         self.assertEqual((endpoint['level'], endpoint['progress']), (4, [3, 244]))
+
+
+    def attempt_trace(self, mutation=None):
+        endpoint = dict(level=4, progress=[3, 244], words_hex='0000', tiles_hex='00',
+                        random_seed=12345, logic_tick=10117, players=[
+                            dict(x=255, y=360, vx8=0, vy8=0, frac_x=47, frac_y=126,
+                                 score=51190, animation=[1, 10, 17, 1, 4, 0, 1],
+                                 inventory=[200, 4, 0, 0, 1], hud_score=[51190, 2],
+                                 health=[22, 0]),
+                            dict(inventory=[200, 20, 6, 0, 0])])
+        state = dict(endpoint, collapse=[], players=[
+            {**endpoint['players'][0], 'health': [22, 0, False]},
+            endpoint['players'][1]])
+        seed, step = 305441741, 40800
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            route = root / 'candidate.route'
+            route.write_bytes(b'synthetic candidate route')
+            header = dict(kind='header', schema='lezac.level1.scout.v1',
+                          source='cpp', capture_from_tick=BASE, ticks=BASE + 1,
+                          phase_model='cpp-pre-actors-v2',
+                          state_scope='level1-observations-v2',
+                          input_model='sdl-events-original-intro-wait-v1',
+                          seed=seed, step_us=step,
+                          route_fnv1a64=fidelity.fnv1a64(route.read_bytes()),
+                          asset_fnv1a64={}, width=320, height=200,
+                          candidate_only=True, original_fidelity_claim=False)
+            rows = [header]
+            for tick in (BASE, BASE + 1):
+                for phase in ('input', 'present', 'after_nonplayers', 'post_update'):
+                    row = dict(kind='checkpoint', seq=len(rows) - 1, tick=tick,
+                               phase=phase, events=[], time_ms=(tick - 1) * step // 1000,
+                               state=copy.deepcopy(state))
+                    if phase == 'present':
+                        row['frame'] = f'frame_{tick:06d}.ppm'
+                        row['rgb_fnv1a64'] = fidelity.fnv1a64(b'pixel')
+                    rows.append(row)
+            rows.append(dict(kind='complete', ticks=BASE + 1, frames=2,
+                             retained_checkpoints=8, checkpoints=8, events=0,
+                             capture_from_tick=BASE, level1_route_complete=True,
+                             candidate_only=True, original_fidelity_claim=False,
+                             port_functionally_complete=False))
+            if mutation == 'route':
+                rows[0]['route_fnv1a64'] = '0' * 16
+            elif mutation == 'player':
+                rows[4]['state']['players'][0]['x'] = 256
+            elif mutation == 'missing':
+                rows.pop(-2)
+                rows[-1]['retained_checkpoints'] = 7
+                rows[-1]['checkpoints'] = 7
+            elif mutation == 'missing_present':
+                rows.pop(2)
+                for row in rows[2:-1]:
+                    row['seq'] -= 1
+                rows[-1]['retained_checkpoints'] = 7
+                rows[-1]['checkpoints'] = 7
+            (root / 'trace.jsonl').write_text(
+                '\n'.join(json.dumps(row) for row in rows) + '\n', encoding='utf-8')
+            expected = dict(section='level4', index=BASE, phase='post_update')
+            with mock.patch.object(support, 'fixture', return_value=[{}, expected]), \
+                 mock.patch.object(support.recovered, 'check_cpp'), \
+                 mock.patch.object(fidelity, 'ASSETS', ()), \
+                 mock.patch.object(fidelity, 'read_ppm', return_value=b'pixel'):
+                return inspect_trace(root, endpoint, 'right_long_medium', BASE + 1,
+                                     route, dict(seed=seed, step_us=step), {})
+
+    def test_synthetic_trace_valid(self):
+        report = self.attempt_trace()
+        self.assertEqual((report['post_update_states'], report['checked_cplusplus_images']), (2, 2))
+        self.assertFalse(report['original_game_verified'])
+
+    def test_route_substitution_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'provenance'):
+            self.attempt_trace('route')
+
+    def test_changed_player_start_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'candidate diverges'):
+            self.attempt_trace('player')
+
+    def test_omitted_post_update_or_present_rejected(self):
+        for mutation in ('missing', 'missing_present'):
+            with self.assertRaisesRegex(ValueError, 'incomplete C++ candidate trace'):
+                self.attempt_trace(mutation)
 
 
 def main():

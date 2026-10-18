@@ -94,6 +94,23 @@ class CorpseCheckerTest(unittest.TestCase):
                     self.assertTrue(report['timeout'])
                     self.assertEqual((path.parent / 'actual.stderr').read_bytes(), b'error evidence')
 
+    def test_boss_write_does_not_replace_generic_order_check(self):
+        source = (ROOT / 'src/app/app.cpp').read_text(encoding='utf-8')
+        models = (ROOT / 'src/gameplay/actor_models.hpp').read_text(encoding='utf-8')
+        boss = 'actorSlots_.writeCorpse(monster.actorOrder,monster,static_cast<uint8_t>(monster.stateTimer),'
+        motion = '                    expired = lezac::gameplay::advanceCorpseMotion(monster, timer, logicTick_,'
+        writeback = ('                    actorSlots_.writeCorpse(monster.actorOrder, monster, timer, animationAdvanced,\n'
+            '                        animationAdvanced ? actorSpriteDescriptor(monster.animCursor + 1)\n'
+            '                                          : lezac::gameplay::ActorSlots::Descriptor{});\n')
+        self.assertEqual(source.count(boss), 1)
+        self.assertEqual(source.count(writeback), 1)
+        self.assertLess(source.index(boss), source.index(motion))
+        checker.check_routing(source, models)
+        without = source.replace(writeback, '')
+        reordered = without.replace(motion, writeback + motion)
+        with self.assertRaisesRegex(RuntimeError, 'corpse dispatch order differs'):
+            checker.check_routing(reordered, models)
+
 
 if __name__ == '__main__':
     unittest.main()

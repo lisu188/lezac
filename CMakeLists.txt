@@ -627,7 +627,7 @@ if(BUILD_TESTING)
     add_test(NAME world_raster_owners COMMAND lezac_world_raster_owners_test)
     set_tests_properties(world_raster_owners PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy"
-        PASS_REGULAR_EXPRESSION "^world_raster_owners=ok lazy_assets=1 physical_rows=1 live_map=1 word_adjacent_byte=1 rejected_sprite_heap=1")
+        PASS_REGULAR_EXPRESSION "^world_raster_owners=ok lazy_assets=1 physical_rows=1 live_map=1 word_adjacent_byte=1 rejected_sprite_heap=1 rejected_unknown_tile=1")
 
     add_executable(lezac_render_view_gate_test tests/rendering/render_view_gate_test.cpp)
     target_link_libraries(lezac_render_view_gate_test PRIVATE lezac_rendering)
@@ -651,7 +651,7 @@ if(BUILD_TESTING)
             set_tests_properties(world_raster_owner_mutations PROPERTIES
                 ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR}"
                 FIXTURES_REQUIRED viewport_width_corpus
-                PASS_REGULAR_EXPRESSION "world_raster_mutations=ok faults=4 original_source_preserved=1")
+                PASS_REGULAR_EXPRESSION "world_raster_mutations=ok faults=5 original_source_preserved=1")
         endif()
         add_test(NAME active_live_trace_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_active_live_probe.py)
@@ -7068,7 +7068,7 @@ if(BUILD_TESTING)
     set_tests_properties(pickup_landing_original PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
-        PASS_REGULAR_EXPRESSION "^pickup_landing_original=ok samples=26 actor_states=48 created=2 retired=1 initial_y=370 label_y=366,378 creation_rng=1 seeded_cpp=1 frame_inspection=1")
+        PASS_REGULAR_EXPRESSION "^pickup_landing_original=ok samples=26 actor_states=48 created=2 retired=1 initial_y=370 label_y=366,378 creation_rng=1 seeded_cpp=1 frame_inspection=1 actor_only_preview=1 full_world=0")
 
     add_test(NAME walker_ledge_original
         COMMAND lezac_cpp --debug-walker-ledge-original

@@ -55,10 +55,11 @@ level-3/4/5/6 views, including backdrop/map-alias probes.
 The dedicated owner regression covers deferred asset loading, mandatory
 production owners, physical records absent from the typed vectors, deliberately
 latched five-by-three dimensions, live coordinate and tile changes, non-wrapped
-adjacent map/backdrop bytes and explicit rejection of unknown sprite heap reads.
-Four compiled mutations are rejected: physical-row bypass, wrapped adjacent
+adjacent map/backdrop bytes and explicit rejection of unknown sprite heap and
+tile-mask data reads. Five compiled mutations are rejected: physical-row bypass, wrapped adjacent
 map byte, wrong VGA destination and bypassing the recovered caller in
-`GameRenderer`. Actual source files remain unchanged by mutation testing.
+`GameRenderer`, plus zero-filling undefined data. Actual source files remain
+unchanged by mutation testing.
 
 The Linux App builds successfully. All 53 focused actual-App gameplay, lifecycle,
 startup, ownership, mutation and original-render tests pass. The live Xvfb/SDL physical
@@ -89,3 +90,30 @@ a complete single-owner DAC/palette lifecycle. Full campaign, input, sound,
 timing and whole-game equivalence remain unproven.
 
 Full Linux/Windows CI and current-head external review remain merge gates.
+
+## Partial Pickup Fixture Boundary
+
+The first full Linux CI run of PR #429 failed only `pickup_landing_original`:
+the driver rejected unknown `DS:E06A` data. A local debugger reproduced the
+read at original driver `019B`, after map cell 4604 yielded `FF`. This was not
+a missing mask for a shipped tile. The seeded diagnostic restored only the
+player/local map and indicator lifetimes, omitting the debris record required
+to consume the pickup's temporary marker before a normal render boundary.
+
+The diagnostic now renders an explicitly actor-only creation preview, with
+no whole-world claim, while retaining all original actor comparisons. See
+the pickup landing recovery note for the exact boundary. Unknown data remains
+an error in both production and seeded rendering. The new owner assertion and
+fifth compiled mutation ensure this integration does not hide the failure by
+inventing zero bytes. The failing CI record is preserved; a new current-head
+CI and external review must pass before merge.
+
+The repair passes 24 selected CTests, including the formerly failing pickup
+test and its five corrupt-fixture controls, five live-owner compiled mutations,
+the low-level original raster corpus and its four compiled mutations, original
+width/gate/survivor checks, boss fire/reentry, state-2 prepass, and natural
+campaign replay/guard. Native MSVC C++latest `/W4 /WX /O2` also passes the
+expanded owner regression. A fresh silent boss replay still compares 758,784
+indexed pixels over 16 views with zero differences. No new full local suite,
+native Windows actual-App build, natural boss victory or RGB/DAC capture is
+claimed by this repair.

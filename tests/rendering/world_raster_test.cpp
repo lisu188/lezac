@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 #include <type_traits>
 
 using namespace lezac;
@@ -120,6 +121,15 @@ int main() {
         catch (const std::out_of_range&) { missingBackdrop = true; }
         require(missingBackdrop,"Uninitialized backdrop payload reached padding with a negative index");
 
+        level.tiles[13*static_cast<size_t>(level.width)+8] = 255;
+        bool unknownTile = false;
+        try { raster.drawGame(world,presentation,canvas); }
+        catch (const std::out_of_range& error) {
+            unknownTile = std::string(error.what()).find("unrecovered data byte") != std::string::npos;
+        }
+        require(unknownTile,"Unrecovered tile-mask data was silently painted");
+        level.tiles[13*static_cast<size_t>(level.width)+8] = 1;
+
         const gameplay::ActorStorage::Descriptor invalid{2,1,255,255};
         std::copy(invalid.begin(),invalid.end(),slots.visual(2).begin()+4);
         const auto retained = canvas.pixels();
@@ -127,7 +137,7 @@ int main() {
         try { raster.drawGame(world,presentation,canvas); }
         catch (const std::out_of_range&) { rejected = true; }
         require(rejected && canvas.pixels() == retained,"Unrecovered sprite heap access was silently painted");
-        std::cout << "world_raster_owners=ok lazy_assets=1 physical_rows=1 live_map=1 word_adjacent_byte=1 rejected_sprite_heap=1\n";
+        std::cout << "world_raster_owners=ok lazy_assets=1 physical_rows=1 live_map=1 word_adjacent_byte=1 rejected_sprite_heap=1 rejected_unknown_tile=1\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "world_raster_owners=failed " << error.what() << '\n';

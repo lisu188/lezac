@@ -1,4 +1,4 @@
-"""Require live-raster ownership controls to reject four isolated faults."""
+"""Require live-raster ownership controls to reject five isolated faults."""
 import argparse
 import hashlib
 import json
@@ -20,7 +20,10 @@ def run(cxx, libraries, viewport_oracle, out):
          'return readByte(objectBase + offset, tiles, words);',
          'return readByte(objectBase + static_cast<uint16_t>(offset), tiles, words);'),
         ('wrong_vga_destination', paths[0], '1284+layout.left[0]', '1285+layout.left[0]'),
-        ('caller_bypass', paths[2], 'worldRaster_.drawGame(world, presentation_, canvas_);', 'preview.drawGame();'))
+        ('caller_bypass', paths[2], 'worldRaster_.drawGame(world, presentation_, canvas_);', 'preview.drawGame();'),
+        ('unknown_data_zero_fill', paths[0],
+         'throw std::out_of_range("World raster reached unrecovered data byte " + std::to_string(offset));',
+         'return 0;'))
     report = dict(status='failed', faults=[], original_sha256={
         name: hashlib.sha256(raw).hexdigest() for name, raw in originals.items()})
     try:
@@ -62,7 +65,7 @@ def run(cxx, libraries, viewport_oracle, out):
         (out / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     if not report['original_source_preserved']:
         raise ValueError('Live-raster source changed during mutation checks')
-    print('world_raster_mutations=ok faults=4 original_source_preserved=1 report=' + str(out / 'report.json'))
+    print('world_raster_mutations=ok faults=5 original_source_preserved=1 report=' + str(out / 'report.json'))
 
 
 if __name__ == '__main__':

@@ -667,6 +667,8 @@ if(BUILD_TESTING)
             set_tests_properties(frame_render_mutations PROPERTIES
                 PASS_REGULAR_EXPRESSION "frame_render_mutations=ok faults=4 original_source_preserved=1")
         endif()
+        add_test(NAME frame_export_alias_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_export_aliases.py)
         find_package(Git QUIET)
         if(Git_FOUND)
             add_test(NAME frozen_render_checkout COMMAND ${Python3_EXECUTABLE} -S -B

@@ -324,6 +324,8 @@ class ScoutChecks(unittest.TestCase):
                              port_functionally_complete=False))
             if mutation == 'phase_substitution':
                 rows[1]['phase'] = 'after_nonplayers'
+            elif mutation == 'phase_middle':
+                rows[3]['phase'] = 'input'
             elif mutation == 'route':
                 rows[0]['route_fnv1a64'] = '0' * 16
             elif mutation == 'player':
@@ -354,8 +356,9 @@ class ScoutChecks(unittest.TestCase):
         self.assertFalse(report['original_game_verified'])
 
     def test_phase_substitution_rejected(self):
-        with self.assertRaisesRegex(ValueError, 'invalid C.. checkpoint phase progression'):
-            self.attempt_trace('phase_substitution')
+        for variant in ('phase_substitution', 'phase_middle'):
+            with self.assertRaisesRegex(ValueError, 'invalid'):
+                self.attempt_trace(variant)
 
     def test_route_substitution_rejected(self):
         with self.assertRaisesRegex(ValueError, 'provenance'):

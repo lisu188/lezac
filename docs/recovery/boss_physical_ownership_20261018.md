@@ -51,3 +51,26 @@ visuals from typed vectors at render time. Keep the verified failure until a
 production repair passes the same boundary and the broader boss regressions.
 There is no fix, native Windows proof, natural boss victory or whole-game
 parity claim in this diagnostic checkpoint.
+
+## Original Loader Exploration
+
+A first exploratory Unicorn run executes the unchanged original `08A5..0C32`
+GRAN loader and all guest callees. An explicit host DOS-file device services
+the requested open/read calls from canonical `GRAN.MST` bytes; this is not a
+DOSBox kernel or natural-play capture, and guest DOS services are modeled.
+No guest function is stubbed or code patched. The loader consumes all 399
+file bytes, returns to the seeded caller at `1000:2E9C`, leaves actor/visual/link
+counts `7/9/6`, and preserves all 43,552 original code bytes.
+
+The exact exploratory source is retained at
+`evidence/boss_physical_ownership_20261018/gran_loader_probe_source.py`.
+Its hard-coded RAM/dependency paths describe the actual research invocation,
+not a portable supported command. The generated 1 MiB memory remains RAM-only
+and is not published. This probe has not yet gained independent repeats,
+observed/unobserved controls, bounded compact fixture export, complete input
+binding or C++ comparison. Its output is not a frozen regression expectation
+and does not clear the merge blocker.
+
+The next step is a guarded original-loader corpus with explicit DOS-device
+contracts, then physical GRAN initialization and ongoing actor writes checked
+against those original outputs and the existing continuous boss evidence.

@@ -362,7 +362,7 @@ def main():
             unittest.defaultTestLoader.loadTestsFromTestCase(ScoutChecks))
         if not result.wasSuccessful():
             raise SystemExit(1)
-        print('campaign_level4_continuation_scout=ok checks=6 candidates=3')
+        print('campaign_level4_continuation_scout=ok checks=10 candidates=3')
         return
     check(args.exe is not None and args.out is not None, 'executable and output required')
     report = replay(args.exe, args.out, args.pattern, args.ticks, args.timeout)

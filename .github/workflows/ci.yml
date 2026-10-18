@@ -17,7 +17,7 @@ jobs:
   linux:
     name: Linux build and full test suite
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Frozen render cold-checkout regression
@@ -733,7 +733,7 @@ jobs:
   windows:
     name: Windows build and full test suite
     runs-on: windows-2025
-    timeout-minutes: 120
+    timeout-minutes: 180
     defaults:
       run:
         shell: msys2 {0}

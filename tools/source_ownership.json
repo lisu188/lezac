@@ -3,6 +3,7 @@
   "owners": {
     "core": {
       "runtime": [
+        "src/core/actor_animation.hpp",
         "src/core/bios_keyboard.hpp",
         "src/core/bios_keyboard_tables.hpp",
         "src/core/constants.hpp",
@@ -10,6 +11,8 @@
         "src/core/crt_keyboard.hpp",
         "src/core/dos_time.hpp",
         "src/core/fixed_point.hpp",
+        "src/core/frame_active.hpp",
+        "src/core/frame_prefix.hpp",
         "src/core/frame_camera.hpp",
         "src/core/frame_display.hpp",
         "src/core/frame_elapsed.hpp",
@@ -20,7 +23,9 @@
         "src/core/frame_pacing.hpp",
         "src/core/frame_pacing_calculation.hpp",
         "src/core/frame_pacing_operation.hpp",
+        "src/core/frame_render.hpp",
         "src/core/frame_spawner.hpp",
+        "src/core/frame_view_copy.hpp",
         "src/core/frame_world_raster.hpp",
         "src/core/game_keyboard.hpp",
         "src/core/hud.hpp",
@@ -103,7 +108,9 @@
         "src/rendering/sdl_display.hpp",
         "src/rendering/text_renderer.cpp",
         "src/rendering/text_renderer.hpp",
-        "src/rendering/world_camera.hpp"
+        "src/rendering/world_camera.hpp",
+        "src/rendering/world_raster.cpp",
+        "src/rendering/world_raster.hpp"
       ]
     },
     "ui": {
@@ -125,6 +132,7 @@
         "src/app/app.cpp",
         "src/gameplay/actor_models.hpp",
         "src/gameplay/actor_storage.hpp",
+        "src/gameplay/gran_group.hpp",
         "src/gameplay/actor_slots.hpp",
         "src/gameplay/collapse_rectangle.hpp",
         "src/gameplay/collapse_removal.hpp",

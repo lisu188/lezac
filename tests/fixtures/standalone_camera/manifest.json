@@ -1,0 +1,873 @@
+{
+  "actual_library_mapping_verified": true,
+  "assets": {
+    "BOMOMIMK.SPR": "08dfd0e59ba191c52af2529bdfa140fd15a57829f0c6c13bbb78e156769ac0d1",
+    "BOMPAL.PAL": "f2559164074ca529ba6c275a9831b11c6da9e6317f09b3d9228c299d6f8f8319",
+    "CARO.CAR": "949cce4db6071d6675a291c978d725c6e4ee1730b2c7a428bc1c8a8185cbd8d8",
+    "LEZAC.EXE": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
+  },
+  "cases": [
+    {
+      "background": 0,
+      "camera": [
+        104,
+        168
+      ],
+      "camera_mode": 0,
+      "endpoint_registers": [
+        1,
+        168,
+        0,
+        986,
+        24328,
+        49924,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "37a505478491ce5b2c881a1072cd4fc4419e691f0d1844bd2aac0502c02f545e",
+      "final_vga_sha256": "711c34bdbaf84753b81e19e1ca4c5a569a0917dcd5ca25395cc9f29572bc3d02",
+      "index": 0,
+      "initial_memory_sha256": "2cf056348362ef015770c473222173f8bd36b914b408884dcb2b98fe95f52bfe",
+      "rect": [
+        4,
+        4,
+        152,
+        152
+      ],
+      "writes": 31612
+    },
+    {
+      "background": 0,
+      "camera": [
+        136,
+        168
+      ],
+      "camera_mode": 1,
+      "endpoint_registers": [
+        1,
+        168,
+        0,
+        986,
+        24328,
+        49924,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "958eb6bce87c0f93be7ea1a9df4847098cf50b755bb5b708995616bbffd39f73",
+      "final_vga_sha256": "c4b0bf7f455576db6c62725f863ce918f337689876c7d894f735e18db88141c7",
+      "index": 1,
+      "initial_memory_sha256": "70d5db5b09377b14ac3bec30d255c592551398ee564fab7b470ede1ead34f8ab",
+      "rect": [
+        4,
+        4,
+        152,
+        152
+      ],
+      "writes": 31612
+    },
+    {
+      "background": 0,
+      "camera": [
+        168,
+        168
+      ],
+      "camera_mode": 2,
+      "endpoint_registers": [
+        1,
+        168,
+        0,
+        986,
+        24328,
+        49924,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "f679308a3956f8bf4dde8928938a052d69c53b98ecd7e431fe44fc9b7853d71e",
+      "final_vga_sha256": "ad00f50d26ec092b3476ed41f5c69a97385576b33e3f436698719f8d49a7f2b5",
+      "index": 2,
+      "initial_memory_sha256": "5afc36f56120361c92a156d36978de8e574159b5089e14943df5087d7485e330",
+      "rect": [
+        4,
+        4,
+        152,
+        152
+      ],
+      "writes": 31612
+    },
+    {
+      "background": 0,
+      "camera": [
+        136,
+        168
+      ],
+      "camera_mode": 3,
+      "endpoint_registers": [
+        1,
+        168,
+        0,
+        986,
+        24328,
+        49924,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "90f4535c8b0e0fb98272e7e9874ada42e2b56ff9b92ede72aedfd8ba2957fb65",
+      "final_vga_sha256": "752b8aa32e73a09eb9404aa2689df51bcf24483817aac5f93e5af01205504d66",
+      "index": 3,
+      "initial_memory_sha256": "3846c8640ac1007554620f1bca530d45bbcaa402de829a01e081a1cd2bb29727",
+      "rect": [
+        4,
+        4,
+        152,
+        152
+      ],
+      "writes": 31612
+    },
+    {
+      "background": 0,
+      "camera": [
+        104,
+        168
+      ],
+      "camera_mode": 0,
+      "endpoint_registers": [
+        1,
+        168,
+        0,
+        986,
+        24328,
+        50084,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "1117f66ed480018cc30197b7c2740d2f49027c7aba012563daf26d82a62c741d",
+      "final_vga_sha256": "d9d45523056c4e4a64aa2d96c8a4bafa02f92069697543bbc91a9b7c0613087d",
+      "index": 4,
+      "initial_memory_sha256": "3b83ff8a125b6aa804af569f259c32b805d3cce807bd7da2e1668ebf3557a778",
+      "rect": [
+        164,
+        4,
+        152,
+        152
+      ],
+      "writes": 31612
+    },
+    {
+      "background": 0,
+      "camera": [
+        136,
+        168
+      ],
+      "camera_mode": 1,
+      "endpoint_registers": [
+        1,
+        168,
+        0,
+        986,
+        24328,
+        50084,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "502f7cafa71c1c62236d4c8ed5d2fd144d00da4b31a2796a85495d7d7653e4c5",
+      "final_vga_sha256": "3915961ea807bc74fdd305f62e6f094872889be6b0c8ac46ab44275555f74922",
+      "index": 5,
+      "initial_memory_sha256": "c0ffd2fc935619629b64e9fb7640301780c15cf75819dab57f0694f798739c5a",
+      "rect": [
+        164,
+        4,
+        152,
+        152
+      ],
+      "writes": 31612
+    },
+    {
+      "background": 0,
+      "camera": [
+        168,
+        168
+      ],
+      "camera_mode": 2,
+      "endpoint_registers": [
+        1,
+        168,
+        0,
+        986,
+        24328,
+        50084,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "de79f4de6174cdf5044f1bea138eb534d60fdb13e98ddd21bcee065afc88dd16",
+      "final_vga_sha256": "db4724e09465ee786b5256a8c3fac45a3bdca694fbfdc5431028cee06a55c1ee",
+      "index": 6,
+      "initial_memory_sha256": "dff06da23099f4d88b3fd871cfaa2f8b6819fd1118ef71c8494caa02707d3abd",
+      "rect": [
+        164,
+        4,
+        152,
+        152
+      ],
+      "writes": 31612
+    },
+    {
+      "background": 0,
+      "camera": [
+        136,
+        168
+      ],
+      "camera_mode": 3,
+      "endpoint_registers": [
+        1,
+        168,
+        0,
+        986,
+        24328,
+        50084,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "fca7ab8a0bd8907ee25415e636282042670e74461df0c57df08563567d8154a6",
+      "final_vga_sha256": "c4e555523df56fe22bea333b6bb8f254c42ee1f57b3095d996f0cdb399265cde",
+      "index": 7,
+      "initial_memory_sha256": "58ca76e1e031c07afe737e1a21776536b684c0fbf13a3d7c8ad0a9ece9cf0252",
+      "rect": [
+        164,
+        4,
+        152,
+        152
+      ],
+      "writes": 31612
+    },
+    {
+      "background": 0,
+      "camera": [
+        104,
+        168
+      ],
+      "camera_mode": 0,
+      "endpoint_registers": [
+        1,
+        8,
+        0,
+        986,
+        48648,
+        49924,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "0d6db7231142587d76b3685a19fd63a46f97940f8d8f505fa4fa8081e13d1788",
+      "final_vga_sha256": "8c1a06e99b0b6cf8937c0946a2a908b815530ab4c3b11ad953d95b6dabe49c1f",
+      "index": 8,
+      "initial_memory_sha256": "fb66120a4821f66004dc3fe9d799b2ea2facd493b5687d451e2d7a36b98e6c63",
+      "rect": [
+        4,
+        4,
+        312,
+        152
+      ],
+      "writes": 62975
+    },
+    {
+      "background": 0,
+      "camera": [
+        136,
+        168
+      ],
+      "camera_mode": 1,
+      "endpoint_registers": [
+        1,
+        8,
+        0,
+        986,
+        48648,
+        49924,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "8ff1535241d4e01e7b27794a587f21a5f6ca59a829e0d6cbf1fc6352eed4dbf1",
+      "final_vga_sha256": "5271e3f2f93878b276703acdcd13bdff08fc97798f779c9b6edf4215d0523153",
+      "index": 9,
+      "initial_memory_sha256": "51a0fe42c7bb7407d07eab04483fcea99042540abbe94e394574ac155049671a",
+      "rect": [
+        4,
+        4,
+        312,
+        152
+      ],
+      "writes": 62975
+    },
+    {
+      "background": 0,
+      "camera": [
+        168,
+        168
+      ],
+      "camera_mode": 2,
+      "endpoint_registers": [
+        1,
+        8,
+        0,
+        986,
+        48648,
+        49924,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "e1bb64a5559842bdcacf38242b523f7b12a916d449ab8818583c7a7c7b507aa9",
+      "final_vga_sha256": "d6efb6e2f05f78eafa4a68e5ff31accfdb662000854225dc4233f7fd125b59db",
+      "index": 10,
+      "initial_memory_sha256": "2bf986e4d3c9782d86b0735e1e31fa7166754a4ddb79a7d5ce31ce11c67a9b9e",
+      "rect": [
+        4,
+        4,
+        312,
+        152
+      ],
+      "writes": 62972
+    },
+    {
+      "background": 0,
+      "camera": [
+        136,
+        168
+      ],
+      "camera_mode": 3,
+      "endpoint_registers": [
+        1,
+        8,
+        0,
+        986,
+        48648,
+        49924,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "20ddc4b19300008314c84f36ae517e3f8abecad48e1af4de833a6f1a21b84542",
+      "final_vga_sha256": "cf5384301c0903dc524f3815f1ab6809b981874edfe434678d36cab5a0380e96",
+      "index": 11,
+      "initial_memory_sha256": "32aea7195459cb590c7bf5bd126e33145c4d8accd6653d6fc29130d079638b95",
+      "rect": [
+        4,
+        4,
+        312,
+        152
+      ],
+      "writes": 62975
+    },
+    {
+      "background": 1,
+      "camera": [
+        104,
+        168
+      ],
+      "camera_mode": 0,
+      "endpoint_registers": [
+        1,
+        168,
+        0,
+        986,
+        24328,
+        49924,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "1ac718d8178af90da5cde52514d57b927b019d60b61ce48774b18fa1fc674ed4",
+      "final_vga_sha256": "48b986460ddc579a8e429257ed0152de19fe2d57445b3fb28800687db76163c7",
+      "index": 12,
+      "initial_memory_sha256": "542bbf5e275d6dcae1a806f2edaae19d26acc8abd5bab36cc611d600a9839051",
+      "rect": [
+        4,
+        4,
+        152,
+        152
+      ],
+      "writes": 60415
+    },
+    {
+      "background": 1,
+      "camera": [
+        136,
+        168
+      ],
+      "camera_mode": 1,
+      "endpoint_registers": [
+        1,
+        168,
+        0,
+        986,
+        24328,
+        49924,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "370af5d6b45ce43892e0e86bc8591a73589fd602b426ccb0a239dc9f3a097ef6",
+      "final_vga_sha256": "b27c05948beafaa209a50afb6e52fdb9dfa1e253798bf1efbe586934c576fa76",
+      "index": 13,
+      "initial_memory_sha256": "dfb1743985fcfee0c285ef6050208a8819e91e8205b3458690881674aadcab5f",
+      "rect": [
+        4,
+        4,
+        152,
+        152
+      ],
+      "writes": 60415
+    },
+    {
+      "background": 1,
+      "camera": [
+        168,
+        168
+      ],
+      "camera_mode": 2,
+      "endpoint_registers": [
+        1,
+        168,
+        0,
+        986,
+        24328,
+        49924,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "982a6c28e83fa4b427249ac9632032645899447334ac1c0a01469dfd97601e79",
+      "final_vga_sha256": "a14f9d09292755017b12f607aa2a7223a102256401f9923a12acfd57761f4766",
+      "index": 14,
+      "initial_memory_sha256": "f22a02d85db175d916ab80ae03b0b3b9a961ddeb0ed7c3d2358205ed92d15eaa",
+      "rect": [
+        4,
+        4,
+        152,
+        152
+      ],
+      "writes": 60415
+    },
+    {
+      "background": 1,
+      "camera": [
+        136,
+        168
+      ],
+      "camera_mode": 3,
+      "endpoint_registers": [
+        1,
+        168,
+        0,
+        986,
+        24328,
+        49924,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "c4506ddd14f536fad52e87f95427b63395e8d328e09be75335b1748dcc381f0a",
+      "final_vga_sha256": "1b3837d396b43a57926194156057509f38acd8b9efa24bdde9d871c47a1482b7",
+      "index": 15,
+      "initial_memory_sha256": "f9e2568364498387e50499c4bdf3404237f164fd577af5b2e734c37ceaa06689",
+      "rect": [
+        4,
+        4,
+        152,
+        152
+      ],
+      "writes": 60415
+    },
+    {
+      "background": 1,
+      "camera": [
+        104,
+        168
+      ],
+      "camera_mode": 0,
+      "endpoint_registers": [
+        1,
+        168,
+        0,
+        986,
+        24328,
+        50084,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "da742a170108cf76a5896e5f4f81796d5190cddf5a2afc547902d5556e1f8515",
+      "final_vga_sha256": "5d49d57fc9f3dedc227a051603019de9d233381162a59ec4f39b68747c2ae25d",
+      "index": 16,
+      "initial_memory_sha256": "9e27933c9670e775fbcd79317b5b1bf0efeb4a0e028783fe58f385c560282fa8",
+      "rect": [
+        164,
+        4,
+        152,
+        152
+      ],
+      "writes": 60415
+    },
+    {
+      "background": 1,
+      "camera": [
+        136,
+        168
+      ],
+      "camera_mode": 1,
+      "endpoint_registers": [
+        1,
+        168,
+        0,
+        986,
+        24328,
+        50084,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "9c2e48b1c7ba1c8bd60576d7b9938c0af15051f306b294bfdf2584763ae8b414",
+      "final_vga_sha256": "6fc1897c37c920b0f9174d91e6bb47ca7d46e2955b056677959821087f041ae9",
+      "index": 17,
+      "initial_memory_sha256": "bb85d0623de81ccac2df8c33effe0fda614a48e73fac8ac12f6bfd1d5fb5689c",
+      "rect": [
+        164,
+        4,
+        152,
+        152
+      ],
+      "writes": 60415
+    },
+    {
+      "background": 1,
+      "camera": [
+        168,
+        168
+      ],
+      "camera_mode": 2,
+      "endpoint_registers": [
+        1,
+        168,
+        0,
+        986,
+        24328,
+        50084,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "732a765e2444d5f333995e405adf8679918ae9e78c799e82276243391576b921",
+      "final_vga_sha256": "376e631411dae106df4bed2f3049a47afc6b06af5723f14532e33dd58e53fc6b",
+      "index": 18,
+      "initial_memory_sha256": "5b66346bdc779ac19b5c449c1a9829142ed8db88cd9c1376decf4876c7f47c24",
+      "rect": [
+        164,
+        4,
+        152,
+        152
+      ],
+      "writes": 60415
+    },
+    {
+      "background": 1,
+      "camera": [
+        136,
+        168
+      ],
+      "camera_mode": 3,
+      "endpoint_registers": [
+        1,
+        168,
+        0,
+        986,
+        24328,
+        50084,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "1f1ddd22fe3c55c7d8ff3ec57e5ecdc12c86801dd9333913e9c3d93d7fc18c7f",
+      "final_vga_sha256": "3912e276c4626185284dd36da998246c845ad30eccd1992ad675824373c2101d",
+      "index": 19,
+      "initial_memory_sha256": "c8f5e84202032149058c65b8b5b858a797719e6d1744fddfe97842ade72e594c",
+      "rect": [
+        164,
+        4,
+        152,
+        152
+      ],
+      "writes": 60415
+    },
+    {
+      "background": 1,
+      "camera": [
+        104,
+        168
+      ],
+      "camera_mode": 0,
+      "endpoint_registers": [
+        1,
+        8,
+        0,
+        986,
+        48648,
+        49924,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "ef2b6e35e6239e884a41689c8405f28ec03d459f31736680ed225f2602aec3c6",
+      "final_vga_sha256": "6e3ad5ef53299bfb1c57323be93960e831becd30203f91d7b1b1de6570c78ea6",
+      "index": 20,
+      "initial_memory_sha256": "049df0a0c8774418b5cf83b3b4848c7702dea1ae81456af852a2556242f1adaf",
+      "rect": [
+        4,
+        4,
+        312,
+        152
+      ],
+      "writes": 120578
+    },
+    {
+      "background": 1,
+      "camera": [
+        136,
+        168
+      ],
+      "camera_mode": 1,
+      "endpoint_registers": [
+        1,
+        8,
+        0,
+        986,
+        48648,
+        49924,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "cd736830d21f7c279a052209521a788ddfbcf7519e5fe5fade024a25bba04ea8",
+      "final_vga_sha256": "49531900bc65901b1e8f2f3956f5a59481d38133c8ed40c4519e203c14e9f65d",
+      "index": 21,
+      "initial_memory_sha256": "9bc2a218974ac442fe230865f56b42c9b7e55745a23d6b6a5afa9011be9ebbe5",
+      "rect": [
+        4,
+        4,
+        312,
+        152
+      ],
+      "writes": 120578
+    },
+    {
+      "background": 1,
+      "camera": [
+        168,
+        168
+      ],
+      "camera_mode": 2,
+      "endpoint_registers": [
+        1,
+        8,
+        0,
+        986,
+        48648,
+        49924,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "7c92d121c0c7a5b55dc17c0e04dac2c4d1aa73a088672cada68eb51e2271690b",
+      "final_vga_sha256": "b9a752412e1f4679510c82c38d4f8019f4257f730f5b2f5c6e52e1b18d50e79b",
+      "index": 22,
+      "initial_memory_sha256": "869a9008e652e18308bebc13c428eca361cab84ee9217560d4efd888491c7f8d",
+      "rect": [
+        4,
+        4,
+        312,
+        152
+      ],
+      "writes": 120575
+    },
+    {
+      "background": 1,
+      "camera": [
+        136,
+        168
+      ],
+      "camera_mode": 3,
+      "endpoint_registers": [
+        1,
+        8,
+        0,
+        986,
+        48648,
+        49924,
+        16382,
+        4096,
+        6818,
+        40960,
+        28672,
+        16356,
+        31319,
+        582
+      ],
+      "final_memory_sha256": "49ab4191e827417f63a8b250eafde6b82dd4894c3f18ae3ac169cb469e3b8332",
+      "final_vga_sha256": "20da004577005cb9d7936a44f6965173206cfe88e91275464a5b7facdc232666",
+      "index": 23,
+      "initial_memory_sha256": "350c2af095a72cc9656c73eddbae5f2538f517fec721596b2a1482039ebd712e",
+      "rect": [
+        4,
+        4,
+        312,
+        152
+      ],
+      "writes": 120578
+    }
+  ],
+  "compressed_bytes": 35700,
+  "compressed_sha256": "8801227125957f1f40b7b6fbc81cd383f8e046359b45d071bafd74b315741395",
+  "controlled_initial_state": true,
+  "full_frame_claim": false,
+  "full_memory_observer_control": true,
+  "instruction_patches": 0,
+  "natural_capture": false,
+  "ordered_writes_reconstruct_memory": true,
+  "original_calls_stubbed": 0,
+  "player_visuals_unchanged": true,
+  "projection_bytes": 1536348,
+  "projection_sha256": "73aab7145e7c3b1f19230cc10ccb0fd6e2ff8f83e98147b5e531ab069f33e120",
+  "raw_memory_published": false,
+  "schema": "lezac-controlled-standalone-camera-v1",
+  "sources": {
+    "frame_camera_oracle.py": "7f277672f407c3d8054ef954e2b16958a139d827d9f3b2da0c7a36ed717d90b9",
+    "frame_world_raster_inputs.py": "ac8283dc925bd6e88c4b8bb0b4930071eb572571f63e006dde920772ceaa434a",
+    "standalone_camera_oracle.py": "db86802e7e8b4ed0426139133c4c86fa0e98fc42ed4646bcddc72f6ebac4d515"
+  },
+  "unicorn_library_sha256": "ddb196ec82b52e502c18e4a34478bf7b9f61c83c2ebaa95c74d8ded45a95da9c",
+  "unicorn_version": "2.1.4",
+  "work_clock_claim": false
+}

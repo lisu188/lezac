@@ -13,6 +13,7 @@
 namespace lezac::resources {
 struct DecodedLevelPlane;
 }
+namespace lezac::gameplay { class MapPlaneMemory; }
 
 namespace lezac::rendering {
 class Canvas;
@@ -85,6 +86,9 @@ public:
     bool hudDestructionComplete() const { return hudDestructionComplete_; }
     uint32_t backdropColor(uint8_t index) const;
     uint8_t backdropByte(size_t offset, const std::vector<uint8_t>& liveTiles) const;
+    uint8_t backdropAddress(size_t address, const std::vector<uint8_t>& liveTiles,
+                            const std::vector<uint16_t>& liveWords,
+                            const gameplay::MapPlaneMemory* memory) const;
     PresentationSnapshot snapshot() const;
     void restore(const PresentationSnapshot& snapshot);
     void restoreBackdrop(const std::vector<uint8_t>& bytes) { backdropBuffer_ = bytes; }

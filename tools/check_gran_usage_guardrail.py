@@ -93,6 +93,8 @@ def check_source(root: Path) -> tuple[int, int, int, int, int, int, int]:
             require(source.text, "AssetCatalog AssetCatalog::load(AssetFormat format)", "catalog:loader")
             catalog_load = cpp_function_ranges(source.text, ("load",))
         for line_number, line in enumerate(lines, start=1):
+            if re.fullmatch(r'\s*#\s*include\s*[<"][^>"]+[>"]\s*', line):
+                continue
             if "gran_" not in line and not re.search(r"(?:\.|->|::)\s*gran\b", line):
                 continue
             source_refs += 1

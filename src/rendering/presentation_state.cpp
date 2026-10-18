@@ -3,6 +3,7 @@
 #include "rendering/canvas.hpp"
 #include "resources/palette.hpp"
 #include "resources/levels.hpp"
+#include "gameplay/map_plane_memory.hpp"
 #include <algorithm>
 #include <stdexcept>
 
@@ -109,6 +110,22 @@ uint8_t PresentationState::backdropByte(size_t offset, const std::vector<uint8_t
     return tile < liveTiles.size() ? liveTiles[tile] : 0;
 }
 
+uint8_t PresentationState::backdropAddress(size_t address, const std::vector<uint8_t>& liveTiles,
+                                         const std::vector<uint16_t>& liveWords,
+                                         const gameplay::MapPlaneMemory* memory) const {
+    if (address > 65536) throw std::out_of_range("backdrop address exceeds adjacent byte");
+    if (address < 8) return 0;
+    const size_t offset = address - 8;
+    if (offset < 60000) {
+        if (offset >= backdropBuffer_.size()) throw std::out_of_range("backdrop payload is not initialized");
+        return backdropBuffer_[offset];
+    }
+    if (offset < 60008) return backdropHeapPadding_[offset - 60000];
+    const size_t tile = offset - 60008;
+    if (memory) return memory->readObjectAddress(tile, liveTiles, liveWords);
+    return tile < liveTiles.size() ? liveTiles[tile] : 0;
+}
+
 void PresentationState::updateRedPalette(uint16_t frame) {
     if (frame % 5 != 0) return;
     uint8_t red = redPalettePhase_;
@@ -146,7 +163,7 @@ void PresentationState::resetHudForLevel() {
 
 void PresentationState::beginOriginalPlay(bool fromMenu) {
     if (fromMenu && !originalPlayInitialized_) {
-        std::fill(backdropBuffer_.begin(), backdropBuffer_.end(), 0);
+        std::fill(backdropBuffer_.begin(), backdropBuffer_.end(), uint8_t{0});
         originalPlayInitialized_ = true;
     }
 }

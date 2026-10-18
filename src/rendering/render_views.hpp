@@ -1,6 +1,7 @@
 #pragma once
 
 #include "gameplay/actor_models.hpp"
+#include "gameplay/actor_storage.hpp"
 #include "core/hud.hpp"
 #include "rendering/hud_ammo.hpp"
 #include "rendering/viewport_layout.hpp"
@@ -10,6 +11,8 @@
 #include <array>
 #include <string>
 #include <vector>
+
+namespace lezac::gameplay { class MapPlaneMemory; }
 
 namespace lezac::rendering {
 
@@ -42,6 +45,9 @@ struct WorldRenderView {
     bool state2CursorPreview;
     bool state2RowPreview;
     const ViewportLayout* viewportLayout = nullptr;
+    const gameplay::MapPlaneMemory* mapMemory = nullptr;
+    const gameplay::ActorStorage::State* physicalVisuals = nullptr;
+    bool seededDiagnostic = false;
 };
 
 struct PlayerHudView {

@@ -10645,6 +10645,92 @@ public:
                   << " early_fire_blocked=1 reserve_zero_playable=1\n";
     }
 
+    void debugBossPhysicalOwnership(const std::string& outDir) {
+        load();
+        legacyActorSeedsEnabled_ = false;
+        playerCount_ = 1; lives_ = lives2_ = 2;
+        resetLevel(6); ui_.setMenu(false);
+        size_t initialCursorDifferences = 0, coordinateDifferences = 0, animationDifferences = 0, linkChecks = 0;
+        const auto word = [](const auto& bytes, size_t offset) {
+            return static_cast<int16_t>(uint16_t{bytes[offset]} | (uint16_t{bytes[offset+1]} << 8));
+        };
+        for (const auto& monster : monsters_) {
+            if (!isBossMotionBehavior(monster.behavior)) continue;
+            const auto cursor = lezac::gameplay::monsterAnimation(monster).packed();
+            const auto& raw = actorSlots_.actor(monster.actorOrder);
+            for (size_t i = 0; i < cursor.size(); ++i) initialCursorDifferences += cursor[i] != raw[22+i];
+        }
+        const auto render = [&](const std::string& label) {
+            canvas_.resetClip(); canvas_.clear(argb(palette_,0));
+            Player camera=player_; camera.x=100; camera.y=168;
+            drawWorldView(camera,4,4,312,152); canvas_.resetClip();
+            const auto& work=gameRenderer_.lastCompletedWorldRasterWork();
+            if (!work.physicalVisuals || work.dispatchedInstructions==0)
+                throw std::runtime_error("boss ownership diagnostic bypassed physical renderer");
+            if (!outDir.empty()) {
+                std::filesystem::create_directories(outDir);
+                writeArgbPpm(joinPath(outDir,label+".ppm"),fb_,kScreenW,kScreenH);
+            }
+            return frameInspector_.inspectRenderedFrame(label).hash;
+        };
+        const auto before=render("boss-physical-before");
+        for (unsigned tick = 1; tick <= 8; ++tick) {
+            ++logicTick_;
+            updateBossLinks();
+            updateMonsters(1.0f/60.0f);
+            for (const auto& monster : monsters_) {
+                if (!isBossMotionBehavior(monster.behavior)) continue;
+                const auto& raw = actorSlots_.actor(monster.actorOrder);
+                const auto& row = actorSlots_.state().visuals[raw[1]];
+                const auto cursor=lezac::gameplay::monsterAnimation(monster).packed();
+                for (size_t i=0;i<cursor.size();++i) animationDifferences+=cursor[i]!=raw[22+i];
+                const auto x = static_cast<int16_t>(monster.x);
+                const auto y = static_cast<int16_t>(monster.y+monster.hotspotY);
+                if (word(row,0) != x || word(row,2) != y) {
+                    ++coordinateDifferences;
+                    if (coordinateDifferences == 1)
+                        std::cout << "boss_physical_first_mismatch tick=" << tick << " order=" << monster.actorOrder
+                            << " typed=" << x << ',' << y << " physical=" << word(row,0) << ',' << word(row,2) << '\n';
+                }
+            }
+            for (size_t i=0;i<bossLinks_.size();++i) {
+                const auto& raw=actorSlots_.state().links[i+1];
+                const auto& link=bossLinks_[i];
+                if (raw[6]!=link.phase || word(raw,11)!=link.outX || word(raw,13)!=link.outY)
+                    throw std::runtime_error("boss physical link output is stale");
+                ++linkChecks;
+            }
+        }
+        const auto after=render("boss-physical-after");
+        auto head=std::find_if(monsters_.begin(),monsters_.end(),[](const ActiveMonster& actor) { return actor.kind==30; });
+        if (head==monsters_.end()) throw std::runtime_error("boss ownership diagnostic has no head");
+        for (int y=0;y<head->bossBoxH;++y) for (int x=0;x<head->bossBoxW;x+=2) {
+            const auto at=static_cast<uint16_t>((head->y/8+y)*level_.width+head->x/8+x);
+            mapPlaneMemory_.writeObject(at,0x75,level_.tiles,level_.wordLayer);
+        }
+        unsigned damageCalls=0;
+        while (!head->bossDebris && damageCalls<512) {
+            damageBossHeadFromFlames(*head); ++damageCalls;
+            const auto& raw=actorSlots_.actor(head->actorOrder);
+            if (raw[36]!=head->bossHpByte || (!head->bossDebris && raw[2]!=head->bossLives))
+                throw std::runtime_error("boss physical damage state is stale");
+        }
+        size_t conversions=0;
+        for (const auto& monster : monsters_) if (monster.bossDebris) {
+            const auto& raw=actorSlots_.actor(monster.actorOrder);
+            if (raw[0]!=14 || raw[21]!=2 || raw[2]!=static_cast<uint8_t>(monster.stateTimer) || raw[27]!=0)
+                throw std::runtime_error("boss physical debris conversion is stale");
+            ++conversions;
+        }
+        if (initialCursorDifferences || coordinateDifferences || animationDifferences || before==after || conversions!=7)
+            throw std::runtime_error("boss physical visual/animation owner is stale");
+        std::cout << "boss_physical_ownership=ok initial_cursor_byte_differences=" << initialCursorDifferences
+            << " coordinate_mismatches=" << coordinateDifferences << " animation_byte_mismatches=" << animationDifferences
+            << " ticks=8 physical_links=" << linkChecks << " rendered_frames=2 frame_changed=1 death_conversions=" << conversions
+            << " damage_calls=" << damageCalls << " damage_injected=1 legacy_adapter=0"
+            << " actual_App_helpers=1 natural_route=0 original_comparison=0\n";
+    }
+
     void debugReserveLifeLifecycle(const std::string& outDir) {
         load();
         initSdl();
@@ -25139,7 +25225,7 @@ public:
                   << " frame_inspection=1 frame_hash=" << std::hex << lastHash << std::dec << '\n';
     }
 
-    void debugPickupLandingOriginal(const std::string& fixturePath) {
+    void debugPickupLandingOriginal(const std::string& fixturePath, const std::string& outDir = "") {
         if (std::filesystem::file_size(fixturePath) != 2798) {
             throw std::runtime_error("pickup landing fixture size differs");
         }
@@ -25178,6 +25264,7 @@ public:
         }
         randomSeed_ = entrySeed;
         size_t actorStates = 0;
+        FrameInspection inspected;
         for (int sample = 0; sample < 26; ++sample) {
             const auto frame = lezac::resources::getU16(data, offset);
             if (frame != 685 + sample) throw std::runtime_error("pickup landing frames are not consecutive");
@@ -25204,13 +25291,22 @@ public:
                 }
                 ++actorStates;
             }
+            if (sample == 0) {
+                // The compact fixture omits the world's live debris records.
+                canvas_.resetClip();
+                canvas_.clear(argb(palette_, 0));
+                for (const auto& actor : transientActors_)
+                    textRenderer_.drawSprite(sprites_.sprites.at(actor.spriteIndex), actor.x, actor.y - 300);
+                inspected = frameInspector_.inspectRenderedFrame("pickup-labels-only");
+                if (!outDir.empty()) writeArgbPpm(joinPath(outDir, "pickup-labels-only.ppm"), fb_, kScreenW, kScreenH);
+            }
         }
         if (offset != data.size() || actorStates != 48 || !transientActors_.empty()) {
             throw std::runtime_error("incomplete pickup landing replay");
         }
-        const auto inspected = inspectRenderedFrame("pickup-landing-original");
         std::cout << "pickup_landing_original=ok samples=26 actor_states=48 created=2 retired=1"
-                  << " initial_y=370 label_y=366,378 creation_rng=1 seeded_cpp=1 frame_inspection=1 frame_hash="
+                  << " initial_y=370 label_y=366,378 creation_rng=1 seeded_cpp=1 frame_inspection=1"
+                  << " actor_only_preview=1 full_world=0 frame_hash="
                   << std::hex << inspected.hash << std::dec << '\n';
     }
 
@@ -25413,16 +25509,39 @@ public:
             bank.records.assign(1, GranRecord{bytes});
             monsters_.clear();
             nextActorOrder_ = 1;
+            actorSlots_.resetForLevel(actorSpriteDescriptor(1));
+            if (actorSlots_.count() != 0 || actorSlots_.state().visualCount != 2 ||
+                actorSlots_.state().links[0][15] != 0) {
+                throw std::runtime_error("boss animation fixture physical reset differs");
+            }
             spawnLevel7BossFromBank(bank);
-            if (monsters_.size() != 7) throw std::runtime_error("boss animation copy lost an actor");
+            if (monsters_.size() != 7 || actorSlots_.count() != 7 ||
+                actorSlots_.state().visualCount != 9 || actorSlots_.state().links[0][15] != 6) {
+                throw std::runtime_error("boss animation copy lost physical ownership");
+            }
             for (size_t actor = 0; actor < 7; ++actor) {
                 const auto actual = monsters_[actor].animationBackup.packed();
                 if (!std::equal(actual.begin(), actual.end(), bytes.begin() + 1 + actor * 38 + 29)) {
                     throw std::runtime_error("boss animation backup copy mismatch");
                 }
             }
+            const auto retained = actorSlots_.state();
+            const auto nextOrder = nextActorOrder_;
+            bool rejected = false;
+            try {
+                spawnLevel7BossFromBank(bank);
+            } catch (const std::invalid_argument& error) {
+                rejected = std::string(error.what()) == "GRAN group exceeds physical storage";
+            }
+            const auto& after = actorSlots_.state();
+            if (!rejected || after.actors != retained.actors || after.visuals != retained.visuals ||
+                after.links != retained.links || after.count != retained.count ||
+                after.visualCount != retained.visualCount || after.success != retained.success || monsters_.size() != 7 ||
+                bossLinks_.size() != 6 || nextActorOrder_ != nextOrder) {
+                throw std::runtime_error("boss animation capacity rejection changed existing group");
+            }
         }
-        std::cout << "monster_animation_original=ok cases=53 updates=636 production_app=1 diagnostic_stop_after_prologue=1 boss_backup_copies=14 seeded=1 natural_route=0 whole_game_claim=0\n";
+        std::cout << "monster_animation_original=ok cases=53 updates=636 production_app=1 diagnostic_stop_after_prologue=1 boss_backup_copies=14 seeded=1 natural_route=0 whole_game_claim=0 boss_physical_resets=2 boss_capacity_rejections=2\n";
     }
 
     void debugOriginalPickupPostInit(const std::string& outputPath) {
@@ -25660,14 +25779,14 @@ public:
                 static_cast<uint8_t>(offset), static_cast<uint8_t>(offset >> 8)};
         };
         size_t descriptorChecks = 0;
-        auto checkPhysicalDescriptor = [&](uint64_t order, uint16_t sprite, const Descriptor& expected) {
+        auto checkPhysicalDescriptor = [&](uint64_t order, const Descriptor& expected, uint8_t expectedHotspot) {
             const size_t slot = actorSlots_.find(order);
             require(slot != 0, "descriptor probe has no physical actor");
             const auto& raw = actorSlots_.state().actors[slot];
             const auto& visual = actorSlots_.state().visuals.at(raw[1]);
             require(std::equal(expected.begin(), expected.end(), visual.begin() + 4),
                 "active sprite bank physical descriptor mismatch");
-            require(raw[20] == (sprite == 31 ? 0 : static_cast<uint8_t>(16 - expected[1])),
+            require(raw[20] == expectedHotspot,
                 "active sprite bank physical hotspot mismatch");
             ++descriptorChecks;
         };
@@ -25687,7 +25806,8 @@ public:
             }
             for (const uint16_t sprite : {uint16_t{31}, uint16_t{40}, uint16_t{91}}) {
                 const uint64_t order = allocateActor({0x0a, 20, 5, sprite, 0, 0, 184, 100});
-                checkPhysicalDescriptor(order, sprite, expectedDescriptor(bank, sprite));
+                const auto expected = expectedDescriptor(bank, sprite);
+                checkPhysicalDescriptor(order, expected, sprite == 31 ? uint8_t{0} : static_cast<uint8_t>(16 - expected[1]));
                 retireActor(order);
             }
         };
@@ -25821,9 +25941,28 @@ public:
             require(monster.animationBackup.packed() == actorSlots_.animationBackup(monster.actorOrder).packed(),
                 "boss loader lost copied backup");
         checkBindings();
+        // 08A5 copies the shipped GRAN hotspot bytes (all zero), unlike 2F9F.
         for (const auto& monster : monsters_)
-            checkPhysicalDescriptor(monster.actorOrder, static_cast<uint16_t>(monster.animFrame + 1),
-                expectedDescriptor(altSprites_, static_cast<uint16_t>(monster.animFrame + 1)));
+            checkPhysicalDescriptor(monster.actorOrder,
+                expectedDescriptor(altSprites_, static_cast<uint16_t>(monster.animFrame + 1)), 0);
+        const auto copiedBossState = actorSlots_.state();
+        std::array<uint64_t, lezac::gameplay::ActorStorage::capacity + 1> copiedBossOrders{};
+        for (size_t slot = 1; slot <= actorSlots_.count(); ++slot) copiedBossOrders[slot] = actorSlots_.order(slot);
+        size_t rejectedBossHotspots = 0;
+        for (const auto& monster : monsters_) {
+            auto corrupted = copiedBossState;
+            corrupted.actors[actorSlots_.find(monster.actorOrder)][20] ^= 1;
+            actorSlots_.restoreForFixture(corrupted, copiedBossOrders);
+            bool rejected = false;
+            try { checkPhysicalDescriptor(monster.actorOrder,
+                expectedDescriptor(altSprites_, static_cast<uint16_t>(monster.animFrame + 1)), 0); }
+            catch (const std::runtime_error& error) {
+                rejected = std::string(error.what()) == "active sprite bank physical hotspot mismatch";
+            }
+            actorSlots_.restoreForFixture(copiedBossState, copiedBossOrders);
+            require(rejected, "copied boss hotspot corruption was not rejected");
+            ++rejectedBossHotspots;
+        }
         checkBank(altSprites_, {48, 20, 0, 39}, {12, 10, 211, 81});
         for (size_t row = 0; row < 2; ++row) {
             const auto expected = expectedDescriptor(altSprites_, 1);
@@ -25843,7 +25982,8 @@ public:
                      "mode3_restore=1 reset_retains_backup=1 full_capacity_conversions=2 constructors=7 "
                      "production_app=1 legacy_adoptions=0 legacy_retirements=0 seeded=1 natural_route=0 "
                      "physical_fixture_seeds=1 full_raw_record_owner=0 whole_game_claim=0 descriptor_banks=2 descriptor_checks="
-                  << descriptorChecks << " descriptor_reset=1 descriptor_bounds=2\n";
+                  << descriptorChecks << " descriptor_reset=1 descriptor_bounds=2 boss_copied_hotspots=7 boss_hotspot_rejections="
+                  << rejectedBossHotspots << '\n';
     }
 
     void debugMonsterObjectBranchOriginal(const std::string& fixturePath) {
@@ -30076,15 +30216,27 @@ private:
         if (granBytes.size() != 399 || granBytes[0] != 7) return;
         size_t pos = 1;
         const size_t recordCount = granBytes[0];
-        const size_t recordsBase = pos;
         pos += recordCount * 0x26;
         const size_t spritesBase = pos;
         pos += recordCount;
         const size_t pairsBase = pos;
         pos += recordCount * 4;
         const size_t extraCount = granBytes[pos++];
-        const size_t extrasBase = pos;
         if (pos + extraCount * 16 != granBytes.size()) return;
+
+        const lezac::gameplay::GranGroup group(granBytes);
+        const uint64_t firstBossVisualOrder = nextActorOrder_;
+        const auto bossGroup = static_cast<uint16_t>(sharedActorCount() + 1);
+        const auto visualBase = actorSlots_.state().visualCount;
+        const auto linkBase = actorSlots_.state().links[0][15];
+        actorSlots_.appendGranGroup(firstBossVisualOrder,group,100,100,
+            [this](uint8_t sprite) { return actorSpriteDescriptor(sprite); },
+            [](uint8_t selector) {
+                if (selector >= kBossAnimSets.size()) throw std::out_of_range("Unknown GRAN animation set");
+                return std::array<uint8_t,2>{static_cast<uint8_t>(kBossAnimSets[selector][0]),
+                    static_cast<uint8_t>(kBossAnimSets[selector][1])};
+            });
+        nextActorOrder_ += recordCount;
 
         for (size_t i = 0; i < bossSinTable_.size(); ++i) {
             // The original fills a 128-entry Real48 table with Sin(i*6.28/128).
@@ -30093,10 +30245,10 @@ private:
 
         bossLinks_.clear();
         for (size_t i = 0; i < extraCount; ++i) {
-            const uint8_t* extra = granBytes.data() + extrasBase + i * 16;
+            const uint8_t* extra = actorSlots_.state().links[linkBase+i+1].data();
             BossMotionLink link;
-            link.targetVisual = static_cast<uint8_t>(extra[0] + kBossVisualBase);
-            link.selfVisual = static_cast<uint8_t>(extra[1] + kBossVisualBase);
+            link.targetVisual = extra[0];
+            link.selfVisual = extra[1];
             link.gain = extra[2];
             link.mode = extra[3];
             link.radiusX = extra[4];
@@ -30111,18 +30263,17 @@ private:
             bossLinks_.push_back(link);
         }
 
-        const uint64_t firstBossVisualOrder = nextActorOrder_;
-        const auto bossGroup = static_cast<uint16_t>(sharedActorCount() + 1);
         for (size_t i = 0; i < recordCount; ++i) {
-            const uint8_t* record = granBytes.data() + recordsBase + i * 0x26;
+            const auto order = firstBossVisualOrder+i;
+            const uint8_t* record = actorSlots_.actor(order).data();
             ActiveMonster actor;
             actor.kind = record[0x00];
             actor.behavior = record[0x15];
-            actor.bossVisual = static_cast<uint8_t>(record[0x01] + kBossVisualBase);
+            actor.bossVisual = record[0x01];
             // The GRAN reader rewrites the head +0x12 and segment +0x25
             // owner fields to the group's first one-based actor slot.
             actor.bossGroup = bossGroup;
-            const size_t entryOrder = static_cast<size_t>(actor.bossVisual) - kBossVisualBase;
+            const size_t entryOrder = static_cast<size_t>(actor.bossVisual) - visualBase;
             if (entryOrder >= recordCount) continue;
             const int dx = static_cast<int16_t>(granBytes[pairsBase + entryOrder * 4] |
                                                 (granBytes[pairsBase + entryOrder * 4 + 1] << 8));
@@ -30131,23 +30282,14 @@ private:
             actor.x = 100 + dx;
             actor.y = 100 + dy;
             const uint8_t entrySprite = granBytes[spritesBase + entryOrder];
-            const uint8_t animSet = record[0x03];
-            if (animSet != 0 && animSet < kBossAnimSets.size() &&
-                kBossAnimSets[animSet][0] != 0) {
-                actor.animStart = kBossAnimSets[animSet][0] - 1;
-                actor.animEnd = kBossAnimSets[animSet][1] - 1;
-                actor.animMode = 1;
-                actor.animCursor = actor.animStart;
-                actor.animTick = record[0x1a];
-            } else {
-                // A zero animation-set selector leaves the copied bytes intact.
-                actor.animCursor = static_cast<uint8_t>(record[0x16] - 1);
-                actor.animStart = static_cast<uint8_t>(record[0x17] - 1);
-                actor.animEnd = static_cast<uint8_t>(record[0x18] - 1);
-                actor.animTick = record[0x19];
-                actor.animMode = record[0x1b];
-                actor.animStep = static_cast<int8_t>(record[0x1c]);
-            }
+            actor.animCursor = static_cast<uint8_t>(record[0x16] - 1);
+            actor.animStart = static_cast<uint8_t>(record[0x17] - 1);
+            actor.animEnd = static_cast<uint8_t>(record[0x18] - 1);
+            actor.animTick = record[0x19];
+            actor.animMode = record[0x1b];
+            actor.animStep = static_cast<int8_t>(record[0x1c]);
+            actor.stateTimer = record[2];
+            actor.animationSetLeft = record[3]; actor.animationSetRight = record[4];
             // GRAN.MST and the animation table carry one-based descriptors.
             actor.animFrame = entrySprite - 1;
             // Raw delay byte: the shared advance (1000:608F) fires when the
@@ -30171,12 +30313,7 @@ private:
                 actor.linkC = record[0x10];
                 actor.hp = 255;
             }
-            actor.actorOrder = allocateActor({actor.kind, record[2], actor.behavior, entrySprite,
-                static_cast<int16_t>(record[6] | (record[7] << 8)),
-                static_cast<int16_t>(record[8] | (record[9] << 8)),
-                static_cast<int16_t>(actor.x), static_cast<int16_t>(actor.y)});
-            if (!actor.actorOrder) throw std::runtime_error("boss loader exceeds physical actor capacity");
-            actorSlots_.setAnimationBackup(actor.actorOrder, actor.animationBackup);
+            actor.actorOrder = order;
             actor.bossVisualOrder = firstBossVisualOrder + entryOrder;
             monsters_.push_back(actor);
         }
@@ -30198,7 +30335,8 @@ private:
     // update loop.
     void updateBossLinks() {
         if (bossLinks_.empty()) return;
-        for (BossMotionLink& link : bossLinks_) {
+        for (size_t index=0;index<bossLinks_.size();++index) {
+            BossMotionLink& link=bossLinks_[index];
             ActiveMonster* target = findBossActorByVisual(link.targetVisual);
             if (link.mode != 0xff) {
                 ActiveMonster* self = findBossActorByVisual(link.selfVisual);
@@ -30229,6 +30367,8 @@ private:
                     target->y + target->hotspotY + link.offY +
                     static_cast<int>(sinValue * link.radiusY));
             }
+            if (!legacyActorSeedsEnabled_)
+                actorSlots_.writeLinkMotion(index+1,link.phase,link.outX,link.outY);
         }
     }
 
@@ -30399,6 +30539,9 @@ private:
         // The caller still holds collision-space Y until its final writeback.
         monster.animFrame = 0x2f - 1;
         monster.hotspotY = static_cast<int8_t>(16 - altSprites_.sprites.at(monster.animFrame).height);
+        if (!legacyActorSeedsEnabled_ || actorSlots_.find(monster.actorOrder))
+            actorSlots_.writeBossDamage(monster.actorOrder,monster.bossHpByte,monster.bossLives,
+                actorSpriteDescriptor(static_cast<uint16_t>(monster.animFrame)+1));
         if (monster.bossLives == 0xff) bossDeathChain(monster);
     }
 
@@ -30413,6 +30556,8 @@ private:
                 monster.bossDebris = true;
                 monster.animMode = 0;
                 monster.stateTimer = 0x28 + static_cast<int>(randomRangeValue(0, 10));
+                if (!legacyActorSeedsEnabled_ || actorSlots_.find(monster.actorOrder))
+                    actorSlots_.enterBossDebris(monster.actorOrder,static_cast<uint8_t>(monster.stateTimer));
             }
         }
         head.kind = 0x0e;
@@ -30420,6 +30565,8 @@ private:
         head.bossDebris = true;
         head.animMode = 0;
         head.stateTimer = 0x3c;
+        if (!legacyActorSeedsEnabled_ || actorSlots_.find(head.actorOrder))
+            actorSlots_.enterBossDebris(head.actorOrder,static_cast<uint8_t>(head.stateTimer));
         applyTileTrigger(1000);
         requestTileTriggerSound();
         bossDefeated_ = true;
@@ -30558,7 +30705,7 @@ private:
             // 1000:6078..615A precedes behavior dispatch, including corpses.
             const bool animationAdvanced = lezac::gameplay::advanceMonsterAnimation(monster);
             if (debugMonsterAnimationObserver_) debugMonsterAnimationObserver_(monster, animationAdvanced);
-            if (monster.kind >= 1 && monster.kind <= 8)
+            if ((monster.kind >= 1 && monster.kind <= 8) || isBossMotionBehavior(monster.behavior))
                 actorSlots_.writeMonsterAnimation(monster.actorOrder, monster, animationAdvanced,
                     animationAdvanced ? actorSpriteDescriptor(monster.animCursor + 1)
                                       : lezac::gameplay::ActorSlots::Descriptor{});
@@ -30567,6 +30714,10 @@ private:
                     updateTimedActorMotion(monster.x, monster.y, monster.vx8, monster.vy8,
                                            monster.fracX, monster.fracY, scanActorEdges(monster.x, monster.y));
                     if (logicTick_ & 1u) monster.stateTimer = static_cast<uint8_t>(monster.stateTimer - 1);
+                    if (!legacyActorSeedsEnabled_ || actorSlots_.find(monster.actorOrder))
+                        actorSlots_.writeCorpse(monster.actorOrder,monster,static_cast<uint8_t>(monster.stateTimer),
+                            animationAdvanced,animationAdvanced ? actorSpriteDescriptor(monster.animCursor+1)
+                                : lezac::gameplay::ActorSlots::Descriptor{});
                     if (monster.stateTimer == 0 || monster.stateTimer == 0xff) {
                         Bomb bomb;
                         bomb.type = BombType::Medium;
@@ -30729,6 +30880,8 @@ private:
                 if (query.delta != 0) damageMonster(monster, -query.delta, true);
                 actorSlots_.writeMonsterMotion(monster.actorOrder, monster);
             }
+            if (isBossMotionBehavior(monster.behavior) || monster.bossDebris)
+                actorSlots_.writeMonsterMotion(monster.actorOrder,monster);
         }
         monsters_.erase(std::remove_if(monsters_.begin(), monsters_.end(),
                                        [](const ActiveMonster& monster) { return !monster.alive; }),
@@ -32547,7 +32700,8 @@ private:
                   {player2_, player2Dead_, lives2_, state2Visual2_, state2Effect2_, originalPlayerState(2)}}},
                 bombs_, monsters_, bonusDrops_, flashes_, launchPadMarkers_, transientActors_, order,
                 gameplayViewWidth_, ui_.snapshot().showBackground, cameraShakeOffset_,
-                state2VisualCursorPreview_, state2VisualRowPreview_, &viewportLayout_};
+                state2VisualCursorPreview_, state2VisualRowPreview_, &viewportLayout_, &mapPlaneMemory_,
+                legacyActorSeedsEnabled_ ? nullptr : &actorSlots_.state(), legacyActorSeedsEnabled_};
     }
 
     lezac::rendering::HudView hudView() const {
@@ -32938,6 +33092,10 @@ int lezac::app::runApplication(int argc, char** argv) {
             app.debugOriginalState2ReturnModel();
             return 0;
         }
+        if (argc > 1 && std::string(argv[1]) == "--debug-boss-physical-ownership") {
+            app.debugBossPhysicalOwnership(argc>2 ? argv[2] : "");
+            return 0;
+        }
         if (argc > 1 && std::string(argv[1]) == "--debug-reserve-life-lifecycle") {
             app.debugReserveLifeLifecycle(argc > 2 ? argv[2] : "");
             return 0;
@@ -33184,7 +33342,7 @@ int lezac::app::runApplication(int argc, char** argv) {
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-pickup-landing-original") {
-            app.debugPickupLandingOriginal(argv[2]);
+            app.debugPickupLandingOriginal(argv[2], argc > 3 ? argv[3] : "");
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-walker-ledge-original") {

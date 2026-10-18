@@ -52,13 +52,14 @@ def check_routing(source, models):
 
     start = source.index('    void updateMonsters(')
     update = source[start:source.index('\n    void ', start + 1)]
+    writeback = 'actorSlots_.writeCorpse(monster.actorOrder, monster, timer, animationAdvanced,'
     for token in ('advanceMonsterAnimation(monster)', 'advanceCorpseMotion(monster, timer, logicTick_',
                   'actorSlots_.actor(monster.actorOrder)', 'raw[0] == 0x0c ? raw[2]',
-                  'actorSlots_.writeCorpse(monster.actorOrder, monster, timer, animationAdvanced,',
+                  writeback,
                   'finishMonsterDeathReward(monster)'):
         require(token in update, 'missing corpse production routing: ' + token)
     require(update.index('advanceMonsterAnimation') < update.index('advanceCorpseMotion') <
-            update.index('actorSlots_.writeCorpse') < update.index('finishMonsterDeathReward'), 'corpse dispatch order differs')
+            update.index(writeback) < update.index('finishMonsterDeathReward'), 'corpse dispatch order differs')
     conversion = body('    void finishMonsterDeathReward(', '    void spawnExpiryParticles(')
     for token in ('corpseRewardRoll_ = static_cast<uint8_t>(randomRangeValue(0, 100))',
                   'randomRangeValue(0, 20)', 'requestSoundCursor(rewardSound, 4)', 'convertCorpseReward(',

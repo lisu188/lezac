@@ -130,6 +130,7 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
                   row['phase'] in ('input', 'present', 'after_nonplayers', 'post_update'), 'bad C++ state boundary')
             fidelity.validate_state(row['state'])
             tick = row['tick']
+            check(BASE <= tick <= last, 'C++ checkpoint outside requested route')
             phase = row['phase']
             if previous_phase is None:
                 check((tick, phase) == (BASE, 'input'), 'invalid first C++ checkpoint')
@@ -333,6 +334,13 @@ class ScoutChecks(unittest.TestCase):
                 rows[4]['state']['players'][0]['x'] = 256
             elif mutation == 'invalid_state':
                 rows[-2]['state']['players'][0]['health'][0] = -1
+            elif mutation == 'extra_input':
+                more = copy.deepcopy(rows[-2])
+                more.update(seq=8, tick=BASE + 2, phase='input', events=[],
+                            time_ms=(BASE + 1) * step // 1000)
+                rows.insert(-1, more)
+                rows[-1]['retained_checkpoints'] = 9
+                rows[-1]['checkpoints'] = 9
             elif mutation == 'missing':
                 rows.pop(-2)
                 rows[-1]['retained_checkpoints'] = 7
@@ -370,6 +378,10 @@ class ScoutChecks(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'invalid checkpoint health'):
             self.attempt_trace('invalid_state')
 
+    def test_post_end_checkpoint_rejected(self):
+        with self.assertRaisesRegex(ValueError, 'outside requested route'):
+            self.attempt_trace('extra_input')
+
     def test_route_substitution_rejected(self):
         with self.assertRaisesRegex(ValueError, 'provenance'):
             self.attempt_trace('route')
@@ -398,7 +410,7 @@ def main():
             unittest.defaultTestLoader.loadTestsFromTestCase(ScoutChecks))
         if not result.wasSuccessful():
             raise SystemExit(1)
-        print('campaign_level4_continuation_scout=ok checks=12 candidates=3')
+        print('campaign_level4_continuation_scout=ok checks=13 candidates=3')
         return
     check(args.exe is not None and args.out is not None, 'executable and output required')
     report = replay(args.exe, args.out, args.pattern, args.ticks, args.timeout)

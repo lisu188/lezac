@@ -68,3 +68,21 @@ gameplay still uses the host accumulator and existing renderer.
 
 All local builds, original executions and captures are RAM-only while C: is
 above the repository's disk guard. Games use dummy audio.
+
+## Review Repair: Export/Report Aliases
+
+The review of integration PR #425 at `1dd9ad0` identified that this checker
+could overwrite its own export when `--out` and `--report` named the same file.
+The exact counterexample was reproduced in RAM: the 787,524-byte corpus was
+replaced by a 156-byte JSON report while the checker returned `passed`.
+
+The checker now rejects resolved-path and existing-file aliases before reading
+the fixture or entering the report-writing block. It preserves bytes and
+modification times, including existing symlink and hardlink aliases. It creates
+neither output nor report when both point to the same missing target. Distinct
+export/report paths retain normal success and failed-report behavior.
+
+Seven Python tests pass, including the original 25 failed-input rejection calls
+and the new missing/existing, normalized, symlink and hardlink controls. Five
+focused CTests, including the cold checkout and all 144 original-backed view
+copies, pass. No original fixture bytes or recovered CPU behavior changed.

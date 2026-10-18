@@ -183,3 +183,18 @@ failed-report/output-retention controls and autocrlf cold-checkout protection.
 Raw original memory and screenshot files remain RAM-only. The displayed pair
 uses a shared normalized palette; it is not a live DAC equivalence claim.
 Fresh current-head review and full Linux/Windows CI remain merge gates.
+
+## Reserve Lifecycle Diagnostic Byte Boundary
+
+PR #437 Windows CI job `117726602523` finished 1,034 of 1,035 tests successfully;
+`reserve_life_lifecycle` failed at `reserve-case-1-p1-death-3`. The combined Linux
+App reproduced the same failure. Its diagnostic compared a signed host reserve
+count (`-1` for an out player) against the three painted slots. Original `29DB`
+instead reads the byte `FF`, so all three slots are painted. The existing
+original-backed reserve corpus covers all 256 reserve bytes.
+
+The lifecycle diagnostic now interprets that stored count as `uint8_t`, matching
+the separately recovered byte boundary. Production rendering and all lifecycle,
+countdown, reentry, menu, frame-count and visual assertions are unchanged. The
+failed CI result is retained and is not treated as a pass. New full-suite CI
+and current-head external review are still required.

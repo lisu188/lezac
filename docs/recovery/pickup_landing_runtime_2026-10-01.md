@@ -78,6 +78,20 @@ C++ probe. Its native source was continuous play, but the isolated regression
 seeds the C++ pose/local map and advances only the indicator lifetimes.
 It does not claim a complete native actor pool, world, or player replay.
 
+The recovered live renderer exposed why this scope matters: the compact seed
+contains an already-flagged word at cell 4604. The pickup consumer correctly
+leaves object byte `FF`, but this fixture omits the corresponding original
+debris record and never runs a full world update. A later whole-world draw
+therefore reads the unknown tile-255 mask at `DS:E06A`. The semantic painter
+had silently skipped that tile; the recovered driver correctly rejects it.
+The actor regression now inspects only the two verified labels at their
+creation boundary on an explicitly blank preview canvas, translated upward
+by 300 pixels. It reports `actor_only_preview=1 full_world=0` and can write
+`pickup-labels-only.ppm` with an optional output directory. This image is not
+an original-backed world screenshot. All 26 lifetime samples and 48 raw
+actor/visual comparisons remain unchanged. The renderer owner test rejects
+tile-255 unknown-data reads, including a compiled zero-fill negative control.
+
 `pickup_landing_original` checks creation, velocities, fractional carries,
 timer/retirement, hotspot, animation and sprite descriptors. It validates the
 fixture fingerprint before seeding. `transient_actor_limits` additionally

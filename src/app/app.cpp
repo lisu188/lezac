@@ -25138,7 +25138,7 @@ public:
                   << " frame_inspection=1 frame_hash=" << std::hex << lastHash << std::dec << '\n';
     }
 
-    void debugPickupLandingOriginal(const std::string& fixturePath) {
+    void debugPickupLandingOriginal(const std::string& fixturePath, const std::string& outDir = "") {
         if (std::filesystem::file_size(fixturePath) != 2798) {
             throw std::runtime_error("pickup landing fixture size differs");
         }
@@ -25177,6 +25177,7 @@ public:
         }
         randomSeed_ = entrySeed;
         size_t actorStates = 0;
+        FrameInspection inspected;
         for (int sample = 0; sample < 26; ++sample) {
             const auto frame = lezac::resources::getU16(data, offset);
             if (frame != 685 + sample) throw std::runtime_error("pickup landing frames are not consecutive");
@@ -25203,13 +25204,22 @@ public:
                 }
                 ++actorStates;
             }
+            if (sample == 0) {
+                // The compact fixture omits the world's live debris records.
+                canvas_.resetClip();
+                canvas_.clear(argb(palette_, 0));
+                for (const auto& actor : transientActors_)
+                    textRenderer_.drawSprite(sprites_.sprites.at(actor.spriteIndex), actor.x, actor.y - 300);
+                inspected = frameInspector_.inspectRenderedFrame("pickup-labels-only");
+                if (!outDir.empty()) writeArgbPpm(joinPath(outDir, "pickup-labels-only.ppm"), fb_, kScreenW, kScreenH);
+            }
         }
         if (offset != data.size() || actorStates != 48 || !transientActors_.empty()) {
             throw std::runtime_error("incomplete pickup landing replay");
         }
-        const auto inspected = inspectRenderedFrame("pickup-landing-original");
         std::cout << "pickup_landing_original=ok samples=26 actor_states=48 created=2 retired=1"
-                  << " initial_y=370 label_y=366,378 creation_rng=1 seeded_cpp=1 frame_inspection=1 frame_hash="
+                  << " initial_y=370 label_y=366,378 creation_rng=1 seeded_cpp=1 frame_inspection=1"
+                  << " actor_only_preview=1 full_world=0 frame_hash="
                   << std::hex << inspected.hash << std::dec << '\n';
     }
 
@@ -32546,7 +32556,8 @@ private:
                   {player2_, player2Dead_, lives2_, state2Visual2_, state2Effect2_, originalPlayerState(2)}}},
                 bombs_, monsters_, bonusDrops_, flashes_, launchPadMarkers_, transientActors_, order,
                 gameplayViewWidth_, ui_.snapshot().showBackground, cameraShakeOffset_,
-                state2VisualCursorPreview_, state2VisualRowPreview_, &viewportLayout_};
+                state2VisualCursorPreview_, state2VisualRowPreview_, &viewportLayout_, &mapPlaneMemory_,
+                legacyActorSeedsEnabled_ ? nullptr : &actorSlots_.state(), legacyActorSeedsEnabled_};
     }
 
     lezac::rendering::HudView hudView() const {
@@ -33183,7 +33194,7 @@ int lezac::app::runApplication(int argc, char** argv) {
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-pickup-landing-original") {
-            app.debugPickupLandingOriginal(argv[2]);
+            app.debugPickupLandingOriginal(argv[2], argc > 3 ? argv[3] : "");
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-walker-ledge-original") {

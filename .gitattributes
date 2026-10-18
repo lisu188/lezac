@@ -38,6 +38,7 @@ tests/fixtures/frame_camera/** -text
 tests/fixtures/player_start/** -text
 tests/fixtures/frame_world_raster/** -text
 tests/fixtures/frame_spawner/** -text
+tests/fixtures/frame_render/** -text
 tests/fixtures/reserve_hud/** -text
 tests/fixtures/ammo_hud/** -text
 tests/fixtures/waiting_placement/** -text

@@ -93,6 +93,11 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
     first_level5 = None
     gate_ticks = []
     final = None
+    fire_tick = next(tick for tick, action, key in PATTERNS[pattern]
+                     if action == 'down' and key == 'n')
+    observations = []
+    previous_counts = None
+    first_bomb_tick = None
     with (directory / 'trace.jsonl').open(encoding='utf-8') as stream:
         for line in stream:
             check(0 < len(line) <= 12 * 1024 * 1024, 'bad scout trace line')
@@ -189,6 +194,28 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
                 first_level5 = tick
             health = state['players'][0]['health'][0]
             lowest_health = health if lowest_health is None else min(lowest_health, health)
+            player = state['players'][0]
+            bombs = state.get('bombs', [])
+            present_counts = (len(bombs), player['inventory'][1], health,
+                              state['progress'][1], len(state.get('flames', [])))
+            if bombs and first_bomb_tick is None:
+                first_bomb_tick = tick
+            noteworthy = (tick in (BASE, last) or fire_tick - 4 <= tick <= fire_tick + 8 or
+                          (fire_tick + 9 <= tick <= fire_tick + 180 and
+                           (tick - fire_tick) % 10 == 0) or present_counts != previous_counts)
+            if noteworthy and len(observations) < 120:
+                short_bombs = []
+                for bomb in bombs[:3]:
+                    encoded = json.dumps(bomb, separators=(',', ':'))
+                    short_bombs.append(bomb if len(encoded) <= 1200 else
+                                       dict(truncated=True, byte_count=len(encoded)))
+                observations.append(dict(tick=tick, player_xy=[player['x'], player['y']],
+                    health=health, medium_ammo=player['inventory'][1],
+                    destroyed=state['progress'][1], bomb_count=len(bombs),
+                    bombs=short_bombs, flame_count=len(state.get('flames', [])),
+                    effect_count=len(state.get('effects', [])),
+                    collapse_count=len(state.get('collapse', []))))
+            previous_counts = present_counts
             next_tick = tick + 1
             snapshots += 1
             final = state
@@ -204,7 +231,9 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
                 final_health=final['players'][0]['health'][0],
                 final_player_xy=[final['players'][0]['x'], final['players'][0]['y']],
                 cpp_gate_candidate_ticks=gate_ticks[:12], cpp_level5_first_tick=first_level5,
-                checked_cplusplus_images=checked_images, post_update_states=snapshots)
+                checked_cplusplus_images=checked_images, post_update_states=snapshots,
+                fire_event_tick=fire_tick, first_active_bomb_tick=first_bomb_tick,
+                event_observations=observations)
 
 
 def replay(exe, out, pattern, last, timeout):
@@ -359,6 +388,9 @@ class ScoutChecks(unittest.TestCase):
     def test_synthetic_trace_valid(self):
         report = self.attempt_trace()
         self.assertEqual((report['post_update_states'], report['checked_cplusplus_images']), (2, 2))
+        self.assertEqual(report['event_observations'][0]['tick'], BASE)
+        self.assertEqual(report['event_observations'][0]['bomb_count'], 0)
+        self.assertIsNone(report['first_active_bomb_tick'])
         self.assertFalse(report['original_game_verified'])
 
     def test_phase_substitution_rejected(self):

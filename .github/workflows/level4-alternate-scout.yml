@@ -1,0 +1,60 @@
+name: Level 4 Alternate Route Scouting
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/level4-alternate-scout.yml
+      - tools/campaign_level4_continuation_scout.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  alternative-routes:
+    name: Candidate ${{ matrix.pattern }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        pattern:
+          - left_short_medium
+          - right_short_medium
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev g++ python3
+      - name: Build native C++ port
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+          cmake --build build --target lezac_cpp --parallel 2
+      - name: Validate route generator
+        env:
+          SDL_AUDIODRIVER: dummy
+          SDL_VIDEODRIVER: dummy
+        run: python3 -S -B tools/campaign_level4_continuation_scout.py self-test
+      - name: Run silent non-injected continuation
+        env:
+          SDL_AUDIODRIVER: dummy
+          SDL_VIDEODRIVER: dummy
+        run: |
+          python3 -S -B tools/campaign_level4_continuation_scout.py replay \
+            --exe build/lezac_cpp \
+            --out /dev/shm/lezac-candidate-${{ matrix.pattern }} \
+            --pattern ${{ matrix.pattern }} \
+            --ticks 12240
+      - name: Preserve candidate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: level4-${{ matrix.pattern }}-summary
+          path: |
+            /dev/shm/lezac-candidate-${{ matrix.pattern }}/summary.json
+            /dev/shm/lezac-candidate-${{ matrix.pattern }}/child.json
+            /dev/shm/lezac-candidate-${{ matrix.pattern }}/last-frame.ppm
+          if-no-files-found: warn

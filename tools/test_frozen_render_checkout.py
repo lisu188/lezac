@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 
 
-FAMILIES = ("frame_view_copy", "frame_camera", "frame_world_raster")
+FAMILIES = ("frame_view_copy", "frame_camera", "frame_world_raster", "frame_render")
 RULES = tuple(f"tests/fixtures/{name}/** -text" for name in FAMILIES)
 
 
@@ -53,10 +53,10 @@ def check(root, out, git):
     run("add", "--", ".")
     attributes = run("check-attr", "-z", "text", "--", *(
         f"tests/fixtures/{name}/manifest.json" for name in FAMILIES)).split(b"\0")
-    if attributes[-1:] != [b""] or len(attributes) != 10:
+    if attributes[-1:] != [b""] or len(attributes) != len(FAMILIES)*3+1:
         raise ValueError("Unexpected Git attribute result")
     if any(attributes[i] != b"text" or attributes[i + 1] != b"unset"
-           for i in (1, 4, 7)):
+           for i in range(1,len(attributes)-1,3)):
         raise ValueError("Frozen render manifests must have text conversion disabled")
     cold = out / "cold"
     cold.mkdir()

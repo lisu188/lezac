@@ -209,6 +209,10 @@ if(BUILD_TESTING)
     add_executable(lezac_frame_camera_test tests/core/frame_camera_test.cpp)
     target_link_libraries(lezac_frame_camera_test PRIVATE lezac_core)
     add_test(NAME frame_camera_unit COMMAND lezac_frame_camera_test)
+    add_executable(lezac_player_start_test tests/core/player_start_test.cpp)
+    target_link_libraries(lezac_player_start_test PRIVATE lezac_core)
+    add_test(NAME player_start_unit COMMAND lezac_player_start_test)
+    set_tests_properties(player_start_unit PROPERTIES PASS_REGULAR_EXPRESSION "player_start_unit=ok entry_rejections=3")
     set_tests_properties(frame_camera_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_camera_unit=ok entry_rejections=3")
     add_executable(lezac_frame_display_test tests/core/frame_display_test.cpp)
     target_link_libraries(lezac_frame_display_test PRIVATE lezac_core)
@@ -901,6 +905,29 @@ if(BUILD_TESTING)
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_camera_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/frame-camera.bin --report ${CMAKE_CURRENT_BINARY_DIR}/frame-camera-report.json)
         set_tests_properties(frame_camera_fixture_contract PROPERTIES FIXTURES_SETUP frame_camera_corpus)
+        add_test(NAME player_start_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_player_start_fixture.py --out ${CMAKE_CURRENT_BINARY_DIR}/player-start.bin)
+        set_tests_properties(player_start_fixture_contract PROPERTIES FIXTURES_SETUP player_start_corpus)
+        add_test(NAME player_start_cpu_original COMMAND lezac_player_start_test
+            ${CMAKE_CURRENT_BINARY_DIR}/player-start.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(player_start_cpu_original PROPERTIES FIXTURES_REQUIRED player_start_corpus
+            PASS_REGULAR_EXPRESSION "player_start_cpu=ok cases=1043 replays=4172 comparisons=97877 writes=14053 runtime_errors=3 whole_game_parity=0")
+        add_test(NAME player_start_app_original COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+            $<TARGET_FILE:lezac_cpp> --debug-player-start-original ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/player_start/app.bin)
+        set_tests_properties(player_start_app_original PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            FIXTURES_REQUIRED player_start_corpus PASS_REGULAR_EXPRESSION
+            "player_start_app=ok cases=1040 startup_placement=1040 reentry=1040 controlled=1 natural=0 whole_game_parity=0")
+        add_test(NAME player_start_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_player_start_fixture.py --exe $<TARGET_FILE:lezac_cpp> -v)
+        set_tests_properties(player_start_fixture_rejections PROPERTIES ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR}")
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME player_start_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_player_start_mutations.py --cxx ${CMAKE_CXX_COMPILER}
+                --fixture ${CMAKE_CURRENT_BINARY_DIR}/player-start.bin --out ${CMAKE_CURRENT_BINARY_DIR}/player-start-mutations)
+            set_tests_properties(player_start_mutations PROPERTIES FIXTURES_REQUIRED player_start_corpus
+                ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR}"
+                PASS_REGULAR_EXPRESSION "player_start_mutations=ok faults=5 source_preserved=1")
+        endif()
         add_test(NAME frame_camera_original COMMAND lezac_frame_camera_test ${CMAKE_CURRENT_BINARY_DIR}/frame-camera.bin)
         set_tests_properties(frame_camera_original PROPERTIES FIXTURES_REQUIRED frame_camera_corpus
             PASS_REGULAR_EXPRESSION "frame_camera_original=ok cases=1876 replays=7504 comparisons=438001 runtime_errors=3 full_frame_claim=0")

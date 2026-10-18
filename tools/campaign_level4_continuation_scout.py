@@ -65,7 +65,7 @@ def pinned():
     return source, fidelity.strict_json(guard.decode('utf-8'))
 
 
-def inspect_trace(directory, endpoint, pattern, last):
+def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
     check((directory / 'trace.jsonl').is_file(), 'missing scout trace')
     found = False
     complete = False
@@ -167,7 +167,7 @@ def replay(exe, out, pattern, last, timeout):
     check(result.returncode == 0, 'C++ candidate failed: ' + result.stderr[-1800:])
     check(hashlib.sha256((support.FIXTURE / 'route.txt').read_bytes()).hexdigest() == SHA256,
           'campaign replay modified its original route')
-    report = inspect_trace(capture, endpoint, pattern, last)
+    report = inspect_trace(capture, endpoint, pattern, last, candidate_route, settings, events)
     (out / 'summary.json').write_text(json.dumps(report, sort_keys=True, indent=2) + '\n',
                                       encoding='utf-8')
     frame = capture / f'frame_{last:06d}.ppm'

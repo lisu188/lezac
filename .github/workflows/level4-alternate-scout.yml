@@ -23,6 +23,8 @@ jobs:
           - right_short_medium
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Install dependencies
         run: |
           sudo apt-get update

@@ -110,8 +110,9 @@ public:
 
     void drawReserveSlots(int x, int y, int lives) {
         // Original 29DB paints three opaque slots via 1156, including tile zero.
+        const auto reserve = static_cast<uint8_t>(lives);
         for (int slot = 0; slot < 3; ++slot) {
-            const auto* tile = assets_.tiles().tile(slot < std::clamp(lives, 0, 3) ? kHudLifeMarkerTile : 0);
+            const auto* tile = assets_.tiles().tile(slot < reserve ? kHudLifeMarkerTile : 0);
             if (!tile) throw std::runtime_error("HUD reserve atlas overread");
             for (int row = 0; row < 8; ++row) for (int column = 0; column < 8; ++column) {
                 const uint8_t index = tile[row * 8 + column];

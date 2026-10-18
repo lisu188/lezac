@@ -678,7 +678,7 @@ if(BUILD_TESTING)
             ${CMAKE_CURRENT_BINARY_DIR}/reserve-hud.bin)
         set_tests_properties(reserve_hud_renderer_original PROPERTIES FIXTURES_REQUIRED reserve_hud_corpus
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy"
-            PASS_REGULAR_EXPRESSION "reserve_hud_renderer=ok cases=512 indexed_pixels=98304 no_extra_slot_pixels=110592 original_call_timing=0 whole_game_parity=0")
+            PASS_REGULAR_EXPRESSION "reserve_hud_renderer=ok cases=512 indexed_pixels=98304 no_extra_slot_pixels=110592 original_call_timing=0 whole_game_parity=0 sentinel_cases=2 sentinel_pixels=384")
         add_test(NAME reserve_hud_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_reserve_hud_fixture.py -v)
         set_tests_properties(reserve_hud_fixture_rejections PROPERTIES

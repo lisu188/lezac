@@ -32325,7 +32325,8 @@ private:
                   {player2_, player2Dead_, lives2_, state2Visual2_, state2Effect2_, originalPlayerState(2)}}},
                 bombs_, monsters_, bonusDrops_, flashes_, launchPadMarkers_, transientActors_, order,
                 gameplayViewWidth_, ui_.snapshot().showBackground, cameraShakeOffset_,
-                state2VisualCursorPreview_, state2VisualRowPreview_, &viewportLayout_};
+                state2VisualCursorPreview_, state2VisualRowPreview_, &viewportLayout_, &mapPlaneMemory_,
+                legacyActorSeedsEnabled_ ? nullptr : &actorSlots_.state(), legacyActorSeedsEnabled_};
     }
 
     lezac::rendering::HudView hudView() const {

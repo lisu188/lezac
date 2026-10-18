@@ -43,7 +43,9 @@ def read_fixture(root=ROOT,fixture=FIXTURE):
 
 def run(root,fixture,out=None,report=None):
     if out and report:
-        require(out.resolve()!=report.resolve(),'Camera report and export must not overlap')
+        require(out.resolve()!=report.resolve() and not
+            (out.exists() and report.exists() and out.samefile(report)),
+            'Camera report and export must not overlap')
     result=dict(status='failed',full_frame_claim=False)
     try:
         decoded=read_fixture(root,fixture)

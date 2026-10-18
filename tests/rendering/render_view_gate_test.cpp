@@ -110,10 +110,15 @@ int main(int argc, char** argv) {
                 rendering::GameRenderer renderer(canvas, text, assets, presentation);
                 rendering::WorldRenderView world{level, 0, players,
                     {{{first, false, 2, cursor, effect, states[0]}, {second, false, 2, cursor, effect, states[1]}}},
-                    bombs, monsters, bonuses, flashes, markers, transients, order, 320, true, 0, false, false};
+                    bombs, monsters, bonuses, flashes, markers, transients, order, 320, true, 0, false, false,
+                    nullptr, nullptr, nullptr, true};
                 rendering::HudView hud{players, {{{{}, 0, 2, ammo}, {{}, 0, 2, ammo}}},
                     level.objectiveTile, level.requiredBonus, level.requiredDestruction, 0, 0, false, false};
                 renderer.drawGame(world, hud);
+                const auto& work = renderer.lastCompletedWorldRasterWork();
+                require(work.dispatchedInstructions > 0 && (work.transferredWords > 0) ==
+                    (states[0] != 0 || (players > 1 && states[1] != 0)),
+                    "GameRenderer bypassed recovered view gates or the render caller");
                 for (int player = 0; player < players; ++player) {
                     const int left = players == 1 ? 0 : player * 160, extent = players == 1 ? 320 : 160;
                     unsigned changed = 0;

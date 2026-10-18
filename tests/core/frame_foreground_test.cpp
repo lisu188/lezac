@@ -1,4 +1,5 @@
 #include "core/frame_foreground.hpp"
+#include "core/frame_active.hpp"
 #include "core/pacing_device_clock.hpp"
 
 #include <algorithm>
@@ -174,6 +175,14 @@ void paletteOracle(const char* path) {
     }
     std::cout<<"render_palette_original=ok cases="<<count<<" callback_checks="<<checks<<" profile_rejections="<<rejected<<" native_sdl_mapping=1 whole_host_claim=0\n";
 }
+const FrameForegroundSnapshot& foregroundState(const FrameForegroundOperation& op) {return op.snapshot();}
+const FrameForegroundSnapshot& foregroundState(const FrameActiveOperation& op) {return op.snapshot().foreground;}
+bool foregroundReturned(const FrameForegroundOperation& op) {return op.returned();}
+bool foregroundReturned(const FrameActiveOperation& op) {
+    return op.snapshot().render && op.snapshot().render->dispatchedInstructions==0 &&
+        op.snapshot().render->registers==FrameForegroundOperation(op.snapshot().foreground).registers();
+}
+template<class Operation=FrameForegroundOperation>
 void original(const char* cpuPath,const char* clockPath,bool live=false,const char* dumpPath=nullptr) {
     const auto clockCases=clocks(clockPath);Reader reader(cpuPath);
     require(reader.take(8)==std::vector<uint8_t>({'L','Z','F','F','G','D','0','1'}),"Foreground CPU version differs");
@@ -215,7 +224,7 @@ void original(const char* cpuPath,const char* clockPath,bool live=false,const ch
             memory.seed(data,memory.word(data,0x2070),font);position=0;
             for(unsigned block=0;block<2;++block)for(unsigned row=0;row<8;++row)for(unsigned x=0;x<17;++x)
                 memory.byte(0xa000,static_cast<uint16_t>((166+block*16+row)*320+159+x),states[0].pixels[position++]);
-            memory.strict=true;FrameForegroundOperation operation(states[0].r,dos,keyboard,psp,game,0x200000);
+            memory.strict=true;Operation operation(states[0].r,dos,keyboard,psp,game,0x200000);
             PacingDeviceClock clock(clockCases[c][0]);memory.clock=&clock.workClock();const auto bus=memory.bus();
             for(unsigned step=0;step<size;++step) {
                 const auto context="Foreground case="+std::to_string(c)+" state="+std::to_string(step);
@@ -249,12 +258,17 @@ void original(const char* cpuPath,const char* clockPath,bool live=false,const ch
                     require(boundary.kind==PicClockBoundaryKind::Ready,context+" unsupported clock boundary");
                     if(boundary.timerDelivered){operation.deliverTimerInterrupt(bus);++irqs;}
                 }
-                if(restore){operation=FrameForegroundOperation(operation.snapshot());clock=PacingDeviceClock(clock.snapshot());memory.clock=&clock.workClock();}
+                if(restore){operation=Operation(operation.snapshot());clock=PacingDeviceClock(clock.snapshot());memory.clock=&clock.workClock();}
             }
-            require(operation.returned() && operation.snapshot().dispatchedInstructions==size-1 && memory.io==ioCount,"Foreground terminal differs");
-            require(operation.snapshot().hud.has_value(),"Foreground HUD handoff missing");
-            transfers+=operation.snapshot().hud->stringTransfers;grants+=clock.snapshot().clock.millisecondGrants;callbacks+=clock.snapshot().deviceCallbacks;
-            require(operation.snapshot().pacing.dispatchedInstructions+operation.snapshot().hud->dispatchedInstructions==size-1,"Foreground work was lost at handoff");
+            const auto& foreground=foregroundState(operation);
+            if constexpr(std::is_same_v<Operation,FrameActiveOperation>) {
+                require(operation.snapshot().timerDeliveries==irqCount &&
+                    (operation.snapshot().timerInstructions>0)==(irqCount>0),"Active foreground IRQ accounting differs");
+            }
+            require(foregroundReturned(operation) && operation.snapshot().dispatchedInstructions==size-1 && memory.io==ioCount,"Foreground terminal differs");
+            require(foreground.hud.has_value(),"Foreground HUD handoff missing");
+            transfers+=foreground.hud->stringTransfers;grants+=clock.snapshot().clock.millisecondGrants;callbacks+=clock.snapshot().deviceCallbacks;
+            require(foreground.pacing.dispatchedInstructions+foreground.hud->dispatchedInstructions==size-1,"Foreground work was lost at handoff");
             if(dumpPath && !restore) {
                 number(c);number(states[0].pacing[0]|(uint32_t{states[0].pacing[1]}<<8));
                 const auto palette=clock.snapshot().palette;require(palette.has_value(),"HUD dump has no computed palette");
@@ -274,6 +288,7 @@ void original(const char* cpuPath,const char* clockPath,bool live=false,const ch
         std::ofstream dump(dumpPath,std::ios::binary);dump.write(reinterpret_cast<const char*>(visual.data()),static_cast<std::streamsize>(visual.size()));
         require(dump.good(),"HUD dump write failed");
     }
+    if constexpr(std::is_same_v<Operation,FrameActiveOperation>) std::cout<<"active_handoff=ok ";
     std::cout<<(live?"frame_foreground_live=ok cases=":"frame_foreground_original=ok cases=")<<count<<" comparisons="<<comparisons<<" transfers="<<transfers
         <<" millisecond_grants="<<grants<<" device_callbacks="<<callbacks<<" predicted_irqs="<<irqs<<" later_state_injected=0 whole_game_parity=0";
     if(live)std::cout<<" external_port_read_inputs=0";
@@ -281,6 +296,10 @@ void original(const char* cpuPath,const char* clockPath,bool live=false,const ch
 }
 }
 int main(int argc,char** argv) {
+    if(argc==5 && std::string(argv[1])=="--active") {
+        try {original<FrameActiveOperation>(argv[3],argv[4],std::string(argv[2])=="live");return 0;}
+        catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
+    }
     try {require(argc==3 || ((argc==4 || argc==5) && std::string(argv[1])=="--live"),"Expected original foreground CPU and clock projections");
         if(argc>=4)original(argv[2],argv[3],true,argc==5?argv[4]:nullptr);
         else if(std::string(argv[1])=="--palette-oracle")paletteOracle(argv[2]);else original(argv[1],argv[2]);}

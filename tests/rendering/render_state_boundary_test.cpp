@@ -131,7 +131,7 @@ int main() {
     rendering::WorldRenderView world{level, 0, 2,
         {{{player, false, 3, cursor, effect}, {player2, false, 3, cursor, effect}}},
         bombs, monsters, rewards, flashes, markers, transients, visualOrder,
-        320, true, 0, false, false};
+        320, true, 0, false, false, nullptr, nullptr, nullptr, true};
     rendering::HudView hud{2, {{{presentation.hudEnergy()[0], 0, 3, presentation.hudAmmoPanels()[0]},
                               {presentation.hudEnergy()[1], 0, 3, presentation.hudAmmoPanels()[1]}}},
         level.objectiveTile, level.requiredBonus, level.requiredDestruction, 1,

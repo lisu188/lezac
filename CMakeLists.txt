@@ -185,6 +185,10 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_frame_render_test tests/core/frame_render_test.cpp)
+    target_link_libraries(lezac_frame_render_test PRIVATE lezac_core)
+    add_test(NAME frame_render_unit COMMAND lezac_frame_render_test)
+    set_tests_properties(frame_render_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_render_unit=ok entry_rejections=3")
     add_executable(lezac_frame_world_raster_test tests/core/frame_world_raster_test.cpp)
     target_link_libraries(lezac_frame_world_raster_test PRIVATE lezac_core)
     add_test(NAME frame_world_raster_unit COMMAND lezac_frame_world_raster_test)
@@ -622,6 +626,30 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME frame_render_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_render_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-render.bin --report ${CMAKE_CURRENT_BINARY_DIR}/frame-render-report.json)
+        set_tests_properties(frame_render_fixture_contract PROPERTIES FIXTURES_SETUP frame_render_corpus)
+        add_test(NAME frame_render_original COMMAND lezac_frame_render_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-render.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(frame_render_original PROPERTIES FIXTURES_REQUIRED frame_render_corpus
+            PASS_REGULAR_EXPRESSION "frame_render_original=ok cases=26 replays=78 writes=6334308 runtime_errors=6 full_frame_claim=0")
+        add_test(NAME frame_render_memory COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_render_memory.py
+            --exe $<TARGET_FILE:lezac_frame_render_test> --out ${CMAKE_CURRENT_BINARY_DIR}/frame-render-memory)
+        set_tests_properties(frame_render_memory PROPERTIES FIXTURES_REQUIRED frame_render_corpus
+            PASS_REGULAR_EXPRESSION "frame_render_memory=ok cases=26 images=52 bytes=54525952 full_frame_claim=0")
+        add_test(NAME frame_render_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_render_fixture.py)
+        set_tests_properties(frame_render_fixture_rejections PROPERTIES
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME frame_render_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_render_mutations.py
+                --cxx ${CMAKE_CXX_COMPILER} --out ${CMAKE_CURRENT_BINARY_DIR}/render-mutations)
+            set_tests_properties(frame_render_mutations PROPERTIES
+                PASS_REGULAR_EXPRESSION "frame_render_mutations=ok faults=4 original_source_preserved=1")
+        endif()
         find_package(Git QUIET)
         if(Git_FOUND)
             add_test(NAME frozen_render_checkout COMMAND ${Python3_EXECUTABLE} -S -B

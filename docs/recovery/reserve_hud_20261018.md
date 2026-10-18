@@ -100,6 +100,16 @@ four present families / fourteen files, with four demonstrated CRLF controls.
 
 ## Proof Limits
 
+A later integration review found a signed App-boundary case not covered by
+the original 0..255 renderer inputs: an eliminated player's `lives == -1`
+represents reserve byte `0xff`. Clamping this value to zero incorrectly
+painted empty slots. The renderer now converts back to byte semantics before
+the original unsigned slot comparison. A focused regression feeds `-1` for
+both columns and compares 384 pixels with the already-authenticated original
+reserve-255 cases. It fails against the former clamping implementation.
+This is an App-input alias of existing original evidence, not a fresh natural
+gameplay capture or a change to the captured callee.
+
 This recovers the complete reserve drawing callee and corrects its live glyph
 painting. It does not complete `7C3D..7EBB`, the `326E` ammunition HUD, `07C5`
 rectangle clearing, or transfer into the `1B14` end-run UI. It does not integrate

@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 
 
-FAMILIES = ("frame_view_copy", "frame_camera", "frame_world_raster", "frame_spawner", "reserve_hud")
+FAMILIES = ("frame_view_copy", "frame_camera", "frame_world_raster", "frame_spawner", "reserve_hud", "ammo_hud", "player_start", "waiting_placement", "frame_waiting")
 RULES = tuple(f"tests/fixtures/{name}/** -text" for name in FAMILIES)
 
 
@@ -40,11 +40,16 @@ def check(root, out, git):
             continue
         manifest = directory / "manifest.json"
         manifests.append(manifest)
-        paths.extend((manifest, directory / "oracle.bin.gz"))
+        stream = directory / "oracle.bin.gz" if (root / directory / "oracle.bin.gz").exists() else directory / "oracle.bin"
+        paths.extend((manifest, stream))
+        paths.extend(path.relative_to(root) for path in sorted(
+            (root / directory).glob("*.bin")) if path.relative_to(root) != stream)
         paths.extend(path.relative_to(root) for path in sorted(
             (root / "tools").glob(name + "_*.py")))
     if not manifests:
         raise ValueError("No frozen render fixtures found")
+    if len(paths) != len(set(paths)):
+        raise ValueError("Duplicate frozen render checkout input")
     for relative in paths:
         target = stage / relative
         target.parent.mkdir(parents=True, exist_ok=True)

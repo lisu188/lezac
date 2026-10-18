@@ -39,7 +39,7 @@ int main(int argc,char** argv) {
             dump.open(argv[2],std::ios::binary);require(dump.good(),"Cannot write reserve pixel dump");
             dump.write("LZRHPIX1",8);
         }
-        unsigned cases=0,compared=0,clearPixels=0;
+        unsigned cases=0,compared=0,clearPixels=0,sentinelCases=0,sentinelPixels=0;
         for(unsigned index=0;index<756;++index) {
             require(reader.number(4)==index,"Reserve renderer case index differs");
             const auto error=reader.number(4);reader.skip(60);
@@ -101,12 +101,25 @@ int main(int argc,char** argv) {
                 for(unsigned row=0;row<8;++row)for(unsigned x=0;x<54;++x)
                     putColor(dump,canvas.pixels()[(192+row)*320+static_cast<unsigned>(xoff)+x]);
             }
+            if(reserve==255) {
+                view.players[player].lives=-1;
+                renderer.drawHud(view);
+                for(unsigned slot=0;slot<3;++slot)for(unsigned row=0;row<8;++row)for(unsigned x=0;x<8;++x) {
+                    const auto at=(192+row)*320+static_cast<unsigned>(xoff)+slot*9+x;
+                    require(canvas.indexedPixels()[at]==1 && canvas.paletteIndices()[at]==memory[0xa0000+at],
+                        "Production eliminated-player sentinel differs from original reserve byte 255");
+                    ++sentinelPixels;
+                }
+                ++sentinelCases;
+            }
             ++cases;
         }
         require(reader.at==reader.bytes.size(),"Reserve renderer corpus tail differs");
+        require(sentinelCases==2 && sentinelPixels==384,"Reserve sentinel coverage differs");
         if(dump.is_open()){dump.flush();require(dump.good(),"Reserve pixel dump failed");}
         std::cout<<"reserve_hud_renderer=ok cases="<<cases<<" indexed_pixels="<<compared
-            <<" no_extra_slot_pixels="<<clearPixels<<" original_call_timing=0 whole_game_parity=0\n";
+            <<" no_extra_slot_pixels="<<clearPixels<<" original_call_timing=0 whole_game_parity=0"
+            <<" sentinel_cases="<<sentinelCases<<" sentinel_pixels="<<sentinelPixels<<'\n';
         return 0;
     } catch(const std::exception& error) {
         std::cerr<<"reserve_hud_renderer=failed "<<error.what()<<'\n';return 1;

@@ -110,8 +110,9 @@ public:
 
     void drawReserveSlots(int x, int y, int lives) {
         // Original 29DB paints three opaque slots via 1156, including tile zero.
+        const auto reserve = static_cast<uint8_t>(lives);
         for (int slot = 0; slot < 3; ++slot) {
-            const auto* tile = assets_.tiles().tile(slot < std::clamp(lives, 0, 3) ? kHudLifeMarkerTile : 0);
+            const auto* tile = assets_.tiles().tile(slot < reserve ? kHudLifeMarkerTile : 0);
             if (!tile) throw std::runtime_error("HUD reserve atlas overread");
             for (int row = 0; row < 8; ++row) for (int column = 0; column < 8; ++column) {
                 const uint8_t index = tile[row * 8 + column];
@@ -171,7 +172,7 @@ public:
             canvas_.rect(bx0, y0 + 27, 20, 9, kBlue);
             return;
         }
-        canvas_.rect(bx0 + 2, y0 + 9, 16, 16, 0xff202020u);
+        canvas_.indexedRect(bx0 + 2, y0 + 9, 16, 16, 18, argb(presentation_.palette(), 18));
         const int bombSprite =
             static_cast<int>(bombProfile(ammo.icon).spriteBase);
         if (bombSprite >= 0 &&
@@ -180,7 +181,7 @@ public:
             const int bx = bx0 + 2 + (16 - sprite.width) / 2;
             const int by = y0 + 9 + (16 - sprite.height) / 2;
             canvas_.setClip(bx0 + 2, y0 + 9, bx0 + 2 + 16, y0 + 9 + 16);
-            text_.drawSprite(sprite, bx, by);
+            text_.drawSprite(sprite, bx, by, 18, hud_.spriteInk);
             canvas_.resetClip();
         } else {
             canvas_.rect(bx0 + 2, y0 + 9, 16, 16, renderer_.bombColor(ammo.icon));
@@ -188,7 +189,7 @@ public:
         // Blue count panel beneath the bomb box (x119-138, matching the box
         // width), with the ammo count drawn on it.
         canvas_.rect(bx0, y0 + 27, 20, 9, kBlue);
-        drawHudNumber(bx0 + 1, y0 + 28, ammo.count, 2);
+        drawHudObjectiveNumber(bx0 + 1, y0 + 28, ammo.count);
     }
 
     void drawSinglePlayerHud() {

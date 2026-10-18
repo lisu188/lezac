@@ -63,6 +63,7 @@ struct HudView {
     bool outroActive;
     std::array<core::HudScoreReel, 2> scoreReels{};
     std::array<bool, 2> columnReady{};
+    uint8_t spriteInk = 0;  // Original shared DS:661E, owned by App damage-lane memory.
 };
 
 struct MenuView {

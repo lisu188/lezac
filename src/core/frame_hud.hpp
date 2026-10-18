@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/game_keyboard.hpp"
+#include "core/frame_drawing.hpp"
 
 #include <functional>
 
@@ -16,10 +17,11 @@ struct FrameHudSnapshot {
     std::optional<GameKeyboardSnapshot> keyboard=std::nullopt;
     std::optional<TimerIrqSnapshot> timer=std::nullopt;
     uint64_t dispatchedInstructions=0, timerInstructions=0, timerDeliveries=0, stringTransfers=0;
+    std::optional<FrameDrawingSnapshot> drawing=std::nullopt;
     bool operator==(const FrameHudSnapshot&) const = default;
 };
 
-// Original 79E8..7A13 and near HUD entries 3184/29DB, including their real callees.
+// Original 79E8..7A13 and near HUD entries 3184/29DB/326E, with real callees.
 // REP transfer budgets and IRQ eligibility belong to the external normal-core clock.
 class FrameHudOperation {
 public:
@@ -27,7 +29,7 @@ public:
     FrameHudOperation(DosGetTimeRegisters r,uint16_t callbackBase,uint16_t game,uint32_t idToggle)
         :state_{r,game,callbackBase,idToggle,r.ip!=0x79e8} {
         if(r.cs!=game || r.ds!=static_cast<uint16_t>(game+0xaa2) ||
-            (r.ip!=0x79e8 && r.ip!=0x3184 && r.ip!=0x29db) ||
+            (r.ip!=0x79e8 && r.ip!=0x3184 && r.ip!=0x29db && r.ip!=0x326e) ||
             callbackBase>0xffec || (idToggle!=0 && idToggle!=0x200000))
             throw std::invalid_argument("Frame HUD entry differs from the recovered profile");
     }
@@ -35,13 +37,18 @@ public:
     const FrameHudSnapshot& snapshot() const noexcept {return state_;}
     bool finished() const noexcept {return !state_.timer && state_.outcome!=FrameHudOutcome::Running;}
     bool returned() const noexcept {return finished() && state_.outcome==FrameHudOutcome::Returned;}
-    bool interruptInProgress() const noexcept {return state_.timer || (state_.keyboard && GameKeyboardOperation(*state_.keyboard).interruptInProgress());}
+    bool interruptInProgress() const noexcept {return state_.timer ||
+        (state_.keyboard && GameKeyboardOperation(*state_.keyboard).interruptInProgress()) ||
+        (state_.drawing && FrameDrawingOperation(*state_.drawing).interruptInProgress());}
     DosGetTimeRegisters registers() const {
         if(state_.timer) return fromTimer(state_.timer->registers);
+        if(state_.drawing) return FrameDrawingOperation(*state_.drawing).registers();
         return state_.keyboard?GameKeyboardOperation(*state_.keyboard).registers():state_.registers;
     }
     void deliverTimerInterrupt(const TimerIrqBus& bus) {
-        if(state_.keyboard) {
+        if(state_.drawing) {
+            FrameDrawingOperation operation(*state_.drawing);operation.deliverTimerInterrupt(bus);state_.drawing=operation.snapshot();
+        } else if(state_.keyboard) {
             GameKeyboardOperation operation(*state_.keyboard);operation.deliverTimerInterrupt(bus);state_.keyboard=operation.snapshot();
         } else {
             if(state_.timer || !(state_.registers.flags&0x200u)) throw std::logic_error("Frame HUD timer is not eligible");
@@ -68,12 +75,26 @@ public:
                     state_.registers=operation.registers();state_.outcome=operation.returned()?FrameHudOutcome::Returned:FrameHudOutcome::BreakOutput;
                     state_.keyboard.reset();
                 }
+            } else if(state_.drawing) {
+                FrameDrawingOperation operation(*state_.drawing);const bool timer=operation.interruptInProgress();
+                const auto before=operation.snapshot().stringTransfers;
+                if(operation.advance(1,bus,copies)!=1) throw std::domain_error("HUD drawing did not dispatch");
+                if(timer)++state_.timerInstructions;
+                state_.stringTransfers+=operation.snapshot().stringTransfers-before;
+                state_.drawing=operation.snapshot();
+                if(operation.finished()) {
+                    state_.registers=operation.registers();
+                    if(!operation.returned())state_.outcome=FrameHudOutcome::RuntimeError;
+                    state_.drawing.reset();
+                }
             } else {
                 instruction(bus,copies);
                 const auto& r=state_.registers;
                 if(r.cs==static_cast<uint16_t>(state_.gameSegment+0x920) && r.ip==0xe2) state_.outcome=FrameHudOutcome::RuntimeError;
                 if(!state_.hudOnly && r.cs==state_.gameSegment && r.ip==0x7a00)
                     state_.keyboard=GameKeyboardOperation(r,state_.callbackBase,state_.gameSegment,state_.idToggleMask).snapshot();
+                if(r.cs==state_.gameSegment && (r.ip==0x7c5 || r.ip==0x12db))
+                    state_.drawing=FrameDrawingOperation(r,state_.gameSegment,state_.idToggleMask).snapshot();
             }
             ++consumed;++state_.dispatchedInstructions;
         }
@@ -165,7 +186,7 @@ private:
         case 0x79fa:push(bus,0xcb0f);r.ip=0x79fd;break;
         case 0x79fd:call(bus,0x3184,0x7a00);break;
         // Original near Pascal frames, including the real runtime stack check.
-        case 0x3184:case 0x495:case 0x313d:case 0x29db:push(bus,r.bp);++r.ip;break;
+        case 0x3184:case 0x495:case 0x313d:case 0x29db:case 0x326e:push(bus,r.bp);++r.ip;break;
         case 0x29dc:r.bp=r.sp;r.ip=0x29de;break;
         case 0x29de:r.ax=6;r.ip=0x29e1;break;
         case 0x29e1:farCall(bus,0x4df,0x29e6);break;
@@ -200,6 +221,66 @@ private:
         case 0x2a3b:branch(!flag(0x40),0x2a1c,0x2a3d);break;
         case 0x2a3d:r.sp=r.bp;r.bp=pop(bus);r.ip=0x2a3e;break;
         case 0x2a3e:r.ip=pop(bus);r.sp=static_cast<uint16_t>(r.sp+2u);state_.outcome=FrameHudOutcome::Returned;break;
+        case 0x326f:r.bp=r.sp;r.ip=0x3271;break;
+        case 0x3271:r.ax=10;r.ip=0x3274;break;
+        case 0x3274:farCall(bus,0x4df,0x3279);break;
+        case 0x3279:r.sp=arithmetic(r.sp,10,true);r.ip=0x327c;break;
+        case 0x327c:case 0x3291:case 0x32a4:case 0x3320:al(bus.readByte(r.ss,stackOffset(4)));r.ip=static_cast<uint16_t>(r.ip+3u);break;
+        case 0x327f:case 0x328d:case 0x3294:case 0x32a7:case 0x32c9:case 0x32e4:case 0x32fc:case 0x3316:case 0x3323:case 0x334c:
+            r.ax=lo(r.ax);logic(0,8);r.ip=static_cast<uint16_t>(r.ip+2u);break;
+        case 0x3281:case 0x3296:case 0x32a9:case 0x3325:r.di=r.ax;r.ip=static_cast<uint16_t>(r.ip+2u);break;
+        case 0x3283:al(bus.readByte(r.ds,static_cast<uint16_t>(r.di+0x1b73)));r.ip=0x3287;break;
+        case 0x3287:bus.writeByte(r.ss,stackOffset(-1),lo(r.ax));r.ip=0x328a;break;
+        case 0x328a:case 0x32c6:case 0x3313:al(bus.readByte(r.ss,stackOffset(-1)));r.ip=static_cast<uint16_t>(r.ip+3u);break;
+        case 0x328f:case 0x32e6:case 0x32fe:r.dx=r.ax;r.ip=static_cast<uint16_t>(r.ip+2u);break;
+        case 0x3298:case 0x32d1:r.di=shift(r.di,2);r.ip=static_cast<uint16_t>(r.ip+3u);break;
+        case 0x329b:r.di=arithmetic(r.di,r.dx,false);r.ip=0x329d;break;
+        case 0x329d:al(bus.readByte(r.ds,static_cast<uint16_t>(r.di+0x1b67)));r.ip=0x32a1;break;
+        case 0x32a1:bus.writeByte(r.ss,stackOffset(-2),lo(r.ax));r.ip=0x32a4;break;
+        case 0x32ab:arithmetic(bus.readByte(r.ds,static_cast<uint16_t>(r.di+0x1b75)),1,true,8);r.ip=0x32b0;break;
+        case 0x32b0:branch(flag(1)||flag(0x40),0x3320,0x32b2);break;
+        case 0x32b2:push(bus,local(8));r.ip=0x32b5;break;
+        case 0x32b5:push(bus,local(6));r.ip=0x32b8;break;
+        case 0x32b8:case 0x32ba:push(bus,16);r.ip=static_cast<uint16_t>(r.ip+2u);break;
+        case 0x32bc:push(bus,18);r.ip=0x32be;break;
+        case 0x32be:call(bus,0x7c5,0x32c1);break;
+        case 0x32c1:bus.writeByte(r.ds,0x79a3,18);r.ip=0x32c6;break;
+        case 0x32cb:case 0x3318:r.ax=arithmetic(r.ax,0x3a,false);r.ip=static_cast<uint16_t>(r.ip+3u);break;
+        case 0x32ce:case 0x331b:r.ax=increment(r.ax,true);++r.ip;break;
+        case 0x32cf:r.di=r.ax;r.ip=0x32d1;break;
+        case 0x32d4:r.di=arithmetic(r.di,0xc322,false);r.ip=0x32d8;break;
+        case 0x32d8:store(-10,r.di);r.ip=0x32db;break;
+        case 0x32db:store(-8,r.ds);r.ip=0x32de;break;
+        case 0x32de:case 0x32f5:pointer(bus,r.ss,stackOffset(-10),r.di,r.es);r.ip=static_cast<uint16_t>(r.ip+3u);break;
+        case 0x32e1:al(bus.readByte(r.es,r.di));r.ip=0x32e4;break;
+        case 0x32e8:case 0x3300:r.ax=16;r.ip=static_cast<uint16_t>(r.ip+3u);break;
+        case 0x32eb:case 0x3303:r.ax=arithmetic(r.ax,r.dx,true);r.ip=static_cast<uint16_t>(r.ip+2u);break;
+        case 0x32ed:case 0x3305:{const auto before=r.ax;r.ax=static_cast<uint16_t>(r.ax>>1);r.flags=(r.flags&~Arithmetic)|flags(r.ax,16)|0x10u|(before&1u)|((before&0x8000u)?0x800u:0u);r.ip=static_cast<uint16_t>(r.ip+2u);break;}
+        case 0x32ef:r.ax=arithmetic(r.ax,local(8),false);r.ip=0x32f2;break;
+        case 0x32f2:store(-4,r.ax);r.ip=0x32f5;break;
+        case 0x32f8:al(bus.readByte(r.es,static_cast<uint16_t>(r.di+1u)));r.ip=0x32fc;break;
+        case 0x3307:r.ax=arithmetic(r.ax,local(6),false);r.ip=0x330a;break;
+        case 0x330a:store(-6,r.ax);r.ip=0x330d;break;
+        case 0x330d:push(bus,local(-4));r.ip=0x3310;break;
+        case 0x3310:push(bus,local(-6));r.ip=0x3313;break;
+        case 0x331c:push(bus,r.ax);r.ip=0x331d;break;
+        case 0x331d:call(bus,0x12db,0x3320);break;
+        case 0x3327:bus.writeByte(r.ds,static_cast<uint16_t>(r.di+0x1b75),0);r.ip=0x332c;break;
+        case 0x332c:arithmetic(bus.readByte(r.ss,stackOffset(-2)),99,true,8);r.ip=0x3330;break;
+        case 0x3330:branch(flag(1)||flag(0x40),0x3336,0x3332);break;
+        case 0x3332:bus.writeByte(r.ss,stackOffset(-2),99);r.ip=0x3336;break;
+        case 0x3336:r.ax=local(6);r.ip=0x3339;break;
+        case 0x3339:r.ax=arithmetic(r.ax,19,false);r.ip=0x333c;break;
+        case 0x333c:{const int32_t product=int32_t{std::bit_cast<int16_t>(r.ax)}*320;r.ax=static_cast<uint16_t>(product);r.flags=(r.flags&~uint32_t{0x801})|((product<-32768 || product>32767)?0x801u:0u);r.ip=0x3340;break;}
+        case 0x3340:r.ax=arithmetic(r.ax,local(8),false);r.ip=0x3343;break;
+        case 0x3343:r.ax=arithmetic(r.ax,8,false);r.ip=0x3346;break;
+        case 0x3346:bus.writeWord(r.ds,0x2072,r.ax);r.ip=0x3349;break;
+        case 0x3349:al(bus.readByte(r.ss,stackOffset(-2)));r.ip=0x334c;break;
+        case 0x334e:push(bus,r.ax);r.ip=0x334f;break;
+        case 0x334f:push(bus,2);r.ip=0x3351;break;
+        case 0x3351:call(bus,0x313d,0x3354);break;
+        case 0x3354:r.sp=r.bp;r.bp=pop(bus);r.ip=0x3355;break;
+        case 0x3355:r.ip=pop(bus);r.sp=static_cast<uint16_t>(r.sp+6u);state_.outcome=FrameHudOutcome::Returned;break;
         case 0x3185:r.bp=r.sp;r.ip=0x3187;break;
         case 0x496:r.bp=r.sp;r.ip=0x498;break;
         case 0x313e:r.bp=r.sp;r.ip=0x3140;break;

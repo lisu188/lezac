@@ -58,6 +58,22 @@ jobs:
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
       - name: Build
         run: cmake --build build --parallel
+      - name: Level 4 ordinary-input continuation scout
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'codex/campaign-level4-continuation-scout-')
+        env:
+          SDL_AUDIODRIVER: dummy
+          SDL_VIDEODRIVER: dummy
+        run: python3 -S -B tools/campaign_level4_continuation_scout.py replay --exe build/lezac_cpp --out /dev/shm/lezac-level4-candidate --pattern right_long_medium
+      - name: Preserve Level 4 candidate summary
+        if: always() && github.event_name == 'pull_request' && startsWith(github.head_ref, 'codex/campaign-level4-continuation-scout-')
+        uses: actions/upload-artifact@v4
+        with:
+          name: campaign-level4-candidate
+          path: |
+            /dev/shm/lezac-level4-candidate/summary.json
+            /dev/shm/lezac-level4-candidate/last-frame.ppm
+            /dev/shm/lezac-level4-candidate/child.json
+          if-no-files-found: warn
       - name: Level decoder and startup map regressions
         env:
           SDL_AUDIODRIVER: dummy

@@ -1,0 +1,206 @@
+{
+  "actual_library_mapping_verified": true,
+  "cases": [
+    {
+      "full_endpoint_registers": true,
+      "full_memory_observer_control": true,
+      "index": 0,
+      "profile": [
+        320,
+        160,
+        0,
+        0,
+        8,
+        1284,
+        514
+      ],
+      "word_writes": 23712
+    },
+    {
+      "full_endpoint_registers": true,
+      "full_memory_observer_control": true,
+      "index": 1,
+      "profile": [
+        320,
+        160,
+        7,
+        7,
+        8,
+        1284,
+        514
+      ],
+      "word_writes": 23712
+    },
+    {
+      "full_endpoint_registers": true,
+      "full_memory_observer_control": true,
+      "index": 2,
+      "profile": [
+        160,
+        160,
+        0,
+        0,
+        8,
+        1284,
+        514
+      ],
+      "word_writes": 11552
+    },
+    {
+      "full_endpoint_registers": true,
+      "full_memory_observer_control": true,
+      "index": 3,
+      "profile": [
+        160,
+        160,
+        7,
+        7,
+        8,
+        1444,
+        514
+      ],
+      "word_writes": 11552
+    },
+    {
+      "full_endpoint_registers": true,
+      "full_memory_observer_control": true,
+      "index": 4,
+      "profile": [
+        320,
+        9,
+        1,
+        0,
+        65534,
+        1284,
+        514
+      ],
+      "word_writes": 156
+    },
+    {
+      "full_endpoint_registers": true,
+      "full_memory_observer_control": true,
+      "index": 5,
+      "profile": [
+        320,
+        10,
+        0,
+        0,
+        65535,
+        1284,
+        514
+      ],
+      "word_writes": 312
+    },
+    {
+      "full_endpoint_registers": true,
+      "full_memory_observer_control": true,
+      "index": 6,
+      "profile": [
+        160,
+        12,
+        3,
+        1,
+        65530,
+        1444,
+        514
+      ],
+      "word_writes": 304
+    },
+    {
+      "full_endpoint_registers": true,
+      "full_memory_observer_control": true,
+      "index": 7,
+      "profile": [
+        320,
+        9,
+        0,
+        0,
+        8,
+        65534,
+        514
+      ],
+      "word_writes": 156
+    },
+    {
+      "full_endpoint_registers": true,
+      "full_memory_observer_control": true,
+      "index": 8,
+      "profile": [
+        160,
+        10,
+        7,
+        0,
+        8,
+        65535,
+        514
+      ],
+      "word_writes": 152
+    },
+    {
+      "full_endpoint_registers": true,
+      "full_memory_observer_control": true,
+      "index": 9,
+      "profile": [
+        320,
+        9,
+        0,
+        0,
+        256,
+        1284,
+        1538
+      ],
+      "word_writes": 156
+    },
+    {
+      "full_endpoint_registers": true,
+      "full_memory_observer_control": true,
+      "index": 10,
+      "profile": [
+        160,
+        11,
+        7,
+        7,
+        65534,
+        1444,
+        1538
+      ],
+      "word_writes": 228
+    },
+    {
+      "full_endpoint_registers": true,
+      "full_memory_observer_control": true,
+      "index": 11,
+      "profile": [
+        168,
+        32,
+        14,
+        7,
+        8,
+        1284,
+        514
+      ],
+      "word_writes": 1920
+    }
+  ],
+  "compressed_bytes": 23206,
+  "compressed_sha256": "13d3d508ccd08854988e38a34eec18fbb274a7b7d4246674c3bfbf09dab5b822",
+  "controlled_initial_memory": true,
+  "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "full_frame_claim": false,
+  "instruction_file_range": [
+    38392,
+    38471
+  ],
+  "instruction_sha256": "bc0f431f7d24d7496069c3b43b005b86e41197b9d4939d09011ab13f30209a16",
+  "interrupts": false,
+  "natural_capture": false,
+  "port_io": false,
+  "producer_sha256": "15574649b31d158a679661312b0667e5296dd13ea98f6787f1978361298d7047",
+  "projection_bytes": 787524,
+  "projection_sha256": "ae778371ca129d6638bc2039d8f64582783c2944d0860f9af066995909e8fefb",
+  "raw_memory_published": false,
+  "schema": "lezac-controlled-view-copy-v1",
+  "unicorn_library_sha256": "ddb196ec82b52e502c18e4a34478bf7b9f61c83c2ebaa95c74d8ded45a95da9c",
+  "unicorn_version": "2.1.4",
+  "work_clock_claim": false
+}

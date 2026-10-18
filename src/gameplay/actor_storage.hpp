@@ -65,6 +65,11 @@ public:
         return state_.visuals[index];
     }
 
+    Link& link(size_t index) {
+        if (index==0 || index>state_.links[0][15]) throw std::out_of_range("inactive link row");
+        return state_.links[index];
+    }
+
     size_t append(const Construction& input, const Descriptor& descriptor) {
         if (state_.count == capacity) {
             state_.success = 0;

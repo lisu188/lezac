@@ -104,7 +104,8 @@ int main(int argc, char** argv) {
                     rendering::WorldRenderView world{level, 0, 2,
                         {{{first, stage.states[0] != 1, stage.reserves[0] == 255 ? -1 : stage.reserves[0], firstCursor, effect, stage.states[0]},
                           {second, stage.states[1] != 1, stage.reserves[1] == 255 ? -1 : stage.reserves[1], secondCursor, effect, stage.states[1]}}},
-                        bombs, monsters, bonuses, flashes, markers, transients, order, selectedWidth, true, 0, false, false, &layout};
+                        bombs, monsters, bonuses, flashes, markers, transients, order, selectedWidth, true, 0, false, false,
+                        &layout, nullptr, nullptr, true};
                     rendering::HudView hud{2, {{{{}, 0, 2, ammo}, {{}, 0, 2, ammo}}},
                         level.objectiveTile, level.requiredBonus, level.requiredDestruction, 0, 0, false, false};
                     renderer.drawGame(world, hud);

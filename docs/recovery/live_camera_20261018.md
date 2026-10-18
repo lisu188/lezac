@@ -54,6 +54,11 @@ merge gates.
 
 ## Remaining Work
 
+The subsequent [live recovered world renderer](live_raster_20261018.md) now runs
+the camera as part of `FrameRenderOperation` on the normal App drawing path.
+The remaining-work description below records the isolated camera change's scope;
+the raster note describes the current integration and its remaining limits.
+
 This integrates the camera, not the complete recovered raster/copy caller or
 work-clock scheduler. The rest of `WorldPainter` remains semantic. Live wrapped
 map-plane reads, original sprite descriptor ownership and persistent raster/VGA

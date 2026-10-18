@@ -1,10 +1,12 @@
 #pragma once
 
 #include "gameplay/actor_storage.hpp"
+#include "gameplay/gran_group.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <limits>
 #include <stdexcept>
 
 namespace lezac::gameplay {
@@ -42,6 +44,29 @@ public:
         if (slot == 0) return false;
         orders_[slot] = order;
         return true;
+    }
+
+    template<class DescriptorLookup,class AnimationRange>
+    void appendGranGroup(uint64_t firstOrder,const GranGroup& group,int16_t x,int16_t y,
+                         const DescriptorLookup& descriptor,const AnimationRange& range) {
+        const size_t oldCount=count();
+        if (!firstOrder || firstOrder > std::numeric_limits<uint64_t>::max()-group.actorCount())
+            throw std::invalid_argument("Invalid GRAN identity range");
+        for (size_t i=0;i<group.actorCount();++i)
+            if (find(firstOrder+i)) throw std::invalid_argument("Duplicate GRAN actor identity");
+        auto loaded=state();
+        group.append(loaded,x,y,descriptor,range);
+        storage_.restore(loaded);
+        for (size_t i=0;i<group.actorCount();++i) orders_[oldCount+i+1]=firstOrder+i;
+    }
+
+    void writeLinkMotion(size_t index,uint8_t phase,int16_t x,int16_t y) {
+        auto& link=storage_.link(index);
+        link[6]=phase;
+        const auto word=[](auto& bytes,size_t at,uint16_t value) {
+            bytes[at]=static_cast<uint8_t>(value);bytes[at+1]=static_cast<uint8_t>(value>>8);
+        };
+        word(link,11,static_cast<uint16_t>(x));word(link,13,static_cast<uint16_t>(y));
     }
 
     bool retire(uint64_t order) {
@@ -132,6 +157,17 @@ public:
         raw[25] = static_cast<uint8_t>(raw[26] - 4);
     }
 
+    void writeBossDamage(uint64_t order,uint8_t health,uint8_t lives,const Descriptor& descriptor) {
+        auto& raw=storage_.actor(require(order));
+        raw[36]=health;raw[2]=lives;
+        setSpriteDescriptor(order,descriptor);
+    }
+
+    void enterBossDebris(uint64_t order,uint8_t timer) {
+        auto& raw=storage_.actor(require(order));
+        raw[0]=14;raw[2]=timer;raw[21]=2;raw[27]=0;
+    }
+
     void enterMonsterCorpse(uint64_t order) {
         auto& raw = storage_.actor(require(order));
         // 1000:74BB..7517 preserves stored HP, source, backup and opaque bytes.
@@ -188,7 +224,7 @@ public:
         } else {
             raw[0] = conversion.fade.kind;
             raw[2] = conversion.fade.timer;
-            std::fill(raw.begin() + 6, raw.begin() + 10, 0);
+            std::fill(raw.begin() + 6, raw.begin() + 10, uint8_t{0});
             raw[21] = 5;
             setActiveAnimation(order, conversion.fade.animation);
         }

@@ -542,7 +542,7 @@ if(BUILD_TESTING)
     set_tests_properties(production_actor_lifecycle_app PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
-        PASS_REGULAR_EXPRESSION "^production_actor_lifecycle=ok capacity=30.*descriptor_banks=2 descriptor_checks=295 descriptor_reset=1 descriptor_bounds=2")
+        PASS_REGULAR_EXPRESSION "^production_actor_lifecycle=ok capacity=30.*descriptor_banks=2 descriptor_checks=295 descriptor_reset=1 descriptor_bounds=2 boss_copied_hotspots=7 boss_hotspot_rejections=7")
     add_test(NAME actor_storage_api_contract COMMAND lezac_actor_storage_test --api-contract)
     set_tests_properties(actor_storage_api_contract PROPERTIES
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"

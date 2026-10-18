@@ -25756,14 +25756,14 @@ public:
                 static_cast<uint8_t>(offset), static_cast<uint8_t>(offset >> 8)};
         };
         size_t descriptorChecks = 0;
-        auto checkPhysicalDescriptor = [&](uint64_t order, uint16_t sprite, const Descriptor& expected) {
+        auto checkPhysicalDescriptor = [&](uint64_t order, const Descriptor& expected, uint8_t expectedHotspot) {
             const size_t slot = actorSlots_.find(order);
             require(slot != 0, "descriptor probe has no physical actor");
             const auto& raw = actorSlots_.state().actors[slot];
             const auto& visual = actorSlots_.state().visuals.at(raw[1]);
             require(std::equal(expected.begin(), expected.end(), visual.begin() + 4),
                 "active sprite bank physical descriptor mismatch");
-            require(raw[20] == (sprite == 31 ? 0 : static_cast<uint8_t>(16 - expected[1])),
+            require(raw[20] == expectedHotspot,
                 "active sprite bank physical hotspot mismatch");
             ++descriptorChecks;
         };
@@ -25783,7 +25783,8 @@ public:
             }
             for (const uint16_t sprite : {uint16_t{31}, uint16_t{40}, uint16_t{91}}) {
                 const uint64_t order = allocateActor({0x0a, 20, 5, sprite, 0, 0, 184, 100});
-                checkPhysicalDescriptor(order, sprite, expectedDescriptor(bank, sprite));
+                const auto expected = expectedDescriptor(bank, sprite);
+                checkPhysicalDescriptor(order, expected, sprite == 31 ? uint8_t{0} : static_cast<uint8_t>(16 - expected[1]));
                 retireActor(order);
             }
         };
@@ -25917,9 +25918,28 @@ public:
             require(monster.animationBackup.packed() == actorSlots_.animationBackup(monster.actorOrder).packed(),
                 "boss loader lost copied backup");
         checkBindings();
+        // 08A5 copies the shipped GRAN hotspot bytes (all zero), unlike 2F9F.
         for (const auto& monster : monsters_)
-            checkPhysicalDescriptor(monster.actorOrder, static_cast<uint16_t>(monster.animFrame + 1),
-                expectedDescriptor(altSprites_, static_cast<uint16_t>(monster.animFrame + 1)));
+            checkPhysicalDescriptor(monster.actorOrder,
+                expectedDescriptor(altSprites_, static_cast<uint16_t>(monster.animFrame + 1)), 0);
+        const auto copiedBossState = actorSlots_.state();
+        std::array<uint64_t, lezac::gameplay::ActorStorage::capacity + 1> copiedBossOrders{};
+        for (size_t slot = 1; slot <= actorSlots_.count(); ++slot) copiedBossOrders[slot] = actorSlots_.order(slot);
+        size_t rejectedBossHotspots = 0;
+        for (const auto& monster : monsters_) {
+            auto corrupted = copiedBossState;
+            corrupted.actors[actorSlots_.find(monster.actorOrder)][20] ^= 1;
+            actorSlots_.restoreForFixture(corrupted, copiedBossOrders);
+            bool rejected = false;
+            try { checkPhysicalDescriptor(monster.actorOrder,
+                expectedDescriptor(altSprites_, static_cast<uint16_t>(monster.animFrame + 1)), 0); }
+            catch (const std::runtime_error& error) {
+                rejected = std::string(error.what()) == "active sprite bank physical hotspot mismatch";
+            }
+            actorSlots_.restoreForFixture(copiedBossState, copiedBossOrders);
+            require(rejected, "copied boss hotspot corruption was not rejected");
+            ++rejectedBossHotspots;
+        }
         checkBank(altSprites_, {48, 20, 0, 39}, {12, 10, 211, 81});
         for (size_t row = 0; row < 2; ++row) {
             const auto expected = expectedDescriptor(altSprites_, 1);
@@ -25939,7 +25959,8 @@ public:
                      "mode3_restore=1 reset_retains_backup=1 full_capacity_conversions=2 constructors=7 "
                      "production_app=1 legacy_adoptions=0 legacy_retirements=0 seeded=1 natural_route=0 "
                      "physical_fixture_seeds=1 full_raw_record_owner=0 whole_game_claim=0 descriptor_banks=2 descriptor_checks="
-                  << descriptorChecks << " descriptor_reset=1 descriptor_bounds=2\n";
+                  << descriptorChecks << " descriptor_reset=1 descriptor_bounds=2 boss_copied_hotspots=7 boss_hotspot_rejections="
+                  << rejectedBossHotspots << '\n';
     }
 
     void debugMonsterObjectBranchOriginal(const std::string& fixturePath) {

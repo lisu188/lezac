@@ -58,6 +58,12 @@ public:
         return readByte(objectBase + static_cast<uint16_t>(cell), tiles, words);
     }
 
+    uint8_t readObjectAddress(size_t offset, const std::vector<uint8_t>& tiles,
+                              const std::vector<uint16_t>& words) const {
+        if (offset > segmentBytes) throw std::out_of_range("map object address exceeds adjacent byte");
+        return readByte(objectBase + offset, tiles, words);
+    }
+
     void writeObject(int cell, uint8_t value, std::vector<uint8_t>& tiles,
                      std::vector<uint16_t>& words) {
         writeByte(objectBase + static_cast<uint16_t>(cell), value, tiles, words);

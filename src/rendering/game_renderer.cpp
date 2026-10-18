@@ -290,7 +290,14 @@ private:
 }
 
 void GameRenderer::drawGame(const WorldRenderView& world, const HudView& hud) {
-    WorldPainter(canvas_, text_, assets_, presentation_, *this, world).drawGame();
+    WorldPainter preview(canvas_, text_, assets_, presentation_, *this, world);
+    if (world.state2CursorPreview || world.state2RowPreview) preview.drawGame();
+    else {
+        canvas_.resetClip();
+        preview.refreshRetainedViewColors(0, kScreenW);
+        worldRaster_.drawGame(world, presentation_, canvas_);
+        canvas_.resetClip();
+    }
     drawHud(hud);
 }
 
@@ -325,8 +332,13 @@ void GameRenderer::clearEliminatedViewport(int playerIndex) {
 
 void GameRenderer::drawWorldView(const WorldRenderView& world, const Player& cameraPlayer,
                                  int viewX, int viewY, int viewW, int viewH) {
-    WorldPainter(canvas_, text_, assets_, presentation_, *this, world)
-        .drawWorldView(cameraPlayer, viewX, viewY, viewW, viewH);
+    if (world.state2CursorPreview || world.state2RowPreview)
+        WorldPainter(canvas_, text_, assets_, presentation_, *this, world)
+            .drawWorldView(cameraPlayer, viewX, viewY, viewW, viewH);
+    else {
+        canvas_.setClip(viewX, viewY, viewX + viewW, viewY + viewH);
+        worldRaster_.drawView(world, cameraPlayer, viewX, viewY, viewW, viewH, presentation_, canvas_);
+    }
 }
 
 bool GameRenderer::isBossActor(const ActiveMonster& monster) const {

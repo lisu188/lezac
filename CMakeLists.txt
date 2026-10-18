@@ -51,6 +51,7 @@ target_link_libraries(lezac_sound_diagnostics PUBLIC lezac_sound)
 
 add_library(lezac_rendering STATIC
     src/rendering/game_renderer.cpp
+    src/rendering/world_raster.cpp
     src/rendering/hud_renderer.cpp
     src/rendering/menu_renderer.cpp
     src/rendering/pattern_fill.cpp
@@ -621,6 +622,13 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^render_state_boundary=ok repeat_pixels=1 nonblank=1 rng_unchanged=1 actor_order_unchanged=1 palette_unchanged=1 live_map_alias=1")
 
+    add_executable(lezac_world_raster_owners_test tests/rendering/world_raster_test.cpp)
+    target_link_libraries(lezac_world_raster_owners_test PRIVATE lezac_rendering)
+    add_test(NAME world_raster_owners COMMAND lezac_world_raster_owners_test)
+    set_tests_properties(world_raster_owners PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^world_raster_owners=ok lazy_assets=1 physical_rows=1 live_map=1 word_adjacent_byte=1 rejected_sprite_heap=1")
+
     add_executable(lezac_render_view_gate_test tests/rendering/render_view_gate_test.cpp)
     target_link_libraries(lezac_render_view_gate_test PRIVATE lezac_rendering)
     add_executable(lezac_render_view_initialization_test tests/rendering/render_view_initialization_test.cpp)
@@ -632,6 +640,19 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME world_raster_owner_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_world_raster_mutations.py
+                --cxx ${CMAKE_CXX_COMPILER}
+                --library $<TARGET_FILE:lezac_rendering> --library $<TARGET_FILE:lezac_ui>
+                --library $<TARGET_FILE:lezac_resources> --library $<TARGET_FILE:lezac_core>
+                --viewport-oracle ${CMAKE_CURRENT_BINARY_DIR}/viewport-width.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/world-raster-mutations)
+            set_tests_properties(world_raster_owner_mutations PROPERTIES
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR}"
+                FIXTURES_REQUIRED viewport_width_corpus
+                PASS_REGULAR_EXPRESSION "world_raster_mutations=ok faults=4 original_source_preserved=1")
+        endif()
         add_test(NAME active_live_trace_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_active_live_probe.py)
         if(UNIX AND NOT APPLE)

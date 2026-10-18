@@ -94,7 +94,7 @@ def inspect_trace(directory, endpoint, pattern, last):
                 complete = True
                 continue
             check(not complete and row['kind'] == 'checkpoint' and
-                  row['phase'] in ('pre', 'present', 'post_update'), 'bad C++ state boundary')
+                  row['phase'] in ('input', 'present', 'after_nonplayers', 'post_update'), 'bad C++ state boundary')
             tick = row['tick']
             if row['phase'] == 'present' and (tick in (BASE, last) or tick % 100 == 0):
                 check(row['frame'] == f'frame_{tick:06d}.ppm', 'incorrect presentation filename')

@@ -622,6 +622,8 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME frame_export_alias_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_export_aliases.py)
         find_package(Git QUIET)
         if(Git_FOUND)
             add_test(NAME frozen_render_checkout COMMAND ${Python3_EXECUTABLE} -S -B

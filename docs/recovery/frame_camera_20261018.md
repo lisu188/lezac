@@ -69,12 +69,14 @@ existing unrelated diagnostic `snprintf` warning unchanged.
 
 ## Remaining Integration
 
-The actual renderer still uses its existing geometric camera calculation.
-This operation is not yet connected to it or to the work-clock scheduler.
-`FrameForegroundOperation` still ends at `7A13`; world-raster instruction
-recovery, live owner-bus wiring, natural IRQ delivery during rendering and
-narrowed-viewport/full-frame equivalence remain open. Controlled camera traces
-are not natural gameplay, verified wall-clock cadence or whole-game fidelity.
+The actual renderer now uses this operation through its bounded live adapter;
+see [Live Renderer Camera Integration](live_camera_20261018.md). This does not
+connect the camera to the work-clock scheduler.
+The camera integration does not establish the complete live raster/copy
+owner-bus wiring, scheduler integration or narrowed-viewport/full-frame
+equivalence. Those are separate recovery and integration gates. Controlled
+camera traces are not natural gameplay, verified wall-clock cadence or
+whole-game fidelity.
 
 All local builds, fixtures, diagnostics and silent App captures are RAM-only
 while C: remains above the repository's disk guard.

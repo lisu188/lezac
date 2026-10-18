@@ -1,5 +1,6 @@
 #include "rendering/game_renderer.hpp"
 #include "rendering/presentation_state.hpp"
+#include "rendering/world_camera.hpp"
 #include "resources/asset_catalog.hpp"
 #include "ui/ui_controller.hpp"
 #include <algorithm>
@@ -128,6 +129,11 @@ int main(int argc, char** argv) {
             std::array<uint32_t, 9> fields{};
             for (auto& field : fields) field = reader.number(2);
             reader.number(4);
+            const auto camera=rendering::cameraForViewport(static_cast<int>(first.x),
+                static_cast<int>(first.y),level.width,level.height,width,shake);
+            require(camera.coarseX==fields[0] && camera.coarseY==fields[1] &&
+                    camera.fineX==fields[2] && camera.fineY==fields[3] && camera.mapOffset==fields[4],
+                    "Live viewport camera differs from original context");
             require(width == 168 + static_cast<int>(index / 3) * 8 && fields[5] == static_cast<unsigned>(width) &&
                     fields[6] == 320 && fields[7] == static_cast<unsigned>(320 - width) &&
                     fields[8] == static_cast<unsigned>(1280 + (328 - width) / 2), "Original width presentation geometry differs");

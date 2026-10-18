@@ -98,7 +98,8 @@
         "src/rendering/sdl_display.cpp",
         "src/rendering/sdl_display.hpp",
         "src/rendering/text_renderer.cpp",
-        "src/rendering/text_renderer.hpp"
+        "src/rendering/text_renderer.hpp",
+        "src/rendering/world_camera.hpp"
       ]
     },
     "ui": {

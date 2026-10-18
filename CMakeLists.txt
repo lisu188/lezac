@@ -7384,7 +7384,7 @@ if(BUILD_TESTING)
         set_tests_properties(campaign_level4_continuation_scout PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 30 LABELS "campaign;level4;candidate;route-integrity"
-            PASS_REGULAR_EXPRESSION "campaign_level4_continuation_scout=ok checks=6 candidates=3")
+            PASS_REGULAR_EXPRESSION "campaign_level4_continuation_scout=ok checks=10 candidates=3")
         add_test(NAME campaign_boundary_checks
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_campaign_boundary_checks.py)
         set_tests_properties(campaign_boundary_checks PROPERTIES

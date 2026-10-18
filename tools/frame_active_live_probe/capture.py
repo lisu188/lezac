@@ -30,7 +30,9 @@ parser.add_argument('--repo', type=Path, default=Path(__file__).resolve().parent
 parser.add_argument('--dosbox', type=Path, required=True)
 parser.add_argument('--out', type=Path, required=True)
 parser.add_argument('--observe-seconds', type=int, default=1200)
+parser.add_argument('--endpoint', choices=('active', 'preactors'), default='active')
 args = parser.parse_args()
+endpoint = 0x7ebb if args.endpoint == 'preactors' else 0x7a57
 assert args.run.isalnum()
 assert 30 <= args.observe_seconds <= 1800
 if not args.inside_xvfb:
@@ -39,7 +41,8 @@ if not args.inside_xvfb:
     raise SystemExit(subprocess.run(['xvfb-run', '-a', '-s',
         '-screen 0 1024x768x24 -extension MIT-SHM', sys.executable, '-B', __file__,
         '--inside-xvfb', '--run', args.run, '--repo', str(args.repo), '--dosbox', str(args.dosbox),
-        '--out', str(args.out), '--observe-seconds', str(args.observe_seconds)], env=environment).returncode)
+        '--out', str(args.out), '--observe-seconds', str(args.observe_seconds),
+        '--endpoint', args.endpoint], env=environment).returncode)
 
 ROOT = args.repo.resolve(strict=True)
 canonical = read_canonical_assets(ROOT)
@@ -160,7 +163,10 @@ report = dict(schema='lezac-instrumented-active-live-v1', status='capturing', ru
     complete_frame_sequence_claim=False, whole_game_complete=False, host_commands=[],
     input_injection_failures=[], capture_argv=list(sys.argv))
 report.update(pic_and_pit_observed=True, clock_or_irq_state_seeded=False,
-    observed_active_range='game7903..7A57 pacing, HUD, keyboard and camera/raster/VGA rendering', terminal_report_reserve_bytes=1048576,
+    observed_end_ip=endpoint,
+    observed_active_range=('game7903..7EBB pacing, HUD, keyboard, rendering, spawners and waiting prepass'
+        if endpoint==0x7ebb else 'game7903..7A57 pacing, HUD, keyboard and camera/raster/VGA rendering'),
+    terminal_report_reserve_bytes=1048576,
     observation_selection='changed HUD followed by an idle-keyboard candidate with a timer naturally due during rendering; at most four candidates',
     observe_seconds=args.observe_seconds,
     natural_input_route='one player; ordinary z hold, Left and a taps; idle; acknowledge only inspected menu pixels, level-one prompt text mask or Game Over text mask after a stalled counter',
@@ -212,6 +218,7 @@ try:
         LEZAC_FRAME_FOREGROUND_SCAN=str(OUT / 'selection.csv'),
         LEZAC_FRAME_FOREGROUND_FIRST_DONE=str(OUT / 'first-window-complete.txt'),
         LEZAC_ACTIVE_MEMORY_PREFIX=str(OUT / 'atomic'),
+        LEZAC_ACTIVE_END_IP=format(endpoint,'x'),
         LEZAC_ACTIVE_INPUT_DONE=str(OUT / 'input-done.txt'))
     command = [str(HOST), '-conf', str(conf), '-c', 'mount c ' + str(run), '-c', 'c:', '-c', 'LEZAC.EXE']
     report.update(dosbox_argv=command, dosbox_cwd=str(OUT), dosbox_environment=child_environment,
@@ -366,7 +373,7 @@ finally:
         raw = trace.read_bytes()
         report.update(trace_bytes=len(raw), trace_sha256=sha(raw), trace_encoding='gzip-sparse-csv-v1')
         try:
-            details = inspect_trace(trace)
+            details = inspect_trace(trace, endpoint=endpoint)
             report.update(details)
         except (OSError, EOFError, ValueError, AssertionError) as error:
             report.update(trace_end_marker=False, trace_validation_error=repr(error))

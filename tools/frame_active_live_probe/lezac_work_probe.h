@@ -23,7 +23,7 @@ struct LezacDosTimeProbeState {
     unsigned full_windows, measurements;
     unsigned keyboard_class, keyboard_entry, categories;
     bool irq_in_window, entry_game_vector, target_completed, frame_control_seen;
-    bool render_seen, render_irq;
+    bool render_seen, render_irq, post_render_seen;
 };
 inline LezacDosTimeProbeState lezac_dos_time_probe = {};
 inline LezacRenderPaletteObservation lezac_previous_palette = {};
@@ -317,10 +317,15 @@ inline void LezacWorkProbe() {
         p.keyboard_class = category; p.keyboard_entry = ip;
         p.call = ++p.full_windows;
         p.windowed = p.frame_waiting = true;
-        p.irq_in_window = p.render_seen = p.render_irq = false;
+        p.irq_in_window = p.render_seen = p.render_irq = p.post_render_seen = false;
         p.entry_game_vector = true;
         p.stack_ss = SegValue(ss); p.stack_base = (Bit16u)(reg_sp - 80);
-        p.return_ip = 0x7a57; p.return_cs = p.code; p.remaining = 500000;
+        const char* endpoint=getenv("LEZAC_ACTIVE_END_IP");
+        if (endpoint && std::strcmp(endpoint,"7a57") && std::strcmp(endpoint,"7ebb")) {
+            gzprintf(p.output,"unsupported_endpoint\n");gzclose(p.output);p.output=0;return;
+        }
+        p.return_ip = endpoint && !std::strcmp(endpoint,"7ebb") ? 0x7ebb : 0x7a57;
+        p.return_cs = p.code; p.remaining = 500000;
         if (!LezacActiveMemory("initial")) {
             gzprintf(p.output,"snapshot_failed\n");gzclose(p.output);p.output=0;return;
         }
@@ -350,9 +355,10 @@ inline void LezacWorkProbe() {
         return;
     }
     if (code == p.code && ip == 0x7a13) p.render_seen=true;
+    if (code == p.code && ip == 0x7a57) p.post_render_seen=true;
     if (code == 0xf000 && ip == 0xfea5) {
         p.irq_in_window = true;
-        if (p.render_seen) p.render_irq=true;
+        if (p.render_seen && !p.post_render_seen) p.render_irq=true;
     }
     if (!p.remaining) {
         LezacDosTimeEmit("window_exhausted");

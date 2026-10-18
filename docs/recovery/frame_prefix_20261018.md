@@ -99,11 +99,16 @@ The only dependency-merge conflict was the cold-checkout family list; every
 family and binary fixture protection is retained. No original fixture pin or
 production renderer guard is relaxed.
 
-The earlier active-window natural evidence remains component evidence. The
-three-stage composition is **not yet proved by one natural `7903..7EBB`
-capture**, and neither this class nor the seeded App replay establishes a
-complete iteration, continuous campaign, production work-clock integration,
-original IRQ schedules, live DAC timing, natural boss victory, physical-input
+The subsequent [fresh natural-prefix proof](frame_prefix_live_20261018.md)
+establishes two uninterrupted `7903..7EBB` windows, including independently
+computed clock, IRQ, complete-memory and palette comparisons on Linux and
+native Windows. The controlled frozen corpus above still begins at `7A57`;
+it is not relabeled as natural evidence. A portable frozen natural-prefix
+regression remains missing because the full captures stay in RAM.
+
+Neither this class nor the seeded App replay establishes a complete iteration,
+continuous campaign, production work-clock integration, arbitrary original IRQ
+schedules, complete DAC lifetime, natural boss victory, physical-input
 acceptance or whole-game parity. The actor/update tail, end-run UI and broader
 runtime ownership remain required work toward the full goal.
 

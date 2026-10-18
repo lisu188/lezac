@@ -63,7 +63,9 @@ def rows(path,metadata):
     metadata.update(trace_end_marker=True,trace_uncompressed_bytes=length,trace_uncompressed_sha256=digest.hexdigest())
 
 
-def inspect_trace(path):
+def inspect_trace(path, endpoint=0x7a57):
+    if endpoint not in (0x7a57, 0x7ebb):
+        raise ValueError('Unsupported active-window endpoint')
     metadata={};windows=[];current=None;identified=False;classes=set()
     for row in rows(path,metadata):
         kind=row['kind'];cs=int(row['cs']);ip=int(row['ip'])
@@ -75,27 +77,35 @@ def inspect_trace(path):
         if not identified:
             raise ValueError('Active trace has no identification')
         if kind=='keyboard_enter':
-            if current or len(windows)>=4 or ip!=0x7903 or int(row['return_ip'])!=0x7a57:
+            if current or len(windows)>=4 or ip!=0x7903 or int(row['return_ip'])!=endpoint:
                 raise ValueError('Active entry differs')
             category=int(row['keyboard_class'])
             if category not in (0,1) or int(row['call'])!=len(windows)+1:
                 raise ValueError('Active case identity differs')
             current=dict(window=int(row['call']),category=category,states=0,irq_entries=0,
                 render_irq_entries=0,render_entry=False,dispatch=int(row['dispatch'])-1,
-                hud_entries=0,render_instructions=0)
+                hud_entries=0,render_instructions=0,post_render_entry=False,waiting_entry=False,post_render_states=0,
+                post_render_irq_entries=0)
             continue
         if current is None or int(row['call'])!=current['window'] or int(row['dispatch'])!=current['dispatch']+1:
             raise ValueError('Active dispatch is not contiguous')
         current['dispatch']=int(row['dispatch']);current['states']+=1
         if (cs,ip)==(int(row['return_cs']),0x7a13):
             current['render_entry']=True
+        if kind!='keyboard_return' and (cs,ip)==(int(row['return_cs']),0x7a57):
+            current['post_render_entry']=True
+        if kind!='keyboard_return' and (cs,ip)==(int(row['return_cs']),0x7c3d):
+            current['waiting_entry']=True
         current['hud_entries']+=(cs,ip)==(int(row['return_cs']),0x3184)
         if (cs,ip)==(0xf000,0xfea5):
             current['irq_entries']+=1
-            current['render_irq_entries']+=current['render_entry']
-        current['render_instructions']+=current['render_entry']
+            current['render_irq_entries']+=current['render_entry'] and not current['post_render_entry']
+            current['post_render_irq_entries']+=current['post_render_entry']
+        current['render_instructions']+=current['render_entry'] and not current['post_render_entry']
+        current['post_render_states']+=current['post_render_entry']
         if kind=='keyboard_return':
-            if (cs,ip)!=(int(row['return_cs']),0x7a57) or not current['render_entry']:
+            if (cs,ip)!=(int(row['return_cs']),endpoint) or not current['render_entry'] or (
+                    endpoint==0x7ebb and not (current['post_render_entry'] and current['waiting_entry'])):
                 raise ValueError('Active return differs')
             if current['category']==0:
                 if not current['hud_entries']:
@@ -107,6 +117,6 @@ def inspect_trace(path):
             windows.append(current);current=None
     if current or not identified or not windows:
         raise ValueError('Incomplete active window')
-    metadata.update(keyboard_windows=windows,active_live_windows=windows,
+    metadata.update(keyboard_windows=windows,active_live_windows=windows,observed_end_ip=endpoint,
         validated_target_completed=classes=={0,1} and windows[-1]['target_completed'])
     return metadata

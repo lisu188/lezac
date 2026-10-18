@@ -18,12 +18,22 @@ OWN=Path(__file__).resolve().parent
 sha=lambda raw:hashlib.sha256(raw).hexdigest()
 
 
+def capture_endpoint(recipe):
+    endpoint=recipe['observed_end_ip']
+    if (type(endpoint) is not int or endpoint not in (0x7a57,0x7ebb) or
+            recipe['dosbox_environment'].get('LEZAC_ACTIVE_END_IP')!=format(endpoint,'x') or
+            recipe.get('actual_environment_verified') is not True):
+        raise ValueError('Observed endpoint does not match the witnessed child environment')
+    return endpoint
+
+
 def _project(capture,out,repo):
     capture=capture.resolve(strict=True);out=out.resolve();repo=repo.resolve(strict=True)
     if not out.is_relative_to(Path('/dev/shm')) or not out.is_dir():
         raise ValueError('Projection directory was not prepared')
     recipe=json.loads((capture/'report.json').read_bytes());host=recipe['host_build']
     assert recipe['schema']=='lezac-instrumented-active-live-v1' and recipe['status']=='observed' and recipe['passed'] is True
+    endpoint=capture_endpoint(recipe)
     assert recipe['validated_target_completed'] is True and recipe['child_exit_code']==0
     assert recipe['canonical_assets_unchanged'] is True and recipe['atomic_active_endpoints'] is True
     assert recipe['actual_environment_verified'] is True and recipe['actual_sdl_sha256']==host['sdl_runtime_sha256']
@@ -46,9 +56,10 @@ def _project(capture,out,repo):
         struct.pack_into('<H',expected,at,(struct.unpack_from('<H',expected,at)[0]+game)&65535)
     trace=capture/'guest-keyboard.csv.gz'
     assert sha(trace.read_bytes())==recipe['trace_sha256']
-    details=inspect_trace(trace)
+    details=inspect_trace(trace,endpoint=endpoint)
     assert details['validated_target_completed'] is True and details['active_live_windows']==recipe['active_live_windows']
-    windows=details['active_live_windows'];cases=[];cpu=bytearray(b'LZACTV01'+struct.pack('<I',len(windows)));current=None
+    windows=details['active_live_windows'];cases=[]
+    cpu=bytearray((b'LZPFLV01' if endpoint==0x7ebb else b'LZACTV01')+struct.pack('<I',len(windows)));current=None
     for row in rows(trace,{}):
         if row['kind']=='identified':
             continue
@@ -78,7 +89,7 @@ def _project(capture,out,repo):
     (out/'cpu.bin').write_bytes(cpu);(out/'clock.bin').write_bytes(clock)
     result=dict(cases=cases,cpu_sha256=sha(cpu),clock_sha256=sha(clock),recipe_sha256=sha((capture/'report.json').read_bytes()),
         trace_sha256=recipe['trace_sha256'],initial_memory_only_as_input=True,later_cpu_memory_injected=False,
-        whole_game_parity=False,actual_app_integration=False)
+        observed_end_ip=endpoint,whole_game_parity=False,actual_app_integration=False)
     return result
 
 

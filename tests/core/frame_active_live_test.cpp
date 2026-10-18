@@ -1,4 +1,5 @@
 #include "core/frame_active.hpp"
+#include "core/frame_prefix.hpp"
 #include "core/pacing_device_clock.hpp"
 
 #include <algorithm>
@@ -12,6 +13,24 @@
 
 using namespace lezac::core;
 namespace {
+#ifdef LEZAC_TEST_FRAME_PREFIX
+using LiveOperation=FramePrefixOperation;
+constexpr const char* LiveMagic="LZPFLV01";
+constexpr const char* LiveResult="frame_prefix_live";
+bool renderInProgress(const LiveOperation& operation) {
+    const auto* active=std::get_if<FrameActiveSnapshot>(&operation.snapshot().callee);
+    return active && active->render.has_value();
+}
+bool terminal(const LiveOperation& operation) {
+    return operation.finished() && operation.snapshot().outcome==FramePrefixOutcome::ActorUpdate;
+}
+#else
+using LiveOperation=FrameActiveOperation;
+constexpr const char* LiveMagic="LZACTV01";
+constexpr const char* LiveResult="frame_active_live";
+bool renderInProgress(const LiveOperation& operation) {return operation.snapshot().render.has_value();}
+bool terminal(const LiveOperation& operation) {return operation.returned();}
+#endif
 void require(bool value,const std::string& message) {if(!value) throw std::runtime_error(message);}
 bool outputEntryExists(const std::string& path) {
     std::error_code error;
@@ -126,7 +145,7 @@ struct Memory {
 struct CpuState {DosGetTimeRegisters r;uint32_t mask;std::vector<uint8_t> opcode;};
 void replay(const char* cpu,const char* device,const char* dump) {
     const auto observedClocks=clocks(device);Reader reader(cpu);
-    require(reader.take(8)==std::vector<uint8_t>({'L','Z','A','C','T','V','0','1'}),"Active natural projection version differs");
+    require(reader.take(8)==std::vector<uint8_t>(LiveMagic,LiveMagic+8),"Active natural projection version differs");
     const auto count=reader.number(4);require(count==observedClocks.size(),"Active CPU/clock cases differ");
     uint64_t comparisons=0,irqs=0,renderIrqs=0;
     for(unsigned c=0;c<count;++c) {
@@ -141,7 +160,7 @@ void replay(const char* cpu,const char* device,const char* dump) {
         }
         for(bool restore:{false,true}) {
             Memory memory{initial};PacingDeviceClock clock(observedClocks[c][0]);memory.clock=&clock.workClock();
-            FrameActiveOperation operation(states[0].r,dos,keyboard,psp,game,idToggle);const auto bus=memory.bus();
+            LiveOperation operation(states[0].r,dos,keyboard,psp,game,idToggle);const auto bus=memory.bus();
             uint64_t delivered=0,renderDelivered=0;
             const auto before=operation.snapshot();
             require(operation.advance(0,bus,[](uint16_t)->uint16_t{throw std::runtime_error("Zero active budget requested REP");})==0 &&
@@ -170,14 +189,14 @@ void replay(const char* cpu,const char* device,const char* dump) {
                 }
                 require(boundary.kind==PicClockBoundaryKind::Ready,context+" unsupported computed clock boundary");
                 if(boundary.timerDelivered) {
-                    renderDelivered+=operation.snapshot().render.has_value();
+                    renderDelivered+=renderInProgress(operation);
                     operation.deliverTimerInterrupt(bus);++delivered;
                 }
                 if(restore) {
-                    operation=FrameActiveOperation(operation.snapshot());clock=PacingDeviceClock(clock.snapshot());memory.clock=&clock.workClock();
+                    operation=LiveOperation(operation.snapshot());clock=PacingDeviceClock(clock.snapshot());memory.clock=&clock.workClock();
                 }
             }
-            require(operation.returned() && operation.snapshot().dispatchedInstructions==size-1,"Active natural terminal differs");
+            require(terminal(operation) && operation.snapshot().dispatchedInstructions==size-1,"Active natural terminal differs");
             require(operation.snapshot().timerDeliveries==delivered && memory.outputs==delivered,"Active IRQ/EOI accounting differs");
             if(memory.bytes!=expectedMemory) {
                 const auto mismatch=std::mismatch(memory.bytes.begin(),memory.bytes.end(),expectedMemory.begin());
@@ -204,7 +223,7 @@ void replay(const char* cpu,const char* device,const char* dump) {
     }
     require(reader.stream.get()<0,"Active CPU projection tail differs");
     require(irqs && renderIrqs,"Active capture missed natural render-time IRQs");
-    std::cout<<"frame_active_live=ok cases="<<count<<" comparisons="<<comparisons<<" predicted_irqs="<<irqs<<
+    std::cout<<LiveResult<<"=ok cases="<<count<<" comparisons="<<comparisons<<" predicted_irqs="<<irqs<<
         " render_irqs="<<renderIrqs<<" complete_memory_bytes="<<uint64_t{count}*2*1048576<<
         " later_state_injected=0 actual_app_integration=0 whole_game_parity=0\n";
 }

@@ -41,17 +41,17 @@ class ActiveTraceTests(unittest.TestCase):
             writer.writerow(['end'])
         self.path.write_bytes(gzip.compress(stream.getvalue().encode('ascii'),mtime=0))
 
-    def windows(self):
+    def windows(self,endpoint=0x7a57):
         records=[dict(self.samples[0])];entry=next(row for row in self.samples if row['kind']=='keyboard_enter')
         for category in (0,1):
-            base=dict(entry,call=str(category+1),keyboard_class=str(category),return_ip=str(0x7a57),target_completed='0')
+            base=dict(entry,call=str(category+1),keyboard_class=str(category),return_ip=str(endpoint),target_completed='0')
             start=1000*(category+1)
             records.append(dict(base,kind='keyboard_enter',dispatch=str(start),ip=str(0x7903)))
-            ips=[0x7903,0x3184,0x7a13]+([0xfea5] if category else [])+[0x7a57]
+            ips=[0x7903,0x3184,0x7a13]+([0xfea5] if category else [])+([0x7a57,0x7c3d] if endpoint==0x7ebb else [])+[endpoint]
             for index,ip in enumerate(ips):
-                records.append(dict(base,kind='keyboard_return' if ip==0x7a57 else 'instruction',
+                records.append(dict(base,kind='keyboard_return' if ip==endpoint else 'instruction',
                     cs=str(0xf000) if ip==0xfea5 else base['return_cs'],ip=str(ip),dispatch=str(start+index),
-                    target_completed='1' if category and ip==0x7a57 else '0'))
+                    target_completed='1' if category and ip==endpoint else '0'))
         return records
 
     def test_sparse_rows_roundtrip_without_loss(self):
@@ -72,6 +72,51 @@ class ActiveTraceTests(unittest.TestCase):
                 self.write(self.samples,marker=marker,end=end)
                 with self.assertRaises(ValueError):
                     list(rows(self.path,{}))
+
+    def test_prefix_scope_requires_matching_endpoint_and_both_stage_entries(self):
+        records=self.windows(0x7ebb);self.write(records)
+        details=inspect_trace(self.path,endpoint=0x7ebb)
+        self.assertTrue(details['validated_target_completed'])
+        self.assertTrue(all(window['post_render_entry'] and window['waiting_entry']
+            for window in details['active_live_windows']))
+        with self.assertRaises(ValueError):
+            inspect_trace(self.path)
+        for endpoint in (0,0x7903,0x7c3d):
+            with self.subTest(endpoint=endpoint),self.assertRaises(ValueError):
+                inspect_trace(self.path,endpoint=endpoint)
+        for missing in (0x7a57,0x7c3d):
+            changed=copy.deepcopy(records)
+            for row in changed:
+                if row['ip']==str(missing):row['ip']=str(missing+1)
+            self.write(changed)
+            with self.subTest(missing=missing),self.assertRaises(ValueError):
+                inspect_trace(self.path,endpoint=0x7ebb)
+        self.write(self.windows())
+        with self.assertRaises(ValueError):
+            inspect_trace(self.path,endpoint=0x7ebb)
+
+    def test_post_render_irq_is_not_promoted_to_render_irq(self):
+        records=self.windows(0x7ebb)
+        irq=next(i for i,row in enumerate(records) if row['call']=='2' and row['ip']==str(0xfea5))
+        records[irq]['ip'],records[irq+1]['ip']=records[irq+1]['ip'],records[irq]['ip']
+        records[irq]['cs'],records[irq+1]['cs']=records[irq+1]['cs'],records[irq]['cs']
+        self.write(records)
+        result=inspect_trace(self.path,endpoint=0x7ebb)
+        self.assertFalse(result['validated_target_completed'])
+        self.assertEqual(result['active_live_windows'][1]['post_render_irq_entries'],1)
+
+    def test_endpoint_is_bound_to_the_actual_child_environment(self):
+        for endpoint in (0x7a57,0x7ebb):
+            recipe=dict(observed_end_ip=endpoint,actual_environment_verified=True,
+                dosbox_environment=dict(LEZAC_ACTIVE_END_IP=format(endpoint,'x')))
+            self.assertEqual(projector.capture_endpoint(recipe),endpoint)
+            controls=[dict(recipe,observed_end_ip=value) for value in (None,True,float(endpoint),0x7903,0x7c3d)]
+            controls += [dict(recipe,actual_environment_verified=value) for value in (None,False,'true')]
+            controls += [dict(recipe,dosbox_environment=value) for value in ({},dict(LEZAC_ACTIVE_END_IP='7EBB'),
+                dict(LEZAC_ACTIVE_END_IP='7a57' if endpoint==0x7ebb else '7ebb'))]
+            for changed in controls:
+                with self.subTest(recipe=changed),self.assertRaises(ValueError):
+                    projector.capture_endpoint(changed)
 
     def test_inheritance_without_previous_row_is_rejected(self):
         records=copy.deepcopy(self.samples);records[0]['cs']='~';self.write(records)

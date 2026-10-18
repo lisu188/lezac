@@ -46,10 +46,33 @@ def check(cxx,cpu,clock,out):
             if result.returncode!=(0 if name=='baseline' else 1):
                 raise ValueError('Natural mutation sensitivity differs: '+name)
             report['controls'].append(dict(name=name,exit_code=result.returncode,output=result.stdout.decode()))
+        report['output_guards']=[]
+        for kind in ('existing_ram','existing_palette','broken_symlink'):
+            prefix=out/('guard-'+kind)
+            ram=Path(str(prefix)+'-0.ram');palette=Path(str(prefix)+'-0.pal')
+            missing=out/('must-not-create-'+kind)
+            protected=palette if kind=='existing_palette' else ram
+            if kind=='broken_symlink':
+                ram.symlink_to(missing)
+            else:
+                protected.write_bytes(b'preserve owned evidence')
+            result=subprocess.run([str(out/'baseline/replay'),str(cpu),str(clock),str(prefix)],
+                stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=180,env=environment)
+            (out/(kind+'.log')).write_bytes(result.stdout)
+            if result.returncode!=1 or b'Active output already exists' not in result.stdout:
+                raise ValueError('Output preservation guard differs: '+kind)
+            if kind=='broken_symlink':
+                if not ram.is_symlink() or missing.exists():
+                    raise ValueError('Broken output symlink was followed')
+            elif protected.read_bytes()!=b'preserve owned evidence':
+                raise ValueError('Existing output was changed')
+            if kind!='existing_palette' and palette.exists() or kind=='existing_palette' and ram.exists():
+                raise ValueError('Rejected output created its companion')
+            report['output_guards'].append(dict(kind=kind,preserved=True))
         if any(sha(ROOT/'src/core'/name)!=digest for name,digest in identities.items()):
             raise ValueError('Recovered operation source changed')
         report.update(passed=True,original_sources_preserved=True)
-        print('active_live_mutations=ok faults=3 original_sources_preserved=1')
+        print('active_live_mutations=ok faults=3 output_guards=3 original_sources_preserved=1')
     except BaseException as error:
         report['error']=repr(error)
         raise

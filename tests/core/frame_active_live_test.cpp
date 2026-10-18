@@ -3,14 +3,22 @@
 
 #include <algorithm>
 #include <bit>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <system_error>
 #include <vector>
 
 using namespace lezac::core;
 namespace {
 void require(bool value,const std::string& message) {if(!value) throw std::runtime_error(message);}
+bool outputEntryExists(const std::string& path) {
+    std::error_code error;
+    const auto status=std::filesystem::symlink_status(path,error);
+    require(!error || error==std::errc::no_such_file_or_directory,"Cannot inspect active output: "+path);
+    return std::filesystem::exists(status);
+}
 struct Reader {
     std::ifstream stream;
     explicit Reader(const char* path):stream(path,std::ios::binary) {require(stream.good(),"Foreground projection missing");}
@@ -180,7 +188,7 @@ void replay(const char* cpu,const char* device,const char* dump) {
             if(dump && !restore) {
                 const auto path=std::string(dump)+"-"+std::to_string(c)+".ram";
                 const auto palettePath=std::string(dump)+"-"+std::to_string(c)+".pal";
-                require(!std::ifstream(path,std::ios::binary).good() && !std::ifstream(palettePath,std::ios::binary).good(),"Active output already exists");
+                require(!outputEntryExists(path) && !outputEntryExists(palettePath),"Active output already exists");
                 std::ofstream output(path,std::ios::binary);
                 output.write(reinterpret_cast<const char*>(memory.bytes.data()),static_cast<std::streamsize>(memory.bytes.size()));
                 require(output.good(),"Active RAM dump failed");

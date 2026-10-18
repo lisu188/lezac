@@ -25509,16 +25509,39 @@ public:
             bank.records.assign(1, GranRecord{bytes});
             monsters_.clear();
             nextActorOrder_ = 1;
+            actorSlots_.resetForLevel(actorSpriteDescriptor(1));
+            if (actorSlots_.count() != 0 || actorSlots_.state().visualCount != 2 ||
+                actorSlots_.state().links[0][15] != 0) {
+                throw std::runtime_error("boss animation fixture physical reset differs");
+            }
             spawnLevel7BossFromBank(bank);
-            if (monsters_.size() != 7) throw std::runtime_error("boss animation copy lost an actor");
+            if (monsters_.size() != 7 || actorSlots_.count() != 7 ||
+                actorSlots_.state().visualCount != 9 || actorSlots_.state().links[0][15] != 6) {
+                throw std::runtime_error("boss animation copy lost physical ownership");
+            }
             for (size_t actor = 0; actor < 7; ++actor) {
                 const auto actual = monsters_[actor].animationBackup.packed();
                 if (!std::equal(actual.begin(), actual.end(), bytes.begin() + 1 + actor * 38 + 29)) {
                     throw std::runtime_error("boss animation backup copy mismatch");
                 }
             }
+            const auto retained = actorSlots_.state();
+            const auto nextOrder = nextActorOrder_;
+            bool rejected = false;
+            try {
+                spawnLevel7BossFromBank(bank);
+            } catch (const std::invalid_argument& error) {
+                rejected = std::string(error.what()) == "GRAN group exceeds physical storage";
+            }
+            const auto& after = actorSlots_.state();
+            if (!rejected || after.actors != retained.actors || after.visuals != retained.visuals ||
+                after.links != retained.links || after.count != retained.count ||
+                after.visualCount != retained.visualCount || after.success != retained.success || monsters_.size() != 7 ||
+                bossLinks_.size() != 6 || nextActorOrder_ != nextOrder) {
+                throw std::runtime_error("boss animation capacity rejection changed existing group");
+            }
         }
-        std::cout << "monster_animation_original=ok cases=53 updates=636 production_app=1 diagnostic_stop_after_prologue=1 boss_backup_copies=14 seeded=1 natural_route=0 whole_game_claim=0\n";
+        std::cout << "monster_animation_original=ok cases=53 updates=636 production_app=1 diagnostic_stop_after_prologue=1 boss_backup_copies=14 seeded=1 natural_route=0 whole_game_claim=0 boss_physical_resets=2 boss_capacity_rejections=2\n";
     }
 
     void debugOriginalPickupPostInit(const std::string& outputPath) {

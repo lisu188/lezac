@@ -185,6 +185,11 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_frame_spawner_test tests/core/frame_spawner_test.cpp)
+    target_link_libraries(lezac_frame_spawner_test PRIVATE lezac_core)
+    add_test(NAME frame_spawner_unit COMMAND lezac_frame_spawner_test)
+    set_tests_properties(frame_spawner_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "frame_spawner_unit=ok entry_rejections=3 empty_dispatches=7")
     add_executable(lezac_frame_world_raster_test tests/core/frame_world_raster_test.cpp)
     target_link_libraries(lezac_frame_world_raster_test PRIVATE lezac_core)
     add_test(NAME frame_world_raster_unit COMMAND lezac_frame_world_raster_test)
@@ -618,6 +623,26 @@ if(BUILD_TESTING)
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
         find_package(Git QUIET)
+        add_test(NAME frame_spawner_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_spawner_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-spawner.bin)
+        set_tests_properties(frame_spawner_fixture_contract PROPERTIES FIXTURES_SETUP frame_spawner_corpus)
+        add_test(NAME frame_spawner_original COMMAND lezac_frame_spawner_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-spawner.bin ${CMAKE_CURRENT_SOURCE_DIR}/LEZAC.EXE)
+        set_tests_properties(frame_spawner_original PROPERTIES FIXTURES_REQUIRED frame_spawner_corpus
+            PASS_REGULAR_EXPRESSION "frame_spawner_original=ok cases=151 replays=604 comparisons=97248 instructions=247344 runtime_errors=2 full_frame_claim=0 work_clock_claim=0")
+        add_test(NAME frame_spawner_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_spawner_fixture.py -v)
+        if(NOT WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME frame_spawner_mutation_controls COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_spawner_mutations.py
+                --compiler ${CMAKE_CXX_COMPILER}
+                --fixture ${CMAKE_CURRENT_BINARY_DIR}/frame-spawner.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/frame-spawner-mutations)
+            set_tests_properties(frame_spawner_mutation_controls PROPERTIES FIXTURES_REQUIRED frame_spawner_corpus
+                TIMEOUT 180 PASS_REGULAR_EXPRESSION
+                "frame_spawner_mutations=ok compiled=7 rejected=6 production_source_unchanged=1")
+        endif()
         if(Git_FOUND)
             add_test(NAME frozen_render_checkout COMMAND ${Python3_EXECUTABLE} -S -B
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frozen_render_checkout.py

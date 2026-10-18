@@ -35,9 +35,9 @@ guard stimulus **and the complete original-backed projected player, actor, and
 terrain state**. It verifies the actual route, all input/time boundaries, each
 ordered checkpoint, the full presentation/post-update count and the replay
 footer. Selected captured RGB buffers are checked against their reported FNV
-fingerprints. Twelve focused regression tests include corrupted routes, changed
-player state, invalid checkpoint state, invalid phase transitions, and omitted
-checkpoint/frame rejection. The summary reports
+fingerprints. Thirteen focused regression tests include corrupted routes, changed
+player state, invalid checkpoint state, invalid phase transitions, omitted
+checkpoint/frame records, and post-end checkpoint injection. The summary reports
 additional destruction, minimum health, completion-gate candidates and any
 **C++-only** Level 5 entry.
 

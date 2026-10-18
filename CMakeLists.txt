@@ -185,6 +185,8 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_frame_active_live_test tests/core/frame_active_live_test.cpp)
+    target_link_libraries(lezac_frame_active_live_test PRIVATE lezac_core)
     add_executable(lezac_frame_active_test tests/core/frame_active_test.cpp)
     target_link_libraries(lezac_frame_active_test PRIVATE lezac_core)
     add_test(NAME frame_active_unit COMMAND lezac_frame_active_test)
@@ -630,6 +632,8 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME active_live_trace_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_active_live_probe.py)
         if(UNIX AND NOT APPLE)
             add_test(NAME active_observer_builder_rejections COMMAND ${Python3_EXECUTABLE} -S -B
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_active_observer_builder.py)

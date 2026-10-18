@@ -185,6 +185,12 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_reserve_hud_test tests/core/reserve_hud_test.cpp)
+    target_link_libraries(lezac_reserve_hud_test PRIVATE lezac_core)
+    add_test(NAME reserve_hud_unit COMMAND lezac_reserve_hud_test)
+    set_tests_properties(reserve_hud_unit PROPERTIES PASS_REGULAR_EXPRESSION "reserve_hud_unit=ok entry_rejections=3")
+    add_executable(lezac_reserve_hud_renderer_test tests/rendering/reserve_hud_original_test.cpp)
+    target_link_libraries(lezac_reserve_hud_renderer_test PRIVATE lezac_rendering)
     add_executable(lezac_frame_spawner_test tests/core/frame_spawner_test.cpp)
     target_link_libraries(lezac_frame_spawner_test PRIVATE lezac_core)
     add_test(NAME frame_spawner_unit COMMAND lezac_frame_spawner_test)
@@ -623,6 +629,31 @@ if(BUILD_TESTING)
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
         find_package(Git QUIET)
+        add_test(NAME reserve_hud_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_reserve_hud_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/reserve-hud.bin)
+        set_tests_properties(reserve_hud_fixture_contract PROPERTIES FIXTURES_SETUP reserve_hud_corpus)
+        add_test(NAME reserve_hud_original COMMAND lezac_reserve_hud_test
+            ${CMAKE_CURRENT_BINARY_DIR}/reserve-hud.bin ${CMAKE_CURRENT_SOURCE_DIR}/LEZAC.EXE)
+        set_tests_properties(reserve_hud_original PROPERTIES FIXTURES_REQUIRED reserve_hud_corpus
+            PASS_REGULAR_EXPRESSION "reserve_hud_original=ok cases=756 replays=9072 comparisons=914802 dispatches=2311812 transfers=867456 runtime_errors=3 full_frame_claim=0 work_clock_claim=0")
+        add_test(NAME reserve_hud_renderer_original COMMAND lezac_reserve_hud_renderer_test
+            ${CMAKE_CURRENT_BINARY_DIR}/reserve-hud.bin)
+        set_tests_properties(reserve_hud_renderer_original PROPERTIES FIXTURES_REQUIRED reserve_hud_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "reserve_hud_renderer=ok cases=512 indexed_pixels=98304 no_extra_slot_pixels=110592 original_call_timing=0 whole_game_parity=0")
+        add_test(NAME reserve_hud_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_reserve_hud_fixture.py -v)
+        set_tests_properties(reserve_hud_fixture_rejections PROPERTIES
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
+        if(NOT WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME reserve_hud_mutation_controls COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_reserve_hud_mutations.py
+                --compiler ${CMAKE_CXX_COMPILER} --fixture ${CMAKE_CURRENT_BINARY_DIR}/reserve-hud.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/reserve-hud-mutations)
+            set_tests_properties(reserve_hud_mutation_controls PROPERTIES FIXTURES_REQUIRED reserve_hud_corpus
+                TIMEOUT 180 PASS_REGULAR_EXPRESSION "reserve_hud_mutations=ok compiled=7 rejected=6 production_source_unchanged=1")
+        endif()
         add_test(NAME frame_spawner_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_spawner_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/frame-spawner.bin)

@@ -19,14 +19,15 @@ struct FrameHudSnapshot {
     bool operator==(const FrameHudSnapshot&) const = default;
 };
 
-// Original 79E8..7A13, including HUD, palette requests, digit blits and CRT Move.
+// Original 79E8..7A13 and near HUD entries 3184/29DB, including their real callees.
 // REP transfer budgets and IRQ eligibility belong to the external normal-core clock.
 class FrameHudOperation {
 public:
     using CopyBudget=std::function<uint16_t(uint16_t)>;
     FrameHudOperation(DosGetTimeRegisters r,uint16_t callbackBase,uint16_t game,uint32_t idToggle)
-        :state_{r,game,callbackBase,idToggle,r.ip==0x3184} {
-        if(r.cs!=game || r.ds!=static_cast<uint16_t>(game+0xaa2) || (r.ip!=0x79e8 && r.ip!=0x3184) ||
+        :state_{r,game,callbackBase,idToggle,r.ip!=0x79e8} {
+        if(r.cs!=game || r.ds!=static_cast<uint16_t>(game+0xaa2) ||
+            (r.ip!=0x79e8 && r.ip!=0x3184 && r.ip!=0x29db) ||
             callbackBase>0xffec || (idToggle!=0 && idToggle!=0x200000))
             throw std::invalid_argument("Frame HUD entry differs from the recovered profile");
     }
@@ -164,7 +165,41 @@ private:
         case 0x79fa:push(bus,0xcb0f);r.ip=0x79fd;break;
         case 0x79fd:call(bus,0x3184,0x7a00);break;
         // Original near Pascal frames, including the real runtime stack check.
-        case 0x3184:case 0x495:case 0x313d:push(bus,r.bp);++r.ip;break;
+        case 0x3184:case 0x495:case 0x313d:case 0x29db:push(bus,r.bp);++r.ip;break;
+        case 0x29dc:r.bp=r.sp;r.ip=0x29de;break;
+        case 0x29de:r.ax=6;r.ip=0x29e1;break;
+        case 0x29e1:farCall(bus,0x4df,0x29e6);break;
+        case 0x29e6:r.sp=arithmetic(r.sp,6,true);r.ip=0x29e9;break;
+        case 0x29e9:r.di=local(4);r.ip=0x29ec;break;
+        case 0x29ec:al(bus.readByte(r.ds,static_cast<uint16_t>(r.di+0x79e9)));r.ip=0x29f0;break;
+        case 0x29f0:bus.writeByte(r.ss,stackOffset(-5),lo(r.ax));r.ip=0x29f3;break;
+        case 0x29f3:r.di=local(4);r.ip=0x29f6;break;
+        case 0x29f6:r.di=shift(r.di,1);r.ip=0x29f8;break;
+        case 0x29f8:r.ax=bus.readWord(r.ds,static_cast<uint16_t>(r.di+0x79f2));r.ip=0x29fc;break;
+        case 0x29fc:store(-4,r.ax);r.ip=0x29ff;break;
+        case 0x29ff:r.ax=bus.readWord(r.ds,0xc208);r.ip=0x2a02;break;
+        case 0x2a02:r.ax=arithmetic(r.ax,0x1cc0,false);r.ip=0x2a05;break;
+        case 0x2a05:bus.writeWord(r.ds,0x2074,r.ax);r.ip=0x2a08;break;
+        case 0x2a08:r.ax=local(-4);r.ip=0x2a0b;break;
+        case 0x2a0b:r.dx=(r.ax&0x8000u)?0xffff:0;r.ip=0x2a0c;break;
+        case 0x2a0c:r.ax=arithmetic(r.ax,0xf000,false);r.ip=0x2a0f;break;
+        case 0x2a0f:r.dx=arithmetic(r.dx,0,false,16,true);r.ip=0x2a12;break;
+        case 0x2a12:bus.writeWord(r.ds,0x2072,r.ax);r.ip=0x2a15;break;
+        case 0x2a15:store(-2,1);r.ip=0x2a1a;break;
+        case 0x2a1a:r.ip=0x2a1f;break;
+        case 0x2a1c:store(-2,increment(local(-2),false));r.ip=0x2a1f;break;
+        case 0x2a1f:al(bus.readByte(r.ss,stackOffset(-5)));r.ip=0x2a22;break;
+        case 0x2a22:r.ax=lo(r.ax);logic(0,8);r.ip=0x2a24;break;
+        case 0x2a24:arithmetic(r.ax,local(-2),true);r.ip=0x2a27;break;
+        case 0x2a27:branch(flag(0x80)==flag(0x800),0x2a2f,0x2a29);break;
+        case 0x2a29:r.ax=bus.readWord(r.ds,0xc208);r.ip=0x2a2c;break;
+        case 0x2a2c:bus.writeWord(r.ds,0x2074,r.ax);r.ip=0x2a2f;break;
+        case 0x2a2f:call(bus,0x1156,0x2a32);break;
+        case 0x2a32:bus.writeWord(r.ds,0x2072,arithmetic(bus.readWord(r.ds,0x2072),9,false));r.ip=0x2a37;break;
+        case 0x2a37:arithmetic(local(-2),3,true);r.ip=0x2a3b;break;
+        case 0x2a3b:branch(!flag(0x40),0x2a1c,0x2a3d);break;
+        case 0x2a3d:r.sp=r.bp;r.bp=pop(bus);r.ip=0x2a3e;break;
+        case 0x2a3e:r.ip=pop(bus);r.sp=static_cast<uint16_t>(r.sp+2u);state_.outcome=FrameHudOutcome::Returned;break;
         case 0x3185:r.bp=r.sp;r.ip=0x3187;break;
         case 0x496:r.bp=r.sp;r.ip=0x498;break;
         case 0x313e:r.bp=r.sp;r.ip=0x3140;break;

@@ -2107,6 +2107,19 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "^active_fire_fixture=ok cases=64 mutations=103 newline_variants=2 silent_children=1")
     endif()
 
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME waiting_map_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_waiting_placement_fixture.py)
+        set_tests_properties(waiting_map_fixture_contract PROPERTIES FIXTURES_SETUP waiting_map_corpus)
+        add_test(NAME waiting_map_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_waiting_placement_fixture.py --exe $<TARGET_FILE:lezac_cpp> -v)
+    endif()
+    add_test(NAME waiting_map_original COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+        $<TARGET_FILE:lezac_cpp> --debug-waiting-map-original
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/waiting_placement/oracle.bin)
+    set_tests_properties(waiting_map_original PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        FIXTURES_REQUIRED waiting_map_corpus PASS_REGULAR_EXPRESSION
+        "waiting_map_original=ok cases=320 production_prepass=1 map_layouts=4 shared_cursor=1 controlled=1 natural=0 whole_game_parity=0")
     add_test(NAME state2_prepass_original
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-state2-prepass-original
@@ -7703,12 +7716,21 @@ if(BUILD_TESTING)
     find_program(XDOTOOL_EXECUTABLE xdotool)
     if(BASH_EXECUTABLE AND XVFB_RUN_EXECUTABLE AND XDOTOOL_EXECUTABLE)
         if(Python3_Interpreter_FOUND)
+            set(LEZAC_BIOS_XVFB_ARGS "-screen 0 1280x1024x24 -noreset")
+            add_test(NAME bios_menu_xvfb_lifetime
+                COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_bios_menu_xvfb_lifetime.py
+                    --xvfb-run ${XVFB_RUN_EXECUTABLE} "--server-args=${LEZAC_BIOS_XVFB_ARGS}"
+                    --out ${CMAKE_CURRENT_BINARY_DIR}/bios-menu-server-checks)
+            set_tests_properties(bios_menu_xvfb_lifetime PROPERTIES TIMEOUT 45
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR}"
+                PASS_REGULAR_EXPRESSION "bios_menu_xvfb_lifetime=ok retained=1 reset_control=1 silent=1")
             add_test(NAME bios_menu_input_live_xvfb
                 COMMAND ${CMAKE_COMMAND} -E env SDL_AUDIODRIVER=dummy
-                        ${XVFB_RUN_EXECUTABLE} -a ${Python3_EXECUTABLE} -B
+                        ${XVFB_RUN_EXECUTABLE} -a -s "${LEZAC_BIOS_XVFB_ARGS}" ${Python3_EXECUTABLE} -B
                         ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_bios_menu_input_xdotool.py
                         --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/bios-menu-input-checks)
             set_tests_properties(bios_menu_input_live_xvfb PROPERTIES
+                ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1"
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 180
                 PASS_REGULAR_EXPRESSION "bios_menu_live=ok control_noncharacters=15 enhanced_cases=8 alt_release=1 alt_modulo=1 alt_zero=1 alt_overlap=1 intro_noncharacters=1 intro_release=1 normal_entry_point=1 audio=dummy gameplay_seeded=0 whole_game_parity=0 keypad_alt=6 keypad_control=5 keypad_intro=1 alt_decimal_zero=1")
             add_test(NAME buffered_menu_repeat_live_xvfb

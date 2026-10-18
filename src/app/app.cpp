@@ -15481,6 +15481,80 @@ public:
                   << " players=2 governed_input=1 seeded=1 natural=0 whole_game_parity=0 frame_hash=" << std::hex << frame.hash << std::dec << '\n';
     }
 
+    void debugWaitingPlacementOriginal(const std::string& fixture) {
+        namespace wire = lezac::diagnostics::transient_storage;
+        load();
+        std::ifstream input(fixture, std::ios::binary);
+        if (!input) throw std::runtime_error("waiting-map: cannot open fixture");
+        std::string magic(8, '\0'); input.read(magic.data(), 8);
+        const auto low = wire::word(input);
+        const uint32_t count = low | (uint32_t{wire::word(input)} << 16);
+        if (magic != "LZWMAP01" || count != 320) throw std::runtime_error("waiting-map: invalid header");
+        const auto raw = [](float value) { return static_cast<uint16_t>(static_cast<int>(value)); };
+        for (uint32_t index = 0; index < count; ++index) {
+            std::array<uint16_t, 18> p{};
+            for (auto& value : p) value = wire::word(input);
+            if (p[0] != index || p[1] > 3 || p[2] > 3 || p[3] > 1 || p[4] > 1 || p[9] > 255 || p[10] > 255)
+                throw std::runtime_error("waiting-map: invalid case fields");
+            playerCount_ = 2; lives_ = lives2_ = 1; resetLevel(0); ui_.setMenu(false);
+            level_.tiles.assign(1980, 0); level_.wordLayer.assign(1980, 0);
+            mapPlaneMemory_.restoreSeparatedPlanesForFixture();
+            if (p[1] != 0) mapPlaneMemory_.beginLevel({}, {}, 1980);
+            std::vector<std::pair<uint16_t, uint8_t>> seeds;
+            for (unsigned player = 0; player < 2; ++player) if (p[2] & (1u << player)) {
+                const auto x = p[5 + player * 2], y = p[6 + player * 2];
+                const auto cell = static_cast<uint16_t>((((static_cast<uint16_t>(y + 7) >> 3) + 1) * 60) + (x >> 3));
+                seeds.emplace_back(cell, static_cast<uint8_t>(p[9]));
+                seeds.emplace_back(static_cast<uint16_t>(cell + 1), static_cast<uint8_t>(p[10]));
+            }
+            if (p[1] == 3) {
+                mapPlaneMemory_.restoreSeparatedPlanesForFixture();
+                mapPlaneMemory_.beginLevel({}, {}, 2400);
+                std::vector<uint8_t> oldTiles(2400); std::vector<uint16_t> oldWords(2400);
+                for (const auto& [at, value] : seeds) if (at < oldTiles.size()) oldTiles[at] = value;
+                mapPlaneMemory_.beginLevel(oldTiles, oldWords, 1980);
+            }
+            std::vector<uint8_t> tail(16);
+            for (const auto& [at, value] : seeds) {
+                if (at < level_.tiles.size()) mapPlaneMemory_.writeObject(at, value, level_.tiles, level_.wordLayer);
+                else if (p[1] == 1 && at >= 1980 && at < 1996) tail[at - 1980] = value;
+                else if (p[1] == 2 && at >= 2000 && at < 2004) {
+                    const auto word = static_cast<size_t>((at - 2000) / 2);
+                    const unsigned shift = (at & 1u) * 8;
+                    const auto mask = static_cast<uint16_t>(0xffu << shift);
+                    level_.wordLayer[word] = static_cast<uint16_t>((level_.wordLayer[word] & ~mask) | (uint16_t{value} << shift));
+                } else if (p[1] == 0) mapPlaneMemory_.writeObject(at, value, level_.tiles, level_.wordLayer);
+                else if (p[1] != 3) throw std::runtime_error("waiting-map: seed outside declared layout");
+            }
+            if (p[1] == 1) mapPlaneMemory_.retainObjectDecoderTail(tail, level_.tiles, level_.wordLayer);
+            for (unsigned player = 0; player < 2; ++player) {
+                auto& target = player == 0 ? player_ : player2_;
+                const auto coordinate = [&](uint16_t value) {
+                    return static_cast<float>(p[3] ? static_cast<int16_t>(value) : int{value});
+                };
+                target.x = coordinate(p[5 + player * 2]); target.y = coordinate(p[6 + player * 2]);
+            }
+            playerDead_ = player2Dead_ = true;
+            lives_ = p[2] & 1 ? 1 : -1; lives2_ = p[2] & 2 ? 1 : -1;
+            reentryTimer_ = p[2] & 1 ? 65535 : 0; reentryTimer2_ = p[2] & 2 ? 65535 : 0;
+            pendingLifeLoss_ = pendingLifeLoss2_ = false;
+            deathStateTimer_ = deathStateTimer2_ = 0;
+            levelRestartPromoted_ = false; reentryGate_ = p[4] != 0;
+            reentryFire1_ = reentryFire2_ = false; noActivePlayerTicks_ = 0;
+            sound_.writeSharedCursor(0x5aa5);
+            const auto tiles = level_.tiles; const auto words = level_.wordLayer;
+            updatePlayerReentryPrepass(FrameControls{});
+            if (raw(player_.x) != p[5] || raw(player2_.x) != p[7] || raw(player_.y) != p[11] || raw(player2_.y) != p[12] ||
+                sound_.requestCursor() != p[13] || reentryTimer_ != p[14] || reentryTimer2_ != p[15] ||
+                (originalPlayerState(1) | (originalPlayerState(2) << 8)) != p[16] || noActivePlayerTicks_ != p[17] ||
+                level_.tiles != tiles || level_.wordLayer != words)
+                throw std::runtime_error("waiting-map: production mismatch case " + std::to_string(index));
+        }
+        if (input.peek() != std::char_traits<char>::eof()) throw std::runtime_error("waiting-map: trailing bytes");
+        std::cout << "waiting_map_original=ok cases=" << count
+                  << " production_prepass=1 map_layouts=4 shared_cursor=1 controlled=1 natural=0 whole_game_parity=0\n";
+    }
+
     void debugState2PrepassOriginal(const std::string& fixture) {
         load();
         std::ifstream input(fixture);
@@ -30944,12 +31018,14 @@ private:
     }
 
     void updateWaitingPlayerPlacement(Player& player) {
-        const uint16_t x = static_cast<uint16_t>(player.x);
-        const uint16_t y = static_cast<uint16_t>(player.y);
+        const uint16_t x = static_cast<uint16_t>(static_cast<int>(player.x));
+        const uint16_t y = static_cast<uint16_t>(static_cast<int>(player.y));
         const uint16_t row = (static_cast<uint16_t>(y + 7) >> 3) + 1;
         const uint16_t cell = static_cast<uint16_t>(row * level_.width + (x >> 3));
+        // DS:2074 is shared by this map scan and sound-request construction.
+        sound_.writeSharedCursor(cell);
         auto solid = [&](uint16_t at) {
-            const uint8_t tile = at < level_.tiles.size() ? level_.tiles[at] : 0;
+            const uint8_t tile = mapPlaneMemory_.readObject(at, level_.tiles, level_.wordLayer);
             return tile >= 1 && tile <= 76;
         };
         // 1000:7E41 jumps directly to DEC on the left cell. Only the right
@@ -33454,6 +33530,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-state2-prepass-original") {
             app.debugState2PrepassOriginal(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-waiting-map-original") {
+            app.debugWaitingPlacementOriginal(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-reentry-original") {

@@ -10656,7 +10656,8 @@ public:
         auto inspectHud = [&](const std::string& label) {
             inspectRenderedFrame(label);
             for (int marker = 1; marker <= playerCount_; ++marker) {
-                const int reserves = marker == 1 ? lives_ : lives2_;
+                // 29DB compares the stored reserve byte, including FF when out.
+                const auto reserves = static_cast<uint8_t>(marker == 1 ? lives_ : lives2_);
                 const int x = marker == 1 ? 0 : 180;
                 for (int slot = 0; slot < 3; ++slot) {
                     if (frameInspector_.regionHasVariation(x + slot * 9, 192, 8, 8) != (slot < reserves)) {

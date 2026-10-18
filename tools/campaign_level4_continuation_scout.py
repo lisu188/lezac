@@ -322,7 +322,7 @@ class ScoutChecks(unittest.TestCase):
             (root / 'trace.jsonl').write_text(
                 '\n'.join(json.dumps(row) for row in rows) + '\n', encoding='utf-8')
             expected = dict(section='level4', index=BASE, phase='post_update')
-            with mock.patch.object(support, 'fixture', return_value=[{}, expected]), \
+            with mock.patch.object(support, 'fixture', return_value=[{}, expected, {}]), \
                  mock.patch.object(support.recovered, 'check_cpp'), \
                  mock.patch.object(fidelity, 'ASSETS', ()), \
                  mock.patch.object(fidelity, 'read_ppm', return_value=b'pixel'):

@@ -618,6 +618,14 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        find_package(Git QUIET)
+        if(Git_FOUND)
+            add_test(NAME frozen_render_checkout COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frozen_render_checkout.py
+                --git ${GIT_EXECUTABLE} --out ${CMAKE_CURRENT_BINARY_DIR}/frozen-render-checkout)
+            set_tests_properties(frozen_render_checkout PROPERTIES
+                PASS_REGULAR_EXPRESSION "frozen_render_checkout=ok")
+        endif()
         add_test(NAME render_view_gate_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_render_view_gate_fixture.py
             --oracle ${CMAKE_CURRENT_BINARY_DIR}/render-view-gate.bin

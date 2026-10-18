@@ -724,6 +724,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Frozen render cold-checkout regression
+        shell: pwsh
         run: python -S -B tools/test_frozen_render_checkout.py --out build/frozen-render-checkout
       - uses: msys2/setup-msys2@v2
         with:

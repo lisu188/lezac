@@ -1017,6 +1017,12 @@ if(BUILD_TESTING)
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_original_frame_pacing.py -v)
         set_tests_properties(frame_pacing_fixture_contract PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        add_test(NAME frame_iteration_work_original
+            COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_iteration_work.py -v)
+        set_tests_properties(frame_iteration_work_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 60
+            ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
     endif()
 
     add_executable(lezac_jolly_cloud_rain_test tests/gameplay/jolly_cloud_rain_test.cpp)

@@ -1,13 +1,14 @@
 {
   "actual_library_mapping_verified": true,
   "app_bytes": 18444,
-  "app_sha256": "4d649a049d29629429e70b4e6818760d3b0b03f669b74f4b6f75c4a0af74f020",
+  "app_sha256": "ecc53495ebd4929580cdc1a871ce7df3e1b54ee4de75566a82a32c22d2cc5d72",
   "calls_stubbed": 0,
   "canonical_assets_rechecked_before_export": true,
   "cases": 2226,
-  "compressed_bytes": 6723904,
-  "compressed_sha256": "616e3e07655d7a8faebc5ef508cd8874998ca49ffa4da768193d472109caa2f7",
+  "compressed_bytes": 6724708,
+  "compressed_sha256": "aed8f8773d3aa6be29b01b2ce6a92f2a1deba48b2707e96d7ee5f153595e49d3",
   "controlled_initial_memory": true,
+  "descriptor_indexing": "one-based",
   "endpoint_all_flags_compared": true,
   "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
   "executed_instructions": [
@@ -897,11 +898,15 @@
   "hardware_io": 0,
   "instruction_patches": 0,
   "interrupts_delivered": 0,
+  "inventory_bases": [
+    7020,
+    7024
+  ],
   "natural_capture": false,
   "ordered_writes": 869313,
-  "producer_sha256": "276d9b94949bbc2c2a45e9134996016acd83f094d2c516c480dcc261fbb728e1",
+  "producer_sha256": "40d3698b61cf7703e16a7277a9fa33fb15ea973a2f299d3458df99fe0026153e",
   "projection_bytes": 93486961,
-  "projection_sha256": "90d3c5658430a0005e3976e23b4e91e556ae29c31b4cb14f7b1655bea31fbbc5",
+  "projection_sha256": "bda052b182b452572091a34a4a8aec36fd2ddc3980dff71be74be6b4fdea4462",
   "raw_memory_published": false,
   "register_states": 2829590,
   "rep_trace_policy": "raw-unicorn-transfer-and-zero-count-observations",
@@ -916,6 +921,12 @@
   "trace_storage": "register-columns-v1",
   "unicorn_library_sha256": "ddb196ec82b52e502c18e4a34478bf7b9f61c83c2ebaa95c74d8ded45a95da9c",
   "unicorn_version": "2.1.4",
+  "weapon_selection_values": [
+    1,
+    2,
+    3,
+    4
+  ],
   "window_sprite_cases": 32,
   "work_clock_claim": false
 }

@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / 'tests/fixtures/ammo_hud'
-MANIFEST_SHA = 'f1dc47c9d8f259ac83ba84190e231a2903f27224e771d5e262f2692fe05a6664'
+MANIFEST_SHA = 'd5f06c117e6bd799cdf42a955734cd3142b9f9adea5a51aca05b0de969718278'
 sha = lambda raw: hashlib.sha256(raw).hexdigest()
 
 
@@ -27,6 +27,8 @@ def read_fixture(root=ROOT, fixture=FIXTURE):
                         ('sprite_atlas_sha256', 'BOMOMIMK.SPR')]:
         require(sha((root / name).read_bytes()) == m[field], 'Ammunition source differs: ' + name)
     require(m['schema'] == 'lezac-controlled-ammunition-hud-v1' and m['cases'] == 2226 and
+        m['weapon_selection_values'] == [1, 2, 3, 4] and m['descriptor_indexing'] == 'one-based' and
+        m['inventory_bases'] == [0x1b6c, 0x1b70] and
         m['register_states'] == 2829590 and m['runtime_errors'] == 7 and m['ordered_writes'] == 869313 and
         m['shipped_cases'] == 2048 and m['window_sprite_cases'] == 32 and len(m['executed_instructions']) == 220 and
         m['unicorn_version'] == '2.1.4' and m['unicorn_library_sha256'] ==
@@ -43,7 +45,7 @@ def read_fixture(root=ROOT, fixture=FIXTURE):
     app = (fixture / 'app.bin').read_bytes()
     require(len(app) == 18444 == m['app_bytes'] and sha(app) == m['app_sha256'], 'Frozen ammunition App fixture differs')
     compressed = (fixture / 'oracle.bin.gz').read_bytes()
-    require(len(compressed) == 6723904 == m['compressed_bytes'] and sha(compressed) == m['compressed_sha256'],
+    require(len(compressed) == 6724708 == m['compressed_bytes'] and sha(compressed) == m['compressed_sha256'],
             'Frozen compressed ammunition trace differs')
     with gzip.GzipFile(fileobj=io.BytesIO(compressed)) as source:
         decoded = source.read(93486962)

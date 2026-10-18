@@ -27489,12 +27489,67 @@ public:
                   << " frame_inspection=1\n";
     }
 
+    void debugFrameWaitingOriginal(const std::string& path) {
+        const auto bytes = lezac::resources::readFile(path);
+        uint64_t fingerprint = 14695981039346656037ull;
+        for (uint8_t byte : bytes) { fingerprint ^= byte; fingerprint *= 1099511628211ull; }
+        constexpr std::array<uint8_t, 12> signature{'L','Z','W','F','A','P','0','1',68,0,0,0};
+        if (bytes.size() != 4364 || fingerprint != 0xc08b764df32df65aull ||
+            !std::equal(signature.begin(), signature.end(), bytes.begin()))
+            throw std::runtime_error("waiting App fixture fingerprint differs");
+        load();
+        initSdl();
+        playerCount_ = 2;
+        unsigned active = 0, waiting = 0;
+        for (size_t index = 0; index < 68; ++index) {
+            const size_t at = 12 + index * 64;
+            const auto word = [&](size_t offset) {
+                return static_cast<uint16_t>(bytes[at + offset] | (uint16_t{bytes[at + offset + 1]} << 8));
+            };
+            resetLevel(0); ui_.setMenu(false);
+            playerDead_ = bytes[at + 3] == 2; player2Dead_ = bytes[at + 4] == 2;
+            lives_ = bytes[at + 13]; lives2_ = bytes[at + 14];
+            reentryTimer_ = word(17); reentryTimer2_ = word(19);
+            pendingLifeLoss_ = pendingLifeLoss2_ = false;
+            deathStateTimer_ = deathStateTimer2_ = 0;
+            levelRestartPromoted_ = false; reentryGate_ = bytes[at + 2] != 0;
+            reentryFire1_ = bytes[at + 5] != 0; reentryFire2_ = bytes[at + 6] != 0;
+            noActivePlayerTicks_ = 13;
+            for (size_t player = 0; player < 2; ++player) {
+                auto& inventory = player == 0 ? bombInventory_ : bombInventory2_;
+                inventory.selected = static_cast<BombType>(bytes[at + 7 + player]);
+                inventory.hudDirty = bytes[at + 9 + player];
+                for (size_t weapon = 0; weapon < 4; ++weapon)
+                    inventory.counts[weapon] = bytes[at + 25 + player * 4 + weapon];
+            }
+            corpseRewardRoll_ = bytes[at + 11];
+            updatePlayerReentryPrepass(FrameControls{});
+            const auto fail = [&](const char* field) {
+                throw std::runtime_error(std::string("waiting App ") + field + " mismatch case " + std::to_string(word(0)));
+            };
+            if (corpseRewardRoll_ != bytes[at + 12]) fail("shared scratch");
+            if (lives_ != bytes[at + 15] || lives2_ != bytes[at + 16] ||
+                reentryTimer_ != word(21) || reentryTimer2_ != word(23) ||
+                originalPlayerState(1) != bytes[at + 43] || originalPlayerState(2) != bytes[at + 44] ||
+                reentryFire1_ != (bytes[at + 45] != 0) || reentryFire2_ != (bytes[at + 46] != 0)) fail("reentry state");
+            for (size_t player = 0; player < 2; ++player) {
+                const auto& inventory = player == 0 ? bombInventory_ : bombInventory2_;
+                if (inventory.hudDirty != bytes[at + 41 + player]) fail("dirty byte");
+                for (size_t weapon = 0; weapon < 4; ++weapon)
+                    if (inventory.counts[weapon] != bytes[at + 33 + player * 4 + weapon]) fail("inventory");
+            }
+            bytes[at + 3] == 1 ? ++active : ++waiting;
+        }
+        std::cout << "frame_waiting_app=ok cases=68 active=40 waiting=28 inventory_bytes=544 shared_scratch=68"
+                  << " controlled=1 natural=0 whole_game_parity=0\n";
+    }
+
     void debugAmmoHudOriginal(const std::string& path) {
         const auto bytes = lezac::resources::readFile(path);
         uint64_t fingerprint = 14695981039346656037ull;
         for (uint8_t byte : bytes) { fingerprint ^= byte; fingerprint *= 1099511628211ull; }
         constexpr std::array<uint8_t, 12> signature{'L','Z','A','M','A','P','P','1',0,8,0,0};
-        if (bytes.size() != 18444 || fingerprint != 0x459f0d07ac301043ull ||
+        if (bytes.size() != 18444 || fingerprint != 0x6b0062d1c6eb95dbull ||
             !std::equal(signature.begin(), signature.end(), bytes.begin())) {
             throw std::runtime_error("ammunition HUD App fixture fingerprint differs");
         }
@@ -27506,7 +27561,8 @@ public:
         for (unsigned index = 0; index < 2048; ++index) {
             const size_t at = 12 + static_cast<size_t>(index) * 9;
             const auto player = static_cast<size_t>(bytes[at] - 1);
-            const auto selected = bytes[at + 1], ammo = bytes[at + 2], dirty = bytes[at + 3];
+            const auto selected = static_cast<uint8_t>(bytes[at + 1] - 1u);
+            const auto ammo = bytes[at + 2], dirty = bytes[at + 3];
             if (player > 1 || selected > 3) throw std::runtime_error("ammunition HUD App case differs");
             auto& inventory = player == 0 ? bombInventory_ : bombInventory2_;
             BombInventory baseline;
@@ -28766,14 +28822,19 @@ private:
         if (playerDead_) {
             updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
                           playerCount_ == 1 || player2Dead_);
-            if (reentryFire1_) tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_, damageCooldown_, 1);
         }
+        // 7DB5 samples each latch into DS:79A3 before reentry clears both.
+        corpseRewardRoll_ = static_cast<uint8_t>(reentryGate_ && reentryFire1_);
+        if (playerDead_ && reentryFire1_)
+            tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_, damageCooldown_, 1);
         if (playerCount_ > 1) sampleHudInventory(1, bombInventory2_, originalPlayerState(2));
         if (playerCount_ > 1 && player2Dead_) {
             updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
                           playerDead_);
-            if (reentryFire2_) tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, damageCooldown2_, 2);
         }
+        corpseRewardRoll_ = static_cast<uint8_t>(reentryGate_ && reentryFire2_);
+        if (playerCount_ > 1 && player2Dead_ && reentryFire2_)
+            tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, damageCooldown2_, 2);
     }
 
     void updateWithControls(const FrameControls& controls, float dt) {
@@ -33336,6 +33397,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-object-collision-jump-live") {
             app.debugObjectCollisionJumpLive();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-frame-waiting-original") {
+            app.debugFrameWaitingOriginal(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-ammo-hud-original") {

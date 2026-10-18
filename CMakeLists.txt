@@ -185,6 +185,10 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_frame_waiting_test tests/core/frame_waiting_test.cpp)
+    target_link_libraries(lezac_frame_waiting_test PRIVATE lezac_core)
+    add_test(NAME frame_waiting_unit COMMAND lezac_frame_waiting_test)
+    set_tests_properties(frame_waiting_unit PROPERTIES PASS_REGULAR_EXPRESSION "frame_waiting_unit=ok entry_rejections=5")
     add_executable(lezac_ammo_hud_test tests/core/ammo_hud_test.cpp)
     target_link_libraries(lezac_ammo_hud_test PRIVATE lezac_core)
     add_test(NAME ammo_hud_unit COMMAND lezac_ammo_hud_test)
@@ -639,6 +643,32 @@ if(BUILD_TESTING)
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
         find_package(Git QUIET)
+        add_test(NAME frame_waiting_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_waiting_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-waiting.bin)
+        set_tests_properties(frame_waiting_fixture_contract PROPERTIES FIXTURES_SETUP frame_waiting_corpus)
+        add_test(NAME frame_waiting_original COMMAND lezac_frame_waiting_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-waiting.bin ${CMAKE_CURRENT_SOURCE_DIR}/LEZAC.EXE)
+        set_tests_properties(frame_waiting_original PROPERTIES FIXTURES_REQUIRED frame_waiting_corpus TIMEOUT 180
+            PASS_REGULAR_EXPRESSION "frame_waiting_original=ok cases=238 replays=2856 comparisons=1145574 dispatches=2928864 transfers=1036800 end_run_handoffs=2 runtime_errors=6 computed_irq_cases=5 end_run_ui=0 full_frame_claim=0 work_clock_claim=0")
+        add_test(NAME frame_waiting_app_original COMMAND lezac_cpp --debug-frame-waiting-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/frame_waiting/app.bin)
+        set_tests_properties(frame_waiting_app_original PROPERTIES FIXTURES_REQUIRED frame_waiting_corpus
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;LEZAC_LOAD_ORIGINAL_ASSETS=1;LEZAC_LOAD_JSON_ASSETS=0"
+            PASS_REGULAR_EXPRESSION "frame_waiting_app=ok cases=68 active=40 waiting=28 inventory_bytes=544 shared_scratch=68 controlled=1 natural=0 whole_game_parity=0")
+        add_test(NAME frame_waiting_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_waiting_fixture.py --exe $<TARGET_FILE:lezac_cpp> -v)
+        set_tests_properties(frame_waiting_fixture_rejections PROPERTIES TIMEOUT 180
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
+        if(NOT WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME frame_waiting_mutation_controls COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_waiting_mutations.py
+                --compiler ${CMAKE_CXX_COMPILER} --fixture ${CMAKE_CURRENT_BINARY_DIR}/frame-waiting.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/frame-waiting-mutations)
+            set_tests_properties(frame_waiting_mutation_controls PROPERTIES FIXTURES_REQUIRED frame_waiting_corpus
+                TIMEOUT 300 PASS_REGULAR_EXPRESSION "frame_waiting_mutations=ok compiled=11 rejected=10 production_source_unchanged=1")
+        endif()
         add_test(NAME ammo_hud_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ammo_hud_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/ammo-hud.bin)

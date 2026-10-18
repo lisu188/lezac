@@ -74,10 +74,16 @@ int main(int argc,char** argv) {
             if(index>=2048)continue;
             const auto player=index/1024,selected=index/256%4,ammo=index%256;
             const auto dirty=std::array<uint8_t,4>{0,1,2,255}[(ammo+player+1+selected)%4];
-            if(dirty<=1)continue;
             require(error==0 && entry[12]==0x326e,"Normal ammunition entry differs");
             const auto spriteId=57+selected;
             const auto& sprite=assets.sprites().sprites.at(spriteId);
+            const auto descriptor=0x1aa20+0xc322+(spriteId+1)*4;
+            require(memory[0x1aa20+0x1b74+player]==selected+1 &&
+                memory[0x1aa20+0x1b6c+player*4+selected]==ammo &&
+                memory[descriptor]==sprite.width && memory[descriptor+1]==sprite.height &&
+                memory[descriptor+2]==0 && memory[descriptor+3]==0x20,
+                "Original ammunition one-based weapon/descriptor binding differs");
+            if(dirty<=1)continue;
             require(std::equal(sprite.pixels.begin(),sprite.pixels.end(),memory.begin()+0x42000),"Original ammunition sprite input differs");
             require(std::find(sprite.pixels.begin(),sprite.pixels.end(),1)==sprite.pixels.end(),"Shipped ammunition sprite acquired ink-one pixels");
             for(unsigned digit=0;digit<10;++digit) {

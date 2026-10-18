@@ -25,11 +25,11 @@ def profiles():
         row.update(values)
         result.append(row)
     for player in (1, 2):
-        for selected in range(4):
+        for selected in range(1, 5):
             for ammo in range(256):
                 add(player=player, selected=selected, ammo=ammo,
-                    dirty=(0, 1, 2, 255)[(ammo + player + selected) % 4],
-                    x=121 + (player - 1) * 180, ink=(ammo * 13 + selected) & 255, shipped=True)
+                    dirty=(0, 1, 2, 255)[(ammo + player + selected - 1) % 4],
+                    x=121 + (player - 1) * 180, ink=(ammo * 13 + selected - 1) & 255, shipped=True)
     for selected in (0, 1, 2, 3, 198, 199, 255):
         for width, height in ((1, 1), (2, 3), (17, 5), (31, 2)):
             for flags in (0x202, 0x602):
@@ -112,7 +112,7 @@ def inputs(index, p, tiles, atlas):
     if p['entry'] != 0x7c5:
         selected = p['selected'] + 57 if p['entry'] == 0x326e else p['selected']
         if p['shipped']:
-            width, height, pixels = atlas[selected]
+            width, height, pixels = atlas[selected - 1]
         else:
             width, height = p['width'], p['height']
             pixels = bytes((0, 1, 53, 18, 255)[(i + index) % 5] for i in range(width * height))
@@ -231,6 +231,7 @@ def _generate(root, out):
         (out / 'oracle.bin.gz').write_bytes(compressed)
         (out / 'app.bin').write_bytes(app)
         manifest = dict(schema='lezac-controlled-ammunition-hud-v1', executable_sha256=EXE_SHA,
+            weapon_selection_values=[1, 2, 3, 4], descriptor_indexing='one-based', inventory_bases=[0x1b6c, 0x1b70],
             tile_atlas_sha256=sha(tiles), sprite_atlas_sha256=sha(sprite_bytes), shipped_cases=2048,
             producer_sha256=producer_sha, shared_oracle_sha256=shared_sha,
             app_bytes=len(app), app_sha256=sha(app), window_sprite_cases=32,

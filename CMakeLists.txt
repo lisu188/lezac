@@ -240,6 +240,11 @@ if(BUILD_TESTING)
     add_executable(lezac_gran_group_original_test tests/gameplay/gran_group_original_test.cpp)
     target_link_libraries(lezac_gran_group_original_test PRIVATE lezac_resources)
     add_executable(lezac_actor_animation_test tests/core/actor_animation_test.cpp)
+    add_executable(lezac_boss_links_test tests/core/boss_links_test.cpp)
+    target_link_libraries(lezac_boss_links_test PRIVATE lezac_core)
+    add_test(NAME boss_links_unit COMMAND lezac_boss_links_test)
+    set_tests_properties(boss_links_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "boss_links_unit=ok entry_rejections=3 unknown_segment_rejected=1")
     target_link_libraries(lezac_actor_animation_test PRIVATE lezac_core)
     add_test(NAME actor_animation_unit COMMAND lezac_actor_animation_test)
     set_tests_properties(actor_animation_unit PROPERTIES
@@ -1063,6 +1068,24 @@ if(BUILD_TESTING)
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_animation_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/actor-animation.bin --report ${CMAKE_CURRENT_BINARY_DIR}/actor-animation-report.json)
         set_tests_properties(actor_animation_fixture_contract PROPERTIES FIXTURES_SETUP actor_animation_corpus)
+        add_test(NAME boss_links_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_boss_links_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/boss-links.bin --report ${CMAKE_CURRENT_BINARY_DIR}/boss-links-report.json)
+        set_tests_properties(boss_links_fixture_contract PROPERTIES FIXTURES_SETUP boss_links_corpus)
+        add_test(NAME boss_links_original COMMAND lezac_boss_links_test
+            ${CMAKE_CURRENT_BINARY_DIR}/boss-links.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(boss_links_original PROPERTIES FIXTURES_REQUIRED boss_links_corpus
+            PASS_REGULAR_EXPRESSION "boss_links_original=ok cases=1413 replays=5652 comparisons=368425 writes=45014")
+        add_test(NAME boss_links_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_boss_links_fixture.py)
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME boss_links_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_boss_links_mutations.py --cxx ${CMAKE_CXX_COMPILER}
+                --fixture ${CMAKE_CURRENT_BINARY_DIR}/boss-links.bin --out ${CMAKE_CURRENT_BINARY_DIR}/boss-links-mutations)
+            set_tests_properties(boss_links_mutations PROPERTIES FIXTURES_REQUIRED boss_links_corpus
+                ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR}"
+                PASS_REGULAR_EXPRESSION "boss_links_mutations=ok faults=8 source_preserved=1")
+        endif()
         add_test(NAME actor_animation_original COMMAND lezac_actor_animation_test
             ${CMAKE_CURRENT_BINARY_DIR}/actor-animation.bin ${CMAKE_CURRENT_SOURCE_DIR})
         set_tests_properties(actor_animation_original PROPERTIES FIXTURES_REQUIRED actor_animation_corpus

@@ -31,9 +31,14 @@ the CI branch-specific Linux step runs the same program and uploads only the
 summary, last frame and child exit status. It does not publish full captures.
 
 The parser authenticates the unchanged C++ tick-11740 state against the pinned
-guard stimulus, compares a sampled set of captured RGB buffers against their
-recorded FNV fingerprints, and reports maximum additional destruction, minimum
-health, candidate completion-gate ticks and any **C++-only** Level 5 entry.
+guard stimulus **and the complete original-backed projected player, actor, and
+terrain state**. It verifies the actual route, all input/time boundaries, each
+ordered checkpoint, the full presentation/post-update count and the replay
+footer. Selected captured RGB buffers are checked against their reported FNV
+fingerprints. Ten focused regression tests include corrupted routes, changed
+player state, and omitted checkpoint/frame rejection. The summary reports
+additional destruction, minimum health, completion-gate candidates and any
+**C++-only** Level 5 entry.
 
 **No output of this scout establishes original behavior.** A positive candidate
 must be reproduced against unchanged `LEZAC.EXE` with read-only,

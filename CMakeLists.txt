@@ -186,6 +186,11 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_actor_expiry_test tests/core/actor_expiry_test.cpp)
+    target_link_libraries(lezac_actor_expiry_test PRIVATE lezac_core)
+    add_test(NAME actor_expiry_unit COMMAND lezac_actor_expiry_test)
+    set_tests_properties(actor_expiry_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "actor_expiry_unit=ok entry_state_rejections=6 masked_irq=1 copy_grants=3")
     add_executable(lezac_actor_tile_flags_test tests/core/actor_tile_flags_test.cpp)
     target_link_libraries(lezac_actor_tile_flags_test PRIVATE lezac_core)
     add_test(NAME actor_tile_flags_unit COMMAND lezac_actor_tile_flags_test)
@@ -767,6 +772,28 @@ if(BUILD_TESTING)
         add_test(NAME frame_export_alias_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_export_aliases.py)
         find_package(Git QUIET)
+        add_test(NAME actor_expiry_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_expiry_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/actor-expiry.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/actor-expiry-report.json)
+        set_tests_properties(actor_expiry_fixture_contract PROPERTIES FIXTURES_SETUP actor_expiry_corpus TIMEOUT 600)
+        add_test(NAME actor_expiry_original COMMAND lezac_actor_expiry_test
+            ${CMAKE_CURRENT_BINARY_DIR}/actor-expiry.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_expiry_original PROPERTIES FIXTURES_REQUIRED actor_expiry_corpus TIMEOUT 900
+            PASS_REGULAR_EXPRESSION "actor_expiry_original=ok cases=3258 replays=29322 comparisons=10863429 dispatches=30652164 writes=2428750 computed_irq_cases=20 irq_instructions=720 one_grant=0 continuous_actor_cases=96 physical_actor_alias_cases=72 real_caller_cases=24 partial_copy_irqs=2 later_state_injected=0 actual_app_integration=0 full_frame_claim=0")
+        add_test(NAME actor_expiry_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_expiry_fixture.py -v)
+        set_tests_properties(actor_expiry_fixture_rejections PROPERTIES TIMEOUT 1200
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME actor_expiry_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_expiry_mutations.py --cxx ${CMAKE_CXX_COMPILER}
+                --fixture ${CMAKE_CURRENT_BINARY_DIR}/actor-expiry.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/actor-expiry-mutations)
+            set_tests_properties(actor_expiry_mutations PROPERTIES FIXTURES_REQUIRED actor_expiry_corpus TIMEOUT 1800
+                ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy"
+                PASS_REGULAR_EXPRESSION "actor_expiry_mutations=ok faults=20 source_preserved=1")
+        endif()
         add_test(NAME actor_tile_flags_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_tile_flags_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/actor-tile-flags.bin

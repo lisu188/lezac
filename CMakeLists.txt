@@ -7309,7 +7309,15 @@ if(BUILD_TESTING)
         COMMAND ${Python3_EXECUTABLE} tools/check_death_transients_fixture.py --corpse-lifecycle --exe $<TARGET_FILE:lezac_cpp>)
     set_tests_properties(corpse_lifecycle_fixture PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        TIMEOUT 600
         PASS_REGULAR_EXPRESSION "^corpse_lifecycle_fixture=ok lf=1 crlf=1 truncated_rejected=1 timer_mutation_rejected=1 no_output_files=1")
+
+    add_test(NAME death_fixture_budget_contract
+        COMMAND ${Python3_EXECUTABLE} -S -B tools/test_death_fixture_budget.py -v)
+    set_tests_properties(death_fixture_budget_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        TIMEOUT 30
+        ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
 
     add_test(NAME monster_damage_original
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-damage-original

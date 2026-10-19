@@ -1,4 +1,5 @@
 #include "diagnostics/frame_inspector.hpp"
+#include "diagnostics/actor_steering_fixture.hpp"
 #include "diagnostics/survivor_viewport_fixture.hpp"
 #include "diagnostics/monster_animation_fixture.hpp"
 #include "diagnostics/jolly_cloud_probe.hpp"
@@ -35,6 +36,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cctype>
 #include <cmath>
 #include <cstddef>
@@ -61,6 +63,7 @@
 #include "diagnostics/level1_trace.hpp"
 #include "core/constants.hpp"
 #include "core/fixed_point.hpp"
+#include "core/actor_steering_vector.hpp"
 #include "core/hud.hpp"
 #include "core/progress.hpp"
 #include "core/random.hpp"
@@ -22080,6 +22083,51 @@ public:
         lezac::diagnostics::SoundDiagnostics(sound_).debugSoundHookEvidence(fixturePath);
     }
 
+    void debugActorSteeringVectors(const std::string& fixturePath) {
+        const auto rows=lezac::diagnostics::readActorSteeringFixture(fixturePath);
+        load();resetLevel(2);ui_.setMenu(false);
+        playerCount_=1;lives_=2;playerDead_=false;pendingLifeLoss_=false;levelRestartPromoted_=false;
+        if (originalPlayerState(1)!=1 || originalPlayerState(2)!=0)
+            throw std::runtime_error("Steering App player admission differs");
+        unsigned admitted=0,excluded=0,callers=0,mismatches=0;
+        std::string firstMismatch,shippedMismatch;
+        for (const auto& row : rows) {
+            if (!row.homingAdmitted) { ++excluded;continue; }
+            ++admitted;callers+=row.domain;
+            player_.x=static_cast<float>(row.dx);player_.y=static_cast<float>(row.dy);
+            ActiveMonster seed;seed.kind=1;seed.behavior=4;seed.ai0=24;seed.ai1=row.speed;seed.ai2=65535;
+            seed.x=0;seed.y=0;seed.vx8=321;seed.vy8=-222;seed.alive=true;
+            randomSeed_=0x12345678u;
+            auto direct=seed;retargetMonster(direct);
+            auto gated=seed;logicTick_=96;updateMonsterMotion(gated,0.0f);
+            if (direct.vx8!=row.vx8 || direct.vy8!=row.vy8 || gated.vx8!=row.vx8 || gated.vy8!=row.vy8) {
+                ++mismatches;
+                const std::string detail="case="+std::to_string(row.originalCase)+" delta="+
+                    std::to_string(row.dx)+','+std::to_string(row.dy)+" speed="+std::to_string(row.speed)+
+                    " actual="+std::to_string(direct.vx8)+','+std::to_string(direct.vy8)+
+                    " original="+std::to_string(row.vx8)+','+std::to_string(row.vy8);
+                if (firstMismatch.empty()) firstMismatch=detail;
+                if (row.speed==494 && shippedMismatch.empty()) shippedMismatch=detail;
+            }
+            if (gated.motionTimer!=24) throw std::runtime_error("Steering shared gate timer differs");
+            auto offGate=seed;logicTick_=97;updateMonsterMotion(offGate,0.0f);
+            if (offGate.vx8!=seed.vx8 || offGate.vy8!=seed.vy8 || offGate.motionTimer!=23)
+                throw std::runtime_error("Steering off-gate state changed");
+            auto zeroPeriod=seed;zeroPeriod.ai0=0;logicTick_=96;updateMonsterMotion(zeroPeriod,0.0f);
+            if (zeroPeriod.vx8!=seed.vx8 || zeroPeriod.vy8!=seed.vy8 || zeroPeriod.motionTimer!=0)
+                throw std::runtime_error("Steering zero-period state changed");
+            if (randomSeed_!=0x12345678u) throw std::runtime_error("Steering homing consumed RNG");
+        }
+        if (admitted!=2097 || excluded!=39 || callers!=52)
+            throw std::runtime_error("Steering App original corpus coverage differs");
+        if (mismatches) throw std::runtime_error("Steering App differs from original writes: cases="+
+            std::to_string(mismatches)+" first="+firstMismatch+" shipped_speed="+shippedMismatch);
+        std::cout << "actor_steering_app_original=ok cases=2136 homing_calls=2097 motion_gates=2097"
+            << " off_gate_controls=2097 zero_period_controls=2097 excluded_by_existing_gate=39"
+            << " original_live_caller_rows=64 admitted_live_caller_rows=52 random_seed_unchanged=1"
+            << " actual_retargetMonster=1 actual_updateMonsterMotion=1 natural_route=0 full_frame_claim=0\n";
+    }
+
     void debugBehavior4LockstepEvidence(const std::string& fixturePath) {
         std::ifstream in(fixturePath);
         if (!in) throw std::runtime_error("cannot open " + fixturePath);
@@ -22281,11 +22329,10 @@ public:
             const int dy = targetY - prev.y;
             const bool homing = std::abs(dx) + std::abs(dy) < prev.ai2;
             if (gate && homing) {
-                const double length = std::max(1.0, std::hypot(
-                    static_cast<double>(dx), static_cast<double>(dy)));
-                const int expectedVx = static_cast<int>(prev.ai1 * dx / length);
-                const int expectedVy = static_cast<int>(prev.ai1 * dy / length);
-                if (tick.vx != expectedVx || tick.vy != expectedVy ||
+                const auto expected = lezac::core::actorSteeringVector8(
+                    std::bit_cast<int16_t>(static_cast<uint16_t>(dx)),
+                    std::bit_cast<int16_t>(static_cast<uint16_t>(dy)),static_cast<uint16_t>(prev.ai1));
+                if (tick.vx != expected.vx8 || tick.vy != expected.vy8 ||
                     tick.seed != prev.seed) {
                     throw std::runtime_error(
                         "behavior4 homing retarget mismatch at frame " +
@@ -29989,10 +30036,6 @@ private:
         return clampI16(monster.ai0);
     }
 
-    int16_t retargetSpeed8(const ActiveMonster& monster) const {
-        return clampI16(monster.ai1);
-    }
-
     // Legacy range refresh, kept for the paths the capture does not cover
     // (behaviour-4 retarget, the legacy pushout). For kinds with a static
     // range it is a no-op; the recovered walker path uses
@@ -30093,7 +30136,6 @@ private:
     }
 
     void retargetMonster(ActiveMonster& monster) {
-        int16_t speed = retargetSpeed8(monster);
         // 1000:63F6..654E admits only original state 1, including pending
         // death. Shipped thresholds are below the inactive X sentinel 6000;
         // captured both-inactive states therefore take the random branch.
@@ -30110,17 +30152,17 @@ private:
                 distance = candidateDistance;
             }
         }
-        double dx = target ? static_cast<int>(target->x) - monster.x : 0;
-        double dy = target ? static_cast<int>(target->y) - monster.y : 0;
+        const int dx = target ? static_cast<int>(target->x) - monster.x : 0;
+        const int dy = target ? static_cast<int>(target->y) - monster.y : 0;
         double threshold = monster.ai2;
         if (target && distance < threshold) {
-            double len = std::max(1.0, std::hypot(dx, dy));
-            // The original vector helper at 1000:346B converts both scaled
-            // reals with truncation toward zero. The diagonal runtime capture
-            // is decisive: speed 494 and delta (40,20) produce (441,220), not
-            // the rounded (442,221).
-            monster.vx8 = clampI16(static_cast<int>(speed * dx / len));
-            monster.vy8 = clampI16(static_cast<int>(speed * dy / len));
+            // Original signed component words, unsigned speed, Real48 rounding
+            // and low-word stores are all significant at this boundary.
+            const auto velocity=lezac::core::actorSteeringVector8(
+                std::bit_cast<int16_t>(static_cast<uint16_t>(dx)),
+                std::bit_cast<int16_t>(static_cast<uint16_t>(dy)),monster.ai1);
+            monster.vx8=velocity.vx8;
+            monster.vy8=velocity.vy8;
         } else {
             int range = std::max(1, static_cast<int>(monster.ai1) * 2);
             int vxFixed = static_cast<int>(randomRangeValue(0, static_cast<uint16_t>(range))) -
@@ -33639,6 +33681,10 @@ int lezac::app::runApplication(int argc, char** argv) {
             std::string(argv[1]) ==
                 "--debug-monster-sprite-consumption-evidence") {
             app.debugMonsterSpriteConsumptionEvidence(argv[2]);
+            return 0;
+        }
+        if (argc == 3 && std::string(argv[1]) == "--debug-actor-steering-vectors") {
+            app.debugActorSteeringVectors(argv[2]);
             return 0;
         }
         if (argc > 2 &&

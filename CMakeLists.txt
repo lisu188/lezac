@@ -11,6 +11,7 @@ pkg_check_modules(SDL2 REQUIRED sdl2)
 
 add_library(lezac_core STATIC
     src/core/progress.cpp
+    src/core/actor_steering_vector.cpp
 )
 target_include_directories(lezac_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_features(lezac_core PUBLIC cxx_std_23)
@@ -186,6 +187,11 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_actor_steering_vector_test tests/core/actor_steering_vector_test.cpp)
+    target_link_libraries(lezac_actor_steering_vector_test PRIVATE lezac_core)
+    add_test(NAME actor_steering_vector_unit COMMAND lezac_actor_steering_vector_test)
+    set_tests_properties(actor_steering_vector_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "actor_steering_vector_unit=ok original_examples=5")
     add_executable(lezac_actor_steering_test tests/core/actor_steering_test.cpp)
     target_link_libraries(lezac_actor_steering_test PRIVATE lezac_core)
     add_test(NAME actor_steering_unit COMMAND lezac_actor_steering_test)
@@ -777,6 +783,40 @@ if(BUILD_TESTING)
         add_test(NAME frame_export_alias_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_export_aliases.py)
         find_package(Git QUIET)
+        add_test(NAME actor_steering_vectors_fixture COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/export_actor_steering_vectors.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/actor-steering-vectors.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/actor-steering-vectors-report.json)
+        set_tests_properties(actor_steering_vectors_fixture PROPERTIES FIXTURES_SETUP actor_steering_vectors_corpus TIMEOUT 600)
+        add_test(NAME actor_steering_vector_original COMMAND lezac_actor_steering_vector_test
+            ${CMAKE_CURRENT_BINARY_DIR}/actor-steering-vectors.bin)
+        set_tests_properties(actor_steering_vector_original PROPERTIES FIXTURES_REQUIRED actor_steering_vectors_corpus TIMEOUT 180
+            PASS_REGULAR_EXPRESSION "actor_steering_vector_original=ok cases=2136 original_live_caller_rows=64 app_homing_cases=2097 app_gate_excluded=39 real_callsite_in_API=1 original_expected_writes=1 full_frame_claim=0")
+        add_test(NAME actor_steering_app_original COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+            $<TARGET_FILE:lezac_cpp> --debug-actor-steering-vectors ${CMAKE_CURRENT_BINARY_DIR}/actor-steering-vectors.bin)
+        set_tests_properties(actor_steering_app_original PROPERTIES FIXTURES_REQUIRED actor_steering_vectors_corpus TIMEOUT 180
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "actor_steering_app_original=ok cases=2136 homing_calls=2097 motion_gates=2097 off_gate_controls=2097 zero_period_controls=2097 excluded_by_existing_gate=39 original_live_caller_rows=64 admitted_live_caller_rows=52 random_seed_unchanged=1 actual_retargetMonster=1 actual_updateMonsterMotion=1 natural_route=0 full_frame_claim=0")
+        add_test(NAME actor_steering_vectors_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_steering_vectors.py -v)
+        set_tests_properties(actor_steering_vectors_rejections PROPERTIES TIMEOUT 900
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
+        add_test(NAME actor_steering_vectors_cli COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_steering_vectors_cli.py
+            --api $<TARGET_FILE:lezac_actor_steering_vector_test> --app $<TARGET_FILE:lezac_cpp>
+            --vectors ${CMAKE_CURRENT_BINARY_DIR}/actor-steering-vectors.bin
+            --out ${CMAKE_CURRENT_BINARY_DIR}/actor-steering-vectors-cli)
+        set_tests_properties(actor_steering_vectors_cli PROPERTIES FIXTURES_REQUIRED actor_steering_vectors_corpus TIMEOUT 600
+            PASS_REGULAR_EXPRESSION "actor_steering_vectors_cli=ok original_cases=2136 admitted=2097 malformed=7 executables=2 binaries_preserved=1")
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME actor_steering_vector_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_steering_vector_mutations.py --cxx ${CMAKE_CXX_COMPILER}
+                --fixture ${CMAKE_CURRENT_BINARY_DIR}/actor-steering-vectors.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/actor-steering-vector-mutations)
+            set_tests_properties(actor_steering_vector_mutations PROPERTIES FIXTURES_REQUIRED actor_steering_vectors_corpus TIMEOUT 1800
+                ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy"
+                PASS_REGULAR_EXPRESSION "actor_steering_vector_mutations=ok faults=6 sources_preserved=1")
+        endif()
         add_test(NAME actor_steering_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_steering_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/actor-steering.bin

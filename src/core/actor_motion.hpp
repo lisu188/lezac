@@ -52,7 +52,7 @@ public:
                 instruction(bus,copies);++state_.cpu.dispatchedInstructions;
                 const auto& r=state_.cpu.registers;
                 if (returned) state_.outcome=ActorMotionOutcome::Returned;
-                if (r.cs==state_.cpu.gameSegment && r.ip==0x73e5) state_.outcome=ActorMotionOutcome::MotionIntegration;
+                else if (r.cs==state_.cpu.gameSegment && r.ip==0x73e5) state_.outcome=ActorMotionOutcome::MotionIntegration;
                 if (r.cs==library() && r.ip==0xe2) state_.outcome=ActorMotionOutcome::RuntimeError;
             }
             ++used;

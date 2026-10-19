@@ -89,7 +89,8 @@ grant. Each full matrix performs 9,180,512 register/control comparisons and
 all endpoint flag bits match. Intermediate arithmetic flags `0x8D5` are excluded
 from trace comparisons, so this is not complete intermediate flag fidelity.
 
-Sixteen separately compiled faults are detected, covering gravity, period and
+Seventeen separately compiled faults are detected, covering helper-return
+precedence, gravity, period and
 signed-distance gates, RNG entry, facing lookup, side-reflection divisor and
 position adjustment, both queue caps, rectangle stride, tile limits, damage
 tables, above-cell marker, friction threshold/step and IRQ accounting. The
@@ -106,7 +107,8 @@ Nine constructor/snapshot rejections, zero-budget behavior and a precise
 divide-fault control pass. Both fixture Python tests pass on Linux and native
 Windows, including changed, missing and directory-replaced inputs, failed-report
 retention, conflicting exports and output/input aliases. Linux Git and native
-Windows Git cold-check the new family (four files), with an explicit negative
+Windows Git cold-check the new family (five files, including the focused RET
+probe producer), with an explicit negative
 control reproducing CRLF conversion when its protection rule is removed.
 The full 23-family checkout remains a hosted-CI check.
 
@@ -117,6 +119,43 @@ passes its 11,208-replay matrix. Source ownership and guardrail tests pass.
 The fresh App build passes 21 focused CTests, including movement, steering,
 actual-App original-backed vectors, malformed CLI inputs, two-player targeting,
 player-state gates and rendered frame captures.
+
+## Review Fix: Helper Return Precedence
+
+The current-head review of `0760b9df` identified a real API boundary bug:
+[the helper return outcome was overwritten at the integration address](https://github.com/lisu188/lezac/pull/452#discussion_r4310222705).
+A standalone helper whose caller return word is `73E5` executes its real RET,
+but the operation then replaced `Returned` with `MotionIntegration`. A helper
+return now has precedence; ordinary behavior motion still stops at integration.
+This changes outcome classification, not guest register or memory execution.
+
+The focused regression was observed failing against the reviewed implementation
+before the fix. Six unit controls cover all three helpers returning to both
+`7F00` and `73E5`, including exact registers, argument cleanup, unchanged memory,
+snapshot restore, zero/post-completion grants and rejected post-completion IRQ.
+A separate non-helper control retains the real behavior integration handoff.
+The compiled fault restores the original unconditional integration check and
+is rejected by the new unit regression.
+
+`tools/actor_motion_helper_returns_oracle.py` independently executes each actual
+original near RET instruction at `3A53`, `5B83` and `5BC9` for both caller
+addresses. Observed and unobserved runs agree over all registers and the entire
+one-MiB image; each executes exactly one RET and performs no writes. Fracture
+RET 10 advances SP by 12; sampling/friction RET 2 advances it by 4. These are
+**single-instruction boundary probes**, not additional complete-helper or natural
+gameplay captures. The complete original corpus and its producer are unchanged.
+
+Two independent probe reports are byte-identical, with SHA-256
+`c67530d4068e56dda0a9c4cddc9576bfab9e3f0334b04ce2a35c94a7b3dd1873`.
+They authenticate the executable, actually mapped library and both producer
+sources, and contain no raw RAM. Six existing/missing-input output controls
+reject attempts to replace original assets or producer files. Regenerate a
+report under the authenticated Unicorn environment with:
+
+```sh
+python3 -B tools/actor_motion_helper_returns_oracle.py --repo . \
+  --out /dev/shm/lezac-helper-return-probe.json
+```
 
 ## Remaining Boundaries
 

@@ -191,7 +191,7 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_actor_motion_test PRIVATE lezac_core)
     add_test(NAME actor_motion_unit COMMAND lezac_actor_motion_test)
     set_tests_properties(actor_motion_unit PROPERTIES
-        PASS_REGULAR_EXPRESSION "actor_motion_unit=ok entry_state_rejections=9 masked_irq=1 precise_divide_fault=1")
+        PASS_REGULAR_EXPRESSION "actor_motion_unit=ok entry_state_rejections=9 masked_irq=1 precise_divide_fault=1 helper_return_boundaries=6 behavior_handoff_control=1")
     add_executable(lezac_actor_steering_vector_test tests/core/actor_steering_vector_test.cpp)
     target_link_libraries(lezac_actor_steering_vector_test PRIVATE lezac_core)
     add_test(NAME actor_steering_vector_unit COMMAND lezac_actor_steering_vector_test)
@@ -808,7 +808,7 @@ if(BUILD_TESTING)
                 --out ${CMAKE_CURRENT_BINARY_DIR}/actor-motion-mutations)
             set_tests_properties(actor_motion_mutations PROPERTIES FIXTURES_REQUIRED actor_motion_corpus TIMEOUT 1800
                 ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
-                PASS_REGULAR_EXPRESSION "actor_motion_mutations=ok faults=16 sources_preserved=1")
+                PASS_REGULAR_EXPRESSION "actor_motion_mutations=ok faults=17 sources_preserved=1")
         endif()
         add_test(NAME actor_steering_vectors_fixture COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/export_actor_steering_vectors.py

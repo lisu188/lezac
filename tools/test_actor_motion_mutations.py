@@ -15,6 +15,9 @@ def run(cxx,fixture,out):
     headers={name:(ROOT/'src/core'/name).read_bytes() for name in names}
     test=ROOT/'tests/core/actor_motion_test.cpp';test_bytes=test.read_bytes()
     faults=(
+        ('helper_return_precedence','actor_motion.hpp',
+            'else if (r.cs==state_.cpu.gameSegment && r.ip==0x73e5)',
+            'if (r.cs==state_.cpu.gameSegment && r.ip==0x73e5)'),
         ('gravity','actor_motion.hpp','case 0x7028:store(-14,arithmetic(local(-14),64));',
             'case 0x7028:store(-14,arithmetic(local(-14),63));'),
         ('period_remainder','actor_motion.hpp','case 0x70e3:branch(!flag(0x40),','case 0x70e3:branch(flag(0x40),'),
@@ -60,6 +63,16 @@ def run(cxx,fixture,out):
             (variant/'build.log').write_bytes(built.stdout)
             if built.returncode:
                 raise ValueError('Motion mutation did not compile: '+fault)
+            unit=subprocess.run([str(exe)],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=60)
+            (variant/'unit.log').write_bytes(unit.stdout)
+            if fault=='baseline':
+                if unit.returncode or b'helper_return_boundaries=6 behavior_handoff_control=1' not in unit.stdout:
+                    raise ValueError('Motion mutation unit baseline failed')
+            elif unit.returncode:
+                if unit.returncode!=1 or b'actor_motion=failed' not in unit.stdout:
+                    raise ValueError('Motion mutation unit did not reach a regression assertion: '+fault)
+                report['faults'].append(dict(name=fault,unit_output=unit.stdout.decode(),replay_skipped_after_unit_failure=True))
+                continue
             checked=subprocess.run([str(exe),str(fixture),str(ROOT),'--one-grant'],
                 stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=300)
             (variant/'replay.log').write_bytes(checked.stdout)

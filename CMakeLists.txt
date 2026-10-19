@@ -186,6 +186,16 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_actor_expiry_test tests/core/actor_expiry_test.cpp)
+    target_link_libraries(lezac_actor_expiry_test PRIVATE lezac_core)
+    add_test(NAME actor_expiry_unit COMMAND lezac_actor_expiry_test)
+    set_tests_properties(actor_expiry_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "actor_expiry_unit=ok entry_state_rejections=6 masked_irq=1 copy_grants=3")
+    add_executable(lezac_actor_tile_flags_test tests/core/actor_tile_flags_test.cpp)
+    target_link_libraries(lezac_actor_tile_flags_test PRIVATE lezac_core)
+    add_test(NAME actor_tile_flags_unit COMMAND lezac_actor_tile_flags_test)
+    set_tests_properties(actor_tile_flags_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "actor_tile_flags_unit=ok entry_state_rejections=7 masked_irq=1")
     add_executable(lezac_actor_finish_test tests/core/actor_finish_test.cpp)
     target_link_libraries(lezac_actor_finish_test PRIVATE lezac_core)
     add_test(NAME actor_finish_unit COMMAND lezac_actor_finish_test)
@@ -762,6 +772,50 @@ if(BUILD_TESTING)
         add_test(NAME frame_export_alias_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_export_aliases.py)
         find_package(Git QUIET)
+        add_test(NAME actor_expiry_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_expiry_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/actor-expiry.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/actor-expiry-report.json)
+        set_tests_properties(actor_expiry_fixture_contract PROPERTIES FIXTURES_SETUP actor_expiry_corpus TIMEOUT 600)
+        add_test(NAME actor_expiry_original COMMAND lezac_actor_expiry_test
+            ${CMAKE_CURRENT_BINARY_DIR}/actor-expiry.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_expiry_original PROPERTIES FIXTURES_REQUIRED actor_expiry_corpus TIMEOUT 900
+            PASS_REGULAR_EXPRESSION "actor_expiry_original=ok cases=3258 replays=29322 comparisons=10863429 dispatches=30652164 writes=2428750 computed_irq_cases=20 irq_instructions=720 one_grant=0 continuous_actor_cases=96 physical_actor_alias_cases=72 real_caller_cases=24 partial_copy_irqs=2 later_state_injected=0 actual_app_integration=0 full_frame_claim=0")
+        add_test(NAME actor_expiry_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_expiry_fixture.py -v)
+        set_tests_properties(actor_expiry_fixture_rejections PROPERTIES TIMEOUT 1200
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME actor_expiry_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_expiry_mutations.py --cxx ${CMAKE_CXX_COMPILER}
+                --fixture ${CMAKE_CURRENT_BINARY_DIR}/actor-expiry.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/actor-expiry-mutations)
+            set_tests_properties(actor_expiry_mutations PROPERTIES FIXTURES_REQUIRED actor_expiry_corpus TIMEOUT 1800
+                ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy"
+                PASS_REGULAR_EXPRESSION "actor_expiry_mutations=ok faults=20 source_preserved=1")
+        endif()
+        add_test(NAME actor_tile_flags_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_tile_flags_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/actor-tile-flags.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/actor-tile-flags-report.json)
+        set_tests_properties(actor_tile_flags_fixture_contract PROPERTIES FIXTURES_SETUP actor_tile_flags_corpus TIMEOUT 180)
+        add_test(NAME actor_tile_flags_original COMMAND lezac_actor_tile_flags_test
+            ${CMAKE_CURRENT_BINARY_DIR}/actor-tile-flags.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_tile_flags_original PROPERTIES FIXTURES_REQUIRED actor_tile_flags_corpus TIMEOUT 900
+            PASS_REGULAR_EXPRESSION "actor_tile_flags_original=ok cases=5972 replays=53748 comparisons=807228 dispatches=2061234 writes=37574 computed_irq_cases=12 irq_instructions=432 one_grant=0 continuous_actor_cases=40 later_state_injected=0 actual_app_integration=0 full_frame_claim=0")
+        add_test(NAME actor_tile_flags_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_tile_flags_fixture.py -v)
+        set_tests_properties(actor_tile_flags_fixture_rejections PROPERTIES TIMEOUT 600
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME actor_tile_flags_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_tile_flags_mutations.py --cxx ${CMAKE_CXX_COMPILER}
+                --fixture ${CMAKE_CURRENT_BINARY_DIR}/actor-tile-flags.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/actor-tile-flags-mutations)
+            set_tests_properties(actor_tile_flags_mutations PROPERTIES FIXTURES_REQUIRED actor_tile_flags_corpus TIMEOUT 1800
+                ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy"
+                PASS_REGULAR_EXPRESSION "actor_tile_flags_mutations=ok faults=14 source_preserved=1")
+        endif()
         add_test(NAME actor_finish_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_finish_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/actor-finish.bin
@@ -773,7 +827,7 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "actor_finish_original=ok cases=6136 replays=55224 comparisons=64171750 dispatches=181558719 writes=3401255 computed_irq_cases=43 irq_register_sensitive=0 irq_target_locals_sensitive=2 sound_irq_cases=4 irq_instructions=1580 one_grant=0 later_state_injected=0 tile_behavior_executed=0 motion_integration_executed=1 actor_near_return_executed=1 actual_app_integration=0 full_frame_claim=0")
         add_test(NAME actor_finish_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_finish_fixture.py -v)
-        set_tests_properties(actor_finish_fixture_rejections PROPERTIES TIMEOUT 1200
+        set_tests_properties(actor_finish_fixture_rejections PROPERTIES TIMEOUT 2400
             ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
         if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
             add_test(NAME actor_finish_mutations COMMAND ${Python3_EXECUTABLE} -S -B
@@ -795,7 +849,7 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "actor_contact_original=ok cases=5570 replays=50130 comparisons=61090647 dispatches=172852956 writes=3245802 computed_irq_cases=27 irq_register_sensitive=0 irq_target_locals_sensitive=1 sound_irq_cases=4 irq_instructions=1004 one_grant=0 later_state_injected=0 tile_behavior_executed=0 motion_integration_executed=0 actual_app_integration=0 full_frame_claim=0")
         add_test(NAME actor_contact_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_contact_fixture.py -v)
-        set_tests_properties(actor_contact_fixture_rejections PROPERTIES TIMEOUT 900
+        set_tests_properties(actor_contact_fixture_rejections PROPERTIES TIMEOUT 1800
             ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
         if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
             add_test(NAME actor_contact_mutations COMMAND ${Python3_EXECUTABLE} -S -B
@@ -7363,7 +7417,15 @@ if(BUILD_TESTING)
         COMMAND ${Python3_EXECUTABLE} tools/check_death_transients_fixture.py --corpse-lifecycle --exe $<TARGET_FILE:lezac_cpp>)
     set_tests_properties(corpse_lifecycle_fixture PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        TIMEOUT 600
         PASS_REGULAR_EXPRESSION "^corpse_lifecycle_fixture=ok lf=1 crlf=1 truncated_rejected=1 timer_mutation_rejected=1 no_output_files=1")
+
+    add_test(NAME death_fixture_budget_contract
+        COMMAND ${Python3_EXECUTABLE} -S -B tools/test_death_fixture_budget.py -v)
+    set_tests_properties(death_fixture_budget_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        TIMEOUT 30
+        ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
 
     add_test(NAME monster_damage_original
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-damage-original

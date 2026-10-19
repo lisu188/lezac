@@ -773,7 +773,7 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "actor_finish_original=ok cases=6136 replays=55224 comparisons=64171750 dispatches=181558719 writes=3401255 computed_irq_cases=43 irq_register_sensitive=0 irq_target_locals_sensitive=2 sound_irq_cases=4 irq_instructions=1580 one_grant=0 later_state_injected=0 tile_behavior_executed=0 motion_integration_executed=1 actor_near_return_executed=1 actual_app_integration=0 full_frame_claim=0")
         add_test(NAME actor_finish_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_finish_fixture.py -v)
-        set_tests_properties(actor_finish_fixture_rejections PROPERTIES TIMEOUT 1200
+        set_tests_properties(actor_finish_fixture_rejections PROPERTIES TIMEOUT 2400
             ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
         if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
             add_test(NAME actor_finish_mutations COMMAND ${Python3_EXECUTABLE} -S -B

@@ -186,6 +186,11 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_actor_steering_test tests/core/actor_steering_test.cpp)
+    target_link_libraries(lezac_actor_steering_test PRIVATE lezac_core)
+    add_test(NAME actor_steering_unit COMMAND lezac_actor_steering_test)
+    set_tests_properties(actor_steering_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "actor_steering_unit=ok entry_state_rejections=7 masked_irq=1 invalid_delta=1")
     add_executable(lezac_actor_expiry_test tests/core/actor_expiry_test.cpp)
     target_link_libraries(lezac_actor_expiry_test PRIVATE lezac_core)
     add_test(NAME actor_expiry_unit COMMAND lezac_actor_expiry_test)
@@ -772,6 +777,28 @@ if(BUILD_TESTING)
         add_test(NAME frame_export_alias_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_export_aliases.py)
         find_package(Git QUIET)
+        add_test(NAME actor_steering_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_steering_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/actor-steering.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/actor-steering-report.json)
+        set_tests_properties(actor_steering_fixture_contract PROPERTIES FIXTURES_SETUP actor_steering_corpus TIMEOUT 180)
+        add_test(NAME actor_steering_original COMMAND lezac_actor_steering_test
+            ${CMAKE_CURRENT_BINARY_DIR}/actor-steering.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_steering_original PROPERTIES FIXTURES_REQUIRED actor_steering_corpus TIMEOUT 600
+            PASS_REGULAR_EXPRESSION "actor_steering_original=ok cases=3736 replays=11208 comparisons=12286604 dispatches=34760613 writes=493199 computed_irq_cases=14 irq_instructions=504 one_grant=0 live_caller_cases=64 square_root_cases=1536 later_state_injected=0 actual_app_integration=0 full_frame_claim=0")
+        add_test(NAME actor_steering_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_steering_fixture.py -v)
+        set_tests_properties(actor_steering_fixture_rejections PROPERTIES TIMEOUT 600
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy")
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME actor_steering_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_steering_mutations.py --cxx ${CMAKE_CXX_COMPILER}
+                --fixture ${CMAKE_CURRENT_BINARY_DIR}/actor-steering.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/actor-steering-mutations)
+            set_tests_properties(actor_steering_mutations PROPERTIES FIXTURES_REQUIRED actor_steering_corpus TIMEOUT 1800
+                ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR};PYTHONDONTWRITEBYTECODE=1;SDL_AUDIODRIVER=dummy"
+                PASS_REGULAR_EXPRESSION "actor_steering_mutations=ok faults=16 source_preserved=1")
+        endif()
         add_test(NAME actor_expiry_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_expiry_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/actor-expiry.bin

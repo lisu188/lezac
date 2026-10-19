@@ -5,6 +5,7 @@
       "runtime": [
         "src/core/actor_animation.hpp",
         "src/core/actor_contact.hpp",
+        "src/core/actor_expiry.hpp",
         "src/core/actor_finish.hpp",
         "src/core/actor_precontact.hpp",
         "src/core/actor_real48.hpp",

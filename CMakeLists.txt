@@ -187,6 +187,11 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_actor_motion_test tests/core/actor_motion_test.cpp)
+    target_link_libraries(lezac_actor_motion_test PRIVATE lezac_core)
+    add_test(NAME actor_motion_unit COMMAND lezac_actor_motion_test)
+    set_tests_properties(actor_motion_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "actor_motion_unit=ok entry_state_rejections=9 masked_irq=1 precise_divide_fault=1")
     add_executable(lezac_actor_steering_vector_test tests/core/actor_steering_vector_test.cpp)
     target_link_libraries(lezac_actor_steering_vector_test PRIVATE lezac_core)
     add_test(NAME actor_steering_vector_unit COMMAND lezac_actor_steering_vector_test)
@@ -783,6 +788,28 @@ if(BUILD_TESTING)
         add_test(NAME frame_export_alias_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_export_aliases.py)
         find_package(Git QUIET)
+        add_test(NAME actor_motion_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_motion_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/actor-motion.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/actor-motion-fixture.json)
+        set_tests_properties(actor_motion_fixture_contract PROPERTIES FIXTURES_SETUP actor_motion_corpus TIMEOUT 180)
+        add_test(NAME actor_motion_original COMMAND lezac_actor_motion_test
+            ${CMAKE_CURRENT_BINARY_DIR}/actor-motion.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_motion_original PROPERTIES FIXTURES_REQUIRED actor_motion_corpus TIMEOUT 900
+            PASS_REGULAR_EXPRESSION "actor_motion_original=ok cases=78927 replays=236781.*computed_irq_cases=18.*one_grant=0.*continuous_actor_cases=54 real_caller_cases=54 later_state_injected=0 actual_app_integration=0 full_frame_claim=0")
+        add_test(NAME actor_motion_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_motion_fixture.py -v)
+        set_tests_properties(actor_motion_fixture_rejections PROPERTIES TIMEOUT 600
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        if(NOT WIN32)
+            add_test(NAME actor_motion_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_motion_mutations.py --cxx ${CMAKE_CXX_COMPILER}
+                --fixture ${CMAKE_CURRENT_BINARY_DIR}/actor-motion.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/actor-motion-mutations)
+            set_tests_properties(actor_motion_mutations PROPERTIES FIXTURES_REQUIRED actor_motion_corpus TIMEOUT 1800
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+                PASS_REGULAR_EXPRESSION "actor_motion_mutations=ok faults=16 sources_preserved=1")
+        endif()
         add_test(NAME actor_steering_vectors_fixture COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/export_actor_steering_vectors.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/actor-steering-vectors.bin

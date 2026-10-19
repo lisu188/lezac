@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 
 
-FAMILIES = ("frame_view_copy", "frame_camera", "standalone_camera", "frame_world_raster", "frame_spawner", "frame_render", "reserve_hud", "ammo_hud", "player_start", "waiting_placement", "frame_waiting", "frame_prefix", "gran_loader", "actor_animation", "boss_links", "frame_actor_entry", "actor_precontact", "actor_contact")
+FAMILIES = ("frame_view_copy", "frame_camera", "standalone_camera", "frame_world_raster", "frame_spawner", "frame_render", "reserve_hud", "ammo_hud", "player_start", "waiting_placement", "frame_waiting", "frame_prefix", "gran_loader", "actor_animation", "boss_links", "frame_actor_entry", "actor_precontact", "actor_contact", "actor_finish", "actor_tile_flags", "actor_expiry", "actor_steering")
 RULES = tuple(f"tests/fixtures/{name}/** -text" for name in FAMILIES)
 
 

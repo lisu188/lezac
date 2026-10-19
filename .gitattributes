@@ -51,6 +51,10 @@ tests/fixtures/boss_links/** -text
 tests/fixtures/frame_actor_entry/** -text
 tests/fixtures/actor_precontact/** -text
 tests/fixtures/actor_contact/** -text
+tests/fixtures/actor_finish/** -text
+tests/fixtures/actor_tile_flags/** -text
+tests/fixtures/actor_expiry/** -text
+tests/fixtures/actor_steering/** -text
 tools/frame_foreground_probe/** text eol=lf
 tools/frame_foreground_probe/*.patch -whitespace
 tests/fixtures/foreground_live/** -text

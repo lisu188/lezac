@@ -10,6 +10,7 @@
         "src/core/actor_motion.hpp",
         "src/core/actor_motion_prefix.cpp",
         "src/core/actor_motion_prefix.hpp",
+        "src/core/nonplayer_loop.hpp",
         "src/core/actor_precontact.hpp",
         "src/core/actor_real48.hpp",
         "src/core/actor_steering.hpp",

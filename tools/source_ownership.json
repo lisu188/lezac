@@ -5,9 +5,16 @@
       "runtime": [
         "src/core/actor_animation.hpp",
         "src/core/actor_contact.hpp",
+        "src/core/actor_expiry.hpp",
         "src/core/actor_finish.hpp",
+        "src/core/actor_motion.hpp",
         "src/core/actor_precontact.hpp",
         "src/core/actor_real48.hpp",
+        "src/core/actor_steering.hpp",
+        "src/core/actor_steering_vector.cpp",
+        "src/core/actor_steering_vector.hpp",
+        "src/core/actor_terrain.hpp",
+        "src/core/actor_tile_flags.hpp",
         "src/core/boss_links.hpp",
         "src/core/bios_keyboard.hpp",
         "src/core/bios_keyboard_tables.hpp",
@@ -177,6 +184,7 @@
     "diagnostics": {
       "diagnostics": [
         "src/app/app.cpp",
+        "src/diagnostics/actor_steering_fixture.hpp",
         "src/diagnostics/level1_trace.hpp",
         "src/diagnostics/marker_storage_fixture.hpp",
         "src/diagnostics/monster_animation_fixture.hpp",

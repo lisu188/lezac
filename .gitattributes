@@ -56,6 +56,7 @@ tests/fixtures/actor_tile_flags/** -text
 tests/fixtures/actor_expiry/** -text
 tests/fixtures/actor_steering/** -text
 tests/fixtures/actor_motion/** -text
+tests/fixtures/nonplayer_motion/** -text
 tools/frame_foreground_probe/** text eol=lf
 tools/frame_foreground_probe/*.patch -whitespace
 tests/fixtures/foreground_live/** -text

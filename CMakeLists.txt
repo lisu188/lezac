@@ -12,6 +12,7 @@ pkg_check_modules(SDL2 REQUIRED sdl2)
 add_library(lezac_core STATIC
     src/core/progress.cpp
     src/core/actor_steering_vector.cpp
+    src/core/actor_motion_prefix.cpp
 )
 target_include_directories(lezac_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_features(lezac_core PUBLIC cxx_std_23)
@@ -187,6 +188,11 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_actor_motion_prefix_test tests/core/actor_motion_prefix_test.cpp)
+    target_link_libraries(lezac_actor_motion_prefix_test PRIVATE lezac_core)
+    add_test(NAME nonplayer_motion_unit COMMAND lezac_actor_motion_prefix_test)
+    set_tests_properties(nonplayer_motion_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "nonplayer_motion_unit=ok friction_min_word=1 landing_facing=1 precise_divide_fault=1 input_preserved=1")
     add_executable(lezac_actor_motion_test tests/core/actor_motion_test.cpp)
     target_link_libraries(lezac_actor_motion_test PRIVATE lezac_core)
     add_test(NAME actor_motion_unit COMMAND lezac_actor_motion_test)
@@ -788,6 +794,40 @@ if(BUILD_TESTING)
         add_test(NAME frame_export_alias_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_export_aliases.py)
         find_package(Git QUIET)
+        add_test(NAME nonplayer_motion_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_nonplayer_motion_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/nonplayer-motion.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/nonplayer-motion-fixture.json)
+        set_tests_properties(nonplayer_motion_fixture_contract PROPERTIES FIXTURES_SETUP nonplayer_motion_corpus TIMEOUT 180)
+        add_test(NAME nonplayer_motion_original COMMAND lezac_actor_motion_prefix_test
+            ${CMAKE_CURRENT_BINARY_DIR}/nonplayer-motion.bin)
+        set_tests_properties(nonplayer_motion_original PROPERTIES FIXTURES_REQUIRED nonplayer_motion_corpus TIMEOUT 180
+            PASS_REGULAR_EXPRESSION "nonplayer_motion_original=ok cases=6569 continuous_actor_cases=54 real_caller_cases=54 divide_faults=30 instructions=6120333.*terrain_executed=0 full_frame_claim=0")
+        add_test(NAME nonplayer_motion_app_original COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+            $<TARGET_FILE:lezac_cpp> --debug-nonplayer-motion-original ${CMAKE_CURRENT_BINARY_DIR}/nonplayer-motion.bin)
+        set_tests_properties(nonplayer_motion_app_original PROPERTIES FIXTURES_REQUIRED nonplayer_motion_corpus TIMEOUT 180
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "nonplayer_motion_app=ok admitted=4230 excluded_non_monster_behaviors=2339 real_caller_cases=36 divide_faults=30.*actual_App_motion=1 natural_route=0 full_frame_claim=0")
+        add_test(NAME nonplayer_motion_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_nonplayer_motion_fixture.py -v)
+        set_tests_properties(nonplayer_motion_fixture_rejections PROPERTIES TIMEOUT 600
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        add_test(NAME nonplayer_motion_cli COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_nonplayer_motion_cli.py
+            --api $<TARGET_FILE:lezac_actor_motion_prefix_test> --app $<TARGET_FILE:lezac_cpp>
+            --fixture ${CMAKE_CURRENT_BINARY_DIR}/nonplayer-motion.bin
+            --out ${CMAKE_CURRENT_BINARY_DIR}/nonplayer-motion-cli)
+        set_tests_properties(nonplayer_motion_cli PROPERTIES FIXTURES_REQUIRED nonplayer_motion_corpus TIMEOUT 600
+            PASS_REGULAR_EXPRESSION "nonplayer_motion_cli=ok malformed=7 executables=2 binaries_preserved=1")
+        if(NOT WIN32)
+            add_test(NAME nonplayer_motion_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_nonplayer_motion_mutations.py --cxx ${CMAKE_CXX_COMPILER}
+                --fixture ${CMAKE_CURRENT_BINARY_DIR}/nonplayer-motion.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/nonplayer-motion-mutations)
+            set_tests_properties(nonplayer_motion_mutations PROPERTIES FIXTURES_REQUIRED nonplayer_motion_corpus TIMEOUT 1800
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+                PASS_REGULAR_EXPRESSION "nonplayer_motion_mutations=ok faults=9 sources_preserved=1")
+        endif()
         add_test(NAME actor_motion_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_motion_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/actor-motion.bin
@@ -823,7 +863,7 @@ if(BUILD_TESTING)
             $<TARGET_FILE:lezac_cpp> --debug-actor-steering-vectors ${CMAKE_CURRENT_BINARY_DIR}/actor-steering-vectors.bin)
         set_tests_properties(actor_steering_app_original PROPERTIES FIXTURES_REQUIRED actor_steering_vectors_corpus TIMEOUT 180
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-            PASS_REGULAR_EXPRESSION "actor_steering_app_original=ok cases=2136 homing_calls=2097 motion_gates=2097 off_gate_controls=2097 zero_period_controls=2097 excluded_by_existing_gate=39 original_live_caller_rows=64 admitted_live_caller_rows=52 random_seed_unchanged=1 actual_retargetMonster=1 actual_updateMonsterMotion=1 natural_route=0 full_frame_claim=0")
+            PASS_REGULAR_EXPRESSION "actor_steering_app_original=ok cases=2136 homing_calls=2097 motion_gates=2097 off_gate_controls=2097 zero_period_controls=2097 excluded_by_existing_gate=39 original_live_caller_rows=64 admitted_live_caller_rows=52 random_seed_unchanged=1 actual_retargetMonster=0 actual_updateMonsterMotion=1 original_divide_fault=1 natural_route=0 full_frame_claim=0")
         add_test(NAME actor_steering_vectors_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_steering_vectors.py -v)
         set_tests_properties(actor_steering_vectors_rejections PROPERTIES TIMEOUT 900

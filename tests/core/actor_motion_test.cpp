@@ -294,7 +294,41 @@ void unit() {
         fault.snapshot().outcome==ActorMotionOutcome::DivideError && fault.registers()==regs && memory.writes.empty(),
         "Motion divide fault did not preserve pre-handler CPU/memory");
     require(fault.advance(1,memory.bus(),all)==0,"Finished divide fault dispatched");
-    std::cout << "actor_motion_unit=ok entry_state_rejections=9 masked_irq=1 precise_divide_fault=1\n";
+    unsigned helperReturns=0;
+    for (auto entry : {ActorMotionEntry::TileFracture,ActorMotionEntry::TileSample,ActorMotionEntry::Friction}) {
+        for (uint16_t caller : {uint16_t{0x7f00},uint16_t{0x73e5}}) {
+            auto helperState=before;helperState.entry=entry;
+            auto& cpu=helperState.cpu.registers;
+            cpu.flags|=0x200u;
+            cpu.ip=static_cast<uint16_t>(entry==ActorMotionEntry::TileFracture ? 0x3a53 : entry==ActorMotionEntry::TileSample ? 0x5b83 : 0x5bc9);
+            Memory helperMemory;helperMemory.store(Memory::address(cpu.ss,cpu.sp),caller);
+            const auto initialMemory=helperMemory.bytes;const auto bus=helperMemory.bus();
+            auto expected=cpu;expected.ip=caller;
+            expected.sp=static_cast<uint16_t>(cpu.sp+(entry==ActorMotionEntry::TileFracture ? 12u : 4u));
+            ActorMotionOperation helper(helperState);helper=ActorMotionOperation(helper.snapshot());
+            require(helper.advance(0,bus,all)==0 && helper.snapshot()==helperState,"Zero helper-return grant changed state");
+            require(helper.advance(4096,bus,all)==1 && helper.finished() &&
+                helper.snapshot().outcome==ActorMotionOutcome::Returned,
+                "Helper return was overwritten by the motion-integration handoff");
+            require(helper.registers()==expected && helperMemory.bytes==initialMemory && helperMemory.writes.empty(),
+                "Helper near return changed registers, memory or argument cleanup");
+            helper=ActorMotionOperation(helper.snapshot());
+            const auto ended=helper.snapshot();
+            require(helper.advance(17,bus,all)==0 && helper.snapshot()==ended,"Completed helper resumed caller instructions");
+            bool irqRejected=false;try { helper.deliverTimerInterrupt(bus); } catch (const std::logic_error&) { irqRejected=true; }
+            require(irqRejected && helper.snapshot()==ended,"Completed helper return admitted IRQ");
+            ++helperReturns;
+        }
+    }
+    auto handoffState=before;handoffState.cpu.registers.ip=0x73e2;
+    memory.store(Memory::address(r.ss,static_cast<uint16_t>(r.bp-44u)),80);
+    ActorMotionOperation handoff(handoffState);
+    require(handoff.advance(17,memory.bus(),all)==1 &&
+        handoff.snapshot().outcome==ActorMotionOutcome::MotionIntegration &&
+        handoff.registers().ip==0x73e5 && memory.word(r.ss,static_cast<uint16_t>(r.bp-44u))==81,
+        "Behavior motion lost its actual integration handoff");
+    std::cout << "actor_motion_unit=ok entry_state_rejections=9 masked_irq=1 precise_divide_fault=1"
+        << " helper_return_boundaries=" << helperReturns << " behavior_handoff_control=1\n";
 }
 }
 int main(int argc,char** argv) {

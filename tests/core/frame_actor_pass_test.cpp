@@ -327,6 +327,12 @@ void unit() {
     runningLinks.registers=r;
     runningLinks.registers.cs=0x1920;runningLinks.registers.ip=0xe2;runningLinks.gameSegment=kGame;
     reject(s);
+    Memory irqMemory;const auto irqBus=irqMemory.bus();
+    FrameActorPassOperation interrupted(initial);interrupted.deliverTimerInterrupt(irqBus);
+    const auto irqState=interrupted.snapshot();
+    (void)FrameActorPassOperation(irqState);
+    s=irqState;++std::get<FrameActorEntrySnapshot>(s.callee).timer->dataSegment;reject(s);
+    s=irqState;std::get<FrameActorEntrySnapshot>(s.callee).timer->idToggleMask=0;reject(s);
     r.cs=kGame;
     r.ip=0x7ebc;bool wrongEntry=false;
     try { (void)FrameActorPassOperation(r,kGame,kIdToggle); } catch (const std::invalid_argument&) { wrongEntry=true; }
@@ -343,8 +349,8 @@ void unit() {
         try { ended.deliverTimerInterrupt(bus); } catch (const std::logic_error&) { stopped=true; }
         require(stopped && ended.advance(17,bus,all)==0 && ended.snapshot()==saved,"Finished pass changed state");
     }
-    require(rejected==36,"Pass rejection coverage differs");
-    std::cout<<"frame_actor_pass_unit=ok state_rejections="<<rejected<<" phase_controls=2 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_controls=2\n";
+    require(rejected==38,"Pass rejection coverage differs");
+    std::cout<<"frame_actor_pass_unit=ok state_rejections="<<rejected<<" phase_controls=3 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_controls=2\n";
 }
 }
 int main(int argc,char** argv) {

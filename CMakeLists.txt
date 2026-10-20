@@ -192,7 +192,7 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_frame_actor_pass_test PRIVATE lezac_core)
     add_test(NAME frame_actor_pass_unit COMMAND lezac_frame_actor_pass_test)
     set_tests_properties(frame_actor_pass_unit PROPERTIES
-        PASS_REGULAR_EXPRESSION "frame_actor_pass_unit=ok state_rejections=36 phase_controls=2 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_controls=2")
+        PASS_REGULAR_EXPRESSION "frame_actor_pass_unit=ok state_rejections=38 phase_controls=3 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_controls=2")
     add_executable(lezac_player_post_test tests/core/player_post_test.cpp)
     target_link_libraries(lezac_player_post_test PRIVATE lezac_core)
     add_test(NAME player_post_unit COMMAND lezac_player_post_test)

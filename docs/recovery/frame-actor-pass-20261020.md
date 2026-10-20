@@ -184,6 +184,40 @@ then reports accepted=0/rejected=5. All 36 snapshot controls, 28 compiled faults
 fixed source. Original producer, manifest and compressed projection bytes are
 unchanged.
 
+## Parent Integration Hold
+
+The local integration preserves both published parents and incorporates the
+ActorUpdate borrowed-SS fix 5375ce6 plus player-post integration 7bacbb5.
+Original producer, manifest and compressed projection bytes are unchanged.
+The full corpus passes in the Debug build, strict native MSVC and GCC
+ASan/UBSan. The native integration run took 155.23 seconds, preserved every
+protected core/fixture hash, and produced executable SHA-256
+7125c5f7d4ed58e6806a863ba1e573f4eff2b47d10597cfed8568bce8d9d6889.
+
+Optimized GCC replay is not consistently passing. The first authenticated
+positive baseline failed at case 123, row 1021, with CX 0200 instead of 0000.
+A six-run stress test of that unchanged binary passed five runs but failed
+one with an invalid nested actor-entry ID-toggle profile. A later positive
+baseline also failed a contact-profile ownership guard. A debugger run caught
+the actor-entry exception inside the nested precontact registers visitor.
+These failures remain unexplained; later successful runs do not clear them.
+Failed reports, binary, stress logs and debugger evidence are retained in RAM.
+This integration is not ready to publish or merge.
+
+The stronger ActorUpdate guard makes the outer child-caller-SS mutation
+equivalent: both its positive baseline and mutated complete replay pass,
+while malformed snapshots are still rejected by the child invariant. It has
+been replaced with a timer data-ownership fault and two explicit interrupted
+snapshot controls. The new unit passes 38 rejection/three phase controls;
+the updated mutation run remains pending because its positive baseline
+encountered the unstable profile failure above. No guest logic was changed.
+
+Fresh review of player-post head 7bacbb5 separately reported P1 finding
+discussion_r4331157814: standalone running/divide/IRQ checkpoints can retain
+a foreign live SS. A focused probe confirms one foreign-stack write before
+rejection. That parent finding must be repaired before this integration can
+advance, independently of the optimized-replay investigation.
+
 ## Remaining Work
 
 Compose the frame prefix, these actor passes, transient queues, frame completion
@@ -193,6 +227,7 @@ rendered frames, pixel timing, physical input and owner visual acceptance remain
 separate obligations. Runtime-error and divide-fault handler presentation also
 remains outside this boundary. This does not establish whole-frame or whole-game
 fidelity. Fresh exact-head external review and hosted checks remain merge gates.
-The separately reported running borrowed-SS finding on parent PR #456 must
-also be fixed before integration; this layer's own matching-SS guards do not
-dispose of that standalone ActorUpdate API finding.
+The ActorUpdate running borrowed-SS finding was fixed in 5375ce6 and received
+a clean exact-head review. The new player-post finding and the optimized
+integration failures above remain open; this layer's matching-SS guards do
+not dispose of a standalone parent's malformed-checkpoint API finding.

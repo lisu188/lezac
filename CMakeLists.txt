@@ -188,6 +188,11 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_player_motion_test tests/core/player_motion_test.cpp)
+    target_link_libraries(lezac_player_motion_test PRIVATE lezac_core)
+    add_test(NAME player_motion_unit COMMAND lezac_player_motion_test)
+    set_tests_properties(player_motion_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "player_motion_unit=ok state_rejections=9 entry_rejection=1 masked_irq=1 zero_budget=1")
     add_executable(lezac_nonplayer_loop_test tests/core/nonplayer_loop_test.cpp)
     target_link_libraries(lezac_nonplayer_loop_test PRIVATE lezac_core)
     add_test(NAME nonplayer_loop_unit COMMAND lezac_nonplayer_loop_test)
@@ -799,6 +804,35 @@ if(BUILD_TESTING)
         add_test(NAME frame_export_alias_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_export_aliases.py)
         find_package(Git QUIET)
+        add_test(NAME player_motion_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_player_motion_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/player-motion.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/player-motion-fixture.json)
+        set_tests_properties(player_motion_fixture_contract PROPERTIES FIXTURES_SETUP player_motion_corpus TIMEOUT 180)
+        add_test(NAME player_motion_original COMMAND lezac_player_motion_test
+            ${CMAKE_CURRENT_BINARY_DIR}/player-motion.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(player_motion_original PROPERTIES FIXTURES_REQUIRED player_motion_corpus TIMEOUT 300
+            PASS_REGULAR_EXPRESSION "player_motion_original=ok cases=7028 replays=63252 comparisons=11362915 dispatches=31847211 writes=673658 actual_callers=24 runtime_faults=4 computed_irq_cases=13 irq_instructions=468 partial_copy_irqs=1 full_memory=1 canonical_mz=1 later_state_injected=0 actual_app_integration=0 full_frame_claim=0")
+        add_test(NAME player_motion_cli COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_player_motion_cli.py
+            --exe $<TARGET_FILE:lezac_player_motion_test>
+            --fixture ${CMAKE_CURRENT_BINARY_DIR}/player-motion.bin
+            --out ${CMAKE_CURRENT_BINARY_DIR}/player-motion-cli)
+        set_tests_properties(player_motion_cli PROPERTIES FIXTURES_REQUIRED player_motion_corpus TIMEOUT 600
+            PASS_REGULAR_EXPRESSION "player_motion_cli=ok negative_controls=8 canonical_mz_bound=1 protected_inputs_preserved=1")
+        add_test(NAME player_motion_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_player_motion_fixture.py -v)
+        set_tests_properties(player_motion_fixture_rejections PROPERTIES TIMEOUT 600
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        if(NOT WIN32)
+            add_test(NAME player_motion_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_player_motion_mutations.py --cxx ${CMAKE_CXX_COMPILER}
+                --fixture ${CMAKE_CURRENT_BINARY_DIR}/player-motion.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/player-motion-mutations)
+            set_tests_properties(player_motion_mutations PROPERTIES FIXTURES_REQUIRED player_motion_corpus TIMEOUT 1800
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+                PASS_REGULAR_EXPRESSION "player_motion_mutations=ok faults=12 sources_preserved=1")
+        endif()
         add_test(NAME nonplayer_loop_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_nonplayer_loop_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/nonplayer-loop.bin

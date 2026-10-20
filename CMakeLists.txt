@@ -188,6 +188,11 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_frame_actor_pass_test tests/core/frame_actor_pass_test.cpp)
+    target_link_libraries(lezac_frame_actor_pass_test PRIVATE lezac_core)
+    add_test(NAME frame_actor_pass_unit COMMAND lezac_frame_actor_pass_test)
+    set_tests_properties(frame_actor_pass_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "frame_actor_pass_unit=ok state_rejections=36 phase_controls=2 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_controls=2")
     add_executable(lezac_player_post_test tests/core/player_post_test.cpp)
     target_link_libraries(lezac_player_post_test PRIVATE lezac_core)
     add_test(NAME player_post_unit COMMAND lezac_player_post_test)
@@ -814,6 +819,35 @@ if(BUILD_TESTING)
         add_test(NAME frame_export_alias_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_export_aliases.py)
         find_package(Git QUIET)
+        add_test(NAME frame_actor_pass_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_actor_pass_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass-fixture.json)
+        set_tests_properties(frame_actor_pass_fixture_contract PROPERTIES FIXTURES_SETUP frame_actor_pass_corpus TIMEOUT 180)
+        add_test(NAME frame_actor_pass_original COMMAND lezac_frame_actor_pass_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(frame_actor_pass_original PROPERTIES FIXTURES_REQUIRED frame_actor_pass_corpus TIMEOUT 600
+            PASS_REGULAR_EXPRESSION "frame_actor_pass_original=ok cases=876 replays=7884 comparisons=10432263 dispatches=29521980 writes=590096 actor_calls=3398 actor_returns=3370 nonplayer_calls=2244 player_calls=1154 post_calls=1152 post_returns=1152 both_players=540 boss_calls=36 prefix_skips=460 queues=806 restarts=30 runtime_errors=22 divide_errors=18 computed_irq_cases=19 irq_instructions=684 partial_copy_irqs=3 full_memory=1 canonical_mz=1 later_state_injected=0 actual_app_integration=0 full_frame_claim=0")
+        add_test(NAME frame_actor_pass_cli COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_actor_pass_cli.py
+            --exe $<TARGET_FILE:lezac_frame_actor_pass_test>
+            --fixture ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass.bin
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass-cli)
+        set_tests_properties(frame_actor_pass_cli PROPERTIES FIXTURES_REQUIRED frame_actor_pass_corpus TIMEOUT 900
+            PASS_REGULAR_EXPRESSION "frame_actor_pass_cli=ok negative_controls=8 canonical_mz_bound=1 protected_inputs_preserved=1")
+        add_test(NAME frame_actor_pass_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_actor_pass_fixture.py -v)
+        set_tests_properties(frame_actor_pass_fixture_rejections PROPERTIES TIMEOUT 600
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        if(NOT WIN32)
+            add_test(NAME frame_actor_pass_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_actor_pass_mutations.py --cxx ${CMAKE_CXX_COMPILER}
+                --fixture ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass-mutations)
+            set_tests_properties(frame_actor_pass_mutations PROPERTIES FIXTURES_REQUIRED frame_actor_pass_corpus TIMEOUT 1800
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+                PASS_REGULAR_EXPRESSION "frame_actor_pass_mutations=ok faults=28 positive_baseline=1 sources_preserved=1")
+        endif()
         add_test(NAME player_post_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_player_post_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/player-post.bin

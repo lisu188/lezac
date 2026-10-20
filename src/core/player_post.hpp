@@ -79,7 +79,8 @@ private:
     static DosGetTimeRegisters fromTimer(const TimerIrqRegisters& r) { return {r.ax,r.bx,r.cx,r.dx,r.si,r.di,r.bp,r.cs,r.ds,r.es,r.ss,r.sp,r.ip,r.flags}; }
     void validate() const {
         const auto& r=state_.registers;
-        if ((state_.idToggleMask!=0 && state_.idToggleMask!=0x200000) ||
+        if (registers().ss!=state_.callerSs ||
+            (state_.idToggleMask!=0 && state_.idToggleMask!=0x200000) ||
             (state_.entry!=PlayerPostEntry::Caller && state_.entry!=PlayerPostEntry::ScoreDivide) ||
             (state_.outcome!=PlayerPostOutcome::Running && state_.outcome!=PlayerPostOutcome::Caller &&
              state_.outcome!=PlayerPostOutcome::Returned && state_.outcome!=PlayerPostOutcome::RuntimeError) ||
@@ -97,7 +98,7 @@ private:
                 (state_.entry!=PlayerPostEntry::ScoreDivide || r.cs!=state_.gameSegment)) ||
             (state_.outcome==PlayerPostOutcome::RuntimeError && (r.cs!=library() || r.ip!=0xe2)) ||
             ((state_.outcome==PlayerPostOutcome::Caller || state_.outcome==PlayerPostOutcome::Returned) &&
-                (r.ss!=state_.callerSs || r.sp!=state_.callerSp || r.bp!=state_.callerBp)) ||
+                (r.sp!=state_.callerSp || r.bp!=state_.callerBp)) ||
             (state_.timer && (finished() || state_.timer->returned || !state_.timer->biosWrapper ||
                 state_.timer->gameSegment!=state_.gameSegment ||
                 state_.timer->dataSegment!=static_cast<uint16_t>(state_.gameSegment+0xaa2) ||

@@ -306,6 +306,20 @@ void unit() {
     const auto reject=[&](PlayerPostSnapshot s) {
         try { (void)PlayerPostOperation(s); } catch (const std::invalid_argument&) { ++rejected; }
     };
+    const auto rejectStack=[&](PlayerPostSnapshot s) {
+        bool failed=false;
+        try { (void)PlayerPostOperation(s); } catch (const std::invalid_argument&) { failed=true; }
+        require(failed && memory.writes.empty(),"Player post admitted a foreign borrowed SS");
+        ++rejected;
+    };
+    auto foreign=initial;++foreign.callerSs;rejectStack(foreign);
+    foreign=initial;++foreign.registers.ss;rejectStack(foreign);
+    auto divideRegisters=r;divideRegisters.cs=0x1920;divideRegisters.ip=0x945;
+    foreign=PlayerPostOperation(divideRegisters,kGame,kIdToggle,PlayerPostEntry::ScoreDivide).snapshot();
+    ++foreign.registers.ss;rejectStack(foreign);
+    Memory irqMemory;const auto irqBus=irqMemory.bus();
+    PlayerPostOperation interrupted(initial);interrupted.deliverTimerInterrupt(irqBus);
+    foreign=interrupted.snapshot();++foreign.timer->registers.ss;rejectStack(foreign);
     auto s=initial;s.gameSegment=0x1001;reject(s);
     s=initial;s.idToggleMask=1;reject(s);
     s=initial;s.entry=static_cast<PlayerPostEntry>(255);reject(s);
@@ -323,7 +337,7 @@ void unit() {
     s.registers.ds=0x4000;reject(s);
     auto terminal=initial;terminal.registers.ip=0x8044;terminal.outcome=PlayerPostOutcome::Caller;
     s=terminal;++s.callerSs;reject(s);s=terminal;++s.callerSp;reject(s);s=terminal;++s.callerBp;reject(s);
-    require(rejected==17,"Player post rejection coverage differs");
+    require(rejected==21,"Player post rejection coverage differs");
     r.ip=0x7f5d;bool wrongEntry=false;
     try { (void)PlayerPostOperation(r,kGame,kIdToggle); } catch (const std::invalid_argument&) { wrongEntry=true; }
     require(wrongEntry,"Player post admitted wrong entry");r.ip=0x7f5c;r.flags&=~uint32_t{0x200};
@@ -343,7 +357,7 @@ void unit() {
             "Player post signed helper RETF boundary precedence differs");
         require(farReturn.advance(1,bus,all)==0,"Signed helper returned twice");
     }
-    std::cout<<"player_post_unit=ok state_rejections=17 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_no_work=1 far_return_controls=2\n";
+    std::cout<<"player_post_unit=ok state_rejections=21 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_no_work=1 far_return_controls=2\n";
 }
 }
 int main(int argc,char** argv) {

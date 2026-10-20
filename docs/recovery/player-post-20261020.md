@@ -173,6 +173,37 @@ a822498a728d7c2b642a539f22ddc30d2594531f8b05a18aef2101e22b7f609d.
 Its validation took 22.20 seconds. This does not claim a new cold checkout or
 production-App integration. Fresh exact-head review and hosted CI remain gates.
 
+## Live Stack Review Fix
+
+P1 finding discussion_r4331157814 on published head
+7bacbb52977c097a052ccc1ded59e048a62dd045 identified endpoint-only SS validation
+for the standalone player-post API. A ScoreDivide checkpoint at 1920:0945
+with callerSs 7000 and live SS 7001 was accepted; its first instruction wrote
+through the foreign stack. The probe reports rejected=0/writes=1/
+foreign_stack_writes=1 before the fix. The permanent new unit regression
+also fails against that old header.
+
+Validation now requires registers().ss==callerSs for every restored state,
+including the active timer's live SS. The identical probe reports
+rejected=1/writes=0/foreign_stack_writes=0. Four additional controls reject
+a corrupt promised SS, corrupt running live SS, corrupt ScoreDivide SS and
+corrupt IRQ SS before guest work. All 21 snapshot rejection controls pass.
+A twenty-first compiled fault restores the old endpoint-only comparison and
+is detected by the new assertion.
+
+All seven selected CTests pass in 186.92 seconds, including the complete
+original replay, fixture-retention controls, all 21 compiled mutations,
+parent ActorUpdate unit and source guardrails. GCC C++23 ASan/UBSan unit and
+complete replay pass. Fresh strict native MSVC /std:c++latest /W4 /WX build,
+unit and all 27,918 replays pass with every protected core/fixture hash
+preserved. The native run took 25.28 seconds and produced executable SHA-256
+2268dbe190abdf1cb4e61a7076f82747f761020dea4e12b677530721c3896758.
+No original producer, manifest, compressed projection or guest instruction
+changed. CLI and cold-checkout coverage above is prior unchanged-protocol
+evidence, not a fresh run for this fix. Hosted CI and a new exact-head review
+remain required. The separate unpublished full-pass integration's unstable
+optimized replay is retained outside this player-post branch.
+
 ## Remaining Work
 
 Compose the complete player and nonplayer passes, transient queues, production

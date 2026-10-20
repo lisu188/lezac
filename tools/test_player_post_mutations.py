@@ -10,6 +10,9 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 HEADER = 'src/core/player_post.hpp'
 FAULTS = (
+    ('live_ss_ownership', 'if (registers().ss!=state_.callerSs ||',
+        'if (((state_.outcome==PlayerPostOutcome::Caller || state_.outcome==PlayerPostOutcome::Returned) && '
+        'registers().ss!=state_.callerSs) ||'),
     ('caller_sp', 'entry==PlayerPostEntry::ScoreDivide ? 4u : 0u', 'entry==PlayerPostEntry::ScoreDivide ? 4u : 2u'),
     ('library_ds_ownership', '(r.ds!=static_cast<uint16_t>(state_.gameSegment+0xaa2) &&',
         '(r.cs==state_.gameSegment && r.ds!=static_cast<uint16_t>(state_.gameSegment+0xaa2) &&'),
@@ -89,7 +92,7 @@ def main():
         raise
     finally:
         (out / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
-    print('player_post_mutations=ok faults=20 sources_preserved=1')
+    print('player_post_mutations=ok faults=21 sources_preserved=1')
 
 
 if __name__ == '__main__':

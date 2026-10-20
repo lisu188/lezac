@@ -192,7 +192,7 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_actor_update_test PRIVATE lezac_core)
     add_test(NAME actor_update_unit COMMAND lezac_actor_update_test)
     set_tests_properties(actor_update_unit PROPERTIES
-        PASS_REGULAR_EXPRESSION "actor_update_unit=ok state_rejections=17 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_no_work=1")
+        PASS_REGULAR_EXPRESSION "actor_update_unit=ok state_rejections=18 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_no_work=1")
     add_executable(lezac_player_motion_test tests/core/player_motion_test.cpp)
     target_link_libraries(lezac_player_motion_test PRIVATE lezac_core)
     add_test(NAME player_motion_unit COMMAND lezac_player_motion_test)
@@ -836,7 +836,7 @@ if(BUILD_TESTING)
                 --out ${CMAKE_CURRENT_BINARY_DIR}/actor-update-mutations)
             set_tests_properties(actor_update_mutations PROPERTIES FIXTURES_REQUIRED actor_update_corpus TIMEOUT 1800
                 ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
-                PASS_REGULAR_EXPRESSION "actor_update_mutations=ok faults=15 sources_preserved=1")
+                PASS_REGULAR_EXPRESSION "actor_update_mutations=ok faults=16 sources_preserved=1")
         endif()
         add_test(NAME player_motion_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_player_motion_fixture.py

@@ -147,6 +147,41 @@ This is existing-renderer regression evidence, not use of the new core.
 All local builds, raw traces and captures remain RAM-only under the user's
 disk-pressure exception; speaker output stays disabled.
 
+## Borrowed Stack Review Fix
+
+Review finding discussion_r4330845651 on published head
+5e81f80153466ace262f6b3671f2f51ea8e9a623 identified that a running snapshot's
+callerSs was checked only after Returned. A focused probe changed callerSs
+from 7000 to 7001 while retaining live SS 7000. Before the fix its constructor
+accepted the snapshot and the first PUSH BP wrote memory: rejected=0/writes=1.
+The permanent running-state regression also failed against that old header.
+
+The live SS must now equal callerSs at construction for every outcome and
+phase, including running and interrupted snapshots. The identical probe
+reports rejected=1/writes=0. Eighteen invalid-snapshot controls pass; a sixteenth
+compiled fault reinstates the old terminal-only comparison and is detected
+by the new unit assertion. No guest instruction, producer, manifest or frozen
+projection changed.
+
+The fixed source passes the full 64,692-replay corpus on GCC and strict native
+MSVC /std:c++latest /W4 /WX, plus GCC C++23 ASan/UBSan unit and full-corpus
+runs. All 16 separately compiled faults are rejected. Native unit, complete
+original replay, eight CLI controls and both fixture-rejection tests pass,
+with every protected core source and fixture hash preserved.
+The native executable SHA-256 is
+e7d38509e13fee69ed1138709a53b8e2741f583154818a818c993edc94addb5e.
+Its complete native validation run took 291.28 seconds.
+All 15 freshly selected CTests pass in 365.42 seconds, covering the actor-update
+unit, fixture, original and mutation checks, adjacent player motion/nonplayer
+loop/frame actor-entry replays, and source guardrails.
+
+The prior passing native cold checkout's exact 27-family/88-file input catalog
+was reverified byte-for-byte through retained SHA-256 and lengths before reuse.
+This is unchanged-input evidence, not a newly executed cold checkout. Duplicate
+completed Linux malformed-export files were removed only after byte comparison
+with a retained identical native set; reports, canonical fixtures, original
+captures and Git metadata were preserved. All new validation remains RAM-only.
+
 ## Remaining Work
 
 Recover player post-return health/life/HUD instructions and their real callees.

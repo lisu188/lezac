@@ -270,7 +270,11 @@ void unit() {
     const auto reject=[&](ActorUpdateSnapshot s) {
         try { (void)ActorUpdateOperation(s); } catch (const std::invalid_argument&) { ++rejected; }
     };
-    auto s=initial;s.gameSegment=0x1001;reject(s);
+    auto s=initial;++s.callerSs;bool foreignStack=false;
+    try { (void)ActorUpdateOperation(s); }
+    catch (const std::invalid_argument&) { foreignStack=true;++rejected; }
+    require(foreignStack && memory.writes.empty(),"Running actor update admitted a foreign borrowed SS");
+    s=initial;s.gameSegment=0x1001;reject(s);
     s=initial;s.idToggleMask=1;reject(s);
     s=initial;s.outcome=static_cast<ActorUpdateOutcome>(255);reject(s);
     s=initial;s.timerInstructions=1;reject(s);
@@ -292,7 +296,7 @@ void unit() {
     s=returned;++s.callerSs;reject(s);s=returned;++s.callerSp;reject(s);s=returned;++s.callerBp;reject(s);
     s=returned;tail.registers.cs=0x1920;tail.registers.ip=0xe2;s.callee=tail;
     s.outcome=ActorUpdateOutcome::RuntimeError;reject(s);
-    require(rejected==17,"Actor update rejection coverage differs");
+    require(rejected==18,"Actor update rejection coverage differs");
     r.ip=0x6054;bool wrongEntry=false;
     try { (void)ActorUpdateOperation(r,kGame,kIdToggle); } catch (const std::invalid_argument&) { wrongEntry=true; }
     require(wrongEntry,"Actor update admitted wrong entry");r.ip=0x6053;r.flags&=~uint32_t{0x200};
@@ -302,7 +306,7 @@ void unit() {
     ActorUpdateOperation ended(returned);const auto terminal=ended.snapshot();bool stopped=false;
     try { ended.deliverTimerInterrupt(bus); } catch (const std::logic_error&) { stopped=true; }
     require(stopped && ended.advance(17,bus,all)==0 && ended.snapshot()==terminal,"Returned actor changed state");
-    std::cout<<"actor_update_unit=ok state_rejections=17 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_no_work=1\n";
+    std::cout<<"actor_update_unit=ok state_rejections=18 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_no_work=1\n";
 }
 }
 int main(int argc,char** argv) {

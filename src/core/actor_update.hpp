@@ -141,12 +141,12 @@ private:
             }
         },state_.callee);
         const auto r=registers();
-        if ((finished() && interruptInProgress()) ||
+        if (r.ss!=state_.callerSs || (finished() && interruptInProgress()) ||
             (state_.outcome==ActorUpdateOutcome::Returned && (r.cs!=state_.gameSegment ||
-                r.ss!=state_.callerSs || r.sp!=state_.callerSp || r.bp!=state_.callerBp)) ||
+                r.sp!=state_.callerSp || r.bp!=state_.callerBp)) ||
             (state_.outcome==ActorUpdateOutcome::RuntimeError &&
                 (r.cs!=static_cast<uint16_t>(state_.gameSegment+0x920) || r.ip!=0xe2)))
-            throw std::invalid_argument("Actor update endpoint ownership differs");
+            throw std::invalid_argument("Actor update stack or endpoint ownership differs");
     }
     void transition() {
         const auto r=registers();const auto game=state_.gameSegment;const auto id=state_.idToggleMask;

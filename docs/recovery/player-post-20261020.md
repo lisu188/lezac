@@ -158,6 +158,21 @@ exception. Canonical source, original assets, captures and Git metadata remain
 preserved. Only audited redundant cold-checkout replicas were removed; their
 staged source/fixture bytes, synthetic Git metadata and passing reports remain.
 
+## Parent Stack-Ownership Integration
+
+The integration retains published player-post head 135d09b and incorporates
+the parent ActorUpdate fix 5375ce6 without changing player-post C++, tests,
+producer or frozen fixture bytes. The parent now rejects foreign borrowed
+stacks before guest work. All eight newly selected CTests pass in 176.92
+seconds, including the complete player-post replay, eight CLI controls,
+fixture-retention checks, all 20 compiled mutations, the parent unit and
+source guardrails. A fresh strict native MSVC build, unit and complete replay
+also pass; all protected core and fixture hashes remain unchanged. The new
+native executable SHA-256 is
+a822498a728d7c2b642a539f22ddc30d2594531f8b05a18aef2101e22b7f609d.
+Its validation took 22.20 seconds. This does not claim a new cold checkout or
+production-App integration. Fresh exact-head review and hosted CI remain gates.
+
 ## Remaining Work
 
 Compose the complete player and nonplayer passes, transient queues, production

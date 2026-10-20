@@ -188,6 +188,11 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_player_post_test tests/core/player_post_test.cpp)
+    target_link_libraries(lezac_player_post_test PRIVATE lezac_core)
+    add_test(NAME player_post_unit COMMAND lezac_player_post_test)
+    set_tests_properties(player_post_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "player_post_unit=ok state_rejections=17 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_no_work=1 far_return_controls=2")
     add_executable(lezac_actor_update_test tests/core/actor_update_test.cpp)
     target_link_libraries(lezac_actor_update_test PRIVATE lezac_core)
     add_test(NAME actor_update_unit COMMAND lezac_actor_update_test)
@@ -809,6 +814,35 @@ if(BUILD_TESTING)
         add_test(NAME frame_export_alias_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_export_aliases.py)
         find_package(Git QUIET)
+        add_test(NAME player_post_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_player_post_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/player-post.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/player-post-fixture.json)
+        set_tests_properties(player_post_fixture_contract PROPERTIES FIXTURES_SETUP player_post_corpus TIMEOUT 180)
+        add_test(NAME player_post_original COMMAND lezac_player_post_test
+            ${CMAKE_CURRENT_BINARY_DIR}/player-post.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(player_post_original PROPERTIES FIXTURES_REQUIRED player_post_corpus TIMEOUT 300
+            PASS_REGULAR_EXPRESSION "player_post_original=ok cases=3102 replays=27918 comparisons=12846218 dispatches=35810295 writes=373395 player_calls=24 whole_actor_paths=50 whole_life_loss_paths=32 caller_returns=2422 divide_returns=600 runtime_errors=80 computed_irq_cases=14 irq_instructions=504 partial_copy_irqs=2 full_memory=1 canonical_mz=1 later_state_injected=0 actual_app_integration=0 full_frame_claim=0")
+        add_test(NAME player_post_cli COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_player_post_cli.py
+            --exe $<TARGET_FILE:lezac_player_post_test>
+            --fixture ${CMAKE_CURRENT_BINARY_DIR}/player-post.bin
+            --out ${CMAKE_CURRENT_BINARY_DIR}/player-post-cli)
+        set_tests_properties(player_post_cli PROPERTIES FIXTURES_REQUIRED player_post_corpus TIMEOUT 600
+            PASS_REGULAR_EXPRESSION "player_post_cli=ok negative_controls=8 canonical_mz_bound=1 protected_inputs_preserved=1")
+        add_test(NAME player_post_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_player_post_fixture.py -v)
+        set_tests_properties(player_post_fixture_rejections PROPERTIES TIMEOUT 600
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        if(NOT WIN32)
+            add_test(NAME player_post_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_player_post_mutations.py --cxx ${CMAKE_CXX_COMPILER}
+                --fixture ${CMAKE_CURRENT_BINARY_DIR}/player-post.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/player-post-mutations)
+            set_tests_properties(player_post_mutations PROPERTIES FIXTURES_REQUIRED player_post_corpus TIMEOUT 1800
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+                PASS_REGULAR_EXPRESSION "player_post_mutations=ok faults=20 sources_preserved=1")
+        endif()
         add_test(NAME actor_update_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/actor-update.bin

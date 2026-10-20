@@ -193,6 +193,8 @@ private:
         case 0x7edf:push(r.ds);r.ip=0x7ee0;break;
         case 0x7ee0:push(r.di);r.ip=0x7ee1;break;
         case 0x7ee1:push(0x7ee4);r.ip=0x6053;state_.actorKind=FrameActorEntryKind::NonPlayer;break;
+        case 0x7ee4:increment(0x2082,false);r.ip=0x7ee8;break;
+        case 0x7ee8:r.ip=0x7ecb;break;
         case 0x7eea:arithmetic(r,byte(0x79e6),1,true,true);r.ip=0x7eef;break;
         case 0x7eef:branch(flag(0x40),0x7f2f,0x7ef1);break;
         case 0x7ef1:arithmetic(r,byte(0x79e7),1,true,true);r.ip=0x7ef6;break;

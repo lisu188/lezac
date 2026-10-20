@@ -1,5 +1,7 @@
 #include "diagnostics/frame_inspector.hpp"
 #include "diagnostics/actor_steering_fixture.hpp"
+#include "diagnostics/nonplayer_motion_fixture.hpp"
+#include "core/actor_motion_prefix.hpp"
 #include "diagnostics/survivor_viewport_fixture.hpp"
 #include "diagnostics/monster_animation_fixture.hpp"
 #include "diagnostics/jolly_cloud_probe.hpp"
@@ -17396,6 +17398,8 @@ public:
         walker.y = 24;
         walker.kind = 1;
         walker.behavior = 3;
+        walker.animationSetLeft = 1;
+        walker.animationSetRight = 2;
         walker.ai0 = 0x0100;
         initializeMonsterMotion(walker);
         // The original's spawn helper is entered with vx = vy = 0; the ground
@@ -21448,6 +21452,9 @@ public:
         monster.hp = 4;
         monster.animDelay = 3;
         monster.hotspotY = monsterHotspotY(monster.kind);
+        const auto selectors = lezac::gameplay::monsterAnimationSelectors(monster.kind);
+        monster.animationSetLeft = selectors[0];
+        monster.animationSetRight = selectors[1];
         refreshMonsterAnimationProfile(monster);
         initializeMonsterMotion(monster);
         monster.vx8 = 0x0100;
@@ -22098,7 +22105,7 @@ public:
             ActiveMonster seed;seed.kind=1;seed.behavior=4;seed.ai0=24;seed.ai1=row.speed;seed.ai2=65535;
             seed.x=0;seed.y=0;seed.vx8=321;seed.vy8=-222;seed.alive=true;
             randomSeed_=0x12345678u;
-            auto direct=seed;retargetMonster(direct);
+            auto direct=seed;logicTick_=96;updateMonsterMotion(direct,0.0f);
             auto gated=seed;logicTick_=96;updateMonsterMotion(gated,0.0f);
             if (direct.vx8!=row.vx8 || direct.vy8!=row.vy8 || gated.vx8!=row.vx8 || gated.vy8!=row.vy8) {
                 ++mismatches;
@@ -22113,7 +22120,10 @@ public:
             auto offGate=seed;logicTick_=97;updateMonsterMotion(offGate,0.0f);
             if (offGate.vx8!=seed.vx8 || offGate.vy8!=seed.vy8 || offGate.motionTimer!=23)
                 throw std::runtime_error("Steering off-gate state changed");
-            auto zeroPeriod=seed;zeroPeriod.ai0=0;logicTick_=96;updateMonsterMotion(zeroPeriod,0.0f);
+            auto zeroPeriod=seed;zeroPeriod.ai0=0;logicTick_=96;
+            bool divided=false;
+            try { updateMonsterMotion(zeroPeriod,0.0f); } catch (const std::domain_error&) { divided=true; }
+            if (!divided) throw std::runtime_error("Steering zero-period divide fault was skipped");
             if (zeroPeriod.vx8!=seed.vx8 || zeroPeriod.vy8!=seed.vy8 || zeroPeriod.motionTimer!=0)
                 throw std::runtime_error("Steering zero-period state changed");
             if (randomSeed_!=0x12345678u) throw std::runtime_error("Steering homing consumed RNG");
@@ -22125,7 +22135,75 @@ public:
         std::cout << "actor_steering_app_original=ok cases=2136 homing_calls=2097 motion_gates=2097"
             << " off_gate_controls=2097 zero_period_controls=2097 excluded_by_existing_gate=39"
             << " original_live_caller_rows=64 admitted_live_caller_rows=52 random_seed_unchanged=1"
-            << " actual_retargetMonster=1 actual_updateMonsterMotion=1 natural_route=0 full_frame_claim=0\n";
+            << " actual_retargetMonster=0 actual_updateMonsterMotion=1 original_divide_fault=1 natural_route=0 full_frame_claim=0\n";
+    }
+
+    void debugNonplayerMotionOriginal(const std::string& fixturePath) {
+        const auto rows=lezac::diagnostics::readNonplayerMotionFixture(fixturePath);
+        load();resetLevel(2);ui_.setMenu(false);
+        playerCount_=1;lives_=2;playerDead_=false;pendingLifeLoss_=false;levelRestartPromoted_=false;
+        level_.width=64;level_.height=64;level_.tiles.assign(4096,0);
+        unsigned admitted=0,excluded=0,mismatches=0,faults=0,callers=0;
+        std::string firstMismatch;
+        const auto word=[](const auto& bytes,size_t at) {
+            return static_cast<uint16_t>(uint16_t{bytes[at]}|(uint16_t{bytes[at+1]}<<8));
+        };
+        for (const auto& row : rows) {
+            const auto& input=row.input;
+            if (input.actor[21]!=3 && input.actor[21]!=4) { ++excluded;continue; }
+            ++admitted;callers+=row.domain==5;
+            ActiveMonster actor;
+            actor.kind=input.actor[0];actor.behavior=input.actor[21];actor.x=input.x;actor.y=input.y;
+            actor.vx8=input.vx8;actor.vy8=input.vy8;actor.ai0=word(input.actor,14);
+            actor.ai1=word(input.actor,16);actor.ai2=word(input.actor,18);
+            actor.animationSetLeft=input.actor[3];actor.animationSetRight=input.actor[4];
+            lezac::gameplay::setMonsterAnimation(actor,{input.actor[22],input.actor[23],input.actor[24],
+                input.actor[25],input.actor[26],input.actor[27],static_cast<int8_t>(input.actor[28])});
+            actor.animFrame=actor.animCursor;
+            actor.edges={input.edges[0]!=0,input.edges[1]!=0,input.edges[2]!=0,input.edges[3]!=0};
+            actorSlots_={};
+            if (!actorSlots_.append(1,{actor.kind,0,actor.behavior,static_cast<uint16_t>(actor.animCursor+1),
+                    actor.vx8,actor.vy8,static_cast<int16_t>(actor.x),static_cast<int16_t>(actor.y)},{1,1,0,0}))
+                throw std::runtime_error("Nonplayer App fixture actor allocation failed");
+            actor.actorOrder=1;actorSlots_.initializeSpawnedMonster(1,actor,0);
+            actorSlots_.setSharedResult(input.shared[1]);sound_.writeSharedCursor(input.shared[2]);
+            damageLaneData_[0xc1e8]=static_cast<uint8_t>(input.shared[0]);
+            damageLaneData_[0xc1e9]=static_cast<uint8_t>(input.shared[0]>>8);
+            std::copy(row.animationBytes.begin(),row.animationBytes.end(),damageLaneData_.begin()+0x58);
+            std::fill(level_.tiles.begin(),level_.tiles.end(),0);
+            const int column=(actor.x+4)>>3,top=actor.y>>3;
+            for (int i=0;i<4;++i) tileRef(column+i-1,top+2)=input.tiles[static_cast<size_t>(i)];
+            player_.x=static_cast<float>(actor.x+input.dx);player_.y=static_cast<float>(actor.y+input.dy);
+            logicTick_=input.tick;randomSeed_=input.randomSeed;
+            const auto visible=actor.animFrame;
+            bool fault=false;
+            try { updateMonsterMotion(actor,0.0f); } catch (const std::domain_error&) { fault=true; }
+            faults+=fault;
+            const auto animation=lezac::gameplay::monsterAnimation(actor).packed();
+            std::array<uint8_t,7> expectedAnimation{};
+            std::copy_n(row.expected.actor.begin()+22,7,expectedAnimation.begin());
+            const std::array<uint16_t,3> shared{
+                static_cast<uint16_t>(damageLaneData_[0xc1e8]|(uint16_t{damageLaneData_[0xc1e9]}<<8)),
+                actorSlots_.state().success,sound_.requestCursor()};
+            const bool differs=actor.x!=row.expected.x || actor.y!=row.expected.y ||
+                actor.vx8!=row.expected.vx8 || actor.vy8!=row.expected.vy8 ||
+                animation!=expectedAnimation || actorSlots_.activeAnimation(1).packed()!=expectedAnimation ||
+                actor.animFrame!=visible || randomSeed_!=row.expected.randomSeed || shared!=row.expected.shared ||
+                fault!=(row.expected.outcome==lezac::core::ActorMotionPrefixOutcome::DivideError);
+            if (differs) {
+                ++mismatches;
+                if (firstMismatch.empty()) firstMismatch="case="+std::to_string(row.originalCase)+
+                    " behavior="+std::to_string(actor.behavior)+" actual="+std::to_string(actor.vx8)+','+
+                    std::to_string(actor.vy8)+" original="+std::to_string(row.expected.vx8)+','+
+                    std::to_string(row.expected.vy8);
+            }
+        }
+        if (mismatches) throw std::runtime_error("Actual App pre-terrain movement differs: cases="+
+            std::to_string(mismatches)+" first="+firstMismatch);
+        std::cout << "nonplayer_motion_app=ok admitted=" << admitted << " excluded_non_monster_behaviors=" << excluded
+            << " real_caller_cases=" << callers << " divide_faults=" << faults
+            << " physical_animation=1 visible_latch_preserved=1 shared_scratch=1 rng=1"
+            << " actual_App_motion=1 natural_route=0 full_frame_claim=0\n";
     }
 
     void debugBehavior4LockstepEvidence(const std::string& fixturePath) {
@@ -24748,6 +24826,8 @@ public:
                 monster.y = spec[4] - raw[0x14];
                 monster.kind = raw[0];
                 monster.behavior = raw[0x15];
+                monster.animationSetLeft = raw[3];
+                monster.animationSetRight = raw[4];
                 monster.hotspotY = raw[0x14];
                 monster.vx8 = static_cast<int16_t>(spec[1]);
                 monster.fracX = raw[10];
@@ -25438,6 +25518,8 @@ public:
         }
         ActiveMonster monster;
         monster.kind = entry[0];
+        monster.animationSetLeft = entry[3];
+        monster.animationSetRight = entry[4];
         monster.behavior = entry[21];
         monster.hotspotY = entry[20];
         monster.x = le16(entry, 38);
@@ -30059,6 +30141,8 @@ private:
         ActiveMonster captured;
         captured.kind = 4;
         captured.behavior = 3;
+        captured.animationSetLeft = 13;
+        captured.animationSetRight = 13;
         captured.x = 643;
         captured.y = 136;
         captured.vx8 = -264;
@@ -30135,7 +30219,7 @@ private:
         refreshMonsterAnimationProfile(monster);
     }
 
-    void retargetMonster(ActiveMonster& monster) {
+    std::array<int16_t,2> monsterTargetDelta(const ActiveMonster& monster) const {
         // 1000:63F6..654E admits only original state 1, including pending
         // death. Shipped thresholds are below the inactive X sentinel 6000;
         // captured both-inactive states therefore take the random branch.
@@ -30152,26 +30236,12 @@ private:
                 distance = candidateDistance;
             }
         }
-        const int dx = target ? static_cast<int>(target->x) - monster.x : 0;
+        const int dx = target ? static_cast<int>(target->x) - monster.x : 6000;
         const int dy = target ? static_cast<int>(target->y) - monster.y : 0;
-        double threshold = monster.ai2;
-        if (target && distance < threshold) {
-            // Original signed component words, unsigned speed, Real48 rounding
-            // and low-word stores are all significant at this boundary.
-            const auto velocity=lezac::core::actorSteeringVector8(
-                std::bit_cast<int16_t>(static_cast<uint16_t>(dx)),
-                std::bit_cast<int16_t>(static_cast<uint16_t>(dy)),monster.ai1);
-            monster.vx8=velocity.vx8;
-            monster.vy8=velocity.vy8;
-        } else {
-            int range = std::max(1, static_cast<int>(monster.ai1) * 2);
-            int vxFixed = static_cast<int>(randomRangeValue(0, static_cast<uint16_t>(range))) -
-                          static_cast<int>(monster.ai1);
-            int vyFixed = static_cast<int>(randomRangeValue(0, static_cast<uint16_t>(range))) -
-                          static_cast<int>(monster.ai1);
-            monster.vx8 = clampI16(vxFixed);
-            monster.vy8 = clampI16(vyFixed);
-        }
+        // Target selection retains the existing wide-distance owner; the
+        // recovered prefix consumes the selected signed component words.
+        return {std::bit_cast<int16_t>(static_cast<uint16_t>(dx)),
+                std::bit_cast<int16_t>(static_cast<uint16_t>(dy))};
     }
 
     const Player& nearestPlayer(float x, float y) const {
@@ -30184,6 +30254,26 @@ private:
         return distance2 < distance1 ? player2_ : player_;
     }
 
+    lezac::core::ActorMotionPrefixResult runActorMotionPrefix(lezac::core::ActorMotionPrefixInput input) {
+        input.shared={static_cast<uint16_t>(damageLaneData_[0xc1e8]|(uint16_t{damageLaneData_[0xc1e9]}<<8)),
+            actorSlots_.state().success,sound_.requestCursor()};
+        input.tick=static_cast<uint16_t>(logicTick_);
+        input.randomSeed=randomSeed_;
+        const auto result=lezac::core::actorMotionPrefix(input,
+            std::span<const uint8_t,512>{damageLaneData_.data()+0x58,512});
+        randomSeed_=result.randomSeed;
+        damageLaneData_[0xc1e8]=static_cast<uint8_t>(result.shared[0]);
+        damageLaneData_[0xc1e9]=static_cast<uint8_t>(result.shared[0]>>8);
+        actorSlots_.setSharedResult(result.shared[1]);
+        sound_.writeSharedCursor(result.shared[2]);
+        return result;
+    }
+
+    static void requireMotionTerrain(const lezac::core::ActorMotionPrefixResult& result) {
+        if (result.outcome!=lezac::core::ActorMotionPrefixOutcome::Terrain)
+            throw std::domain_error("Original actor motion reached an unrecovered runtime fault");
+    }
+
     void updateMonsterMotion(ActiveMonster& monster, float) {
         if (monster.behavior == 6) {
             updateBossHead(monster);
@@ -30193,50 +30283,38 @@ private:
             applyBossSegmentLinks(monster);
             return;
         }
-        if (monster.behavior == 4) {
-            const uint16_t period = monster.ai0;
-            const uint16_t originalTick = static_cast<uint16_t>(logicTick_);
-            if (period != 0 && originalTick % period == 0) {
-                retargetMonster(monster);
-            }
-            // Diagnostic only: ticks until the next shared gate, not AI state.
-            monster.motionTimer = period == 0
-                                      ? 0
-                                      : static_cast<int>(
-                                            period - (originalTick % period));
-            return;
+        lezac::core::ActorMotionPrefixInput input;
+        if (actorSlots_.find(monster.actorOrder)) input.actor=actorSlots_.actor(monster.actorOrder);
+        input.actor[0]=monster.kind;input.actor[21]=monster.behavior;
+        input.actor[3]=monster.animationSetLeft;input.actor[4]=monster.animationSetRight;
+        const std::array<uint16_t,3> parameters{monster.ai0,monster.ai1,monster.ai2};
+        for (size_t i=0;i<parameters.size();++i) {
+            input.actor[14+2*i]=static_cast<uint8_t>(parameters[i]);
+            input.actor[15+2*i]=static_cast<uint8_t>(parameters[i]>>8);
         }
-
-        // Ground walkers (behaviors 1-3) face the direction set at spawn
-        // (initializeMonsterMotion) and reverse only at walls and floor edges;
-        // the original never steers them toward the player, so preserve the
-        // current facing rather than seeking (defaulting to the spawn heading).
-        // Rank 10: the original seeds and renormalises the ground walker's
-        // horizontal speed only while the bottom-contact flag is set; an
-        // airborne walker keeps whatever vx it had (0 at spawn).
-        if (monster.edges.bottom) {
-            const int16_t speed = groundWalkerSpeed8(monster);
-            if (monster.vx8 == 0) {
-                // Seed (1000:71F9): no facing-reselect request -- only the
-                // renormalisation branch sets the flag (1000:71F3).
-                monster.vx8 = speed;
-            } else if (std::abs(monster.vx8) != speed) {
-                monster.vx8 = monster.vx8 > 0 ? speed : static_cast<int16_t>(-speed);
-                monster.facingDirty = true;
-            }
-            // 1000:7203..727D reads DS:2054/2057 from the cached 4x4 scan.
-            // Landing masks within the same tile row, so these coordinates
-            // remain the pre-integration cells, independent of word tags.
-            const int column = (monster.x + 4) >> 3;
-            const int row = (monster.y >> 3) + 2;
-            const bool leftMissing = !solidTileBottom(static_cast<uint8_t>(tileAt(column - 1, row)));
-            const bool rightMissing = !solidTileBottom(static_cast<uint8_t>(tileAt(column + 2, row)));
-            if (leftMissing || rightMissing) monster.facingDirty = true;
-            if (!(leftMissing && rightMissing) &&
-                ((monster.vx8 < 0 && leftMissing) || (monster.vx8 >= 0 && rightMissing))) {
-                monster.vx8 = static_cast<int16_t>(-monster.vx8);
-            }
-        }
+        const auto animation=lezac::gameplay::monsterAnimation(monster).packed();
+        std::copy(animation.begin(),animation.end(),input.actor.begin()+22);
+        input.originalX=input.x=std::bit_cast<int16_t>(static_cast<uint16_t>(monster.x));
+        input.y=std::bit_cast<int16_t>(static_cast<uint16_t>(monster.y));
+        input.vx8=monster.vx8;input.vy8=monster.vy8;
+        const auto delta=monsterTargetDelta(monster);
+        input.dx=delta[0];input.dy=delta[1];
+        input.edges={static_cast<uint8_t>(monster.edges.top),static_cast<uint8_t>(monster.edges.bottom),
+            static_cast<uint8_t>(monster.edges.left),static_cast<uint8_t>(monster.edges.right)};
+        const int column=(monster.x+4)>>3,row=(monster.y>>3)+2;
+        for (int i=0;i<4;++i) input.tiles[static_cast<size_t>(i)]=static_cast<uint8_t>(tileAt(column+i-1,row));
+        const auto result=runActorMotionPrefix(input);
+        monster.x=result.x;monster.y=result.y;monster.vx8=result.vx8;monster.vy8=result.vy8;
+        const auto& raw=result.actor;
+        lezac::gameplay::setMonsterAnimation(monster,{raw[22],raw[23],raw[24],raw[25],raw[26],raw[27],
+            static_cast<int8_t>(raw[28])});
+        if (actorSlots_.find(monster.actorOrder))
+            actorSlots_.setActiveAnimation(monster.actorOrder,lezac::gameplay::monsterAnimation(monster));
+        monster.facingDirty=false;
+        const uint16_t tick=static_cast<uint16_t>(logicTick_);
+        if (monster.behavior==4)
+            monster.motionTimer=monster.ai0==0 ? 0 : monster.ai0-(tick%monster.ai0);
+        requireMotionTerrain(result);
     }
 
     // Live GRAN.MST consumer backed by the static consumer model
@@ -30826,41 +30904,9 @@ private:
                 // Facing-reselect request, seeded from wall contact exactly
                 // where the original's behaviour-3 dispatch does it
                 // (1000:7159..716B: [bp-0x20] = left || right).
-                monster.facingDirty = monster.behavior == 3 &&
-                                      (monster.edges.left || monster.edges.right);
             } else {
                 monster.edges = {};
-                monster.facingDirty = false;
             }
-
-            // Gravity and landing run BEFORE the motion update, which is
-            // where the original puts them (image 0x716e..0x7200: the
-            // bottom-gated gravity/snap block precedes the vx seed and the
-            // behaviour-3 ledge probe). The order matters: the ledge probe
-            // reads a tile row from monster.y, so on the landing tick it must
-            // see the SNAPPED y. Running the snap afterwards let a walker
-            // landing at y % 8 != 0 probe one row too low and falsely reverse
-            // on a platform that continues.
-            if (recoveredResolution && monster.behavior != 4) {
-                applyGroundMonsterGravity(monster);
-            }
-
-            // Behavior 4's dedicated pre-steering floor response
-            // (1000:7062..70B9) uses the narrower side-solid class 1..0x4C
-            // for the two bottom cells. A strong bottom plus top contact
-            // zeroes vy; otherwise a positive vy reflects by -vy/2. The
-            // global-clock steering gate follows and may replace that result.
-            if (monster.behavior == 4) {
-                const bool strongBottom =
-                    scanActorStrongBottom(monster.x, monster.y);
-                if (strongBottom && monster.edges.top) {
-                    monster.vy8 = 0;
-                }
-                if (strongBottom && monster.vy8 > 0) {
-                    monster.vy8 = static_cast<int16_t>(-(monster.vy8 / 2));
-                }
-            }
-
             updateMonsterMotion(monster, dt);
 
             // Boss segments (behavior 5) are positioned purely by their
@@ -30883,11 +30929,6 @@ private:
                 // steps the OLD right pair (46 at row 483, 3/3 wall turns);
                 // the left pair only appears at row 487. Reselecting after
                 // the reflection flips one boundary early in B's phase.
-                if (monster.behavior == 3 && monster.facingDirty) {
-                    reselectWalkerFacing(monster);
-                    actorSlots_.setActiveAnimation(monster.actorOrder, lezac::gameplay::monsterAnimation(monster));
-                    monster.facingDirty = false;
-                }
                 if (monster.kind == 4)
                     consumeMonsterObjectTiles(static_cast<uint16_t>(damageRow * level_.width + damageColumn));
                 const ActiveMonster::EdgeFlags e = monster.edges;
@@ -31510,15 +31551,16 @@ private:
     // Shared behavior 2 (1000:7018..7058), followed by common response/integration.
     void updateTimedActorMotion(int& x, int& y, int16_t& vx, int16_t& vy,
             uint8_t& fracX, uint8_t& fracY, const ActiveMonster::EdgeFlags& edges) {
-        if (!edges.bottom || vy < 0) {
-            // 1000:7028 wraps the word addition before the signed limit.
-            const int16_t accelerated = static_cast<int16_t>(vy + 0x40);
-            vy = std::min<int16_t>(0x07ff, accelerated);
-        } else if (vy > 0) {
-            vy = 0;
-            y &= ~7;
-        }
-        if (edges.bottom) vx = actorFloorFriction(vx);
+        lezac::core::ActorMotionPrefixInput input;
+        input.actor[21]=2;
+        input.originalX=input.x=std::bit_cast<int16_t>(static_cast<uint16_t>(x));
+        input.y=std::bit_cast<int16_t>(static_cast<uint16_t>(y));
+        input.vx8=vx;input.vy8=vy;
+        input.edges={static_cast<uint8_t>(edges.top),static_cast<uint8_t>(edges.bottom),
+            static_cast<uint8_t>(edges.left),static_cast<uint8_t>(edges.right)};
+        const auto result=runActorMotionPrefix(input);
+        x=result.x;y=result.y;vx=result.vx8;vy=result.vy8;
+        requireMotionTerrain(result);
         if (edges.top && vy < 0) vy = 1;
         if (edges.left && edges.right) vx = 0;
         else if ((edges.left && vx < 0) || (edges.right && vx > 0)) {
@@ -33136,6 +33178,11 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-boss-physical-ownership") {
             app.debugBossPhysicalOwnership(argc>2 ? argv[2] : "");
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-nonplayer-motion-original") {
+            if (argc!=3) throw std::runtime_error("Missing nonplayer motion fixture");
+            app.debugNonplayerMotionOriginal(argv[2]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-reserve-life-lifecycle") {

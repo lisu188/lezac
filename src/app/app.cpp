@@ -21452,6 +21452,9 @@ public:
         monster.hp = 4;
         monster.animDelay = 3;
         monster.hotspotY = monsterHotspotY(monster.kind);
+        const auto selectors = lezac::gameplay::monsterAnimationSelectors(monster.kind);
+        monster.animationSetLeft = selectors[0];
+        monster.animationSetRight = selectors[1];
         refreshMonsterAnimationProfile(monster);
         initializeMonsterMotion(monster);
         monster.vx8 = 0x0100;
@@ -25515,6 +25518,8 @@ public:
         }
         ActiveMonster monster;
         monster.kind = entry[0];
+        monster.animationSetLeft = entry[3];
+        monster.animationSetRight = entry[4];
         monster.behavior = entry[21];
         monster.hotspotY = entry[20];
         monster.x = le16(entry, 38);

@@ -68,10 +68,28 @@ zero-period controls. A zero period no longer silently skips division:
 already-produced changes are applied and the unrecovered runtime fault is
 reported. The original error handler is not simulated.
 
-Three older diagnostics omitted animation selectors while expecting a kind
+Five older diagnostics omitted animation selectors while expecting a kind
 fallback. Their seeds now retain shipped constructor selectors or copy bytes
 3/4 from the original fixture. Original expected outputs, selector-zero
 behavior and comparison assertions remain unchanged.
+
+## Full-Suite Follow-Up
+
+The hosted full suites at 9bff45ba73497cd95e6b231c6fa217b25bb49ee3
+identified two additional incomplete seeds: monster_bomb_kill_live and
+walker_ledge_original. The unchanged App reproduced both failures locally.
+The bomb case now uses the existing shipped constructor-selector helper;
+the ledge case copies the original actor's bytes 3/4 before its 32 continuous
+updates. No production method, original fixture, comparison, expected output
+or CTest command changed.
+
+Both tests pass after those five initialization lines. Twenty focused CTests
+also pass, including the all-selector original motion replay, actual-App
+replay, compiled mutations, animation, steering, timed writeback, physical boss
+ownership and the bomb route. Fresh silent boss and two-player target frames
+were inspected. These are controlled regressions, not new natural-route or
+whole-frame fidelity proof. Full hosted Linux/Windows reruns and review of
+the corrected head remain required before merging.
 
 ## Remaining Limits
 

@@ -280,13 +280,19 @@ void unit() {
     s=initial;s.outcome=ActorUpdateOutcome::RuntimeError;reject(s);
     s=initial;s.outcome=ActorUpdateOutcome::DivideError;reject(s);
     r.ip=0x7ebb;s=initial;s.callee=FrameActorContactOperation(r,kGame,kIdToggle).snapshot();reject(s);r.ip=0x6053;
+    const auto beforeHelpers=rejected;
+    for (const auto entry : {ActorMotionEntry::TileFracture,ActorMotionEntry::TileSample,ActorMotionEntry::Friction}) {
+        r.ip=entry==ActorMotionEntry::TileFracture ? 0x370e : entry==ActorMotionEntry::TileSample ? 0x5afd : 0x5b86;
+        s=initial;s.callee=ActorMotionOperation(r,kGame,kIdToggle,entry).snapshot();reject(s);
+    }
+    require(rejected==beforeHelpers+3,"Actor update admitted a standalone helper phase");
     auto returned=initial;r.ip=0x7f5c;r.sp=returned.callerSp;
     ActorFinishSnapshot tail{r,kGame,kIdToggle};tail.outcome=ActorFinishOutcome::Returned;
     returned.callee=tail;returned.outcome=ActorUpdateOutcome::Returned;
     s=returned;++s.callerSs;reject(s);s=returned;++s.callerSp;reject(s);s=returned;++s.callerBp;reject(s);
     s=returned;tail.registers.cs=0x1920;tail.registers.ip=0xe2;s.callee=tail;
     s.outcome=ActorUpdateOutcome::RuntimeError;reject(s);
-    require(rejected==14,"Actor update rejection coverage differs");
+    require(rejected==17,"Actor update rejection coverage differs");
     r.ip=0x6054;bool wrongEntry=false;
     try { (void)ActorUpdateOperation(r,kGame,kIdToggle); } catch (const std::invalid_argument&) { wrongEntry=true; }
     require(wrongEntry,"Actor update admitted wrong entry");r.ip=0x6053;r.flags&=~uint32_t{0x200};
@@ -296,7 +302,7 @@ void unit() {
     ActorUpdateOperation ended(returned);const auto terminal=ended.snapshot();bool stopped=false;
     try { ended.deliverTimerInterrupt(bus); } catch (const std::logic_error&) { stopped=true; }
     require(stopped && ended.advance(17,bus,all)==0 && ended.snapshot()==terminal,"Returned actor changed state");
-    std::cout<<"actor_update_unit=ok state_rejections=14 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_no_work=1\n";
+    std::cout<<"actor_update_unit=ok state_rejections=17 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_no_work=1\n";
 }
 }
 int main(int argc,char** argv) {

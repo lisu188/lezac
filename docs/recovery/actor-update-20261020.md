@@ -101,7 +101,7 @@ state while advancing the BIOS tick from 100 to 101. Alternate-grant/snapshot
 forks agree. These are computed continuation controls, not an original IRQ
 schedule or work-clock coupling proof.
 
-Fourteen invalid snapshot controls, wrong entry, masked IRQ, zero-budget and
+Seventeen invalid snapshot controls, wrong entry, masked IRQ, zero-budget and
 terminal no-work controls pass. A focused self-review case rejects a runtime
 outcome paired with a child that actually reports Returned.
 
@@ -111,16 +111,34 @@ checkout; GCC full replay, strict GCC C++23 ASan/UBSan unit/full-corpus runs,
 Linux fixture tests and Linux cold checkout. Both cold-checkout runs cover
 27 families, 88 files and 27 CRLF negative controls. Native validation preserves
 all protected source/fixture hashes and produces executable SHA-256
-7ad73dfd4bace46e185064f7cc0b1e2096836d3771b679b5c11a8cdeb0cb0037.
+036e31da7eae33cd8d7f4fb55478dc28929e7334bbb54458d2a073347ca36264.
 
 All 37 focused CTests pass, including adjacent player/nonplayer, animation,
-boss, reward, writeback and ledge regressions. All 14 separately compiled faults
+boss, reward, writeback and ledge regressions. All 15 separately compiled faults
 are rejected through normal assertions: caller SS/SP/BP, skipped player terrain,
 bypassed player/expiry phases, skipped integration, dispatch/IRQ accounting,
 IRQ delivery, terminal dispatch, snapshot caller corruption, and runtime/divide
-outcome classification. Every mutant compiles successfully and the production
+outcome classification, plus standalone-helper entry ownership. Every mutant
+compiles successfully and the production
 header/test hashes remain unchanged. Source guardrails pass 20 controls with
 166 mapped sources.
+
+## Helper Checkpoint Ownership
+
+Continued self-review of published head 9112b87 reproduced acceptance of
+standalone fracture, sampling and friction snapshots as whole-actor states.
+Those entry profiles have standalone-helper return semantics and are not valid
+continuations of an actor call; legitimate nested helpers retain the Behavior
+entry profile in their ActorMotionSnapshot.
+
+The focused probe accepted all three before the fix, and the permanent unit
+regression failed with "Actor update admitted a standalone helper phase".
+ActorUpdateOperation now rejects those three profiles before guest work.
+The identical probe then reports accepted=0/rejected=3, and 17 snapshot controls
+pass. A fifteenth compiled fault removes exactly this guard and is rejected.
+All 37 focused CTests, native build/unit/original/CLI/fixture/cold-checkout checks,
+and strict GCC ASan/UBSan unit/full replay were rerun successfully on the fixed
+source. Original producer, manifest and compressed projection hashes are unchanged.
 
 A fresh silent live-App two-player target-selection capture produces six
 320x200 frames. The inspected checkpoint's RGB SHA-256 remains

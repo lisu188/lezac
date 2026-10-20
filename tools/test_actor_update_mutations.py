@@ -12,6 +12,7 @@ HEADER = 'src/core/actor_update.hpp'
 FAULTS = (
     ('caller_sp', 'static_cast<uint16_t>(r.sp+6u),r.bp,idToggle',
         'static_cast<uint16_t>(r.sp+4u),r.bp,idToggle'),
+    ('helper_entry_ownership', 'if (child.entry!=ActorMotionEntry::Behavior)', 'if (false)'),
     ('caller_bp', 'static_cast<uint16_t>(r.sp+6u),r.bp,idToggle',
         'static_cast<uint16_t>(r.sp+6u),static_cast<uint16_t>(r.bp+1u),idToggle'),
     ('caller_ss', 'FrameActorContactOperation(r,game,idToggle).snapshot(),game,r.ss,',
@@ -92,7 +93,7 @@ def main():
         raise
     finally:
         (out / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
-    print('actor_update_mutations=ok faults=14 sources_preserved=1')
+    print('actor_update_mutations=ok faults=15 sources_preserved=1')
 
 
 if __name__ == '__main__':

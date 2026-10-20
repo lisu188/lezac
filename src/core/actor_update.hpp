@@ -97,6 +97,9 @@ private:
             }();
             if (cpu.gameSegment!=state_.gameSegment || cpu.idToggleMask!=state_.idToggleMask)
                 throw std::invalid_argument("Actor update child ownership differs");
+            if constexpr (std::is_same_v<Child,ActorMotionSnapshot>)
+                if (child.entry!=ActorMotionEntry::Behavior)
+                    throw std::invalid_argument("Actor update admitted a standalone motion helper");
             const auto active=operation(child);
             if (state_.outcome==ActorUpdateOutcome::Running && active.finished())
                 throw std::invalid_argument("Running actor update retained a finished child");

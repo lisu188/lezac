@@ -357,7 +357,23 @@ void unit() {
             "Player post signed helper RETF boundary precedence differs");
         require(farReturn.advance(1,bus,all)==0,"Signed helper returned twice");
     }
-    std::cout<<"player_post_unit=ok state_rejections=21 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_no_work=1 far_return_controls=2\n";
+    unsigned foreignReturns=0;
+    for (uint16_t returnIp : {uint16_t{0xe2},uint16_t{0x1234}}) {
+        auto divide=initial;divide.entry=PlayerPostEntry::ScoreDivide;divide.registers.cs=0x1920;
+        divide.registers.ip=0x9ab;divide.registers.sp=0x3fe0;
+        memory.store(Memory::address(r.ss,0x3fe0),returnIp);
+        memory.store(Memory::address(r.ss,0x3fe2),0x1920);
+        PlayerPostOperation farReturn(divide);bool rejectedFrame=false;
+        try { (void)farReturn.advance(1,bus,all); }
+        catch (const std::invalid_argument&) { rejectedFrame=true; }
+        require(rejectedFrame && farReturn.snapshot().outcome==PlayerPostOutcome::Returned &&
+            farReturn.registers().cs==0x1920 && farReturn.registers().ip==returnIp &&
+            farReturn.registers().sp==initial.callerSp && memory.writes.empty(),
+            "Player post foreign RETF was not rejected as a completed return");
+        ++foreignReturns;
+    }
+    require(foreignReturns==2,"Player post foreign return coverage differs");
+    std::cout<<"player_post_unit=ok state_rejections=21 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_no_work=1 far_return_controls=2 foreign_return_controls="<<foreignReturns<<'\n';
 }
 }
 int main(int argc,char** argv) {

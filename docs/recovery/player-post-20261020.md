@@ -204,6 +204,36 @@ evidence, not a fresh run for this fix. Hosted CI and a new exact-head review
 remain required. The separate unpublished full-pass integration's unstable
 optimized replay is retained outside this player-post branch.
 
+## Runtime-Error Return Boundary
+
+The refreshed review of 4f19bc4 reported P2 finding discussion_r4352262025.
+A ScoreDivide continuation at 1920:09AB with a far return frame targeting
+1920:00E2 executed RETF, then overwrote its Returned outcome with RuntimeError.
+The focused probe reports rejected=0/writes=0/returned=0/runtime_error=1 before
+the fix. The permanent foreign-return regression fails against that header.
+This is a malformed return-frame control, not an observed original zero-divisor
+path or a claim that a foreign caller is supported.
+
+Runtime-error classification is now the final mutually exclusive branch after
+actual RETF completion and the owned caller endpoint. The same probe reports
+rejected=1/writes=0/returned=1/runtime_error=0: validation preserves the completed
+return and rejects its foreign segment. Two foreign return controls cover the
+runtime-error address and another library offset; both execute the real RETF
+and then reject the foreign frame without writes. The two existing game-segment
+far-return controls, including 8044, still pass.
+
+All eight focused CTests pass in 208.15 seconds, including the complete
+original replay, eight CLI rejection controls, fixture-retention tests,
+all 22 compiled mutations, parent unit and source guardrails. The new mutation
+restores the unconditional runtime-error overwrite and is detected by the
+foreign-return assertion. Strict native MSVC build, unit and all 27,918
+original-backed replays pass; GCC C++23 ASan/UBSan unit/full replay also pass.
+All protected native core/fixture hashes remain unchanged. The native run took
+26.02 seconds and produced executable SHA-256
+cd15c6e31ee253175a4561c1badb24f8b8f8287ba2aaa64d119daefc966f234f.
+Original producers, manifests, compressed projections and guest instructions
+are unchanged. Fresh current-head review and hosted CI remain merge gates.
+
 ## Remaining Work
 
 Compose the complete player and nonplayer passes, transient queues, production

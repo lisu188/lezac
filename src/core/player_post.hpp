@@ -65,7 +65,7 @@ public:
                 const auto& r=state_.registers;
                 if (returned) state_.outcome=PlayerPostOutcome::Returned;
                 else if (r.cs==state_.gameSegment && r.ip==0x8044) state_.outcome=PlayerPostOutcome::Caller;
-                if (r.cs==library() && r.ip==0xe2) state_.outcome=PlayerPostOutcome::RuntimeError;
+                else if (r.cs==library() && r.ip==0xe2) state_.outcome=PlayerPostOutcome::RuntimeError;
             }
             ++used;++state_.dispatchedInstructions;
             if (finished()) validate();

@@ -197,7 +197,7 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_player_post_test PRIVATE lezac_core)
     add_test(NAME player_post_unit COMMAND lezac_player_post_test)
     set_tests_properties(player_post_unit PROPERTIES
-        PASS_REGULAR_EXPRESSION "player_post_unit=ok state_rejections=21 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_no_work=1 far_return_controls=2 foreign_return_controls=2")
+        PASS_REGULAR_EXPRESSION "player_post_unit=ok state_rejections=21 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_no_work=1 far_return_controls=2 foreign_return_controls=2 nested_return_controls=31 caller_endpoint_controls=8")
     add_executable(lezac_actor_update_test tests/core/actor_update_test.cpp)
     target_link_libraries(lezac_actor_update_test PRIVATE lezac_core)
     add_test(NAME actor_update_unit COMMAND lezac_actor_update_test)
@@ -868,6 +868,11 @@ if(BUILD_TESTING)
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_player_post_fixture.py -v)
         set_tests_properties(player_post_fixture_rejections PROPERTIES TIMEOUT 600
             ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        add_test(NAME player_post_mutation_runner_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_player_post_mutation_runner.py -v)
+        set_tests_properties(player_post_mutation_runner_rejections PROPERTIES TIMEOUT 60
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}"
+            PASS_REGULAR_EXPRESSION "Ran 6 tests")
         if(NOT WIN32)
             add_test(NAME player_post_mutations COMMAND ${Python3_EXECUTABLE} -S -B
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_player_post_mutations.py --cxx ${CMAKE_CXX_COMPILER}
@@ -875,7 +880,7 @@ if(BUILD_TESTING)
                 --out ${CMAKE_CURRENT_BINARY_DIR}/player-post-mutations)
             set_tests_properties(player_post_mutations PROPERTIES FIXTURES_REQUIRED player_post_corpus TIMEOUT 1800
                 ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
-                PASS_REGULAR_EXPRESSION "player_post_mutations=ok faults=22 sources_preserved=1")
+                PASS_REGULAR_EXPRESSION "player_post_mutations=ok faults=25 positive_baseline=1 sources_preserved=1")
         endif()
         add_test(NAME actor_update_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_fixture.py

@@ -202,7 +202,7 @@ def run_probe(exe, out, data, streams=None, continuous=False):
     if continuous:
         report.update(initial_scenes=12, boundaries_per_scene=8, continuous_collapse_updates=True)
     for name, raw in (('input.bin.gz', incoming), ('expected.bin.gz', expected)):
-        (out / name).write_bytes(gzip.compress(raw, mtime=0))
+        (out / name).write_bytes(gzip.compress(raw, compresslevel=9, mtime=0))
     with tempfile.TemporaryDirectory(prefix='lezac-collapse-history-input-') as input_dir, \
             tempfile.TemporaryDirectory(prefix='lezac-collapse-history-actual-') as actual_dir:
         input_path, actual_path = Path(input_dir) / 'input.bin', Path(actual_dir) / 'actual.bin'
@@ -239,7 +239,7 @@ def run_probe(exe, out, data, streams=None, continuous=False):
             if actual_path.exists() and actual_path.stat().st_size < RESERVE:
                 raw = actual_path.read_bytes()
                 report.update(actual_sha256=sha(raw), actual_bytes=len(raw))
-                (out / 'actual.bin.gz').write_bytes(gzip.compress(raw, mtime=0))
+                (out / 'actual.bin.gz').write_bytes(gzip.compress(raw, compresslevel=9, mtime=0))
             (out / 'result.json').write_text(json.dumps(report, indent=2) + '\n')
             print('collapse_lane_history_retained=' + str(out.resolve()), flush=True)
             if sum(path.stat().st_size for path in retained_root.rglob('*') if path.is_file()) >= RESERVE:

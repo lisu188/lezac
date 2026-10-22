@@ -153,6 +153,38 @@ void timerPhaseControls(const DosGetTimeRegisters& entry) {
     }
     require(seen.size()==110,"IRQ phase instruction coverage differs");
 }
+void completedTimerControls(const FrameTailSnapshot& foreground) {
+    Memory memory;const auto bus=memory.bus();
+    FrameTailOperation interrupted(foreground);interrupted.deliverTimerInterrupt(bus);
+    auto phantom=interrupted.snapshot();phantom.timerInstructions=1;
+    reject(phantom,"Tail admitted active IRQ work without a completed delivery");
+    constexpr std::array<uint64_t,12> lengths{36,44,49,52,58,61,65,67,71,73,82,86};
+    std::vector<uint64_t> sums{0};
+    for (uint64_t count=0;count<=3;++count) {
+        for (uint64_t work=0;work<=count*86u+1u;++work) {
+            auto state=foreground;state.timerDeliveries=count;state.timerInstructions=work;
+            state.dispatchedInstructions=work+1u;
+            if (std::find(sums.begin(),sums.end(),work)!=sums.end()) (void)FrameTailOperation(state);
+            else reject(state,"Tail admitted impossible completed IRQ work");
+        }
+        std::vector<uint64_t> next;
+        for (const auto sum:sums) for (const auto length:lengths) next.push_back(sum+length);
+        std::sort(next.begin(),next.end());next.erase(std::unique(next.begin(),next.end()),next.end());
+        sums=std::move(next);
+    }
+    constexpr uint64_t large=uint64_t{1}<<50;
+    for (const uint64_t work:{36u*large,36u*large+13u,86u*large}) {
+        auto state=foreground;state.timerDeliveries=large;state.timerInstructions=work;
+        state.dispatchedInstructions=work+1u;(void)FrameTailOperation(state);
+    }
+    for (const uint64_t work:{36u*large+1u,86u*large-1u,86u*large+1u}) {
+        auto state=foreground;state.timerDeliveries=large;state.timerInstructions=work;
+        state.dispatchedInstructions=work+1u;reject(state,"Tail admitted a large completed IRQ work hole");
+    }
+    auto overflow=foreground;overflow.timerDeliveries=uint64_t{1}<<62;
+    overflow.timerInstructions=overflow.timerDeliveries;overflow.dispatchedInstructions=overflow.timerInstructions+1;
+    reject(overflow,"Tail admitted overflowing completed IRQ work");
+}
 void unit() {
     Memory memory;
     DosGetTimeRegisters r;
@@ -238,6 +270,7 @@ void unit() {
     FrameTailOperation foreground(r,0x1000,0x200000);
     require(foreground.advance(1,quietBus)==1,"Tail foreground control did not dispatch");
     auto operandPc=foreground.snapshot();operandPc.registers.ip=0x806b;reject(operandPc);
+    completedTimerControls(foreground.snapshot());
     auto inventedTimer=foreground.snapshot();inventedTimer.timerInstructions=1;reject(inventedTimer);
     FrameTailOperation ended(r,0x1000,0x200000);
     ended.advance(4096,quietBus);

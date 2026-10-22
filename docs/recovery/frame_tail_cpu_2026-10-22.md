@@ -50,11 +50,11 @@ writes, all final RAM bytes, exact endpoint flags, and exact DAC output order.
 Intermediate arithmetic flags are masked with the existing parent policy;
 this is not a claim of exhaustive defined-flag equivalence at every instruction.
 
-Controls reject 1,052 unit/synthetic IRQ snapshots, 85 running/nested continuation mutations
+Controls reject 1,401 unit/synthetic IRQ snapshots, 85 running/nested continuation mutations
 and 33 malformed actual return frames. Eleven computed IRQ checkpoints execute
 396 ISR instructions and preserve complete continuation across grant sizes.
 These IRQ forks are C++ tests, not original-schedule observations. Original
-captures deliver zero interrupts. Twenty-six compiled faults are rejected only
+captures deliver zero interrupts. Twenty-eight compiled faults are rejected only
 after unmodified unit and complete-original baselines pass. Six mocked runner
 tests verify that a failed baseline or wrong projection earns no fault credit.
 The excluded-tile fault passed the older dataset and fails the expanded one.
@@ -72,7 +72,7 @@ before/after probe confirms both failures, including the skipped BIOS tick and
 EOI. Restores now require exact foreground instruction membership, structural
 IRQ instruction/progress membership, and the caller-relative IRQ stack phase.
 The catalog is derived from the existing instruction owners and all structural
-timer call/branch/return paths, with a registered drift check and seven catalog
+timer call/branch/return paths, with a registered drift check and nine catalog
 tests. It is not a proof that arbitrary forged RAM and register histories are
 authentic.
 
@@ -85,6 +85,18 @@ test coverage; progressed-phase controls now cover those guards independently.
 The live-DS rejection also has a retained fail-before/pass-after control.
 These remain computed IRQ tests, not original interrupt-schedule evidence.
 
+The integration audit additionally reproduced unassigned work during the first
+active IRQ and impossible completed-work totals. Completed work now must be a
+sum of exactly the recorded number of structural IRQ path lengths. The owner
+admits twelve lengths (36 through 86 operations, with gaps). A 277-entry minimum
+excess-count table has a verified period of 50 after excess 227; induction from
+one complete period makes the check constant-time for large counters. Division
+precedes multiplication to prevent overflow. Independent small-count sums,
+large-count holes and an overflow control cover the C++ check; none represents
+executed endurance or an original IRQ schedule. The now-redundant direct
+zero-delivery guard mutation is replaced by a real table-hole mutation, with
+additional overflow and period faults. The original fixture is unchanged.
+
 Strict GCC C++23 and native MSVC `/std:c++latest /W4 /WX /O2` builds pass the
 complete corpus. AddressSanitizer and UndefinedBehaviorSanitizer also pass it.
 Fixture rejection tests and eight command-line negative controls preserve
@@ -93,10 +105,10 @@ now includes this family; local cold-checkout validation covers this family
 and, after integration, the player-post/tail pair because the full 29-family
 reserve exceeds RAM headroom.
 
-After PR #457 merged as `b590e6f`, integration retains both CMake test families,
-both source owners and both frozen-checkout protections. All 66 existing core,
-tail-test and fixture inputs are byte-identical to `8751ee9`; the eleven added
-parent source/fixture files are byte-identical to merged main. The parent main
+After PR #457 merged as `b590e6f`, integration `fc2ac6b` retained both CMake test
+families, both source owners and both frozen-checkout protections. At that merge,
+all 66 checked existing core/tail/test/fixture inputs were byte-identical to
+`8751ee9`; the eleven added parent source/fixture files matched merged main. The parent main
 tree exactly matches its reviewed and tested `abb3ca8` tree. Published ancestry
 is retained without a force push or branch deletion.
 

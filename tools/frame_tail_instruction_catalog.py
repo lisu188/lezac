@@ -87,6 +87,25 @@ def irq_progress(text):
     return counts
 
 
+def completion_model(lengths):
+    minimum=min(lengths)
+    extras=sorted({length-minimum for length in lengths if length>minimum})
+    period=max(extras)
+    if not 0<period<=128:
+        raise ValueError('Timer completion period exceeds reserve')
+    coins=[0]+[65535]*4096
+    for value in range(1,len(coins)):
+        coins[value]=min((coins[value-extra]+1 for extra in extras
+            if extra<=value and coins[value-extra]!=65535),default=65535)
+    # One full period of recurrence proves every later reduction by induction.
+    cutoff=next((start for start in range(len(coins)-2*period)
+        if all(coins[n]!=65535 and coins[n+period]==coins[n]+1
+            for n in range(start,start+period))),None)
+    if cutoff is None or cutoff+period>1024:
+        raise ValueError('Timer completion table exceeds reserve')
+    return minimum,period,cutoff,coins[:cutoff+period]
+
+
 def render(sources):
     instruction=sources[INPUTS[0]].split('    void instruction(',1)[1]
     graphics,main=instruction.split('        switch (r.ip) {',1)[1].split('        switch (r.ip) {',1)
@@ -95,8 +114,23 @@ def render(sources):
         0x4df<=ip<=0x4f4 or 0x13a8<=ip<=0x13bb or 0x13f7<=ip<=0x142c}
     video=cases(graphics)
     counts=irq_progress(sources[INPUTS[3]])
-    lines=[BEGIN.rstrip(),'    bool foregroundBoundary() const {',
-        '        const auto& r=state_.registers;']
+    minimum,period,cutoff,coins=completion_model({n+1 for n in counts[('bios',0xfeb6)]})
+    lines=[BEGIN.rstrip(),'    static bool completedTimerWork(uint64_t instructions,uint64_t deliveries) {',
+        '        if (deliveries>instructions/'+str(minimum)+'u) return false;',
+        '        const auto extra=instructions-deliveries*'+str(minimum)+'u;',
+        '        // Shortest IRQs pad the delivery count; the table counts nonzero excesses.',
+        '        constexpr std::array<uint16_t,'+str(len(coins))+'> coins{']
+    for at in range(0,len(coins),16):
+        lines.append('            '+','.join(map(str,coins[at:at+16]))+',')
+    lines.extend(['        };','        if (extra<'+str(cutoff)+'u) {',
+        '            const auto count=coins[static_cast<size_t>(extra)];',
+        '            return count!=0xffffu && count<=deliveries;',
+        '        }',
+        '        const auto cycles=(extra-'+str(cutoff)+'u)/'+str(period)+'u;',
+        '        const auto index='+str(cutoff)+'u+(extra-'+str(cutoff)+'u)%'+str(period)+'u;',
+        '        return cycles+coins[static_cast<size_t>(index)]<=deliveries;',
+        '    }','    bool foregroundBoundary() const {',
+        '        const auto& r=state_.registers;'])
     for condition,addresses in (('r.cs==state_.gameSegment',game),
             ('r.cs==library()',library),('r.cs==graphics()',video)):
         values=sorted(addresses)

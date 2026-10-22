@@ -155,6 +155,38 @@ private:
         } else if (r.cs==library() && r.ip==0xe2) state_.outcome=FrameTailOutcome::RuntimeError;
     }
     // BEGIN CHECKED TAIL INSTRUCTION CATALOG
+    static bool completedTimerWork(uint64_t instructions,uint64_t deliveries) {
+        if (deliveries>instructions/36u) return false;
+        const auto extra=instructions-deliveries*36u;
+        // Shortest IRQs pad the delivery count; the table counts nonzero excesses.
+        constexpr std::array<uint16_t,277> coins{
+            0,65535,65535,65535,65535,65535,65535,65535,1,65535,65535,65535,65535,1,65535,65535,
+            1,65535,65535,65535,65535,2,1,65535,2,1,2,65535,65535,1,2,1,
+            2,2,3,1,65535,1,2,2,3,2,2,2,2,2,1,2,
+            2,3,1,2,3,2,2,3,2,2,2,2,2,3,2,2,
+            2,3,2,3,2,3,2,2,2,3,2,2,3,2,3,2,
+            3,2,3,2,3,2,3,2,3,3,3,3,2,3,3,3,
+            2,3,3,3,2,3,3,3,3,3,3,3,3,3,3,3,
+            3,3,3,4,3,3,3,4,3,3,3,3,3,3,4,3,
+            4,3,4,3,4,3,4,3,4,3,3,4,4,4,3,4,
+            4,4,3,4,4,4,3,4,4,4,4,4,4,4,4,4,
+            4,4,4,4,4,5,4,4,4,4,4,4,4,4,4,4,
+            5,4,5,4,5,4,5,4,4,4,5,4,4,5,5,5,
+            4,5,5,5,4,5,5,5,4,5,5,5,5,5,5,5,
+            5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
+            5,5,6,5,6,5,5,5,6,5,5,5,6,5,5,6,
+            6,6,5,6,6,6,5,6,6,6,5,6,6,6,6,6,
+            6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+            6,6,6,6,6,
+        };
+        if (extra<227u) {
+            const auto count=coins[static_cast<size_t>(extra)];
+            return count!=0xffffu && count<=deliveries;
+        }
+        const auto cycles=(extra-227u)/50u;
+        const auto index=227u+(extra-227u)%50u;
+        return cycles+coins[static_cast<size_t>(index)]<=deliveries;
+    }
     bool foregroundBoundary() const {
         const auto& r=state_.registers;
         if (r.cs==state_.gameSegment) {
@@ -514,7 +546,8 @@ private:
         if (state_.timer) (void)TimerIrqOperation(*state_.timer);
         const auto activeInstructions=state_.timer ? state_.timer->dispatchedInstructions : 0;
         const auto completedDeliveries=state_.timerDeliveries-(state_.timer ? 1u : 0u);
-        if (completedDeliveries>(state_.timerInstructions-activeInstructions)/36u)
+        const auto completedInstructions=state_.timerInstructions-activeInstructions;
+        if (!completedTimerWork(completedInstructions,completedDeliveries))
             throw std::invalid_argument("Frame tail completed IRQ accounting differs");
     }
     bool flag(uint32_t bit) const { return (state_.registers.flags&bit)!=0; }

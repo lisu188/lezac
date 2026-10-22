@@ -25,6 +25,27 @@ class CatalogTests(unittest.TestCase):
     def test_timer_catalog(self):
         self.changed(catalog.INPUTS[0],'{0xfea5,0x1ull,0x0ull}','{0xfea5,0x3ull,0x0ull}')
 
+    def test_completion_catalog(self):
+        self.changed(catalog.INPUTS[0],'return count!=0xffffu && count<=deliveries;',
+            'return count<=deliveries;')
+
+    def test_completion_model(self):
+        lengths={36,44,49,52,58,61,65,67,71,73,82,86}
+        minimum,period,cutoff,coins=catalog.completion_model(lengths)
+        self.assertEqual((minimum,period,cutoff),(36,50,227))
+        sums={0}
+        for deliveries in range(9):
+            for work in range(deliveries*86+2):
+                if work<deliveries*minimum:
+                    accepted=False
+                else:
+                    extra=work-deliveries*minimum
+                    cycles=0 if extra<cutoff else (extra-cutoff)//period
+                    index=extra if extra<cutoff else cutoff+(extra-cutoff)%period
+                    accepted=coins[index]!=65535 and cycles+coins[index]<=deliveries
+                self.assertEqual(accepted,work in sums,(deliveries,work))
+            sums={value+length for value in sums for length in lengths}
+
     def test_owner_drift(self):
         self.changed(catalog.INPUTS[0],'case 0x806a:','case 0x806b:')
 

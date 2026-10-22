@@ -1,6 +1,7 @@
 """Reject changed/unavailable frame-actor-pass inputs while preserving evidence."""
 import json
 from pathlib import Path
+import re
 import shutil
 import tempfile
 import unittest
@@ -9,6 +10,16 @@ import check_frame_actor_pass_fixture as checker
 
 
 class FixtureTests(unittest.TestCase):
+    def test_caller_instruction_catalog(self):
+        owner = (checker.ROOT / 'src/core/frame_actor_entry.hpp').read_text().split('    void callerInstruction(', 1)[1]
+        guard = (checker.ROOT / 'src/core/frame_actor_pass.hpp').read_text().split('    static constexpr bool callerAddress(', 1)[1].split('    void caller(', 1)[0]
+        pattern = r'\bcase\s+([^:]+):'
+        expected, actual = re.findall(pattern, owner), re.findall(pattern, guard)
+        self.assertTrue(all(re.fullmatch(r'0x[0-9a-f]+', label) for label in expected + actual))
+        self.assertEqual(len(expected), 50)
+        self.assertEqual(len(actual), len(set(actual)))
+        self.assertEqual(set(actual), set(expected))
+
     def test_catalog(self):
         manifest = json.loads((checker.FIXTURE / 'manifest.json').read_text())
         expected = set(manifest['asset_sha256']) | {'tools/' + name for name in manifest['source_sha256']}

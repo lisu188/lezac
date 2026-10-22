@@ -288,6 +288,30 @@ void unit() {
     s=initial;s.outcome=FrameActorPassOutcome::TransientQueues;reject(s);
     s=initial;s.outcome=FrameActorPassOutcome::RuntimeError;reject(s);
     s=initial;s.outcome=FrameActorPassOutcome::DivideError;reject(s);
+    constexpr std::array<uint16_t,50> callerIps{
+        0x7ebb,0x7ec0,0x7ec2,0x7ec5,0x7ecb,0x7ece,0x7ed0,0x7ed4,0x7ed6,0x7edb,
+        0x7edf,0x7ee0,0x7ee1,0x7ee4,0x7ee8,0x7eea,0x7eef,0x7ef1,0x7ef6,0x7ef8,
+        0x7efc,0x7f01,0x7f03,0x7f09,0x7f0b,0x7f0f,0x7f13,0x7f18,0x7f1a,0x7f1e,
+        0x7f23,0x7f28,0x7f2a,0x7f2d,0x7f2f,0x7f34,0x7f3a,0x7f3c,0x7f40,0x7f44,
+        0x7f49,0x7f4b,0x7f4e,0x7f53,0x7f57,0x7f58,0x7f59,0x8044,0x8049,0x804b};
+    unsigned callerBoundaries=0;
+    for (uint16_t ip=0x7ebb;ip<=0x804b;++ip) {
+        if (ip>0x7f59 && ip<0x8044) continue;
+        s=initial;s.dispatchedInstructions=1;
+        std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.ip=ip;
+        if (std::find(callerIps.begin(),callerIps.end(),ip)==callerIps.end()) reject(s);
+        else { (void)FrameActorPassOperation(s);++callerBoundaries; }
+    }
+    auto completedPlayer=initial;completedPlayer.dispatchedInstructions=2;
+    completedPlayer.actorCalls=completedPlayer.actorReturns=completedPlayer.playerCalls=1;
+    reject(completedPlayer);
+    for (const auto outcome : {FrameActorPassOutcome::TransientQueues,FrameActorPassOutcome::Restart}) {
+        s=completedPlayer;s.outcome=outcome;auto& entry=std::get<FrameActorEntrySnapshot>(s.callee);
+        entry.outcome=outcome==FrameActorPassOutcome::TransientQueues ? FrameActorEntryOutcome::TransientQueues : FrameActorEntryOutcome::Restart;
+        std::get<FrameActorCallerSnapshot>(entry.callee).registers.ip=outcome==FrameActorPassOutcome::TransientQueues ? 0x804e : 0x77dc;
+        reject(s);
+    }
+    s=completedPlayer;s.postCalls=s.postReturns=1;(void)FrameActorPassOperation(s);
     r.ip=0x6053;
     s=initial;auto& animation=std::get<FrameActorEntrySnapshot>(s.callee).callee.emplace<ActorAnimationSnapshot>();
     animation.registers=r;animation.gameSegment=kGame;reject(s);
@@ -333,6 +357,9 @@ void unit() {
     (void)FrameActorPassOperation(irqState);
     s=irqState;++std::get<FrameActorEntrySnapshot>(s.callee).timer->dataSegment;reject(s);
     s=irqState;std::get<FrameActorEntrySnapshot>(s.callee).timer->idToggleMask=0;reject(s);
+    s=irqState;s.dispatchedInstructions=2;s.actorCalls=s.actorReturns=s.playerCalls=1;reject(s);
+    s=irqState;
+    std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.ip=0x7ebc;reject(s);
     r.cs=kGame;
     r.ip=0x7ebc;bool wrongEntry=false;
     try { (void)FrameActorPassOperation(r,kGame,kIdToggle); } catch (const std::invalid_argument&) { wrongEntry=true; }
@@ -349,8 +376,8 @@ void unit() {
         try { ended.deliverTimerInterrupt(bus); } catch (const std::logic_error&) { stopped=true; }
         require(stopped && ended.advance(17,bus,all)==0 && ended.snapshot()==saved,"Finished pass changed state");
     }
-    require(rejected==38,"Pass rejection coverage differs");
-    std::cout<<"frame_actor_pass_unit=ok state_rejections="<<rejected<<" phase_controls=3 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_controls=2\n";
+    require(rejected==160 && callerBoundaries==50,"Pass rejection coverage differs");
+    std::cout<<"frame_actor_pass_unit=ok state_rejections="<<rejected<<" phase_controls=3 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_controls=2 caller_boundaries="<<callerBoundaries<<" skipped_post_controls=4\n";
 }
 }
 int main(int argc,char** argv) {

@@ -197,7 +197,7 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_frame_actor_pass_test PRIVATE lezac_core)
     add_test(NAME frame_actor_pass_unit COMMAND lezac_frame_actor_pass_test)
     set_tests_properties(frame_actor_pass_unit PROPERTIES
-        PASS_REGULAR_EXPRESSION "frame_actor_pass_unit=ok state_rejections=38 phase_controls=3 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_controls=2")
+        PASS_REGULAR_EXPRESSION "frame_actor_pass_unit=ok state_rejections=160 phase_controls=3 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_controls=2 caller_boundaries=50 skipped_post_controls=4")
     add_executable(lezac_player_post_test tests/core/player_post_test.cpp)
     target_link_libraries(lezac_player_post_test PRIVATE lezac_core)
     add_test(NAME player_post_unit COMMAND lezac_player_post_test)
@@ -889,7 +889,7 @@ if(BUILD_TESTING)
                 --out ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass-mutations)
             set_tests_properties(frame_actor_pass_mutations PROPERTIES FIXTURES_REQUIRED frame_actor_pass_corpus TIMEOUT 1800
                 ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
-                PASS_REGULAR_EXPRESSION "frame_actor_pass_mutations=ok faults=28 positive_baseline=1 sources_preserved=1")
+                PASS_REGULAR_EXPRESSION "frame_actor_pass_mutations=ok faults=30 positive_baseline=1 sources_preserved=1")
         endif()
         add_test(NAME player_post_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_player_post_fixture.py

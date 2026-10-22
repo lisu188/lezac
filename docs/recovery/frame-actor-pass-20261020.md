@@ -275,3 +275,40 @@ uses a direct level-7 reset and a fixed random seed, then movement/bomb controls
 it is not a natural route from level 1, physical-input proof, use of this new
 core operation or an aligned comparison with the retained original screenshot.
 All generated validation remains RAM-only; no game uses audible output.
+
+## October 23 Caller Restoration Review
+
+The completed external review of cb633d68f24370b75307295fcc0b45e1cc62020a
+reported two caller-restoration gaps. A caller with one balanced player return
+but no player-post call could skip the mandatory continuation. Operand bytes
+such as 7EBC were also accepted by the caller's interval check and failed only
+when dispatched. An independent compiled probe accepts both on the reviewed
+source and rejects both after these changes, without any constructor bus effects.
+
+Caller snapshots now require playerCalls == postCalls, including terminal and
+interrupted caller states, and exact membership in the 50 supported caller
+instruction addresses. The unit covers all 117 operand bytes in the previously
+accepted intervals, all 50 supported boundaries and four skipped-post states.
+It rejects 160 malformed snapshots overall. A fixture-tool test mechanically
+checks the address catalog against the owning FrameActorEntry switch. The
+compiled fault set adds removal of the post-balance guard and regression to
+the old interval test, bringing the set to 30 faults.
+
+Fresh strict optimized GCC, native MSVC /std:c++latest /W4 /WX /O2 and
+GCC ASan/UBSan builds pass the unit and complete 7,884-replay original corpus:
+10,432,263 control/register comparisons and complete final-memory checks.
+All 30 compiled faults are detected after an authenticated passing unit and
+full-original baseline, including both new guard regressions. Three fixture
+tool tests pass on Linux; the new catalog test also passes on Windows.
+The source ownership guard and diff whitespace check pass. Protected core,
+canonical MZ and original fixture hashes are unchanged by validation.
+The CLI and full cold-checkout suites were not rerun for this fix because
+local RAM headroom cannot safely retain another complete export batch.
+
+The branch integrates merged player-post main b590e6f without changing any
+original producer or fixture bytes. These restoration fixes do not diagnose
+or clear the intermittent optimized replay failures described above. The PR
+must remain draft and held until that separate finding is explained and fixed,
+with fresh current-head validation and external review. Hosted Windows checks
+on the reviewed head also report AST-compatibility and retained-output-reserve
+failures in existing harnesses; these are not passing validation or waivers.

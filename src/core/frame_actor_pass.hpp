@@ -68,6 +68,20 @@ public:
     }
 private:
     FrameActorPassSnapshot state_;
+    static constexpr bool callerAddress(uint16_t ip) {
+        switch (ip) {
+        case 0x7ebb:case 0x7ec0:case 0x7ec2:case 0x7ec5:case 0x7ecb:case 0x7ece:
+        case 0x7ed0:case 0x7ed4:case 0x7ed6:case 0x7edb:case 0x7edf:case 0x7ee0:
+        case 0x7ee1:case 0x7ee4:case 0x7ee8:case 0x7eea:case 0x7eef:case 0x7ef1:
+        case 0x7ef6:case 0x7ef8:case 0x7efc:case 0x7f01:case 0x7f03:case 0x7f09:
+        case 0x7f0b:case 0x7f0f:case 0x7f13:case 0x7f18:case 0x7f1a:case 0x7f1e:
+        case 0x7f23:case 0x7f28:case 0x7f2a:case 0x7f2d:case 0x7f2f:case 0x7f34:
+        case 0x7f3a:case 0x7f3c:case 0x7f40:case 0x7f44:case 0x7f49:case 0x7f4b:
+        case 0x7f4e:case 0x7f53:case 0x7f57:case 0x7f58:case 0x7f59:
+        case 0x8044:case 0x8049:case 0x804b:return true;
+        default:return false;
+        }
+    }
     void caller(DosGetTimeRegisters r) {
         state_.callee=FrameActorEntrySnapshot{FrameActorCallerSnapshot{r},state_.gameSegment,state_.idToggleMask};
         state_.actorKind=FrameActorPassKind::None;
@@ -135,14 +149,14 @@ private:
             const auto active=operation(child);
             if constexpr (std::is_same_v<Child,FrameActorEntrySnapshot>) {
                 if (state_.actorKind!=FrameActorPassKind::None || state_.actorCalls!=state_.actorReturns ||
+                    state_.playerCalls!=state_.postCalls ||
                     state_.postCalls!=state_.postReturns || child.actorKind!=FrameActorEntryKind::None ||
                     child.prefixTimerInstructions || child.prefixTimerDeliveries ||
                     child.tailTimerInstructions>state_.timerInstructions || child.tailTimerDeliveries>state_.timerDeliveries)
                     invalid();
                 if (const auto* cpu=std::get_if<FrameActorCallerSnapshot>(&child.callee)) {
                     if ((child.outcome==FrameActorEntryOutcome::Running &&
-                            !((cpu->registers.ip>=0x7ebb && cpu->registers.ip<=0x7f59) ||
-                              (cpu->registers.ip>=0x8044 && cpu->registers.ip<=0x804b))) ||
+                            !callerAddress(cpu->registers.ip)) ||
                         (child.outcome!=FrameActorEntryOutcome::Running &&
                          child.outcome!=FrameActorEntryOutcome::TransientQueues && child.outcome!=FrameActorEntryOutcome::Restart))
                         invalid();

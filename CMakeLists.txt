@@ -188,6 +188,11 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_frame_tail_test tests/core/frame_tail_test.cpp)
+    target_link_libraries(lezac_frame_tail_test PRIVATE lezac_core)
+    add_test(NAME frame_tail_unit COMMAND lezac_frame_tail_test)
+    set_tests_properties(frame_tail_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "frame_tail_unit=ok state_rejections=41 entry_rejection=1 masked_irq=1 nested_irq=1 zero_budget=1 terminal_no_work=1 divide_control=1")
     add_executable(lezac_actor_update_test tests/core/actor_update_test.cpp)
     target_link_libraries(lezac_actor_update_test PRIVATE lezac_core)
     add_test(NAME actor_update_unit COMMAND lezac_actor_update_test)
@@ -809,6 +814,37 @@ if(BUILD_TESTING)
         add_test(NAME frame_export_alias_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_export_aliases.py)
         find_package(Git QUIET)
+        add_test(NAME frame_tail_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_tail_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-tail.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/frame-tail-fixture.json)
+        set_tests_properties(frame_tail_fixture_contract PROPERTIES FIXTURES_SETUP frame_tail_corpus TIMEOUT 180)
+        add_test(NAME frame_tail_original COMMAND lezac_frame_tail_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-tail.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(frame_tail_original PROPERTIES FIXTURES_REQUIRED frame_tail_corpus TIMEOUT 300
+            PASS_REGULAR_EXPRESSION "frame_tail_original=ok cases=2576 replays=7728 comparisons=732276 dispatches=2064066 writes=218424 dac_writes=122256 restore_rejections=69 return_rejections=33 computed_irq_cases=11 irq_instructions=396 full_memory=1 canonical_mz=1 later_state_injected=0 actual_app_integration=0 full_frame_claim=0")
+        add_test(NAME frame_tail_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_tail_fixture.py -v)
+        set_tests_properties(frame_tail_fixture_rejections PROPERTIES TIMEOUT 300
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        add_test(NAME frame_tail_cli COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_tail_cli.py --exe $<TARGET_FILE:lezac_frame_tail_test>
+            --fixture ${CMAKE_CURRENT_BINARY_DIR}/frame-tail.bin
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-tail-cli)
+        set_tests_properties(frame_tail_cli PROPERTIES FIXTURES_REQUIRED frame_tail_corpus TIMEOUT 300
+            PASS_REGULAR_EXPRESSION "frame_tail_cli=ok negative_controls=8 canonical_mz_bound=1 protected_inputs_preserved=1")
+        add_test(NAME frame_tail_mutation_runner COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_tail_mutation_runner.py -v)
+        set_tests_properties(frame_tail_mutation_runner PROPERTIES TIMEOUT 180
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME frame_tail_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_tail_mutations.py --cxx ${CMAKE_CXX_COMPILER}
+                --fixture ${CMAKE_CURRENT_BINARY_DIR}/frame-tail.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/frame-tail-mutations)
+            set_tests_properties(frame_tail_mutations PROPERTIES FIXTURES_REQUIRED frame_tail_corpus TIMEOUT 600
+                PASS_REGULAR_EXPRESSION "frame_tail_mutations=ok faults=20 positive_baseline=1 sources_preserved=1")
+        endif()
         add_test(NAME actor_update_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/actor-update.bin

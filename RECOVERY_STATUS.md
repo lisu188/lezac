@@ -4,6 +4,15 @@ Last reviewed: 2026-09-19
 Branch: `codex/recover-player-key-ownership`
 Baseline: `origin/main` at PR #234
 
+## Post-Queue Tail CPU Recovery (2026-10-22)
+
+The [independent tail operation](docs/recovery/frame_tail_cpu_2026-10-22.md)
+recovers original shake/palette work, countdown tile insertion and the shared
+tile writer through next-frame or UI/runtime handoffs. Two complete captures
+agree across 2,576 controlled cases; C++ matches 7,728 budgeted replays, ordered
+writes, final RAM and DAC events. This is not App integration, a continuous
+whole frame, natural campaign proof or a change to global fidelity flags.
+
 ## Level 1 Full-Frame Recovery (2026-09-21)
 
 Three fresh controlled-seed original routes now match 575 complete 320x200

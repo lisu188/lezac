@@ -13,6 +13,7 @@
         "src/core/nonplayer_loop.hpp",
         "src/core/player_motion.hpp",
         "src/core/actor_update.hpp",
+        "src/core/player_post.hpp",
         "src/core/actor_precontact.hpp",
         "src/core/actor_real48.hpp",
         "src/core/actor_steering.hpp",

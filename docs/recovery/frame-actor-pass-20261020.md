@@ -312,3 +312,42 @@ must remain draft and held until that separate finding is explained and fixed,
 with fresh current-head validation and external review. Hosted Windows checks
 on the reviewed head also report AST-compatibility and retained-output-reserve
 failures in existing harnesses; these are not passing validation or waivers.
+
+## October 23 Boss And Nonplayer Return Review
+
+Review of df2a633b747855bd75b238eec8507fc145275d39 found two further malformed
+continuations. The broad boss-link ranges admitted operand bytes 1000:432C
+and 1920:04E0; both constructed successfully and failed only at dispatch.
+Caller PCs 7EE4 and 7EE8 were also accepted without any nonplayer call having
+returned. An independent compiled probe accepts all four before this fix and
+rejects all four afterward, with no constructor bus effects.
+
+Boss-link restoration now uses exact supported dispatch entries: 196 game
+instructions, 26 directly owned library instructions and 220 delegated
+FrameDisplay library instructions. E2 remains a separate runtime-error endpoint
+and is still rejected while running. The new catalog check binds these sets
+to the numeric labels of both instruction owners. It is a supported-entry
+check, not authentication of arbitrary forged RAM histories or an original
+IRQ schedule. No original instruction owner or fixture bytes change.
+
+Caller states at 7EE4/7EE8 now require a completed nonplayer call in addition
+to the existing balanced call/return constraints. Unit positives at those PCs
+carry matching counters. Eight rejection controls cover missing calls and
+completed-player-only substitutions, both with and without an active IRQ.
+Two further controls mutate the foreground PC of actual interrupted boss-call
+and library-call states. The unit rejects 6,420 malformed snapshots, retaining
+all 50 caller addresses and 443 boss boundaries including the error endpoint.
+
+All 33 compiled faults pass their authenticated positive-baseline gate and are
+detected, including separate game/library catalog removals and the nonplayer
+return guard removal. The existing running-boss-error guard fault remains
+effective. Four fixture-tool tests pass on Linux; both catalog tests pass on
+Windows. All eight CLI rejection controls pass on both platforms.
+
+Fresh strict optimized GCC, native MSVC /std:c++latest /W4 /WX /O2 and
+GCC ASan/UBSan builds pass the unit and complete 7,884-replay original corpus,
+with 10,432,263 register/control comparisons and complete final-memory checks.
+All protected source/original/fixture hashes remain unchanged during these
+runs. Full cold-checkout validation was not regenerated for this guard-only
+change; its fixture and attribute bytes are unchanged and hosted validation
+remains required. The separate intermittent optimized replay hold remains open.

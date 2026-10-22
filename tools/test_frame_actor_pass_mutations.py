@@ -34,6 +34,10 @@ FAULTS = (
         '!((cpu->registers.ip>=0x7ebb && cpu->registers.ip<=0x7f59) || '
         '(cpu->registers.ip>=0x8044 && cpu->registers.ip<=0x804b))'),
     ('caller_post_balance', 'state_.playerCalls!=state_.postCalls ||', 'false ||'),
+    ('boss_game_instruction_scope', '!bossGameAddress(r.ip)', 'false'),
+    ('boss_library_instruction_scope', '!bossLibraryAddress(r.ip)', 'false'),
+    ('nonplayer_return_ownership',
+        '((cpu->registers.ip==0x7ee4 || cpu->registers.ip==0x7ee8) && !state_.nonplayerCalls) ||', 'false ||'),
     ('running_boss_terminal',
         '(child.outcome==FrameActorEntryOutcome::Running &&\n'
         '                            r.cs==static_cast<uint16_t>(state_.gameSegment+0x920) && r.ip==0xe2) ||',

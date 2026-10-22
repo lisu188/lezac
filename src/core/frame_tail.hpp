@@ -198,6 +198,7 @@ private:
         if (r.ss!=state_.callerSs || registers().ss!=state_.callerSs ||
             (state_.idToggleMask!=0 && state_.idToggleMask!=0x200000) ||
             state_.timerInstructions>state_.dispatchedInstructions ||
+            (!state_.timerDeliveries && state_.timerInstructions) ||
             (state_.timerDeliveries>state_.timerInstructions &&
                 state_.timerDeliveries-state_.timerInstructions>(state_.timer ? 1u : 0u)) ||
             state_.tileCalls>1 || state_.tileCalls>state_.dispatchedInstructions || state_.tileReturns>state_.tileCalls ||

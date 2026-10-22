@@ -50,14 +50,21 @@ writes, all final RAM bytes, exact endpoint flags, and exact DAC output order.
 Intermediate arithmetic flags are masked with the existing parent policy;
 this is not a claim of exhaustive defined-flag equivalence at every instruction.
 
-Controls reject 41 base snapshots, 69 running/nested continuation mutations
+Controls reject 43 base snapshots, 74 running/nested continuation mutations
 and 33 malformed actual return frames. Eleven computed IRQ checkpoints execute
 396 ISR instructions and preserve complete continuation across grant sizes.
 These IRQ forks are C++ tests, not original-schedule observations. Original
-captures deliver zero interrupts. Twenty compiled faults are rejected only
+captures deliver zero interrupts. Twenty-one compiled faults are rejected only
 after unmodified unit and complete-original baselines pass. Six mocked runner
 tests verify that a failed baseline or wrong projection earns no fault credit.
 The excluded-tile fault passed the older dataset and fails the expanded one.
+
+PR #459 review found that nonzero timer instruction counts could be restored
+with zero deliveries after foreground work. The new actual foreground and
+terminal controls fail against the reviewed code. Rejecting this impossible
+accounting profile fixes them; five additional original-phase controls and a
+compiled guard-removal mutation cover the same invariant. No fixture or
+original observation was changed for this correction.
 
 Strict GCC C++23 and native MSVC `/std:c++latest /W4 /WX /O2` builds pass the
 complete corpus. AddressSanitizer and UndefinedBehaviorSanitizer also pass it.

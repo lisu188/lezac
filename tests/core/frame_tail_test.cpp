@@ -174,10 +174,14 @@ void unit() {
     Memory quiet;
     quiet.store(Memory::address(r.ds,0x78c2),1,2);
     const auto quietBus=quiet.bus();
+    FrameTailOperation foreground(r,0x1000,0x200000);
+    require(foreground.advance(1,quietBus)==1,"Tail foreground control did not dispatch");
+    auto inventedTimer=foreground.snapshot();inventedTimer.timerInstructions=1;reject(inventedTimer);
     FrameTailOperation ended(r,0x1000,0x200000);
     ended.advance(4096,quietBus);
     require(ended.snapshot().outcome==FrameTailOutcome::NextFrame,"Tail unit did not finish");
     const auto terminal=ended.snapshot();
+    inventedTimer=terminal;inventedTimer.timerInstructions=1;reject(inventedTimer);
     require(ended.advance(1,quietBus)==0 && ended.snapshot()==terminal,"Terminal tail dispatched");
     blocked=false;
     try { ended.deliverTimerInterrupt(quietBus); } catch (const std::logic_error&) { blocked=true; }
@@ -309,6 +313,7 @@ void replay(const char* path,const char* root) {
                             auto invalid=state;++invalid.registers.sp;reject(invalid);
                             invalid=state;++invalid.registers.bp;reject(invalid);
                             invalid=state;++invalid.callerSp;reject(invalid);
+                            invalid=state;invalid.timerInstructions=1;reject(invalid);
                         }
                     int owner=-1;
                     if (state.rngReturn) owner=state.rngReturn->ip==0x807c ? 0 : state.rngReturn->ip==0x3f3e ? 1 : 2;

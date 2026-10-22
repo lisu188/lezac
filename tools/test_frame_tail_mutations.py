@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HEADER = 'src/core/frame_tail.hpp'
 TEST = 'tests/core/frame_tail_test.cpp'
 FAULTS = (
+    ('phantom_timer_work', '(!state_.timerDeliveries && state_.timerInstructions) ||', 'false ||'),
     ('caller_sp', ': state_{r,game,r.ss,r.sp,r.bp,id}', ': state_{r,game,r.ss,static_cast<uint16_t>(r.sp+2u),r.bp,id}'),
     ('running_ss', 'if (r.ss!=state_.callerSs || registers().ss!=state_.callerSs ||', 'if ((finished() && r.ss!=state_.callerSs) || registers().ss!=state_.callerSs ||'),
     ('live_irq_ss', 'registers().ss!=state_.callerSs ||', '(finished() && registers().ss!=state_.callerSs) ||'),

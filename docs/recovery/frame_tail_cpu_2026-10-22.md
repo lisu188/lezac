@@ -50,11 +50,11 @@ writes, all final RAM bytes, exact endpoint flags, and exact DAC output order.
 Intermediate arithmetic flags are masked with the existing parent policy;
 this is not a claim of exhaustive defined-flag equivalence at every instruction.
 
-Controls reject 43 base snapshots, 74 running/nested continuation mutations
+Controls reject 1,052 unit/synthetic IRQ snapshots, 85 running/nested continuation mutations
 and 33 malformed actual return frames. Eleven computed IRQ checkpoints execute
 396 ISR instructions and preserve complete continuation across grant sizes.
 These IRQ forks are C++ tests, not original-schedule observations. Original
-captures deliver zero interrupts. Twenty-one compiled faults are rejected only
+captures deliver zero interrupts. Twenty-six compiled faults are rejected only
 after unmodified unit and complete-original baselines pass. Six mocked runner
 tests verify that a failed baseline or wrong projection earns no fault credit.
 The excluded-tile fault passed the older dataset and fails the expanded one.
@@ -65,6 +65,25 @@ terminal controls fail against the reviewed code. Rejecting this impossible
 accounting profile fixes them; five additional original-phase controls and a
 compiled guard-removal mutation cover the same invariant. No fixture or
 original observation was changed for this correction.
+
+The next review found accepted operand-byte PCs and a freshly delivered IRQ
+whose PC could be changed directly to the final BIOS IRET. A separate compiled
+before/after probe confirms both failures, including the skipped BIOS tick and
+EOI. Restores now require exact foreground instruction membership, structural
+IRQ instruction/progress membership, and the caller-relative IRQ stack phase.
+The catalog is derived from the existing instruction owners and all structural
+timer call/branch/return paths, with a registered drift check and seven catalog
+tests. It is not a proof that arbitrary forged RAM and register histories are
+authentic.
+
+Eighteen computed silent/tone/music profiles exercise all 110 supported IRQ PCs,
+restoring after each step and checking tick, motor, register and EOI results.
+Corrupt PC, progress, SP/BP, flags, defined flags, foreground/live SS and live
+DS are rejected across those phases. Completed deliveries require sufficient
+completed timer work. The first expanded mutation run exposed entry-only SS
+test coverage; progressed-phase controls now cover those guards independently.
+The live-DS rejection also has a retained fail-before/pass-after control.
+These remain computed IRQ tests, not original interrupt-schedule evidence.
 
 Strict GCC C++23 and native MSVC `/std:c++latest /W4 /WX /O2` builds pass the
 complete corpus. AddressSanitizer and UndefinedBehaviorSanitizer also pass it.

@@ -86,12 +86,72 @@ struct Memory {
     }
 };
 uint64_t stateRejections=0;
-void reject(FrameTailSnapshot state) {
+void reject(FrameTailSnapshot state,const char* message="Tail admitted invalid snapshot") {
     bool rejected=false;
     try { FrameTailOperation operation(std::move(state));(void)operation; }
     catch (const std::invalid_argument&) { rejected=true; }
-    require(rejected,"Tail admitted invalid snapshot");
+    require(rejected,message);
     ++stateRejections;
+}
+void timerPhaseControls(const DosGetTimeRegisters& entry) {
+    struct Profile { uint8_t latch;uint16_t sequence;uint8_t period,cutoff;uint16_t frequency; };
+    constexpr std::array<Profile,9> profiles{{
+        {0,0,1,1,440},{1,0xea61,1,1,440},{1,0xea65,1,1,440},
+        {1,0,1,1,0x7530},{1,0,1,1,440},{1,0,1,1,1},
+        {1,0,2,1,440},{1,0,2,2,440},{1,0,1,1,0}
+    }};
+    std::vector<std::pair<uint16_t,uint16_t>> seen;
+    for (const auto profile:profiles) for (const uint8_t speaker:{uint8_t{0},uint8_t{3}}) {
+        Memory memory;
+        memory.store(0x70,0xfbe,2);memory.store(0x72,0x1000,2);
+        memory.store(0x46c,100,4);memory.store(0x440,2,1);memory.store(0x43f,0xa5,1);
+        memory.store(0x1aa20+0x79c4,profile.latch,1);
+        memory.store(0x1aa20+0x78c0,profile.sequence,2);
+        memory.store(0x1aa20+0x79a2,profile.period,1);
+        memory.store(0x1aa20+0x79a1,profile.cutoff,1);
+        memory.store(0x1aa20+0x79c0,0,2);memory.store(0x1aa20+0x79c2,0x4000,2);
+        memory.store(0x40000,profile.frequency,2);memory.store(0x40002,1,1);memory.store(0x40003,3,1);
+        auto bus=memory.bus();
+        bus.inByte=[=](uint16_t port) { require(port==0x61,"IRQ phase input differs");return speaker; };
+        FrameTailOperation active(entry,0x1000,0x200000);
+        active.deliverTimerInterrupt(bus);
+        unsigned steps=0;
+        while (active.interruptInProgress()) {
+            const auto state=active.snapshot();
+            const auto& timer=*state.timer;
+            const std::pair pc{timer.registers.cs,timer.registers.ip};
+            if (std::find(seen.begin(),seen.end(),pc)==seen.end()) {
+                seen.push_back(pc);
+                auto bad=state;bad.timer->registers.ip=0xffff;reject(bad);
+                bad=state;++bad.timer->registers.sp;reject(bad);
+                bad=state;++bad.timer->registers.bp;reject(bad);
+                bad=state;bad.timer->registers.flags|=0x200u;reject(bad);
+                bad=state;bad.timer->definedFlags|=0x80000000u;reject(bad);
+                bad=state;++bad.registers.ss;reject(bad,"Tail admitted foreign foreground SS during IRQ");
+                bad=state;++bad.timer->registers.ss;reject(bad,"Tail admitted foreign live IRQ SS");
+                bad=state;++bad.timer->registers.ds;reject(bad,"Tail admitted foreign IRQ DS");
+                if (timer.dispatchedInstructions) {
+                    bad=state;bad.timer->dispatchedInstructions=0;reject(bad);
+                }
+            }
+            require(steps++<128,"IRQ phase profile stalled");
+            require(active.advance(1,bus)==1,"IRQ phase did not dispatch");
+            active=FrameTailOperation(active.snapshot());
+        }
+        require(active.registers()==entry && active.snapshot().timerInstructions==steps &&
+            active.snapshot().timerDeliveries==1 && memory.load(0x46c,4)==101 &&
+            memory.load(0x440,1)==1 && memory.load(0x43f,1)==0xa0 &&
+            std::count_if(memory.ports.begin(),memory.ports.end(),[](const Port& port) {
+                return port.port==0x20 && port.value==0x20;
+            })==1,"IRQ phase completion differs");
+        auto incomplete=active.snapshot();incomplete.timerInstructions=1;reject(incomplete);
+    }
+    if (seen.size()!=110) {
+        std::cerr<<"irq_phase_pcs="<<seen.size()<<'\n';
+        for (const auto& [cs,ip]:seen) std::cerr<<std::hex<<cs<<':'<<ip<<' ';
+        std::cerr<<std::dec<<'\n';
+    }
+    require(seen.size()==110,"IRQ phase instruction coverage differs");
 }
 void unit() {
     Memory memory;
@@ -142,6 +202,7 @@ void unit() {
     require(blocked && memory.writes.empty(),"Tail admitted masked IRQ");
     initial.deliverTimerInterrupt(bus);
     const auto interrupted=initial.snapshot();
+    auto skippedIrq=interrupted;skippedIrq.timer->registers.ip=0xfeb6;reject(skippedIrq);
     const auto irqFaults=std::array{
         +[](FrameTailSnapshot& s) { s.timer.reset(); },
         +[](FrameTailSnapshot& s) { ++s.registers.ss; },
@@ -176,6 +237,7 @@ void unit() {
     const auto quietBus=quiet.bus();
     FrameTailOperation foreground(r,0x1000,0x200000);
     require(foreground.advance(1,quietBus)==1,"Tail foreground control did not dispatch");
+    auto operandPc=foreground.snapshot();operandPc.registers.ip=0x806b;reject(operandPc);
     auto inventedTimer=foreground.snapshot();inventedTimer.timerInstructions=1;reject(inventedTimer);
     FrameTailOperation ended(r,0x1000,0x200000);
     ended.advance(4096,quietBus);
@@ -186,6 +248,7 @@ void unit() {
     blocked=false;
     try { ended.deliverTimerInterrupt(quietBus); } catch (const std::logic_error&) { blocked=true; }
     require(blocked,"Terminal tail admitted IRQ");
+    timerPhaseControls(r);
     std::cout<<"frame_tail_unit=ok state_rejections="<<stateRejections
         <<" entry_rejection=1 masked_irq=1 nested_irq=1 zero_budget=1 terminal_no_work=1 divide_control=1\n";
 }
@@ -314,6 +377,20 @@ void replay(const char* path,const char* root) {
                             invalid=state;++invalid.registers.bp;reject(invalid);
                             invalid=state;++invalid.callerSp;reject(invalid);
                             invalid=state;invalid.timerInstructions=1;reject(invalid);
+                            invalid=state;
+                            if (site==0) invalid.registers.ip=0x806b;
+                            if (site==1) invalid.registers.ip=0x79e;
+                            if (site==2) {
+                                invalid.registers.ip=2;
+                                invalid.registers.sp=static_cast<uint16_t>(state.callerSp-14u);
+                                invalid.registers.bp=invalid.registers.sp;
+                            }
+                            if (site==3 || site==4) {
+                                invalid.registers.ip=site==3 ? 0x3f29 : 0x3710;
+                                invalid.registers.sp=static_cast<uint16_t>(state.callerSp-(site==3 ? 6u : 20u));
+                                invalid.registers.bp=static_cast<uint16_t>(state.callerSp-(site==3 ? 4u : 20u));
+                            }
+                            reject(invalid);
                         }
                     int owner=-1;
                     if (state.rngReturn) owner=state.rngReturn->ip==0x807c ? 0 : state.rngReturn->ip==0x3f3e ? 1 : 2;
@@ -334,6 +411,8 @@ void replay(const char* path,const char* root) {
                             if (fault==8) invalid.tileCallback=!invalid.tileCallback;
                             reject(invalid);
                         }
+                        auto invalid=state;invalid.registers.ip=state.rngReturn ? 0x13a9 : 0x4e0;
+                        reject(invalid);
                     }
                     int site=-1;
                     if (r.cs==0x1920 && r.ip==0x13bb) site=owner;

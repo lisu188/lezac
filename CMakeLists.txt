@@ -192,7 +192,7 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_frame_tail_test PRIVATE lezac_core)
     add_test(NAME frame_tail_unit COMMAND lezac_frame_tail_test)
     set_tests_properties(frame_tail_unit PROPERTIES
-        PASS_REGULAR_EXPRESSION "frame_tail_unit=ok state_rejections=43 entry_rejection=1 masked_irq=1 nested_irq=1 zero_budget=1 terminal_no_work=1 divide_control=1")
+        PASS_REGULAR_EXPRESSION "frame_tail_unit=ok state_rejections=1052 entry_rejection=1 masked_irq=1 nested_irq=1 zero_budget=1 terminal_no_work=1 divide_control=1")
     add_executable(lezac_actor_update_test tests/core/actor_update_test.cpp)
     target_link_libraries(lezac_actor_update_test PRIVATE lezac_core)
     add_test(NAME actor_update_unit COMMAND lezac_actor_update_test)
@@ -822,7 +822,7 @@ if(BUILD_TESTING)
         add_test(NAME frame_tail_original COMMAND lezac_frame_tail_test
             ${CMAKE_CURRENT_BINARY_DIR}/frame-tail.bin ${CMAKE_CURRENT_SOURCE_DIR})
         set_tests_properties(frame_tail_original PROPERTIES FIXTURES_REQUIRED frame_tail_corpus TIMEOUT 300
-            PASS_REGULAR_EXPRESSION "frame_tail_original=ok cases=2576 replays=7728 comparisons=732276 dispatches=2064066 writes=218424 dac_writes=122256 restore_rejections=74 return_rejections=33 computed_irq_cases=11 irq_instructions=396 full_memory=1 canonical_mz=1 later_state_injected=0 actual_app_integration=0 full_frame_claim=0")
+            PASS_REGULAR_EXPRESSION "frame_tail_original=ok cases=2576 replays=7728 comparisons=732276 dispatches=2064066 writes=218424 dac_writes=122256 restore_rejections=85 return_rejections=33 computed_irq_cases=11 irq_instructions=396 full_memory=1 canonical_mz=1 later_state_injected=0 actual_app_integration=0 full_frame_claim=0")
         add_test(NAME frame_tail_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_tail_fixture.py -v)
         set_tests_properties(frame_tail_fixture_rejections PROPERTIES TIMEOUT 300
@@ -837,13 +837,20 @@ if(BUILD_TESTING)
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_tail_mutation_runner.py -v)
         set_tests_properties(frame_tail_mutation_runner PROPERTIES TIMEOUT 180
             ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        add_test(NAME frame_tail_instruction_catalog COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/frame_tail_instruction_catalog.py)
+        set_tests_properties(frame_tail_instruction_catalog PROPERTIES TIMEOUT 180
+            PASS_REGULAR_EXPRESSION "frame_tail_instruction_catalog=ok")
+        add_test(NAME frame_tail_instruction_catalog_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_tail_instruction_catalog.py -v)
+        set_tests_properties(frame_tail_instruction_catalog_rejections PROPERTIES TIMEOUT 180)
         if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
             add_test(NAME frame_tail_mutations COMMAND ${Python3_EXECUTABLE} -S -B
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_tail_mutations.py --cxx ${CMAKE_CXX_COMPILER}
                 --fixture ${CMAKE_CURRENT_BINARY_DIR}/frame-tail.bin
                 --out ${CMAKE_CURRENT_BINARY_DIR}/frame-tail-mutations)
             set_tests_properties(frame_tail_mutations PROPERTIES FIXTURES_REQUIRED frame_tail_corpus TIMEOUT 600
-                PASS_REGULAR_EXPRESSION "frame_tail_mutations=ok faults=21 positive_baseline=1 sources_preserved=1")
+                PASS_REGULAR_EXPRESSION "frame_tail_mutations=ok faults=26 positive_baseline=1 sources_preserved=1")
         endif()
         add_test(NAME actor_update_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_fixture.py

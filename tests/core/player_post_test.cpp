@@ -373,7 +373,73 @@ void unit() {
         ++foreignReturns;
     }
     require(foreignReturns==2,"Player post foreign return coverage differs");
-    std::cout<<"player_post_unit=ok state_rejections=21 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_no_work=1 far_return_controls=2 foreign_return_controls="<<foreignReturns<<'\n';
+    unsigned nestedReturns=0,callerEndpoints=0;
+    constexpr std::array<std::array<uint16_t,2>,7> nestedTargets{{
+        {0x9ab,0x11e3},{0x9ab,0x1216},{0x4f0,0x30ae},
+        {0x4f0,0x11bb},{0x4f0,0x1243},{0x4f0,0x1291},{0x4f0,0x6b6}}};
+    for (const auto& target:nestedTargets) {
+        auto nested=initial;nested.registers.cs=0x1920;nested.registers.ip=target[0];
+        nested.registers.sp=static_cast<uint16_t>(initial.callerSp-20u);
+        memory.store(Memory::address(r.ss,nested.registers.sp),target[1]);
+        memory.store(Memory::address(r.ss,static_cast<uint16_t>(nested.registers.sp+2u)),kGame);
+        PlayerPostOperation returned(nested);
+        require(returned.advance(1,bus,all)==1 && returned.snapshot().outcome==PlayerPostOutcome::Running &&
+            returned.registers().cs==kGame && returned.registers().ip==target[1] &&
+            returned.registers().sp==static_cast<uint16_t>(nested.registers.sp+4u) &&
+            returned.snapshot().dispatchedInstructions==1 && memory.writes.empty(),
+            "Player post owned nested RETF did not continue");
+        (void)PlayerPostOperation(returned.snapshot());++nestedReturns;
+    }
+    constexpr std::array<std::array<uint16_t,2>,6> foreignTargets{{
+        {kGame,0x8044},{0x1920,0xe2},{kGame,0x7f00},
+        {0x1001,0x11e3},{0x1920,0x1216},{kGame,0x9ab}}};
+    for (uint16_t source:{uint16_t{0x9ab},uint16_t{0x4f0}})
+        for (uint16_t stackBytes:{uint16_t{4},uint16_t{20}})
+            for (const auto& target:foreignTargets) {
+                auto nested=initial;nested.registers.cs=0x1920;nested.registers.ip=source;
+                nested.registers.sp=static_cast<uint16_t>(initial.callerSp-stackBytes);
+                memory.store(Memory::address(r.ss,nested.registers.sp),target[1]);
+                memory.store(Memory::address(r.ss,static_cast<uint16_t>(nested.registers.sp+2u)),target[0]);
+                PlayerPostOperation returned(nested);bool rejectedFrame=false;
+                try { (void)returned.advance(1,bus,all); }
+                catch (const std::invalid_argument&) { rejectedFrame=true; }
+                require(rejectedFrame && returned.snapshot().outcome==PlayerPostOutcome::Running &&
+                    returned.registers().cs==target[0] && returned.registers().ip==target[1] &&
+                    returned.registers().sp==static_cast<uint16_t>(nested.registers.sp+4u) &&
+                    returned.snapshot().dispatchedInstructions==1 && memory.writes.empty(),
+                    "Player post admitted a foreign nested RETF destination");
+                ++nestedReturns;
+            }
+    for (uint16_t source:{uint16_t{0x8010},uint16_t{0x1284}}) {
+        auto endpoint=initial;endpoint.registers.ip=source;
+        if (source==0x1284) {
+            endpoint.registers.sp=static_cast<uint16_t>(initial.callerSp-4u);
+            memory.store(Memory::address(r.ss,endpoint.registers.sp),0x8044);
+        }
+        PlayerPostOperation endedAtCaller(endpoint);
+        require(endedAtCaller.advance(1,bus,all)==1 && endedAtCaller.snapshot().outcome==PlayerPostOutcome::Caller &&
+            endedAtCaller.registers().ip==0x8044 && endedAtCaller.snapshot().dispatchedInstructions==1 &&
+            memory.writes.empty(),"Player post owned caller endpoint differs");
+        ++callerEndpoints;
+    }
+    constexpr std::array<std::array<uint16_t,2>,6> foreignNearReturns{{
+        {0x56b5,2},{0x313a,4},{0x1236,6},{0x12d8,4},{0x1173,2},{0x706,14}}};
+    for (const auto& source:foreignNearReturns) {
+        auto endpoint=initial;endpoint.registers.ip=source[0];
+        endpoint.registers.sp=static_cast<uint16_t>(initial.callerSp-source[1]);
+        memory.store(Memory::address(r.ss,endpoint.registers.sp),0x8044);
+        PlayerPostOperation returned(endpoint);bool rejectedFrame=false;
+        try { (void)returned.advance(1,bus,all); }
+        catch (const std::invalid_argument&) { rejectedFrame=true; }
+        require(rejectedFrame && returned.snapshot().outcome==PlayerPostOutcome::Running &&
+            returned.registers().ip==0x8044 && returned.registers().sp==initial.callerSp &&
+            returned.snapshot().dispatchedInstructions==1 && memory.writes.empty(),
+            "Player post admitted a foreign near-return caller endpoint");
+        ++callerEndpoints;
+    }
+    require(nestedReturns==31 && callerEndpoints==8,"Player post nested return coverage differs");
+    std::cout<<"player_post_unit=ok state_rejections=21 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_no_work=1 far_return_controls=2 foreign_return_controls="
+        <<foreignReturns<<" nested_return_controls="<<nestedReturns<<" caller_endpoint_controls="<<callerEndpoints<<'\n';
 }
 }
 int main(int argc,char** argv) {

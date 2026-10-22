@@ -234,6 +234,56 @@ cd15c6e31ee253175a4561c1badb24f8b8f8287ba2aaa64d119daefc966f234f.
 Original producers, manifests, compressed projections and guest instructions
 are unchanged. Fresh current-head review and hosted CI remain merge gates.
 
+## Nested Return Ownership
+
+Review finding discussion_r4352387792 on f36a112 identified a Caller-phase
+divide RETF that could falsely finish the outer continuation at 8044. A
+six-case probe reproduced false Caller outcomes through both library RETFs
+(09AB and 04F0) and four unrelated game near returns. All six were accepted
+before the fix and are now rejected without writes or Caller classification.
+The permanent new regression also fails against the old implementation.
+
+Completion is now classified after each real foreground instruction and its
+dispatch accounting. Divide RETF in the standalone ScoreDivide entry remains
+Returned. In the Caller entry, 09AB must resume 11E3 or 1216, while the stack
+helper 04F0 must resume one of 30AE, 11BB, 1243, 1291 or 06B6. These are the
+actual owned far-call continuations, including the nested life-loss initializer.
+Only the 8010 branch and final 1284 return may produce the 8044 Caller outcome.
+No extra bus reads, private stacks or guest instruction changes are introduced.
+
+The unit covers seven valid nested far-return destinations, 24 invalid nested
+destinations across both helper returns and two stack depths, two valid caller
+endpoints and six invalid near-return completions, including font and initializer
+returns. Existing 21 snapshot, two standalone game return and two foreign return
+controls remain. Invalid completions are rejected after the actual instruction
+is counted, without falsely marking the outer operation complete.
+
+The first candidate omitted 06B6. The original corpus rejected it, and the
+debugger confirmed actual 1920:04F0 -> 1000:06B6 at SP 3FCA. That failed
+candidate, native failure and full failed CTest log remain retained in RAM.
+The destination was added; no corpus, producer, manifest or guest instruction
+was changed to make the test pass.
+
+That failure also exposed missing positive-baseline admission in the mutation
+runner. It now authenticates the frozen projection, compiles and passes the
+unmodified unit/full original replay before scoring any fault, and protects all
+core sources plus the test and projection. The still-over-restricted candidate
+was rejected by this new gate with positive_baseline_passed=false and zero
+fault results. Six additional mocked failure-contract tests cover failed or
+missing unit/original success markers, wrong projections and the successful
+gate; they pass on Linux and Windows and do not replace real C++ execution.
+
+The complete eight-test focused batch passes in 242.64 seconds, including all
+25 actually compiled/detected faults after a passing authenticated baseline,
+the full original replay, eight CLI rejections, fixture retention, parent unit
+and source guardrails. Adding the fast gate test also passes a six-check batch
+in 11.60 seconds. Strict native MSVC build/unit and all 27,918 original-backed
+replays pass, as do GCC C++23 ASan/UBSan unit/full replay. Protected native
+core/fixture hashes are unchanged. The native run took 25.12 seconds and
+produced executable SHA-256
+7e9814ccfb81dfef2819f451176e8014723225487d7412b6f204edfc7f03e54f.
+Current-head external review and hosted CI remain required before merge.
+
 ## Remaining Work
 
 Compose the complete player and nonplayer passes, transient queues, production

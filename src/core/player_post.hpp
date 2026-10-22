@@ -52,22 +52,34 @@ public:
     uint64_t advance(uint64_t budget,const TimerIrqBus& bus,const CopyBudget& copies) {
         uint64_t used=0;
         while (used<budget && !finished()) {
+            const auto before=state_.registers;
+            const bool foreground=!state_.timer;
             if (state_.timer) {
                 TimerIrqOperation irq(*state_.timer);
                 if (irq.advance(1,bus)!=1) throw std::domain_error("Player post IRQ did not dispatch");
                 ++state_.timerInstructions;
                 if (irq.returned()) { state_.registers=fromTimer(irq.snapshot().registers);state_.timer.reset(); }
                 else state_.timer=irq.snapshot();
-            } else {
-                const auto before=state_.registers;
-                const bool returned=state_.entry==PlayerPostEntry::ScoreDivide && before.cs==library() && before.ip==0x9ab;
-                instruction(bus,copies);
-                const auto& r=state_.registers;
-                if (returned) state_.outcome=PlayerPostOutcome::Returned;
-                else if (r.cs==state_.gameSegment && r.ip==0x8044) state_.outcome=PlayerPostOutcome::Caller;
-                else if (r.cs==library() && r.ip==0xe2) state_.outcome=PlayerPostOutcome::RuntimeError;
-            }
+            } else instruction(bus,copies);
             ++used;++state_.dispatchedInstructions;
+            if (foreground) {
+                const bool returned=before.cs==library() && (before.ip==0x9ab || before.ip==0x4f0);
+                const auto& r=state_.registers;
+                if (returned) {
+                    if (state_.entry==PlayerPostEntry::ScoreDivide && before.ip==0x9ab)
+                        state_.outcome=PlayerPostOutcome::Returned;
+                    else {
+                        const bool validTarget=before.ip==0x9ab ? (r.ip==0x11e3 || r.ip==0x1216) :
+                            (r.ip==0x30ae || r.ip==0x11bb || r.ip==0x1243 || r.ip==0x1291 || r.ip==0x6b6);
+                        if (state_.entry!=PlayerPostEntry::Caller || r.cs!=state_.gameSegment || !validTarget)
+                            throw std::invalid_argument("Player post nested far-return destination differs");
+                    }
+                } else if (r.cs==state_.gameSegment && r.ip==0x8044) {
+                    if (before.cs!=state_.gameSegment || (before.ip!=0x8010 && before.ip!=0x1284))
+                        throw std::invalid_argument("Player post caller endpoint source differs");
+                    state_.outcome=PlayerPostOutcome::Caller;
+                } else if (r.cs==library() && r.ip==0xe2) state_.outcome=PlayerPostOutcome::RuntimeError;
+            }
             if (finished()) validate();
         }
         return used;

@@ -29,8 +29,11 @@ FAULTS = (
         '} else (void)child;\n                if (child.timer'),
     ('standalone_post_ownership', 'child.entry!=PlayerPostEntry::Caller', 'false'),
     ('caller_instruction_scope',
-        '!((cpu->registers.ip>=0x7ebb && cpu->registers.ip<=0x7f59) ||\n'
-        '                              (cpu->registers.ip>=0x8044 && cpu->registers.ip<=0x804b))', 'false'),
+        '!callerAddress(cpu->registers.ip)', 'false'),
+    ('caller_operand_range', '!callerAddress(cpu->registers.ip)',
+        '!((cpu->registers.ip>=0x7ebb && cpu->registers.ip<=0x7f59) || '
+        '(cpu->registers.ip>=0x8044 && cpu->registers.ip<=0x804b))'),
+    ('caller_post_balance', 'state_.playerCalls!=state_.postCalls ||', 'false ||'),
     ('running_boss_terminal',
         '(child.outcome==FrameActorEntryOutcome::Running &&\n'
         '                            r.cs==static_cast<uint16_t>(state_.gameSegment+0x920) && r.ip==0xe2) ||',

@@ -89,8 +89,16 @@ Strict GCC C++23 and native MSVC `/std:c++latest /W4 /WX /O2` builds pass the
 complete corpus. AddressSanitizer and UndefinedBehaviorSanitizer also pass it.
 Fixture rejection tests and eight command-line negative controls preserve
 authenticated inputs and retain failure artifacts. Frozen-checkout protection
-now includes this family; local cold-checkout validation is deliberately scoped
-to this family because the full 28-family reserve exceeds RAM headroom.
+now includes this family; local cold-checkout validation covers this family
+and, after integration, the player-post/tail pair because the full 29-family
+reserve exceeds RAM headroom.
+
+After PR #457 merged as `b590e6f`, integration retains both CMake test families,
+both source owners and both frozen-checkout protections. All 66 existing core,
+tail-test and fixture inputs are byte-identical to `8751ee9`; the eleven added
+parent source/fixture files are byte-identical to merged main. The parent main
+tree exactly matches its reviewed and tested `abb3ca8` tree. Published ancestry
+is retained without a force push or branch deletion.
 
 ## Remaining Scope
 

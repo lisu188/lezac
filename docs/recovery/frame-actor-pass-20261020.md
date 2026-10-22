@@ -202,7 +202,9 @@ baseline also failed a contact-profile ownership guard. A debugger run caught
 the actor-entry exception inside the nested precontact registers visitor.
 These failures remain unexplained; later successful runs do not clear them.
 Failed reports, binary, stress logs and debugger evidence are retained in RAM.
-This integration is not ready to publish or merge.
+This integration is not merge-ready. Draft publication is limited to obtaining
+independent hosted validation and review; neither a later local pass nor green
+hosted checks alone dispose of these unexplained failures.
 
 The stronger ActorUpdate guard makes the outer child-caller-SS mutation
 equivalent: both its positive baseline and mutated complete replay pass,
@@ -228,6 +230,48 @@ separate obligations. Runtime-error and divide-fault handler presentation also
 remains outside this boundary. This does not establish whole-frame or whole-game
 fidelity. Fresh exact-head external review and hosted checks remain merge gates.
 The ActorUpdate running borrowed-SS finding was fixed in 5375ce6 and received
-a clean exact-head review. The new player-post finding and the optimized
-integration failures above remain open; this layer's matching-SS guards do
-not dispose of a standalone parent's malformed-checkpoint API finding.
+a clean exact-head review. The optimized integration failures above remain
+open; this layer's matching-SS guards do not dispose of a standalone parent's
+malformed-checkpoint API finding. See the newer parent dispositions below.
+
+## October 22 Integration
+
+Parent #456 merged as 7dc743b, with a tree identical to its tested and reviewed
+5375ce6 head. This branch preserves that history and player-post head abb3ca8.
+The standalone player-post SS finding is fixed by unconditional live-stack
+validation, including active IRQ checkpoints. Subsequent review findings about
+RETF error classification and nested-return false completion are fixed in
+f36a112 and abb3ca8. The latter retains all seven original-backed nested return
+destinations, including the initializer's 06B6 return; an earlier candidate
+omitting 06B6 failed the original corpus and its failed evidence is retained.
+Player-post's current-head external review is clean; hosted checks are pending.
+These parent fixes do not explain or clear the separate pass instability.
+
+On this integrated source, the unit passes 38 snapshot rejection and three
+positive phase controls. GCC Debug full replay, eight CLI rejection controls
+and fixture-retention tests pass. Strict native MSVC /std:c++latest /W4 /WX /O2
+build, unit and complete original replay also pass in 24.06 seconds, with every
+protected core, original and fixture hash unchanged. Native executable SHA-256:
+969b339400e1c7399a09c19b8c5b38a6224545616e5f8e1fe7e97285bee34b3c.
+This native run did not regenerate CLI or cold-checkout evidence.
+
+An additional bounded affinity diagnostic ran the retained previously failing
+optimized binary once on each allowed CPU 0..7. All eight complete replays
+passed and the executable, fixture, MZ and runtime-library hashes were
+preserved. This is historical-binary diagnostic evidence, not current-source
+validation or a diagnosis of the intermittent failure.
+
+The updated 28-fault mutation set passes again with parent abb3ca8, after an
+authenticated passing unit/full-corpus baseline. All ten focused CTests pass
+in 400.31 seconds, including both parent units, the player-post mutation-runner
+failure-contract checks and source guardrails. Earlier 4f19bc4 mutation evidence
+is retained separately. The new strict GCC C++23 ASan/UBSan unit and complete
+latest-source replay pass with leak detection and halt-on-UB enabled. This
+remains a successful bounded run, not a diagnosis of the intermittent failures.
+
+A fresh silent existing-App boss-fight sequence records six 320x200 frames
+through tick 220. The tick-180 frame hash is 0x8640228849cc6fff. The sequence
+uses a direct level-7 reset and a fixed random seed, then movement/bomb controls;
+it is not a natural route from level 1, physical-input proof, use of this new
+core operation or an aligned comparison with the retained original screenshot.
+All generated validation remains RAM-only; no game uses audible output.

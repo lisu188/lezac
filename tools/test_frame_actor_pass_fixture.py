@@ -10,6 +10,29 @@ import check_frame_actor_pass_fixture as checker
 
 
 class FixtureTests(unittest.TestCase):
+    def test_boss_instruction_catalog(self):
+        links = (checker.ROOT / 'src/core/boss_links.hpp').read_text()
+        runtime = (checker.ROOT / 'src/core/frame_display.hpp').read_text()
+        guard = (checker.ROOT / 'src/core/frame_actor_pass.hpp').read_text()
+
+        def labels(text):
+            values = re.findall(r'\bcase\s+([^:]+):', text)
+            self.assertTrue(all(re.fullmatch(r'0x[0-9a-f]+', label) for label in values))
+            numeric = {int(label, 16) for label in values}
+            self.assertEqual(len(values), len(numeric))
+            return numeric
+
+        library, game = links.split('        if (r.cs==library()) {', 1)[1].split('        if (r.cs!=state_.gameSegment)', 1)
+        runtime = runtime.split('        if (r.cs != library())', 1)[1]
+        expected_game = labels(game)
+        expected_library = labels(library) | labels(runtime) | {0xe2}
+        self.assertEqual(len(expected_game), 196)
+        self.assertEqual(len(expected_library), 247)
+        actual_game = guard.split('    static constexpr bool bossGameAddress(', 1)[1].split('    static constexpr bool bossLibraryAddress(', 1)[0]
+        actual_library = guard.split('    static constexpr bool bossLibraryAddress(', 1)[1].split('    static constexpr bool callerAddress(', 1)[0]
+        self.assertEqual(labels(actual_game), expected_game)
+        self.assertEqual(labels(actual_library), expected_library)
+
     def test_caller_instruction_catalog(self):
         owner = (checker.ROOT / 'src/core/frame_actor_entry.hpp').read_text().split('    void callerInstruction(', 1)[1]
         guard = (checker.ROOT / 'src/core/frame_actor_pass.hpp').read_text().split('    static constexpr bool callerAddress(', 1)[1].split('    void caller(', 1)[0]

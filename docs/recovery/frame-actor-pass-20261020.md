@@ -403,3 +403,35 @@ source ownership and cold-checkout registrations. A merge of the published
 The old Windows job failed exactly the two boss AST checks and one retained
 compression-reserve check addressed by merged PR #460; it is not a passing
 check on this new tree and must be rerun.
+
+## October 23 First-Player Entry Follow-Up
+
+Review of 6a6221e2870a7f53a36136efee3618cc6df336b1 identified one further
+boundary: 7F3A is reached only after the initial player-slot write at 7F34;
+subsequent iterations return to 7F3C instead. A compiled reviewed-head probe
+accepts a balanced completed-player history at 7F3A. Extending the zero-player
+history guard through 7F3A rejects that state, while retaining the zero-history
+positive at the same instruction entry. Four new ordinary/interrupted controls
+raise caller-history controls to 157 and total rejected snapshots to 7,913.
+The permanent 38th compiled fault restores the old 7F34 cutoff and is detected
+by the unit, independently of complete guard removal.
+
+Fresh strict optimized GCC, native MSVC and GCC ASan/UBSan builds pass the
+expanded unit and all 7,884 original replays, with the same 10,432,263
+register/control comparisons and full final-memory checks. All 38 compiled
+faults are detected after the authenticated positive baseline. Four Linux
+fixture tests, both Windows instruction catalogs and the 20-case source guard
+pass. Validation preserves protected source, canonical MZ and fixture hashes.
+Full CLI/cold-checkout artifact batches were not regenerated for this narrow
+guard follow-up; fresh current-head hosted validation and review are required.
+
+Separately, 15 complete historical-binary runs with pre-throw hardware
+breakpoints and no preload hook did not reproduce the intermittent failure.
+They do not clear the hold. A synthetic host-snapshot mutation calibrates the
+intended pre-throw branch and its padding-masked comparison. Inspection of the
+earlier retained core shows that executable code pages were omitted, so that
+core cannot authenticate the live code bytes. A new bounded RAM-only capture
+supplement is calibrated separately: 688,128 live executable bytes match the
+unchanged historical ELF exactly under the synthetic fault. This is capture
+mechanism validation, not reproduction or diagnosis of the historical failure.
+Raw core, stack and executable-byte captures remain local and unpublished.

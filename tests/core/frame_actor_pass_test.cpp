@@ -470,7 +470,7 @@ void unit() {
     (void)FrameActorPassOperation(irqState);
     for (bool irq : {false,true}) {
         for (uint16_t ip : callerIps) {
-            if (ip>0x7f34) continue;
+            if (ip>0x7f3a) continue;
             for (bool nonplayerHistory : {false,true}) {
                 s=irq ? irqState : initial;s.dispatchedInstructions=3;
                 s.nonplayerCalls=nonplayerHistory ? 1 : 0;
@@ -523,8 +523,8 @@ void unit() {
         try { ended.deliverTimerInterrupt(bus); } catch (const std::logic_error&) { stopped=true; }
         require(stopped && ended.advance(17,bus,all)==0 && ended.snapshot()==saved,"Finished pass changed state");
     }
-    require(rejected==7909 && callerBoundaries==50 && bossBoundaries==443 &&
-        bossHistoryControls==1335 && callerHistoryControls==153,"Pass rejection coverage differs");
+    require(rejected==7913 && callerBoundaries==50 && bossBoundaries==443 &&
+        bossHistoryControls==1335 && callerHistoryControls==157,"Pass rejection coverage differs");
     std::cout<<"frame_actor_pass_unit=ok state_rejections="<<rejected<<" phase_controls=3 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_controls=2 caller_boundaries="<<callerBoundaries<<" skipped_post_controls=4 boss_boundaries="<<bossBoundaries<<" boss_irq_controls=2 nonplayer_return_controls=8 boss_history_controls="<<bossHistoryControls<<" caller_history_controls="<<callerHistoryControls<<" actor_history_controls=1\n";
 }
 }

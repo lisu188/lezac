@@ -245,7 +245,7 @@ private:
                 if (const auto* cpu=std::get_if<FrameActorCallerSnapshot>(&child.callee)) {
                     if (((cpu->registers.ip==0x7ee4 || cpu->registers.ip==0x7ee8) && !state_.nonplayerCalls) ||
                         (cpu->registers.ip>=0x7ebb && cpu->registers.ip<=0x7ec5 && state_.actorCalls) ||
-                        ((cpu->registers.ip<=0x7f34 || cpu->registers.ip==0x77dc) && state_.playerCalls) ||
+                        ((cpu->registers.ip<=0x7f3a || cpu->registers.ip==0x77dc) && state_.playerCalls) ||
                         (child.outcome==FrameActorEntryOutcome::Running &&
                             !callerAddress(cpu->registers.ip)) ||
                         (child.outcome!=FrameActorEntryOutcome::Running &&

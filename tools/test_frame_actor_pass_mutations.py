@@ -43,7 +43,8 @@ FAULTS = (
     ('caller_preloop_history',
         'cpu->registers.ip>=0x7ebb && cpu->registers.ip<=0x7ec5 && state_.actorCalls', 'false'),
     ('caller_player_history',
-        '(cpu->registers.ip<=0x7f34 || cpu->registers.ip==0x77dc) && state_.playerCalls', 'false'),
+        '(cpu->registers.ip<=0x7f3a || cpu->registers.ip==0x77dc) && state_.playerCalls', 'false'),
+    ('player_loop_entry_history', 'cpu->registers.ip<=0x7f3a', 'cpu->registers.ip<=0x7f34'),
     ('nonplayer_player_history', 'state_.actorKind==FrameActorPassKind::Nonplayer && state_.playerCalls', 'false'),
     ('running_boss_terminal',
         '(child.outcome==FrameActorEntryOutcome::Running &&\n'

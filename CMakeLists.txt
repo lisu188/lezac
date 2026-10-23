@@ -6502,6 +6502,11 @@ if(BUILD_TESTING)
                 --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-history-repetition)
     set_tests_properties(collapse_history_repetition_contract PROPERTIES TIMEOUT 60
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1")
+    add_test(NAME recovery_python_compatibility
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_recovery_python315.py)
+    set_tests_properties(recovery_python_compatibility PROPERTIES TIMEOUT 120
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+        PASS_REGULAR_EXPRESSION "recovery_python_compat=ok tests=6 schema_controls=5 compression_runs=2 retained_limit_bytes=8388608 production_app=0")
     add_test(NAME collapse_contacts_failure_retention
         COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_contact_failure_retention.py)
     set_tests_properties(collapse_contacts_failure_retention PROPERTIES

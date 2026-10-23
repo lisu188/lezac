@@ -48,6 +48,9 @@ def validate_observer_variant(original):
         # Python 3.12 adds empty type-parameter fields; no captured function uses them.
         if "type_params" not in kind._fields and arguments.get("type_params") == []:
             del arguments["type_params"]
+        # The pinned 3.12 observer uses eager imports; 3.15 makes that field explicit.
+        if kind in (ast.Import, ast.ImportFrom) and "is_lazy" in kind._fields:
+            arguments.setdefault("is_lazy", 0)
         require(set(arguments) == set(kind._fields), "AST field mismatch")
         return kind(**{key: decode(value) for key, value in arguments.items()})
 

@@ -1,0 +1,41 @@
+name: Recovery Python compatibility
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/recovery-python-compat.yml'
+      - 'tools/**'
+      - 'tests/gameplay/collapse*history*'
+      - 'docs/recovery/evidence/boss_extended_combat_20261001/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/recovery-python-compat.yml'
+      - 'tools/**'
+      - 'tests/gameplay/collapse*history*'
+      - 'docs/recovery/evidence/boss_extended_combat_20261001/**'
+
+permissions:
+  contents: read
+
+jobs:
+  compatibility:
+    name: Python ${{ matrix.python }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.12', '3.15']
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      SDL_AUDIODRIVER: dummy
+      SDL_VIDEODRIVER: dummy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Frozen AST and bounded diagnostic regressions
+        run: python -S -B tools/test_recovery_python315.py -v

@@ -88,7 +88,7 @@ def run_probe(exe, out, data, production_app):
                   input_sha256=sha(incoming), expected_sha256=sha(expected), expected_bytes=len(expected),
                   github_sha=os.environ.get('GITHUB_SHA'), original_metadata_sha256=META_SHA)
     for name, raw in (('input.bin.gz', incoming), ('expected.bin.gz', expected)):
-        (out / name).write_bytes(gzip.compress(raw, mtime=0))
+        (out / name).write_bytes(gzip.compress(raw, compresslevel=9, mtime=0))
     # Keep each temporary stream root below the reserve independently.
     with tempfile.TemporaryDirectory(prefix='lezac-seed-input-') as input_dir, \
             tempfile.TemporaryDirectory(prefix='lezac-seed-expected-') as expected_dir, \
@@ -122,7 +122,7 @@ def run_probe(exe, out, data, production_app):
             if actual_path.exists():
                 raw = actual_path.read_bytes()
                 report.update(actual_sha256=sha(raw), actual_bytes=len(raw))
-                (out / 'actual.bin.gz').write_bytes(gzip.compress(raw, mtime=0))
+                (out / 'actual.bin.gz').write_bytes(gzip.compress(raw, compresslevel=9, mtime=0))
             (out / 'result.json').write_text(json.dumps(report, indent=2) + '\n')
             print('collapse_seed_history_retained=' + str(out.resolve()), flush=True)
             if sum(path.stat().st_size for path in retained_root.rglob('*') if path.is_file()) >= 8 * 1024**2:

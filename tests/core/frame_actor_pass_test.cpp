@@ -468,6 +468,36 @@ void unit() {
     FrameActorPassOperation interrupted(initial);interrupted.deliverTimerInterrupt(irqBus);
     const auto irqState=interrupted.snapshot();
     (void)FrameActorPassOperation(irqState);
+    unsigned playerSetupControls=0,playerCapControls=0;
+    for (bool irq : {false,true}) {
+        for (uint16_t ip : callerIps) {
+            if (!((ip>=0x7f3c && ip<=0x7f59) || ip==0x804b)) continue;
+            s=irq ? irqState : initial;s.dispatchedInstructions=2;
+            s.actorCalls=s.actorReturns=s.playerCalls=s.postCalls=s.postReturns=2;
+            std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.ip=ip;
+            reject(s);++playerSetupControls;
+            s.actorCalls=s.actorReturns=s.playerCalls=s.postCalls=s.postReturns=1;
+            (void)FrameActorPassOperation(s);
+        }
+        s=irq ? irqState : initial;s.dispatchedInstructions=3;
+        s.actorCalls=s.actorReturns=s.playerCalls=s.postCalls=s.postReturns=3;
+        std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.ip=0x8044;
+        reject(s);++playerCapControls;
+    }
+    s=initial;s.dispatchedInstructions=3;
+    s.actorCalls=s.actorReturns=s.playerCalls=s.postCalls=s.postReturns=3;
+    s.outcome=FrameActorPassOutcome::TransientQueues;
+    std::get<FrameActorEntrySnapshot>(s.callee).outcome=FrameActorEntryOutcome::TransientQueues;
+    std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.ip=0x804e;
+    reject(s);++playerCapControls;
+    s.actorCalls=s.actorReturns=s.playerCalls=s.postCalls=s.postReturns=2;
+    (void)FrameActorPassOperation(s);
+    s=actorState;s.actorKind=FrameActorPassKind::Player;s.dispatchedInstructions=3;
+    s.actorCalls=s.playerCalls=3;s.actorReturns=s.postCalls=s.postReturns=2;s.nonplayerCalls=0;
+    reject(s);++playerCapControls;
+    s=postState;s.dispatchedInstructions=3;
+    s.actorCalls=s.actorReturns=s.playerCalls=s.postCalls=3;s.postReturns=2;
+    reject(s);++playerCapControls;
     for (bool irq : {false,true}) {
         for (uint16_t ip : callerIps) {
             if (ip>0x7f3a) continue;
@@ -523,9 +553,10 @@ void unit() {
         try { ended.deliverTimerInterrupt(bus); } catch (const std::logic_error&) { stopped=true; }
         require(stopped && ended.advance(17,bus,all)==0 && ended.snapshot()==saved,"Finished pass changed state");
     }
-    require(rejected==7913 && callerBoundaries==50 && bossBoundaries==443 &&
-        bossHistoryControls==1335 && callerHistoryControls==157,"Pass rejection coverage differs");
-    std::cout<<"frame_actor_pass_unit=ok state_rejections="<<rejected<<" phase_controls=3 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_controls=2 caller_boundaries="<<callerBoundaries<<" skipped_post_controls=4 boss_boundaries="<<bossBoundaries<<" boss_irq_controls=2 nonplayer_return_controls=8 boss_history_controls="<<bossHistoryControls<<" caller_history_controls="<<callerHistoryControls<<" actor_history_controls=1\n";
+    require(rejected==7940 && callerBoundaries==50 && bossBoundaries==443 &&
+        bossHistoryControls==1335 && callerHistoryControls==157 && playerSetupControls==22 &&
+        playerCapControls==5,"Pass rejection coverage differs");
+    std::cout<<"frame_actor_pass_unit=ok state_rejections="<<rejected<<" phase_controls=3 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_controls=2 caller_boundaries="<<callerBoundaries<<" skipped_post_controls=4 boss_boundaries="<<bossBoundaries<<" boss_irq_controls=2 nonplayer_return_controls=8 boss_history_controls="<<bossHistoryControls<<" caller_history_controls="<<callerHistoryControls<<" actor_history_controls=1 player_setup_controls="<<playerSetupControls<<" player_cap_controls="<<playerCapControls<<'\n';
 }
 }
 int main(int argc,char** argv) {

@@ -224,6 +224,7 @@ private:
              state_.actorKind!=FrameActorPassKind::Player) ||
             state_.timerInstructions>state_.dispatchedInstructions || state_.actorCalls>state_.dispatchedInstructions ||
             state_.actorReturns>state_.actorCalls ||
+            state_.playerCalls>2 ||
             state_.nonplayerCalls>state_.actorCalls || state_.playerCalls!=state_.actorCalls-state_.nonplayerCalls ||
             state_.postCalls>state_.playerCalls || state_.postReturns>state_.postCalls ||
             state_.postCalls>state_.actorReturns)
@@ -246,6 +247,8 @@ private:
                     if (((cpu->registers.ip==0x7ee4 || cpu->registers.ip==0x7ee8) && !state_.nonplayerCalls) ||
                         (cpu->registers.ip>=0x7ebb && cpu->registers.ip<=0x7ec5 && state_.actorCalls) ||
                         ((cpu->registers.ip<=0x7f3a || cpu->registers.ip==0x77dc) && state_.playerCalls) ||
+                        (((cpu->registers.ip>=0x7f3c && cpu->registers.ip<=0x7f59) ||
+                            cpu->registers.ip==0x804b) && state_.playerCalls>1) ||
                         (child.outcome==FrameActorEntryOutcome::Running &&
                             !callerAddress(cpu->registers.ip)) ||
                         (child.outcome!=FrameActorEntryOutcome::Running &&

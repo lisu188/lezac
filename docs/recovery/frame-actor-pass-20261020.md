@@ -435,3 +435,44 @@ supplement is calibrated separately: 688,128 live executable bytes match the
 unchanged historical ELF exactly under the synthetic fault. This is capture
 mechanism validation, not reproduction or diagnosis of the historical failure.
 Raw core, stack and executable-byte captures remain local and unpublished.
+
+## October 23 Second-Player History Follow-Up
+
+Review of 856dd2611fbd25466e091211ae1a4ad8be21afed found that 7F3C still
+accepted two completed player/post calls. The original second-slot setup
+through 7F59 can have at most one completed player call; the 804B backward
+jump has the same limit. All states now cap total player calls at two.
+Independent compiled probes reproduce acceptance of the reported 7F3C state,
+the related 804B state and a three-player-call caller before this fix; all
+three are rejected afterward without constructor bus effects.
+
+Twenty-two ordinary/interrupted controls cover every supported setup PC and
+804B, retaining matching one-call positives. Five controls check the total
+cap in ordinary/interrupted callers, a terminal caller, an active actor and
+an active post continuation. A completed-two-player terminal remains admitted.
+The unit now rejects 7,940 malformed snapshots. Two new guard-removal faults
+bring the compiled fault set to 40; all are detected after a passing
+authenticated unit/full-original baseline.
+
+No nonplayer-call cap is inferred from byte-sized DS:208D: ActorExpiry's
+65C6 instruction rewinds DS:2082 after compaction. A bound needs a separate
+proof accounting for callee writes and spawning, not just the caller's byte
+comparison. The independently probed 256-call state remains admitted by this
+structural validator; this is not evidence that its complete RAM history is
+reachable. No original instruction body, producer or frozen fixture changes.
+
+Fresh strict optimized GCC, native MSVC and GCC ASan/UBSan builds pass the
+expanded unit and all 7,884 original replays, including 10,432,263 control/
+register comparisons and complete final-memory checks. Four Linux fixture
+tests, both Windows instruction catalogs, source guard and whitespace checks
+pass. Protected inputs remain unchanged during validation. Full CLI and
+cold-checkout artifact batches were not regenerated for this guard-only
+follow-up; current-head hosted checks and review remain required.
+
+The separate stability hold remains open. A parent-process hardware debugger
+has been calibrated with a synthetic host-snapshot fault: it starts the
+historical executable without a preload hook or GDB, stops before the throw,
+captures registers/stack and byte-identical owned executable text, then hands
+the stopped child to GDB as its same parent and resumes it through the expected
+failure. This validates the new capture mechanism, not a historical failure
+reproduction. All such diagnostic data stays local in RAM.

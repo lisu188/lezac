@@ -60,6 +60,7 @@ tests/fixtures/nonplayer_motion/** -text
 tests/fixtures/nonplayer_loop/** -text
 tests/fixtures/player_motion/** -text
 tests/fixtures/actor_update/** -text
+tests/fixtures/frame_tail/** -text
 tests/fixtures/player_post/** -text
 tools/frame_foreground_probe/** text eol=lf
 tools/frame_foreground_probe/*.patch -whitespace

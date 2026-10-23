@@ -351,3 +351,55 @@ All protected source/original/fixture hashes remain unchanged during these
 runs. Full cold-checkout validation was not regenerated for this guard-only
 change; its fixture and attribute bytes are unchanged and hosted validation
 remains required. The separate intermittent optimized replay hold remains open.
+
+## October 23 Ordered Actor History Review
+
+Review of 09cce3a1b07e11c92d068b066896f83141f40643 identified balanced but
+unreachable histories: active boss links with completed actor calls, and
+nonplayer-return PCs 7EE4/7EE8 with completed player/post calls. An independent
+compiled probe accepts both reported cases and six related cases before the
+fix, then rejects all eight afterward without constructor bus effects.
+
+The boss phase now requires zero actor calls. Existing counter bounds and
+balances consequently require zero actor returns, nonplayer/player calls and
+post calls/returns too. Caller entry through 7EC5 cannot carry actor history;
+the pre-player caller phase through 7F34 and the 77DC restart endpoint cannot
+carry player history. An active nonplayer update likewise cannot contain a
+completed player call. These checks do not authenticate arbitrary RAM or a
+historical IRQ schedule, and no original instruction body or fixture changes.
+
+The new tests add 1,335 boss-history controls across all 443 supported
+boundaries, including the checked error endpoint and two actually interrupted
+boss states; 153 caller-history controls include both nonplayer-return PCs,
+ordinary/interrupted callers and the restart endpoint. One active-nonplayer
+control brings the additional rejection count to 1,489 and the unit total to
+7,909. Positive cases retain all 50 caller entries, all 443 boss boundaries,
+the actual interrupted boss states, a completed player at 8044 and a restart
+with completed nonplayer work. The latter guards against accidentally treating
+77DC as a pre-loop PC merely because its numeric address is below 7EC5.
+
+The compiled fault set contains four new guard-removal faults, for 37 total.
+Fresh strict optimized GCC passes the unit and all 7,884 original replays,
+including full final-memory checks and 10,432,263 register/control comparisons.
+Four fixture-tool tests, the 20-case source guard and all six Python
+compatibility tests pass. Native, sanitizer, mutation and current-head hosted
+validation remain separate gates; these results do not clear the intermittent
+optimized replay hold.
+
+The completed follow-up runs detect all 37 compiled faults after a passing
+authenticated unit/full-original baseline. Fresh strict native MSVC and
+GCC ASan/UBSan builds also pass the expanded unit and all 7,884 original
+replays; both instruction-catalog tests pass on Windows. Protected source,
+canonical MZ and fixture hashes are preserved during validation. The focused
+integration audit retains every existing CTest and adds exactly the six
+actor-pass registrations, retaining both cold-checkout families. Full CLI and
+cold-checkout artifact batches were not regenerated for this guard-only fix;
+the unchanged fixture/attribute data and existing checks do not replace fresh
+current-head hosted validation or clear the separate stability hold.
+
+The branch integrates main 13a70b9, retaining both tail and actor-pass CMake,
+source ownership and cold-checkout registrations. A merge of the published
+09cce3a ancestry preserves its history without changing the integrated tree.
+The old Windows job failed exactly the two boss AST checks and one retained
+compression-reserve check addressed by merged PR #460; it is not a passing
+check on this new tree and must be rerun.

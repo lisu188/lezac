@@ -312,7 +312,9 @@ void unit() {
         std::get<FrameActorCallerSnapshot>(entry.callee).registers.ip=outcome==FrameActorPassOutcome::TransientQueues ? 0x804e : 0x77dc;
         reject(s);
     }
-    s=completedPlayer;s.postCalls=s.postReturns=1;(void)FrameActorPassOperation(s);
+    s=completedPlayer;s.postCalls=s.postReturns=1;
+    std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.ip=0x8044;
+    (void)FrameActorPassOperation(s);
     constexpr std::array<uint16_t,196> bossGameIps{
         0x432a,0x432b,0x432d,0x4330,0x4335,0x4338,0x433b,0x433d,0x4340,0x4343,
         0x4346,0x4348,0x434b,0x434e,0x4350,0x4353,0x4356,0x4359,0x435d,0x4360,
@@ -386,6 +388,18 @@ void unit() {
     for (uint16_t ip : {uint16_t{0x4329},uint16_t{0x452a}}) reject(bossState(kGame,ip));
     for (uint16_t ip : {uint16_t{0x1820},uint16_t{0xffff}}) reject(bossState(0x1920,ip));
     reject(bossState(0x2000,0x432a));
+    unsigned bossHistoryControls=0,callerHistoryControls=0;
+    const auto rejectBossHistory=[&](const FrameActorPassSnapshot& base) {
+        for (unsigned history=0;history<3;++history) {
+            auto state=base;state.dispatchedInstructions+=2;
+            state.nonplayerCalls=history==1 ? 0 : 1;
+            state.playerCalls=state.postCalls=state.postReturns=history==0 ? 0 : 1;
+            state.actorCalls=state.actorReturns=state.nonplayerCalls+state.playerCalls;
+            reject(state);++bossHistoryControls;
+        }
+    };
+    for (uint16_t ip : bossGameIps) rejectBossHistory(bossState(kGame,ip));
+    for (uint16_t ip : bossLibraryIps) rejectBossHistory(bossState(0x1920,ip));
     for (uint16_t ip : {uint16_t{0x7ee4},uint16_t{0x7ee8}}) {
         for (bool completedPlayerOnly : {false,true}) {
             s=initial;s.dispatchedInstructions=2;
@@ -400,11 +414,13 @@ void unit() {
     require(bossActive.registers().cs==kGame && bossActive.registers().ip==0x432a,"Pass boss CALL boundary differs");
     auto bossInterrupted=bossActive;bossInterrupted.deliverTimerInterrupt(bossBus);
     (void)FrameActorPassOperation(bossInterrupted.snapshot());
+    rejectBossHistory(bossInterrupted.snapshot());
     s=bossInterrupted.snapshot();
     std::get<BossLinksSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.ip=0x432c;reject(s);
     bossActive.advance(4,bossBus,all);
     require(bossActive.registers().cs==0x1920 && bossActive.registers().ip==0x4df,"Pass boss RTL boundary differs");
     bossActive.deliverTimerInterrupt(bossBus);(void)FrameActorPassOperation(bossActive.snapshot());
+    rejectBossHistory(bossActive.snapshot());
     s=bossActive.snapshot();
     std::get<BossLinksSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.ip=0x4e0;reject(s);
     r.ip=0x6053;
@@ -414,6 +430,8 @@ void unit() {
     actorState.dispatchedInstructions=1;
     r.sp=0x3fde;actorState.callee=ActorUpdateOperation(r,kGame,kIdToggle).snapshot();
     (void)FrameActorPassOperation(actorState);
+    s=actorState;s.dispatchedInstructions=3;s.actorCalls=2;s.actorReturns=1;
+    s.playerCalls=s.postCalls=s.postReturns=1;reject(s);
     s=actorState;++std::get<ActorUpdateSnapshot>(s.callee).callerSs;reject(s);
     s=actorState;++std::get<ActorUpdateSnapshot>(s.callee).callerSp;reject(s);
     s=actorState;std::get<ActorUpdateSnapshot>(s.callee).dispatchedInstructions=2;reject(s);
@@ -450,6 +468,32 @@ void unit() {
     FrameActorPassOperation interrupted(initial);interrupted.deliverTimerInterrupt(irqBus);
     const auto irqState=interrupted.snapshot();
     (void)FrameActorPassOperation(irqState);
+    for (bool irq : {false,true}) {
+        for (uint16_t ip : callerIps) {
+            if (ip>0x7f34) continue;
+            for (bool nonplayerHistory : {false,true}) {
+                s=irq ? irqState : initial;s.dispatchedInstructions=3;
+                s.nonplayerCalls=nonplayerHistory ? 1 : 0;
+                s.playerCalls=s.postCalls=s.postReturns=1;
+                s.actorCalls=s.actorReturns=s.nonplayerCalls+1;
+                std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.ip=ip;
+                reject(s);++callerHistoryControls;
+            }
+            if (ip<=0x7ec5) {
+                s=irq ? irqState : initial;s.dispatchedInstructions=3;
+                s.actorCalls=s.actorReturns=s.nonplayerCalls=1;
+                std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.ip=ip;
+                reject(s);++callerHistoryControls;
+            }
+        }
+    }
+    s=initial;s.dispatchedInstructions=3;s.actorCalls=s.actorReturns=s.playerCalls=s.postCalls=s.postReturns=1;
+    s.outcome=FrameActorPassOutcome::Restart;
+    std::get<FrameActorEntrySnapshot>(s.callee).outcome=FrameActorEntryOutcome::Restart;
+    std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.ip=0x77dc;
+    reject(s);++callerHistoryControls;
+    s.playerCalls=s.postCalls=s.postReturns=0;s.nonplayerCalls=1;
+    (void)FrameActorPassOperation(s);
     s=irqState;++std::get<FrameActorEntrySnapshot>(s.callee).timer->dataSegment;reject(s);
     s=irqState;std::get<FrameActorEntrySnapshot>(s.callee).timer->idToggleMask=0;reject(s);
     s=irqState;s.dispatchedInstructions=2;s.actorCalls=s.actorReturns=s.playerCalls=1;reject(s);
@@ -479,8 +523,9 @@ void unit() {
         try { ended.deliverTimerInterrupt(bus); } catch (const std::logic_error&) { stopped=true; }
         require(stopped && ended.advance(17,bus,all)==0 && ended.snapshot()==saved,"Finished pass changed state");
     }
-    require(rejected==6420 && callerBoundaries==50 && bossBoundaries==443,"Pass rejection coverage differs");
-    std::cout<<"frame_actor_pass_unit=ok state_rejections="<<rejected<<" phase_controls=3 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_controls=2 caller_boundaries="<<callerBoundaries<<" skipped_post_controls=4 boss_boundaries="<<bossBoundaries<<" boss_irq_controls=2 nonplayer_return_controls=8\n";
+    require(rejected==7909 && callerBoundaries==50 && bossBoundaries==443 &&
+        bossHistoryControls==1335 && callerHistoryControls==153,"Pass rejection coverage differs");
+    std::cout<<"frame_actor_pass_unit=ok state_rejections="<<rejected<<" phase_controls=3 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_controls=2 caller_boundaries="<<callerBoundaries<<" skipped_post_controls=4 boss_boundaries="<<bossBoundaries<<" boss_irq_controls=2 nonplayer_return_controls=8 boss_history_controls="<<bossHistoryControls<<" caller_history_controls="<<callerHistoryControls<<" actor_history_controls=1\n";
 }
 }
 int main(int argc,char** argv) {

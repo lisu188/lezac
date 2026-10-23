@@ -244,6 +244,8 @@ private:
                     invalid();
                 if (const auto* cpu=std::get_if<FrameActorCallerSnapshot>(&child.callee)) {
                     if (((cpu->registers.ip==0x7ee4 || cpu->registers.ip==0x7ee8) && !state_.nonplayerCalls) ||
+                        (cpu->registers.ip>=0x7ebb && cpu->registers.ip<=0x7ec5 && state_.actorCalls) ||
+                        ((cpu->registers.ip<=0x7f34 || cpu->registers.ip==0x77dc) && state_.playerCalls) ||
                         (child.outcome==FrameActorEntryOutcome::Running &&
                             !callerAddress(cpu->registers.ip)) ||
                         (child.outcome!=FrameActorEntryOutcome::Running &&
@@ -251,7 +253,8 @@ private:
                         invalid();
                 } else if (const auto* links=std::get_if<BossLinksSnapshot>(&child.callee)) {
                     const auto& r=links->registers;
-                    if (links->dispatchedInstructions>child.dispatchedInstructions ||
+                    // Boss work precedes all actor calls; the shared balances force every other call counter to zero.
+                    if (state_.actorCalls || links->dispatchedInstructions>child.dispatchedInstructions ||
                         (child.outcome==FrameActorEntryOutcome::Running &&
                             r.cs==static_cast<uint16_t>(state_.gameSegment+0x920) && r.ip==0xe2) ||
                         (r.cs==state_.gameSegment ? !bossGameAddress(r.ip) :
@@ -274,6 +277,7 @@ private:
                     invalid();
                 if constexpr (std::is_same_v<Child,ActorUpdateSnapshot>) {
                     if (state_.actorKind==FrameActorPassKind::None || state_.actorCalls!=state_.actorReturns+1 ||
+                        (state_.actorKind==FrameActorPassKind::Nonplayer && state_.playerCalls) ||
                         state_.postCalls!=state_.postReturns ||
                         state_.playerCalls-state_.postCalls!=(state_.actorKind==FrameActorPassKind::Player ? 1u : 0u))
                         invalid();

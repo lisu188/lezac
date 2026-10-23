@@ -38,6 +38,13 @@ FAULTS = (
     ('boss_library_instruction_scope', '!bossLibraryAddress(r.ip)', 'false'),
     ('nonplayer_return_ownership',
         '((cpu->registers.ip==0x7ee4 || cpu->registers.ip==0x7ee8) && !state_.nonplayerCalls) ||', 'false ||'),
+    ('boss_actor_history', 'state_.actorCalls || links->dispatchedInstructions>child.dispatchedInstructions',
+        'links->dispatchedInstructions>child.dispatchedInstructions'),
+    ('caller_preloop_history',
+        'cpu->registers.ip>=0x7ebb && cpu->registers.ip<=0x7ec5 && state_.actorCalls', 'false'),
+    ('caller_player_history',
+        '(cpu->registers.ip<=0x7f34 || cpu->registers.ip==0x77dc) && state_.playerCalls', 'false'),
+    ('nonplayer_player_history', 'state_.actorKind==FrameActorPassKind::Nonplayer && state_.playerCalls', 'false'),
     ('running_boss_terminal',
         '(child.outcome==FrameActorEntryOutcome::Running &&\n'
         '                            r.cs==static_cast<uint16_t>(state_.gameSegment+0x920) && r.ip==0xe2) ||',

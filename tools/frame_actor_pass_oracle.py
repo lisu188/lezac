@@ -20,9 +20,10 @@ import player_post_oracle as post
 from actor_motion_oracle import compact_initial
 from actor_steering_oracle import encode_trace
 from frame_camera_oracle import EXE_SHA, LIB_SHA, REGS, sha
+from oracle_failure_report import write_failure
 
 DATA = 0x1aa20
-SOURCES = (*post.SOURCES, 'frame_actor_pass_oracle.py')
+SOURCES = (*post.SOURCES, 'frame_actor_pass_oracle.py', 'oracle_failure_report.py')
 STOPS = {0x1804e: 0, 0x177dc: 1, 0x192e2: 2}
 PLAYER = player.profiles()[0]
 
@@ -139,6 +140,8 @@ def initial_case(index, row, image, sines):
 
 
 def generate(root, out):
+    import resource
+    resource.setrlimit(resource.RLIMIT_CORE,(0,0))
     require(unicorn.__version__ == '2.1.4' and not any(key in os.environ for key in
         ('LD_PRELOAD', 'LIBUNICORN_PATH')), 'Unsupported frame actor pass runtime')
     library = Path(uclib._name).resolve(strict=True)
@@ -163,12 +166,15 @@ def generate(root, out):
     rows = profiles()
     output = bytearray(b'LZAPAS01' + struct.pack('<I', len(rows)))
     coverage, summaries = Counter(), []
-    sines, sine_proof = boss.sine_table(image)
+    index,row,initial,engine=-1,None,None,None
+    trace,writes,endpoints=[],[],[]
     try:
+        sines, sine_proof = boss.sine_table(image)
         for index, row in enumerate(rows):
-            entry, initial, seeds = initial_case(index, row, image, sines)
             trace, writes, endpoints, calls = [], [], [], []
             engine, fault = None, None
+            initial=None
+            entry, initial, seeds = initial_case(index, row, image, sines)
             visited, counts = set(), Counter()
             post_active = False
             for observed in (True, False):
@@ -288,16 +294,8 @@ def generate(root, out):
         (out / 'checkpoints.json').write_text(json.dumps(summaries, sort_keys=True, indent=2) + '\n')
         print(json.dumps(manifest, sort_keys=True), flush=True)
     except Exception as error:
-        failure = dict(index=index, profile=row, error=str(error), sources=sources)
-        if engine is not None:
-            (out / 'failed-current-ram.bin').write_bytes(engine.mem_read(0, 1048576))
-        for number, (registers, memory, fault) in enumerate(endpoints):
-            (out / ('failed-endpoint-' + str(number) + '.bin')).write_bytes(memory)
-            failure['endpoint_' + str(number)] = registers
-        (out / 'failed-initial.bin').write_bytes(initial)
-        (out / 'failed.json').write_text(json.dumps(failure, indent=2) + '\n')
-        (out / 'partial-corpus.bin').write_bytes(output)
-        (out / 'producer-at-failure.py').write_bytes(Path(__file__).read_bytes())
+        write_failure(out,error,case=index,profile=row,sources=sources,initial=initial,
+            endpoints=endpoints,current=engine,trace=trace,writes=writes,projection=output)
         raise
 
 

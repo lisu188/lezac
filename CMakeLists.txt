@@ -984,6 +984,10 @@ if(BUILD_TESTING)
             --out ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass.bin
             --report ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass-fixture.json)
         set_tests_properties(frame_actor_pass_fixture_contract PROPERTIES FIXTURES_SETUP frame_actor_pass_corpus TIMEOUT 180)
+        add_test(NAME oracle_failure_report_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_oracle_failure_report.py -v)
+        set_tests_properties(oracle_failure_report_contract PROPERTIES TIMEOUT 180
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
         add_test(NAME frame_actor_pass_original COMMAND lezac_frame_actor_pass_test
             ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass.bin ${CMAKE_CURRENT_SOURCE_DIR})
         set_tests_properties(frame_actor_pass_original PROPERTIES FIXTURES_REQUIRED frame_actor_pass_corpus TIMEOUT 600

@@ -1732,11 +1732,12 @@
     "ammo_hud_oracle.py": "40d3698b61cf7703e16a7277a9fa33fb15ea973a2f299d3458df99fe0026153e",
     "boss_links_oracle.py": "b7d2264e4b5548aac4eb7af2db95c849c8ef34902ff2ab97feb179c7e020c7b4",
     "frame_actor_entry_oracle.py": "cccc50c4c7304796ba7203c026d2a494a057e454e9ce9928563af195c165349e",
-    "frame_actor_pass_oracle.py": "8108d33959531548966ce532fd797dbbbcae9e03087aaf6c8845aca23c027c4d",
+    "frame_actor_pass_oracle.py": "8149909abfc5afa765e55edcff1cdc6da4c477f4f41545abc57237eae09106fa",
     "frame_camera_oracle.py": "7f277672f407c3d8054ef954e2b16958a139d827d9f3b2da0c7a36ed717d90b9",
     "frame_spawner_oracle.py": "dbf1661df4c07ed0d422a764c6d2c31a8ca623e5b23d4ae6c8317783ffcc049f",
     "frame_waiting_oracle.py": "b2183e5c47d80f9c57a6c9292eb84566c912eeab905628aa2b01330258306db3",
     "nonplayer_loop_oracle.py": "e37999e2c90d06661a32351e8f39780983281be15aa5cfff35aa0a326a6b13da",
+    "oracle_failure_report.py": "b8ead7266fb75a33a8aecb2e67291f4185d28d0565817983066c452bf75048a9",
     "player_motion_oracle.py": "263135543adb830df0ed3fb6ac6a9269522735a341feb76e8aae6ee63c300d04",
     "player_post_oracle.py": "298ba3bc6c858c52828334ea8171be7f86bb5a4770dd1a2a8ce806bb6575520b"
   },

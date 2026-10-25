@@ -53,7 +53,7 @@ with the actual mapped native Unicorn library.
 | Raw / compressed projection bytes | 35,707,847 / 8,758,898 |
 | Raw SHA-256 | 799531ca906973fc9f0b619855e42898aa5eb876b4086641cc6b637eb63a40d3 |
 | Compressed SHA-256 | 956e37149058c02aeb3519af0448e0ce5f906a08cdc8a3b52144596ea59e4307 |
-| Manifest SHA-256 | 42e18b01ee7d869fa2e1115b3a1334b8602375e190edb2affea43d2ad94a904d |
+| Historical A/B manifest SHA-256 | 42e18b01ee7d869fa2e1115b3a1334b8602375e190edb2affea43d2ad94a904d |
 | Checkpoint catalog SHA-256 | a71da337ca2a5851396c783a140885752b7b198ff469520fda77e3bbce82a4be |
 
 Executable SHA-256:
@@ -559,3 +559,59 @@ is called when word DS:2076 is nonzero or DS:207E is at least 200; 5102 is
 called when word DS:2080 is nonzero. The actor pass stops before this bridge,
 and FrameTail begins after it. This is a recorded composition gap, not newly
 implemented or validated queue behavior.
+
+## October 25 Current-Main And Bounded Failure Integration
+
+This integration retains main `3b8af68`, the reviewed queue-caller head
+`9751125`, and the held actor-pass head `5f56589`. The frozen-family conflict
+is resolved by retaining all 35 families, not replacing newer queue tests with
+the older actor-pass list. Existing recovered core and actor-pass test bytes
+remain unchanged; the six newer transient headers are additional dependencies.
+The actor-pass operation still stops at 804E. The new queue bridge and existing
+frame tail are available but are not yet one continuous operation with it.
+
+The actor-pass producer's legacy error handler wrote complete guest RAM images.
+It now uses `oracle_failure_report.py`: only complete-memory hashes, up to two
+endpoint register sets, sixteen register rows, sixteen ordered writes, compact
+input metadata, and a projection digest are retained. The complete serialized
+report is capped at 65,536 bytes and created exclusively, preserving existing
+files and broken links. No partial corpus, source copy, full RAM image, or core
+dump is created by this failure path; process core limits are explicitly zero.
+Initializer and initial-case exceptions are covered before any first-case
+memory exists. An injected initializer-read failure originally escaped that
+handler and retained no report; moving the initializer inside the protected
+block repairs that separate early-failure gap.
+
+Ten portable failure-report tests pass on Linux. Windows passes nine and skips
+the host-denied symbolic-link operation explicitly. Three actual producer
+controls fail the original sine initializer, initial-case construction, and
+complete endpoint-memory read. They preserve the source hashes and retain only
+`failed.json`, at 2,000, 2,478, and 5,691 bytes, with zero guest-memory bytes
+written. The complete-memory read control does not invoke the old unsafe
+failure writer.
+
+A fresh complete original generation reproduces the existing 35,707,847-byte
+projection and 8,758,898-byte gzip exactly. All proof-domain fields, coverage,
+and original payload hashes remain unchanged; the manifest now binds sixteen
+producer modules plus LEZAC.EXE, including the bounded writer. Current manifest
+SHA-256 is `6d27536fb70a32817a0203d6850ae408e01f4c433c59ef8bbd23ab4a5510920b`;
+current producer SHA-256 is
+`8149909abfc5afa765e55edcff1cdc6da4c477f4f41545abc57237eae09106fa`.
+Earlier-generation records above remain historical identities, not the current
+manifest identity. Three preceding safety-repair generations also retain the
+unchanged original payload; no full RAM export was needed for the refresh.
+
+All seven focused CTests pass, including the 7,884-replay original baseline,
+8,350 unit rejections, eight CLI rejection controls, four fixture-tool tests,
+the bounded-report suite, and source guardrails. The separate cold-checkout
+CTest passes with 35 families. These tooling and integration results do not
+explain the historical intermittent optimized failures, clear the draft hold,
+or establish full-frame, natural-route, clock, or production-App integration.
+The 45-fault actor-pass suite is unchanged; its historical results are not
+presented as a new mutation campaign for this tooling-only repair.
+
+Fresh strict MSVC `/std:c++latest /W4 /WX /O2` and GCC
+AddressSanitizer/UndefinedBehaviorSanitizer runs also pass the unit, complete
+original corpus, and all four fixture-tool tests. Every protected source,
+canonical executable, and projection hash remains unchanged during those
+runs. These successful bounded runs are not a diagnosis of the held failure.

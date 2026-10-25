@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / 'tests/fixtures/frame_actor_pass'
-MANIFEST_SHA = '42e18b01ee7d869fa2e1115b3a1334b8602375e190edb2affea43d2ad94a904d'
+MANIFEST_SHA = '6d27536fb70a32817a0203d6850ae408e01f4c433c59ef8bbd23ab4a5510920b'
 PROJECTION_BYTES = 35707847
 COVERAGE = dict(cases=876, register_states=3360464, ordered_writes=590096,
     actor_calls=3398, actor_returns=3370, nonplayer_calls=2244, player_calls=1154,
@@ -19,7 +19,8 @@ INPUTS = ('LEZAC.EXE', 'tools/actor_contact_oracle.py', 'tools/actor_motion_orac
     'tools/actor_precontact_oracle.py', 'tools/actor_steering_oracle.py', 'tools/ammo_hud_oracle.py',
     'tools/boss_links_oracle.py', 'tools/frame_actor_entry_oracle.py', 'tools/frame_camera_oracle.py',
     'tools/frame_spawner_oracle.py', 'tools/frame_waiting_oracle.py', 'tools/player_motion_oracle.py',
-    'tools/nonplayer_loop_oracle.py', 'tools/actor_update_oracle.py', 'tools/player_post_oracle.py', 'tools/frame_actor_pass_oracle.py')
+    'tools/nonplayer_loop_oracle.py', 'tools/actor_update_oracle.py', 'tools/player_post_oracle.py',
+    'tools/frame_actor_pass_oracle.py', 'tools/oracle_failure_report.py')
 sha = lambda raw: hashlib.sha256(raw).hexdigest()
 
 

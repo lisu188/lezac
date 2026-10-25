@@ -45,6 +45,7 @@
         "src/core/frame_pacing_operation.hpp",
         "src/core/frame_render.hpp",
         "src/core/frame_spawner.hpp",
+        "src/core/frame_transient_queues.hpp",
         "src/core/frame_view_copy.hpp",
         "src/core/frame_world_raster.hpp",
         "src/core/game_keyboard.hpp",
@@ -62,7 +63,11 @@
         "src/core/random.hpp",
         "src/core/startup_timing.hpp",
         "src/core/timer_irq.hpp",
-        "src/core/transient_removal.hpp"
+        "src/core/transient_removal.hpp",
+        "src/core/transient_motion.hpp",
+        "src/core/transient_queue_instructions.hpp",
+        "src/core/collapse_queue_instructions.hpp",
+        "src/core/transient_update.hpp"
       ]
     },
     "resources": {

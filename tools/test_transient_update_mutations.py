@@ -10,6 +10,7 @@ import check_transient_update_fixture as fixture
 
 ROOT=Path(__file__).resolve().parents[1]
 FAULTS=(
+    ('terminal_validation','transient_update.hpp','if (finished()) validate();','if (false) validate();'),
     ('spark_lifetime','transient_queue_instructions.hpp',
         'case 0x48f4:bus.writeByte(r.es,static_cast<uint16_t>(r.di+0x8u),static_cast<uint8_t>(increment(bus.readByte(r.es,static_cast<uint16_t>(r.di+0x8u)),true,true)))',
         'case 0x48f4:bus.writeByte(r.es,static_cast<uint16_t>(r.di+0x8u),static_cast<uint8_t>(increment(bus.readByte(r.es,static_cast<uint16_t>(r.di+0x8u)),false,true)))'),

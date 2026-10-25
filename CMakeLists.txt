@@ -793,7 +793,7 @@ if(BUILD_TESTING)
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_transient_update_mutations.py
                 --cxx ${CMAKE_CXX_COMPILER} --out ${CMAKE_CURRENT_BINARY_DIR}/transient-update-mutations)
             set_tests_properties(transient_update_mutations PROPERTIES TIMEOUT 600
-                PASS_REGULAR_EXPRESSION "transient_update_mutations=ok faults=10 positive_baseline=1 sources_preserved=1")
+                PASS_REGULAR_EXPRESSION "transient_update_mutations=ok faults=11 positive_baseline=1 sources_preserved=1")
         endif()
         add_test(NAME transient_removal_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_transient_removal_fixture.py

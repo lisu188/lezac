@@ -90,6 +90,7 @@ void compare(DosGetTimeRegisters actual,DosGetTimeRegisters expected,unsigned in
     }
 }
 uint64_t rejected=0,irqCases=0;
+unsigned copyGrantControls=0;
 std::set<uint32_t> irqBoundaries;
 void rejectionControls(const TransientUpdateSnapshot& good) {
     const auto reject=[](const TransientUpdateSnapshot& state) {
@@ -127,12 +128,14 @@ void rejectionControls(const TransientUpdateSnapshot& good) {
         if (good.helper || p->bpKind!=2) {bad=good;++bad.foreground.registers.bp;reject(bad);}
     }
 }
-void irqControl(const TransientUpdateOperation& source,const Memory& original) {
+void irqControl(const TransientUpdateOperation& source,const Memory& original,bool partial=false) {
     const auto pc=source.registers();
     if (pc.cs!=0x1000 && pc.cs!=0x1920) return;
-    if (pc.ip!=0x45fa && pc.ip!=0x4605 && pc.ip!=0x3eda && pc.ip!=0x452a && pc.ip!=0x458d &&
+    if (pc.ip!=0x5102 && pc.ip!=0x5110 && pc.ip!=0x4d3c && pc.ip!=0x4e48 && pc.ip!=0x4ee7 &&
+        pc.ip!=0x4fda && pc.ip!=0x508b && pc.ip!=0x50be && pc.ip!=0x45fa && pc.ip!=0x4605 && pc.ip!=0x3eda && pc.ip!=0x452a && pc.ip!=0x458d &&
         pc.ip!=0x3bb2 && pc.ip!=0x3d46 && pc.ip!=0x945 && pc.ip!=0x4df && pc.ip!=0x3fa6 && pc.ip!=0x414a) return;
-    const auto key=uint32_t{pc.cs}*65536+pc.ip;if (!irqBoundaries.insert(key).second) return;
+    const auto key=(uint32_t{pc.cs}*65536+pc.ip)^(partial ? 0x40000000u : 0u);
+    if (!irqBoundaries.insert(key).second) return;
     auto op=source;auto memory=original;memory.store(0x70,0x0fbe);memory.store(0x72,0x1000);
     memory.store(0x46c,100);memory.bytes[0x440]=2;const auto bus=memory.bus();
     op.deliverTimerInterrupt(bus);const auto delivered=op.snapshot();const auto written=memory.writes;
@@ -153,18 +156,37 @@ void irqControl(const TransientUpdateOperation& source,const Memory& original) {
     require(op.snapshot()==other.snapshot() && memory.bytes==otherMemory.bytes && memory.writes==otherMemory.writes,
         "Updater post-IRQ grant/snapshot continuation differs");++irqCases;
 }
+void copyControl(const TransientUpdateOperation& source,const Memory& original) {
+    const auto before=source.registers();
+    if (copyGrantControls || before.cs!=0x1000 || before.ip!=0x50be || before.cx<=1) return;
+    auto op=source;auto memory=original;const auto bus=memory.bus();
+    require(op.advance(1,bus,[](uint16_t) {return uint16_t{0};})==1 && op.registers()==before &&
+        memory.writes==original.writes && memory.bytes==original.bytes,"Zero collapse copy grant changed state");
+    op=TransientUpdateOperation(op.snapshot());
+    const auto state=op.snapshot();bool failed=false;
+    try {op.advance(1,bus,[](uint16_t n) {return static_cast<uint16_t>(n+1u);});}
+    catch (const std::domain_error&) {failed=true;}
+    require(failed && op.snapshot()==state && memory.writes==original.writes && memory.bytes==original.bytes,
+        "Oversized collapse copy grant changed state");
+    op=source;op.advance(1,bus,[](uint16_t) {return uint16_t{1};});
+    require(op.registers().ip==before.ip && op.registers().cx==before.cx-1 && memory.writes.size()==original.writes.size()+1,
+        "Partial collapse copy did not retain REP boundary");
+    op=TransientUpdateOperation(op.snapshot());irqControl(op,memory,true);copyGrantControls=3;
+}
 void replay(const char* path,const char* root) {
-    Reader input{read(path)};require(input.bytes.size()<=16*1024*1024,"Updater fixture exceeds reserve");
-    for (char c : std::string("LZTRUP01")) require(input.number(1)==static_cast<uint8_t>(c),"Updater magic differs");
+    Reader input{read(path)};require(input.bytes.size()>=16 && input.bytes.size()<=32*1024*1024,"Updater fixture exceeds reserve");
+    const std::string magic(input.bytes.begin(),input.bytes.begin()+8);const bool collapse=magic=="LZCLUP01";
+    require(collapse || magic=="LZTRUP01","Updater magic differs");input.at=8;
+    const auto mode=collapse ? TransientUpdateEntry::Collapse : TransientUpdateEntry::SparksAndDebris;
     const auto count=input.number(4),mzBytes=input.number(4);const auto mz=read(std::filesystem::path(root)/"LEZAC.EXE");
-    require(count==1142 && mzBytes==mz.size() && input.at+mzBytes<=input.bytes.size(),"Updater corpus/MZ size differs");
+    require(count==(collapse ? 2551u : 1142u) && mzBytes==mz.size() && input.at+mzBytes<=input.bytes.size(),"Updater corpus/MZ size differs");
     require(std::equal(mz.begin(),mz.end(),input.bytes.begin()+static_cast<std::ptrdiff_t>(input.at)),"Updater canonical MZ bytes differ");
     input.at+=mzBytes;const auto base=image(mz);uint64_t comparisons=0,dispatches=0,totalWrites=0,replays=0;
-    std::array<unsigned,3> outcomes{};unsigned denseCases=0,terminalRejections=0;
+    std::array<unsigned,4> outcomes{};unsigned denseCases=0,terminalRejections=0;
     for (unsigned index=0;index<count;++index) {
         try {
             require(input.number(4)==index,"Updater case index differs");const auto domain=input.number(4),outcome=input.number(4);
-            require(domain<2 && outcome<3,"Updater domain/outcome differs");++outcomes[outcome];
+            require(domain<2 && outcome<(collapse ? 4u : 3u),"Updater domain/outcome differs");++outcomes[outcome];
             const auto entry=input.registers(),endpoint=input.registers();auto initial=base;const auto seeds=input.number(4);
             require(seeds<64,"Updater seed reserve differs");
             for (unsigned i=0;i<seeds;++i) {
@@ -181,20 +203,22 @@ void replay(const char* path,const char* root) {
                 expected.store(at,static_cast<uint16_t>(value),static_cast<uint8_t>(size));writes.push_back({at,static_cast<uint8_t>(size),static_cast<uint16_t>(value)});
             }
             const bool dense=trace.size()>2;if (dense) ++denseCases;
-            if (index==0) {
-                auto corrupt=initial;corrupt.store(Memory::address(entry.ss,entry.sp),0x8061);
-                const auto bus=corrupt.bus();TransientUpdateOperation op(entry,0x1000,0x200000);
+            if (index==(collapse ? 1u : 0u)) {
+                const uint16_t target=collapse ? 0x806b : 0x8061;
+                auto corrupt=initial;corrupt.store(Memory::address(entry.ss,entry.sp),target);
+                const auto bus=corrupt.bus();TransientUpdateOperation op(entry,0x1000,0x200000,mode);
                 bool failed=false;try {op.advance(4096,bus,[](uint16_t n) {return n;});}
                 catch (const std::invalid_argument&) {failed=true;}
-                require(failed && op.registers().cs==0x1000 && op.registers().ip==0x8061,
+                require(failed && op.registers().cs==0x1000 && op.registers().ip==target,
                     "Updater advance admitted a corrupt caller return");++terminalRejections;
             }
             for (uint16_t limit : {uint16_t{1},uint16_t{65535}}) for (uint64_t budget : {1u,17u,4096u}) {
-                auto memory=initial;const auto bus=memory.bus();TransientUpdateOperation op(entry,0x1000,0x200000);
+                auto memory=initial;const auto bus=memory.bus();TransientUpdateOperation op(entry,0x1000,0x200000,mode);
                 const auto initialState=op.snapshot();require(op.advance(0,bus,[](uint16_t n) {return n;})==0 &&
                     op.snapshot()==initialState && memory.writes.empty(),"Zero updater budget changed state");
                 size_t cursor=0;uint64_t steps=0;
                 while (!op.finished()) {
+                    if (budget==1 && limit==1) copyControl(op,memory);
                     if (dense && budget==1 && limit==1) {
                         if (steps%17==0) rejectionControls(op.snapshot());
                         irqControl(op,memory);
@@ -212,7 +236,8 @@ void replay(const char* path,const char* root) {
                     }
                 }
                 compare(op.registers(),endpoint,index,trace.size()-1,0);++comparisons;
-                const auto result=outcome==0 ? TransientUpdateOutcome::Returned : outcome==1 ? TransientUpdateOutcome::RuntimeError : TransientUpdateOutcome::DivideError;
+                const auto result=outcome==0 ? TransientUpdateOutcome::Returned : outcome==1 ? TransientUpdateOutcome::RuntimeError :
+                    outcome==2 ? TransientUpdateOutcome::DivideError : TransientUpdateOutcome::Terminated;
                 require(op.snapshot().outcome==result,"Updater outcome differs");
                 if (memory.writes!=writes) {
                     const auto n=std::min(memory.writes.size(),writes.size());size_t at=0;
@@ -229,13 +254,14 @@ void replay(const char* path,const char* root) {
             totalWrites+=writes.size();
         } catch (const std::exception&) {std::cerr << "updater_case=" << index << '\n';throw;}
     }
-    require(input.at==input.bytes.size() && outcomes[0]==1138 && outcomes[1]==3 && outcomes[2]==1 && denseCases==18 &&
-        terminalRejections==1,"Updater coverage/tail differs");
-    std::cout << "transient_update_original=ok cases=" << count << " replays=" << replays << " comparisons=" << comparisons
+    require(input.at==input.bytes.size() && outcomes[0]==(collapse ? 2545u : 1138u) && outcomes[1]==(collapse ? 4u : 3u) &&
+        outcomes[2]==1 && outcomes[3]==(collapse ? 1u : 0u) && denseCases==(collapse ? 20u : 18u) &&
+        terminalRejections==1 && copyGrantControls==(collapse ? 3u : 0u),"Updater coverage/tail differs");
+    std::cout << (collapse ? "collapse_update_original" : "transient_update_original") << "=ok cases=" << count << " replays=" << replays << " comparisons=" << comparisons
         << " dispatches=" << dispatches << " writes=" << totalWrites << " dense_cases=" << denseCases
         << " state_rejections=" << rejected << " computed_irq_cases=" << irqCases << " all_endpoint_flags=1"
         << " full_memory=1 canonical_mz_bytes=1 later_state_injected=0 actual_app_integration=0 full_frame_claim=0 terminal_rejections="
-        << terminalRejections << '\n';
+        << terminalRejections << " copy_grant_controls=" << copyGrantControls << '\n';
 }
 }
 int main(int argc,char** argv) {

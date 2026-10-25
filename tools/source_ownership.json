@@ -45,6 +45,7 @@
         "src/core/frame_pacing_operation.hpp",
         "src/core/frame_render.hpp",
         "src/core/frame_spawner.hpp",
+        "src/core/frame_transient_queues.hpp",
         "src/core/frame_view_copy.hpp",
         "src/core/frame_world_raster.hpp",
         "src/core/game_keyboard.hpp",

@@ -35,9 +35,10 @@ FAULTS=(
         'false'),
 )
 
-def run(cxx,out,corpus=fixture,faults=FAULTS,family='transient_update'):
+def run(cxx,out,corpus=fixture,faults=FAULTS,family='transient_update',
+        test_source='tests/core/transient_update_test.cpp',unit=False,error_marker=b'transient_update_error='):
     out.mkdir(parents=True,exist_ok=True);work=Path(tempfile.mkdtemp(prefix='run-',dir=out))
-    protected=[*sorted((ROOT/'src/core').glob('*.*')),ROOT/'tests/core/transient_update_test.cpp',
+    protected=[*sorted((ROOT/'src/core').glob('*.*')),ROOT/test_source,
         *[ROOT/name for name in corpus.INPUTS],corpus.FIXTURE/'manifest.json',corpus.FIXTURE/'oracle.bin.gz']
     before={str(p):fixture.sha(p.read_bytes()) for p in protected}
     headers={'transient_update.hpp','transient_queue_instructions.hpp'}|{row[1] for row in faults}
@@ -54,20 +55,30 @@ def run(cxx,out,corpus=fixture,faults=FAULTS,family='transient_update'):
         for header,text in changes.items(): (overlay/header).write_text(text)
         exe=work/name/'probe'
         result=command([cxx,'-std=c++23','-O2','-Wall','-Wextra','-Werror','-pedantic','-pipe',
-            '-I'+str(overlay.parent),'-I'+str(ROOT/'src'),ROOT/'tests/core/transient_update_test.cpp','-o',exe],name+'-build')
+            '-I'+str(overlay.parent),'-I'+str(ROOT/'src'),ROOT/test_source,'-o',exe],name+'-build')
         if result.returncode: raise ValueError('Updater mutation compilation failed: '+name+' '+result.stderr.decode(errors='replace')[-2000:])
         return exe
     try:
-        baseline=build('baseline',source);result=command([baseline,oracle,ROOT],'baseline-original')
+        baseline=build('baseline',source)
+        if unit:
+            result=command([baseline],'baseline-unit')
+            if result.returncode or (family+'_unit=ok').encode() not in result.stdout:
+                raise ValueError('Authenticated updater unit baseline failed')
+        result=command([baseline,oracle,ROOT],'baseline-original')
         if result.returncode or (family+'_original=ok').encode() not in result.stdout: raise ValueError('Authenticated updater baseline failed')
         report['positive_baseline']=True
         for name,header,old,new in faults:
             if source[header].count(old)!=1: raise ValueError('Updater mutation anchor differs: '+name)
             changed=dict(source);changed[header]=source[header].replace(old,new)
-            exe=build(name,changed);result=command([exe,oracle,ROOT],name+'-original')
-            if not result.returncode or b'transient_update_error=' not in result.stderr:
+            exe=build(name,changed);mode='original'
+            result=command([exe],name+'-unit') if unit else None
+            if result is not None and result.returncode:
+                mode='unit'
+            else:
+                result=command([exe,oracle,ROOT],name+'-original')
+            if not result.returncode or error_marker not in result.stderr:
                 raise ValueError('Updater mutation survived or failed outside probe: '+name)
-            report['faults'].append(dict(name=name,detected_by='original'));print('detected '+name,flush=True)
+            report['faults'].append(dict(name=name,detected_by=mode));print('detected '+name,flush=True)
         if any(fixture.sha(Path(p).read_bytes())!=v for p,v in before.items()): raise ValueError('Updater mutations changed protected inputs')
         report.update(status='passed',sources_preserved=True)
     finally: (work/'report.json').write_text(json.dumps(report,indent=2)+'\n')

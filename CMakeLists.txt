@@ -188,11 +188,18 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_transient_update_test tests/core/transient_update_test.cpp)
+    target_link_libraries(lezac_transient_update_test PRIVATE lezac_core)
     add_executable(lezac_transient_removal_test tests/core/transient_removal_test.cpp)
     target_link_libraries(lezac_transient_removal_test PRIVATE lezac_core)
     add_test(NAME transient_removal_unit COMMAND lezac_transient_removal_test)
     set_tests_properties(transient_removal_unit PROPERTIES
         PASS_REGULAR_EXPRESSION "transient_removal_unit=ok state_rejections=1110 boundaries=111 computed_irq_cases=10 partial_copy_irqs=2 copy_grant_controls=4")
+    add_executable(lezac_transient_motion_test tests/core/transient_motion_test.cpp)
+    target_link_libraries(lezac_transient_motion_test PRIVATE lezac_core)
+    add_test(NAME transient_motion_unit COMMAND lezac_transient_motion_test)
+    set_tests_properties(transient_motion_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "transient_motion_unit=ok state_rejections=324 boundaries=27 computed_irq_cases=27 entry_rejections=4 masked_irq=1")
     add_executable(lezac_frame_tail_test tests/core/frame_tail_test.cpp)
     target_link_libraries(lezac_frame_tail_test PRIVATE lezac_core)
     add_test(NAME frame_tail_unit COMMAND lezac_frame_tail_test)
@@ -768,6 +775,26 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME transient_update_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_transient_update_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/transient-update.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/transient-update-fixture.json)
+        set_tests_properties(transient_update_fixture_contract PROPERTIES FIXTURES_SETUP transient_update_corpus)
+        add_test(NAME transient_update_original COMMAND lezac_transient_update_test
+            ${CMAKE_CURRENT_BINARY_DIR}/transient-update.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(transient_update_original PROPERTIES FIXTURES_REQUIRED transient_update_corpus TIMEOUT 180
+            PASS_REGULAR_EXPRESSION "transient_update_original=ok cases=1142 replays=6852 comparisons=14783 dispatches=6664329 writes=122985 dense_cases=18 state_rejections=8514 computed_irq_cases=8 all_endpoint_flags=1 full_memory=1 canonical_mz_bytes=1 later_state_injected=0 actual_app_integration=0 full_frame_claim=0")
+        add_test(NAME transient_update_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_transient_update_fixture.py)
+        set_tests_properties(transient_update_fixture_rejections PROPERTIES
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME transient_update_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_transient_update_mutations.py
+                --cxx ${CMAKE_CXX_COMPILER} --out ${CMAKE_CURRENT_BINARY_DIR}/transient-update-mutations)
+            set_tests_properties(transient_update_mutations PROPERTIES TIMEOUT 600
+                PASS_REGULAR_EXPRESSION "transient_update_mutations=ok faults=11 positive_baseline=1 sources_preserved=1")
+        endif()
         add_test(NAME transient_removal_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_transient_removal_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/transient-removal.bin
@@ -787,6 +814,26 @@ if(BUILD_TESTING)
                 --cxx ${CMAKE_CXX_COMPILER} --out ${CMAKE_CURRENT_BINARY_DIR}/transient-removal-mutations)
             set_tests_properties(transient_removal_mutations PROPERTIES TIMEOUT 600
                 PASS_REGULAR_EXPRESSION "transient_removal_mutations=ok faults=12 positive_baseline=1 sources_preserved=1")
+        endif()
+        add_test(NAME transient_motion_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_transient_motion_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/transient-motion.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/transient-motion-fixture.json)
+        set_tests_properties(transient_motion_fixture_contract PROPERTIES FIXTURES_SETUP transient_motion_corpus)
+        add_test(NAME transient_motion_original COMMAND lezac_transient_motion_test
+            ${CMAKE_CURRENT_BINARY_DIR}/transient-motion.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(transient_motion_original PROPERTIES FIXTURES_REQUIRED transient_motion_corpus TIMEOUT 300
+            PASS_REGULAR_EXPRESSION "transient_motion_original=ok cases=132928 replays=398784 comparisons=62082 dispatches=7379712 writes=299264 dense_cases=2367 addition_flag_checks=265856 full_memory=1 all_trace_flags=1 canonical_mz_bytes=1 later_state_injected=0 actual_app_integration=0 full_frame_claim=0")
+        add_test(NAME transient_motion_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_transient_motion_fixture.py)
+        set_tests_properties(transient_motion_fixture_rejections PROPERTIES
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME transient_motion_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_transient_motion_mutations.py
+                --cxx ${CMAKE_CXX_COMPILER} --out ${CMAKE_CURRENT_BINARY_DIR}/transient-motion-mutations)
+            set_tests_properties(transient_motion_mutations PROPERTIES TIMEOUT 900
+                PASS_REGULAR_EXPRESSION "transient_motion_mutations=ok faults=14 positive_baseline=1 sources_preserved=1")
         endif()
         if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
             add_test(NAME world_raster_owner_mutations COMMAND ${Python3_EXECUTABLE} -S -B

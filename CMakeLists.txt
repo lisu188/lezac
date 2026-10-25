@@ -775,6 +775,26 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME collapse_update_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_update_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-update.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/collapse-update-fixture.json)
+        set_tests_properties(collapse_update_fixture_contract PROPERTIES FIXTURES_SETUP collapse_update_corpus)
+        add_test(NAME collapse_update_original COMMAND lezac_transient_update_test
+            ${CMAKE_CURRENT_BINARY_DIR}/collapse-update.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(collapse_update_original PROPERTIES FIXTURES_REQUIRED collapse_update_corpus TIMEOUT 180
+            PASS_REGULAR_EXPRESSION "collapse_update_original=ok cases=2551 replays=15306 comparisons=26018 dispatches=11110740 writes=328947 dense_cases=20 state_rejections=10550 computed_irq_cases=10 all_endpoint_flags=1 full_memory=1 canonical_mz_bytes=1 later_state_injected=0 actual_app_integration=0 full_frame_claim=0 terminal_rejections=1 copy_grant_controls=3")
+        add_test(NAME collapse_update_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_collapse_update_fixture.py)
+        set_tests_properties(collapse_update_fixture_rejections PROPERTIES
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME collapse_update_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_collapse_update_mutations.py
+                --cxx ${CMAKE_CXX_COMPILER} --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-update-mutations)
+            set_tests_properties(collapse_update_mutations PROPERTIES TIMEOUT 900
+                PASS_REGULAR_EXPRESSION "collapse_update_mutations=ok faults=14 positive_baseline=1 sources_preserved=1")
+        endif()
         add_test(NAME transient_update_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_transient_update_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/transient-update.bin

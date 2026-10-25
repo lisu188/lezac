@@ -65,6 +65,7 @@
         "src/core/transient_removal.hpp",
         "src/core/transient_motion.hpp",
         "src/core/transient_queue_instructions.hpp",
+        "src/core/collapse_queue_instructions.hpp",
         "src/core/transient_update.hpp"
       ]
     },

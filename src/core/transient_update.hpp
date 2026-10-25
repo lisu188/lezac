@@ -5,6 +5,7 @@
 #include "core/transient_motion.hpp"
 #include "core/transient_removal.hpp"
 #include "core/transient_queue_instructions.hpp"
+#include "core/collapse_queue_instructions.hpp"
 
 #include <array>
 #include <type_traits>
@@ -13,7 +14,8 @@
 #include <vector>
 
 namespace lezac::core {
-enum class TransientUpdateOutcome { Running, Returned, RuntimeError, DivideError };
+enum class TransientUpdateOutcome { Running, Returned, RuntimeError, DivideError, Terminated };
+enum class TransientUpdateEntry { SparksAndDebris, Collapse };
 using TransientUpdateHelper=std::variant<TransientMotionSnapshot,TransientRemovalSnapshot,PlayerPostSnapshot>;
 struct TransientUpdateFrame {
     uint16_t segment=0,entry=0,sp=0,bp=0,callSegment=0,callIp=0;
@@ -28,10 +30,11 @@ struct TransientUpdateSnapshot {
     std::array<uint64_t,3> helperCalls{},helperReturns{};
     std::vector<TransientUpdateFrame> frames{};
     uint64_t completedInstructions=0,completedTimerInstructions=0,completedTimerDeliveries=0,completedBytes=0;
+    TransientUpdateEntry entry=TransientUpdateEntry::SparksAndDebris;
     bool operator==(const TransientUpdateSnapshot&) const = default;
 };
 
-// Complete original 45FA spark/debris updater on one borrowed memory bus.
+// Original 45FA spark/debris and 5102 collapse calls on one borrowed memory bus.
 class TransientUpdateOperation {
     template<class Child> static auto operation(const Child& child) {
         if constexpr (std::is_same_v<Child,TransientMotionSnapshot>) return TransientMotionOperation(child);
@@ -40,10 +43,12 @@ class TransientUpdateOperation {
     }
 public:
     using CopyBudget=ActorFinishOperation::CopyBudget;
-    TransientUpdateOperation(DosGetTimeRegisters r,uint16_t game,uint32_t idToggle)
+    TransientUpdateOperation(DosGetTimeRegisters r,uint16_t game,uint32_t idToggle,
+            TransientUpdateEntry entry=TransientUpdateEntry::SparksAndDebris)
         :state_{ActorFinishSnapshot{r,game,idToggle},std::nullopt,r.ss,static_cast<uint16_t>(r.sp+2u),r.bp} {
-        if (r.cs!=game || r.ip!=0x45fa) throw std::invalid_argument("Transient updater entry differs");
-        state_.frames.push_back({0,0x45fa,r.sp,r.bp,0,0});validate();
+        state_.entry=entry;
+        if (r.cs!=game || r.ip!=rootIp()) throw std::invalid_argument("Transient updater entry differs");
+        state_.frames.push_back({0,rootIp(),r.sp,r.bp,0,0});validate();
     }
     explicit TransientUpdateOperation(TransientUpdateSnapshot state):state_(std::move(state)) {validate();}
     const TransientUpdateSnapshot& snapshot() const noexcept {return state_;}
@@ -91,6 +96,9 @@ private:
     TransientUpdateSnapshot state_;
     uint16_t game() const {return state_.foreground.gameSegment;}
     uint16_t library() const {return static_cast<uint16_t>(game()+0x920);}
+    uint16_t graphics() const {return static_cast<uint16_t>(game()+0x8ac);}
+    uint16_t rootIp() const {return state_.entry==TransientUpdateEntry::SparksAndDebris ? 0x45fa : 0x5102;}
+    uint16_t returnIp() const {return state_.entry==TransientUpdateEntry::SparksAndDebris ? 0x8060 : 0x806a;}
     template<class Child> static uint64_t helperBytes(const Child& child) {
         if constexpr (std::is_same_v<Child,PlayerPostSnapshot>) return child.stringTransfers;
         else return child.cpu.transferredBytes;
@@ -100,13 +108,19 @@ private:
         const auto key=std::tuple{frame.segment,frame.entry,ip};
         const auto found=std::lower_bound(kTransientStackProfiles.begin(),kTransientStackProfiles.end(),key,
             [](const auto& p,const auto& value) {return std::tuple{p.segment,p.entry,p.ip}<value;});
-        return found!=kTransientStackProfiles.end() && std::tuple{found->segment,found->entry,found->ip}==key ? &*found : nullptr;
+        if (found!=kTransientStackProfiles.end() && std::tuple{found->segment,found->entry,found->ip}==key) return &*found;
+        const auto other=std::lower_bound(kCollapseStackProfiles.begin(),kCollapseStackProfiles.end(),key,
+            [](const auto& p,const auto& value) {return std::tuple{p.segment,p.entry,p.ip}<value;});
+        return other!=kCollapseStackProfiles.end() && std::tuple{other->segment,other->entry,other->ip}==key ? &*other : nullptr;
     }
     static const TransientQueueCall* call(uint16_t segment,uint16_t ip) {
         const auto key=std::pair{segment,ip};
         const auto found=std::lower_bound(kTransientCalls.begin(),kTransientCalls.end(),key,
             [](const auto& c,const auto& value) {return std::pair{c.segment,c.ip}<value;});
-        return found!=kTransientCalls.end() && std::pair{found->segment,found->ip}==key ? &*found : nullptr;
+        if (found!=kTransientCalls.end() && std::pair{found->segment,found->ip}==key) return &*found;
+        const auto other=std::lower_bound(kCollapseCalls.begin(),kCollapseCalls.end(),key,
+            [](const auto& c,const auto& value) {return std::pair{c.segment,c.ip}<value;});
+        return other!=kCollapseCalls.end() && std::pair{other->segment,other->ip}==key ? &*other : nullptr;
     }
     static uint16_t stack(const TransientUpdateFrame& frame,const TransientQueueStackProfile& p) {
         return static_cast<uint16_t>(frame.sp+p.sp);
@@ -117,7 +131,7 @@ private:
     void validateFrames() const {
         if (state_.frames.empty() || state_.frames.size()>32) invalid();
         const auto& root=state_.frames.front();
-        if (root.segment || root.entry!=0x45fa || root.sp!=static_cast<uint16_t>(state_.callerSp-2u) ||
+        if (root.segment || root.entry!=rootIp() || root.sp!=static_cast<uint16_t>(state_.callerSp-2u) ||
             root.bp!=state_.callerBp || root.callSegment || root.callIp) invalid();
         for (size_t i=1;i<state_.frames.size();++i) {
             const auto& child=state_.frames[i];const auto& parent=state_.frames[i-1];
@@ -127,7 +141,7 @@ private:
         }
         const auto& frame=state_.frames.back();const auto& r=state_.foreground.registers;
         if (finished()) {
-            if (state_.outcome==TransientUpdateOutcome::Returned && (state_.frames.size()!=1 || r.ip!=0x8060)) invalid();
+            if (state_.outcome==TransientUpdateOutcome::Returned && (state_.frames.size()!=1 || r.ip!=returnIp())) invalid();
             if (state_.outcome!=TransientUpdateOutcome::DivideError) return;
         }
         if (state_.helper) {
@@ -155,6 +169,7 @@ private:
     }
     void validate() const {
         const auto& fg=state_.foreground;const auto& r=fg.registers;
+        if (state_.entry!=TransientUpdateEntry::SparksAndDebris && state_.entry!=TransientUpdateEntry::Collapse) invalid();
         (void)ActorFinishOperation(fg);
         validateFrames();
         uint64_t instructions=fg.dispatchedInstructions+state_.completedInstructions;
@@ -172,7 +187,7 @@ private:
         if (fg.outcome!=ActorFinishOutcome::Running || r.ss!=state_.callerSs ||
             state_.dispatchedInstructions!=instructions || state_.timerInstructions!=timers ||
             state_.timerDeliveries!=deliveries || state_.transferredBytes!=bytes ||
-            (r.cs!=game() && r.cs!=library()) ||
+            (r.cs!=game() && r.cs!=library() && !(state_.entry==TransientUpdateEntry::Collapse && r.cs==graphics())) ||
             (r.cs==game() && r.ds!=static_cast<uint16_t>(game()+0xaa2)) ||
             fg.dispatchedInstructions>state_.dispatchedInstructions || fg.timerInstructions>state_.timerInstructions ||
             fg.timerDeliveries>state_.timerDeliveries || fg.transferredBytes>state_.transferredBytes ||
@@ -181,7 +196,8 @@ private:
             (state_.timerDeliveries>state_.timerInstructions &&
                 state_.timerDeliveries-state_.timerInstructions>(interruptInProgress() ? 1u : 0u)) ||
             (state_.outcome!=TransientUpdateOutcome::Running && state_.outcome!=TransientUpdateOutcome::Returned &&
-             state_.outcome!=TransientUpdateOutcome::RuntimeError && state_.outcome!=TransientUpdateOutcome::DivideError) ||
+             state_.outcome!=TransientUpdateOutcome::RuntimeError && state_.outcome!=TransientUpdateOutcome::DivideError &&
+             state_.outcome!=TransientUpdateOutcome::Terminated) ||
             (finished() && interruptInProgress()) || (state_.helper && fg.timer)) invalid();
         for (size_t i=0;i<state_.helperCalls.size();++i) {
             if (state_.helperCalls[i]>state_.dispatchedInstructions || state_.helperReturns[i]>state_.helperCalls[i] ||
@@ -210,13 +226,18 @@ private:
         },*state_.helper);
         else if (state_.outcome==TransientUpdateOutcome::Running &&
             !(r.cs==game() && transientQueueInstructionBoundary(r.ip)) &&
-            !transientQueueBorrowedBoundary(r.cs,r.ip,game())) invalid();
+            !(r.cs==game() && collapseQueueInstructionBoundary(r.ip)) &&
+            !(r.cs==graphics() && state_.entry==TransientUpdateEntry::Collapse && profile(state_.frames.back(),r.ip)) &&
+            !transientQueueBorrowedBoundary(r.cs,r.ip,game()) && !collapseQueueBorrowedBoundary(r.cs,r.ip,game())) invalid();
         const auto live=registers();
         if (state_.outcome==TransientUpdateOutcome::Returned &&
             (state_.helper || live.cs!=game() || live.sp!=state_.callerSp || live.bp!=state_.callerBp)) invalid();
         if (state_.outcome==TransientUpdateOutcome::RuntimeError && (live.cs!=library() || live.ip!=0xe2)) invalid();
         if (state_.outcome==TransientUpdateOutcome::DivideError &&
-            (state_.helper || live.cs!=game() || (live.ip!=0x4818 && live.ip!=0x484c))) invalid();
+            (state_.helper || live.cs!=game() || (live.ip!=0x4818 && live.ip!=0x484c &&
+                !std::binary_search(kCollapseDivideInstructions.begin(),kCollapseDivideInstructions.end(),live.ip)))) invalid();
+        if (state_.outcome==TransientUpdateOutcome::Terminated && (state_.entry!=TransientUpdateEntry::Collapse ||
+            state_.helper || live.cs!=library() || live.ip!=0xe9)) invalid();
     }
     void foregroundInstruction(const TimerIrqBus& bus,const CopyBudget& copies) {
         auto& fg=state_.foreground;const auto before=fg.transferredBytes;
@@ -226,6 +247,7 @@ private:
             const auto pc=fg.registers;
             try {
                 if (advanceTransientQueueInstruction(fg.registers,game(),bus)) ++fg.dispatchedInstructions;
+                else if (advanceCollapseQueueInstruction(fg.registers,game(),bus,copies,fg.transferredBytes)) ++fg.dispatchedInstructions;
                 else if (pc.cs==game() && pc.ip>=0x370e && pc.ip<0x3a7e) {
                     advanceActorTerrainInstruction(fg.registers,game(),bus);++fg.dispatchedInstructions;
                 } else {
@@ -233,9 +255,12 @@ private:
                     if (child.advance(1,bus,copies)!=1) throw std::domain_error("Transient updater borrowed instruction stalled");
                     fg=child.snapshot();fg.outcome=ActorFinishOutcome::Running;
                 }
-                if (pc.cs==game() && pc.ip==0x4d3b) state_.outcome=TransientUpdateOutcome::Returned;
+                if (state_.frames.size()==1 && pc.cs==game() && pc.ip==
+                    (state_.entry==TransientUpdateEntry::SparksAndDebris ? 0x4d3b : 0x5689)) state_.outcome=TransientUpdateOutcome::Returned;
                 foregroundTransition(pc);
             } catch (const TransientQueueDivideFault&) {
+                ++fg.dispatchedInstructions;state_.outcome=TransientUpdateOutcome::DivideError;
+            } catch (const CollapseQueueDivideFault&) {
                 ++fg.dispatchedInstructions;state_.outcome=TransientUpdateOutcome::DivideError;
             }
         }
@@ -274,6 +299,7 @@ private:
         if (!state_.helper && !finished() && !state_.foreground.timer) {
             const auto r=state_.foreground.registers;const auto id=state_.foreground.idToggleMask;
             if (r.cs==library() && r.ip==0xe2) state_.outcome=TransientUpdateOutcome::RuntimeError;
+            else if (r.cs==library() && r.ip==0xe9) state_.outcome=TransientUpdateOutcome::Terminated;
             else if (r.cs==game() && r.ip==0x3eda) state_.helper=TransientMotionOperation(r,game(),id).snapshot();
             else if (r.cs==game() && (r.ip==0x452a || r.ip==0x458d)) state_.helper=TransientRemovalOperation(r,game(),id).snapshot();
             else if (r.cs==library() && r.ip==0x945) state_.helper=PlayerPostOperation(r,game(),id,PlayerPostEntry::ScoreDivide).snapshot();

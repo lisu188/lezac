@@ -35,13 +35,14 @@ FAULTS=(
         'false'),
 )
 
-def run(cxx,out):
+def run(cxx,out,corpus=fixture,faults=FAULTS,family='transient_update'):
     out.mkdir(parents=True,exist_ok=True);work=Path(tempfile.mkdtemp(prefix='run-',dir=out))
     protected=[*sorted((ROOT/'src/core').glob('*.*')),ROOT/'tests/core/transient_update_test.cpp',
-        *[ROOT/name for name in fixture.INPUTS],fixture.FIXTURE/'manifest.json',fixture.FIXTURE/'oracle.bin.gz']
+        *[ROOT/name for name in corpus.INPUTS],corpus.FIXTURE/'manifest.json',corpus.FIXTURE/'oracle.bin.gz']
     before={str(p):fixture.sha(p.read_bytes()) for p in protected}
-    source={name:(ROOT/'src/core'/name).read_text() for name in ('transient_update.hpp','transient_queue_instructions.hpp')}
-    oracle=work/'oracle.bin';oracle.write_bytes(fixture.read_fixture())
+    headers={'transient_update.hpp','transient_queue_instructions.hpp'}|{row[1] for row in faults}
+    source={name:(ROOT/'src/core'/name).read_text() for name in headers}
+    oracle=work/'oracle.bin';oracle.write_bytes(corpus.read_fixture())
     environment=dict(os.environ,SDL_AUDIODRIVER='dummy',SDL_VIDEODRIVER='dummy',TMPDIR=str(work),TMP=str(work),TEMP=str(work))
     report=dict(status='failed',faults=[],positive_baseline=False,protected_sha256=before)
     def command(args,name):
@@ -58,9 +59,9 @@ def run(cxx,out):
         return exe
     try:
         baseline=build('baseline',source);result=command([baseline,oracle,ROOT],'baseline-original')
-        if result.returncode or b'transient_update_original=ok' not in result.stdout: raise ValueError('Authenticated updater baseline failed')
+        if result.returncode or (family+'_original=ok').encode() not in result.stdout: raise ValueError('Authenticated updater baseline failed')
         report['positive_baseline']=True
-        for name,header,old,new in FAULTS:
+        for name,header,old,new in faults:
             if source[header].count(old)!=1: raise ValueError('Updater mutation anchor differs: '+name)
             changed=dict(source);changed[header]=source[header].replace(old,new)
             exe=build(name,changed);result=command([exe,oracle,ROOT],name+'-original')
@@ -70,7 +71,7 @@ def run(cxx,out):
         if any(fixture.sha(Path(p).read_bytes())!=v for p,v in before.items()): raise ValueError('Updater mutations changed protected inputs')
         report.update(status='passed',sources_preserved=True)
     finally: (work/'report.json').write_text(json.dumps(report,indent=2)+'\n')
-    print(f'transient_update_mutations=ok faults={len(FAULTS)} positive_baseline=1 sources_preserved=1')
+    print(f'{family}_mutations=ok faults={len(faults)} positive_baseline=1 sources_preserved=1')
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)

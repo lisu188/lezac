@@ -13,11 +13,12 @@ CUTS=((0x3a7e,0x3eda),(0x45fa,0x4d3c))
 BYTE_REGS={'al':('ax',0),'ah':('ax',8),'bl':('bx',0),'bh':('bx',8),
            'cl':('cx',0),'ch':('cx',8),'dl':('dx',0),'dh':('dx',8)}
 
-def stack_catalog(md,body):
+def stack_catalog(md,body,entry=(0,0x45fa),extra_delegated=None):
     profiles=[];calls={};summaries={};active=set()
     delegated={(0,0x3eda):2,(0,0x452a):6,(0,0x458d):6,(0x920,0x945):4}
     # These existing Real48 owners use BP as arithmetic scratch and a data-dependent stack.
     delegated.update({(0x920,pc):4 for pc in (0xee9,0xefb,0xf01,0xf0b,0xf0f,0xf13,0x1021,0x1034)})
+    delegated.update(extra_delegated or {})
     def visit(entry):
         if entry in summaries:
             return summaries[entry]
@@ -72,6 +73,7 @@ def stack_catalog(md,body):
                 target=(segment,op[0].imm) if m=='call' else tuple(o.imm for o in op)
                 width=2 if m=='call' else 4
                 calls[(segment,pc)]=(target[0],target[1],n,width)
+                if target==(0x920,0xe9): continue
                 delta,result_bp=visit(target);sp+=delta-width
                 if result_bp[0]!=0: bp=(2,0)
             elif m.startswith('ret'):
@@ -85,7 +87,7 @@ def stack_catalog(md,body):
         if len(returns)!=1:
             raise ValueError('Queue return stack contract differs '+str((entry,returns)))
         summaries[entry]=returns.pop();active.remove(entry);return summaries[entry]
-    visit((0,0x45fa))
+    visit(entry)
     rows='\n'.join('    {'+','.join(str(v) for v in row)+'},' for row in sorted(profiles))
     call_rows='\n'.join('    {'+','.join(str(v) for v in (*key,*value))+'},' for key,value in sorted(calls.items()))
     return '''
@@ -99,14 +101,14 @@ CALL_ROWS
 }};
 '''.replace('PROFILE_COUNT',str(len(profiles))).replace('PROFILE_ROWS',rows).replace('CALL_COUNT',str(len(calls))).replace('CALL_ROWS',call_rows)
 
-def generate(root,out):
+def generate(root,out,cuts=CUTS,entry=(0,0x45fa),extra_delegated=None,prefix='Transient'):
     raw=(root/'LEZAC.EXE').read_bytes()
     if hashlib.sha256(raw).hexdigest()!=EXE_SHA or capstone.__version__!='5.0.3':
         raise ValueError('Queue transcription inputs differ')
     mz=struct.unpack_from('<14H',raw);body=raw[mz[4]*16:]
     md=capstone.Cs(capstone.CS_ARCH_X86,capstone.CS_MODE_16);md.detail=True
     instructions=[]
-    for lo,hi in CUTS:
+    for lo,hi in cuts:
         rows=list(md.disasm(body[lo:hi],lo))
         if not rows or rows[0].address!=lo or rows[-1].address+rows[-1].size!=hi:
             raise ValueError('Incomplete queue decode')
@@ -150,7 +152,8 @@ def generate(root,out):
         raise ValueError('Unsupported queue destination')
     conditions={'je':'flag(0x40)','jne':'!flag(0x40)','ja':'!flag(1)&&!flag(0x40)',
         'jae':'!flag(1)','jb':'flag(1)','jbe':'flag(1)||flag(0x40)',
-        'jge':'!less()','jle':'flag(0x40)||less()'}
+        'jge':'!less()','jle':'flag(0x40)||less()',
+        'jg':'!flag(0x40)&&!less()','jl':'less()','jno':'!flag(0x800)'}
     cases=[]
     for ins in instructions:
         op=ins.operands;m=ins.mnemonic;n=hex(ins.address+ins.size)
@@ -206,6 +209,12 @@ def generate(root,out):
             code='r.cx=static_cast<uint16_t>(r.cx-1u);r.ip=r.cx ? '+get(op[0])+' : '+n+';'
         elif m=='leave':
             code='r.sp=r.bp;r.bp=pop();'+tail
+        elif m=='rep movsb':
+            code='{const auto count=copies(r.cx);if (count>r.cx) throw std::domain_error("Queue copy grant exceeds request");'+\
+                'const uint16_t step=flag(0x400) ? 65535 : 1;for (uint32_t i=0;i<count;++i) {'+\
+                'const auto v=bus.readByte(r.ds,r.si);bus.writeByte(r.es,r.di,v);r.si=static_cast<uint16_t>(r.si+step);'+\
+                'r.di=static_cast<uint16_t>(r.di+step);r.cx=static_cast<uint16_t>(r.cx-1u);++transferredBytes;}'+\
+                'if (!r.cx) '+tail+'}'
         elif m=='ret':
             code='r.ip=pop();'+('r.sp=static_cast<uint16_t>(r.sp+'+get(op[0])+');' if op else '')
         else:
@@ -219,12 +228,13 @@ def generate(root,out):
     for owner in owners:
         labels.update(int(value,16) for value in re.findall(r'\bcase\s+(0x[0-9a-fA-F]+)\s*:',
             (root/'src/core'/owner).read_text()))
-    game_labels=sorted(v for v in labels if 0x165a<=v<0x167e or 0x370e<=v<0x3a7e or 0x3fa6<=v<0x432a)
+    game_labels=sorted(v for v in labels if 0x165a<=v<0x167e or 0x370e<=v<0x3a7e or 0x3fa6<=v<0x432a or
+        (entry!=(0,0x45fa) and (0x6ab<=v<0x709 or 0x2f9f<=v<0x30a3)))
     library_labels=sorted(v for v in labels if v<0x1820 and not 0x945<=v<=0x9b0)
     def borrowed_catalog(name,values):
         items='\n'.join('    '+','.join(hex(a) for a in values[i:i+12])+',' for i in range(0,len(values),12))
         return 'inline constexpr std::array<uint16_t,'+str(len(values))+'> '+name+'{{\n'+items+'\n}};\n'
-    borrowed=borrowed_catalog('kTransientBorrowedGame',game_labels)+borrowed_catalog('kTransientBorrowedLibrary',library_labels)+stack_catalog(md,body)
+    borrowed=borrowed_catalog('kTransientBorrowedGame',game_labels)+borrowed_catalog('kTransientBorrowedLibrary',library_labels)+stack_catalog(md,body,entry,extra_delegated)
     text='''#pragma once
 
 #include "core/actor_finish.hpp"
@@ -313,8 +323,25 @@ CASES
 }
 } // namespace lezac::core
 '''.replace('COUNT',str(len(cases))).replace('CATALOG',catalog).replace('CASES','\n'.join(cases)).replace('BORROWED',borrowed)
+    if any(i.mnemonic.startswith('rep ') for i in instructions):
+        text=text.replace('uint16_t game,const TimerIrqBus& bus) {',
+            'uint16_t game,const TimerIrqBus& bus,const ActorFinishOperation::CopyBudget& copies,uint64_t& transferredBytes) {')
+    if not any(i.mnemonic=='idiv' for i in instructions):
+        text=text.replace('const auto signedDivide=','[[maybe_unused]] const auto signedDivide=')
+    if prefix!='Transient':
+        text=text.replace('Transient',prefix).replace('transient',prefix.lower())
+        text=text.replace('3A7E..3ED9 and 45FA..4D3B','4D3C..5689')
+        text=text.replace('#include "core/actor_finish.hpp"','#include "core/transient_queue_instructions.hpp"')
+        text=text.replace('struct CollapseQueueStackProfile {uint16_t segment,entry,ip;int16_t sp;uint16_t bpKind;int16_t bp;};',
+            'using CollapseQueueStackProfile=TransientQueueStackProfile;')
+        text=text.replace('struct CollapseQueueCall {uint16_t segment,ip,targetSegment,target,next,width;};',
+            'using CollapseQueueCall=TransientQueueCall;')
+        divisions=','.join(hex(i.address) for i in instructions if i.mnemonic in ('div','idiv'))
+        text=text.replace('// Explicit unchanged MZ operands',
+            'inline constexpr std::array<uint16_t,'+str(sum(i.mnemonic in ('div','idiv') for i in instructions))+\
+            '> kCollapseDivideInstructions{{'+divisions+'}};\n\n// Explicit unchanged MZ operands')
     out.write_text(text)
-    print('transient_queue_transcription=ok instructions='+str(len(cases))+' sha256='+hashlib.sha256(text.encode()).hexdigest())
+    print(prefix.lower()+'_queue_transcription=ok instructions='+str(len(cases))+' sha256='+hashlib.sha256(text.encode()).hexdigest())
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)

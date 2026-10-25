@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -142,7 +143,7 @@ uint64_t irqCheck(FrameActorPassOperation active,Memory memory,uint8_t partialSi
     bool ended=false;try { active.deliverTimerInterrupt(bus); } catch (const std::logic_error&) { ended=true; }
     require(ended,"Finished pass admitted IRQ");return instructions;
 }
-void replay(const char* path,const char* root) {
+void replay(const char* path,const char* root,std::optional<unsigned> selected=std::nullopt) {
     Reader input(path,kProjectionBytes);
     require(fingerprint(input.bytes)==kProjectionFingerprint,"Pass corpus fingerprint differs");
     for (char c : std::string("LZAPAS01")) require(input.number(1)==static_cast<uint8_t>(c),"Pass magic differs");
@@ -190,6 +191,7 @@ void replay(const char* path,const char* root) {
             writes.push_back(item);expected.store(item.address,item.value,item.size);
         }
         require(input.number(4)==0,"Pass reserved event field differs");
+        if (selected && index!=*selected) continue;
         unsigned mode=0;
         for (uint16_t limit : {uint16_t{1},uint16_t{2},uint16_t{65535}}) for (uint64_t budget : {1u,17u,4096u}) {
             auto memory=initial;const auto bus=memory.bus();FrameActorPassOperation active(entry,kGame,kIdToggle);
@@ -197,7 +199,7 @@ void replay(const char* path,const char* root) {
             size_t cursor=0;compare(active.registers(),trace.front(),index,0);++comparisons;
             while (!active.finished()) {
                 require(cursor+1<trace.size(),"Pass exceeded original endpoint");
-                if (!mode) {
+                if (!mode && !selected) {
                     const auto r=active.registers();const auto& state=active.snapshot();
                     for (size_t target=0;target<targets.size();++target) {
                         const auto& t=targets[target];
@@ -242,6 +244,14 @@ void replay(const char* path,const char* root) {
         postCalls+=posts;postReturns+=postEnds;bothPlayers+=players==2;bossCalls+=bosses;prefixSkips+=skips;
     }
     require(input.at==input.bytes.size(),"Pass fixture tail differs");
+    if (selected) {
+        require(replays==9 && !irqInstructions,"Filtered pass replay scope differs");
+        std::cout<<"frame_actor_pass_case=ok case="<<*selected<<" authenticated_cases="<<count
+            <<" executed_cases=1 replays="<<replays<<" comparisons="<<comparisons<<" dispatches="<<dispatches
+            <<" writes="<<totalWrites<<" full_memory=1 canonical_mz=1 later_state_injected=0"
+            <<" full_corpus_claim=0 computed_irq_cases=0 intermittent_hold_cleared=0\n";
+        return;
+    }
     for (size_t i=0;i<irqSeen.size();++i) if (!irqSeen[i])
         std::cerr<<"missing_irq_target="<<std::hex<<targets[i].cs<<':'<<targets[i].ip<<std::dec<<" marker="<<targets[i].marker<<'\n';
     require(std::ranges::all_of(irqSeen,[](bool yes) { return yes; }),"Pass IRQ target coverage differs");
@@ -613,6 +623,13 @@ int main(int argc,char** argv) {
     try {
         if (argc==1) unit();
         else if (argc==3) replay(argv[1],argv[2]);
+        else if (argc==5 && std::string(argv[1])=="--case") {
+            const std::string text=argv[2];unsigned selected=0;
+            const auto parsed=std::from_chars(text.data(),text.data()+text.size(),selected);
+            require(parsed.ec==std::errc{} && parsed.ptr==text.data()+text.size() && !text.empty() && selected<876,
+                "Frame actor pass case must be an integer from 0 through 875");
+            replay(argv[3],argv[4],selected);
+        }
         else throw std::runtime_error("Expected fixture and canonical root");
         return 0;
     } catch (const std::exception& error) { std::cerr<<"frame_actor_pass=failed "<<error.what()<<'\n';return 1; }

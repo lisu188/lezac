@@ -74,6 +74,13 @@ public:
     }
     PicWorkClock& workClock() noexcept { return clock_; }
     const PicWorkClock& workClock() const noexcept { return clock_; }
+    void setPaletteColor(uint8_t entry,uint8_t red,uint8_t green,uint8_t blue) {
+        if(!state_.palette) throw std::logic_error("Palette programming has no observed renderer profile");
+        auto& palette=*state_.palette;
+        palette.rgb[entry]=(uint32_t{red}<<16)|(uint32_t{green}<<8)|blue;
+        palette.first=std::min(palette.first,uint32_t{entry});
+        palette.last=std::max(palette.last,uint32_t{entry});
+    }
     void addKeyboardKey(KeyboardHardwareKey key, bool pressed) {
         auto keyboard = keyboardController();
         keyboard.addKey(key, pressed, keyboardBus());

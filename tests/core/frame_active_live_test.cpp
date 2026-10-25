@@ -1,6 +1,8 @@
 #include "core/frame_active.hpp"
 #include "core/frame_prefix.hpp"
+#include "core/frame_iteration.hpp"
 #include "core/pacing_device_clock.hpp"
+#include "core/vga_dac_writer.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -13,7 +15,25 @@
 
 using namespace lezac::core;
 namespace {
-#ifdef LEZAC_TEST_FRAME_PREFIX
+#ifdef LEZAC_TEST_FRAME_ITERATION
+constexpr unsigned LiveStateLimit=2000001;
+#else
+constexpr unsigned LiveStateLimit=500001;
+#endif
+#if defined(LEZAC_TEST_FRAME_ITERATION)
+using LiveOperation=FrameIterationOperation;
+constexpr const char* LiveMagic="LZFILV01";
+constexpr const char* LiveResult="frame_iteration_live";
+bool renderInProgress(const LiveOperation& operation) {
+    const auto* prefix=std::get_if<FramePrefixSnapshot>(&operation.snapshot().callee);
+    if (!prefix) return false;
+    const auto* active=std::get_if<FrameActiveSnapshot>(&prefix->callee);
+    return active && active->render.has_value();
+}
+bool terminal(const LiveOperation& operation) {
+    return operation.finished() && operation.snapshot().outcome==FrameIterationOutcome::NextFrame;
+}
+#elif defined(LEZAC_TEST_FRAME_PREFIX)
 using LiveOperation=FramePrefixOperation;
 constexpr const char* LiveMagic="LZPFLV01";
 constexpr const char* LiveResult="frame_prefix_live";
@@ -60,10 +80,11 @@ ClockCases clocks(const char* path) {
     Reader reader(path);require(reader.take(8)==std::vector<uint8_t>({'L','Z','F','G','C','L','0','1'}),"Foreground clock version differs");
     const auto count=reader.number(4);require(count>=1 && count<=4,"Foreground clock domain differs");ClockCases result;
     for(unsigned c=0;c<count;++c) {
-        const auto size=reader.number(4);require(size>1 && size<=500001,"Foreground clock scope differs");
+        const auto size=reader.number(4);require(size>1 && size<=LiveStateLimit,"Foreground clock scope differs");
         std::array<uint32_t,256> native{};for(auto& value:native)value=reader.number(4);
         std::optional<RenderPaletteClockSnapshot> palette;
         std::vector<PacingDeviceClockSnapshot> states;
+        states.reserve(size);
         for(unsigned i=0;i<size;++i) {
             PacingDeviceClockSnapshot observed;auto& state=observed.clock;
             state.cycles=std::bit_cast<int64_t>(reader.wide());state.cycleLeft=std::bit_cast<int64_t>(reader.wide());
@@ -118,6 +139,9 @@ struct Memory {
     std::vector<uint8_t> bytes;
     PicWorkClock* clock=nullptr;
     uint64_t writes=0,outputs=0;
+    PacingDeviceClock* devices=nullptr;
+    VgaDacWriter dac{};
+    uint64_t dacWrites=0;
     static uint32_t at(uint16_t s,uint16_t o) {return (uint32_t{s}*16+o)&0xfffffu;}
     uint16_t word(uint16_t s,uint16_t o) const {
         const auto a=at(s,o);return static_cast<uint16_t>(bytes[a]|(uint16_t{bytes[(a+1u)&0xfffffu]}<<8));
@@ -136,6 +160,15 @@ struct Memory {
             [&](uint16_t s,uint16_t o,uint32_t value){store(s,o,static_cast<uint16_t>(value));store(s,static_cast<uint16_t>(o+2u),static_cast<uint16_t>(value>>16));},
             [](uint16_t)->uint8_t{throw std::runtime_error("Active natural profile has no external port reads");},
             [&](uint16_t port,uint8_t value){
+#ifdef LEZAC_TEST_FRAME_ITERATION
+                if(port==0x3c8 || port==0x3c9) {
+                    clock->chargePortWrite();
+                    dac.write(port,value,[&](uint8_t index,uint8_t red,uint8_t green,uint8_t blue) {
+                        devices->setPaletteColor(index,red,green,blue);
+                    });
+                    ++dacWrites;return;
+                }
+#endif
                 require(port==0x20 && value==0x20,"Active natural profile has non-EOI output");
                 clock->chargePortWrite();clock->nonspecificMasterEoi();++outputs;
             }
@@ -151,7 +184,7 @@ void replay(const char* cpu,const char* device,const char* dump) {
     for(unsigned c=0;c<count;++c) {
         const auto game=reader.word(),dos=reader.word(),keyboard=reader.word(),psp=reader.word();
         const auto idToggle=reader.number(4),size=reader.number(4);
-        require(size==observedClocks[c].size() && size>1 && size<=500001,"Active natural state count differs");
+        require(size==observedClocks[c].size() && size>1 && size<=LiveStateLimit,"Active natural state count differs");
         const auto initial=reader.take(1048576),expectedMemory=reader.take(1048576);
         std::vector<CpuState> states;states.reserve(size);
         for(unsigned i=0;i<size;++i) {
@@ -159,9 +192,9 @@ void replay(const char* cpu,const char* device,const char* dump) {
             states.push_back({r,mask,reader.take(8)});
         }
         for(bool restore:{false,true}) {
-            Memory memory{initial};PacingDeviceClock clock(observedClocks[c][0]);memory.clock=&clock.workClock();
+            Memory memory{initial};PacingDeviceClock clock(observedClocks[c][0]);memory.clock=&clock.workClock();memory.devices=&clock;
             LiveOperation operation(states[0].r,dos,keyboard,psp,game,idToggle);const auto bus=memory.bus();
-            uint64_t delivered=0,renderDelivered=0;
+            uint64_t delivered=0,renderDelivered=0,dispatched=0,completedFrames=0;
             const auto before=operation.snapshot();
             require(operation.advance(0,bus,[](uint16_t)->uint16_t{throw std::runtime_error("Zero active budget requested REP");})==0 &&
                 operation.snapshot()==before && !memory.writes,"Zero active budget changed state");
@@ -181,6 +214,18 @@ void replay(const char* cpu,const char* device,const char* dump) {
                     r.cs==0xf000 && (r.ip==dos+14u || r.ip==keyboard+5u);
                 require(operation.advance(1,bus,[&](uint16_t n){return clock.workClock().chargeStringTransfers(n);})==1,
                     context+" active operation did not dispatch");
+                ++dispatched;
+#ifdef LEZAC_TEST_FRAME_ITERATION
+                if (operation.finished()) {
+                    require(terminal(operation),context+" full iteration left the next-frame path");
+                    ++completedFrames;
+                    if (step+2<size) {
+                        require(completedFrames<4,context+" too many full frames");
+                        // Continue solely from computed registers, retaining memory and device state.
+                        operation=LiveOperation(operation.registers(),dos,keyboard,psp,game,idToggle);
+                    }
+                }
+#endif
                 const auto flags=operation.registers().flags;
                 const bool sti=r.cs==0xf000 && (r.ip==dos || r.ip==keyboard);
                 auto boundary=clock.nextDispatch(callback||((iret||sti)&&(flags&0x200u)&&clock.workClock().snapshot().pending),flags);
@@ -194,10 +239,17 @@ void replay(const char* cpu,const char* device,const char* dump) {
                 }
                 if(restore) {
                     operation=LiveOperation(operation.snapshot());clock=PacingDeviceClock(clock.snapshot());memory.clock=&clock.workClock();
+                    memory.dac=VgaDacWriter(memory.dac.snapshot());
                 }
             }
-            require(terminal(operation) && operation.snapshot().dispatchedInstructions==size-1,"Active natural terminal differs");
-            require(operation.snapshot().timerDeliveries==delivered && memory.outputs==delivered,"Active IRQ/EOI accounting differs");
+            require(terminal(operation) && dispatched==size-1,"Active natural terminal differs");
+#ifdef LEZAC_TEST_FRAME_ITERATION
+            require(completedFrames==4,"Continuous full-frame count differs");
+#else
+            require(operation.snapshot().timerDeliveries==delivered,"Active IRQ delivery accounting differs");
+            (void)completedFrames;
+#endif
+            require(memory.outputs==delivered,"Active IRQ/EOI accounting differs");
             if(memory.bytes!=expectedMemory) {
                 const auto mismatch=std::mismatch(memory.bytes.begin(),memory.bytes.end(),expectedMemory.begin());
                 throw std::runtime_error("Active complete final memory differs case="+std::to_string(c)+" address="+
@@ -205,6 +257,18 @@ void replay(const char* cpu,const char* device,const char* dump) {
                     " expected="+std::to_string(*mismatch.second));
             }
             if(dump && !restore) {
+#ifdef LEZAC_TEST_FRAME_ITERATION
+                const auto path=std::string(dump)+".rgb";
+                require(!outputEntryExists(path),"Full-frame visual output already exists");
+                const auto palette=clock.snapshot().palette;
+                require(palette.has_value(),"Full-frame palette is absent");
+                std::ofstream output(path,std::ios::binary);
+                for(unsigned pixel=0;pixel<64000;++pixel) {
+                    const auto rgb=palette->rgb[memory.bytes[0xa0000+pixel]];
+                    for(unsigned shift:{16u,8u,0u}) output.put(static_cast<char>(rgb>>shift));
+                }
+                require(output.good(),"Full-frame RGB output failed");
+#else
                 const auto path=std::string(dump)+"-"+std::to_string(c)+".ram";
                 const auto palettePath=std::string(dump)+"-"+std::to_string(c)+".pal";
                 require(!outputEntryExists(path) && !outputEntryExists(palettePath),"Active output already exists");
@@ -217,6 +281,7 @@ void replay(const char* cpu,const char* device,const char* dump) {
                 for(const auto rgb:palette->rgb) for(unsigned shift:{16u,8u,0u})
                     paletteOutput.put(static_cast<char>(rgb>>shift));
                 require(paletteOutput.good(),"Active palette dump failed");
+#endif
             }
             irqs+=delivered;renderIrqs+=renderDelivered;
         }
@@ -229,7 +294,12 @@ void replay(const char* cpu,const char* device,const char* dump) {
 }
 }
 int main(int argc,char** argv) {
-    try {require(argc==3 || argc==4,"Expected active CPU/clock projections and optional RAM prefix");
+    try {
+#ifdef LEZAC_TEST_FRAME_ITERATION
+        require(argc==3 || argc==4,"Expected stream-only full-frame projections and optional RGB prefix");
+#else
+        require(argc==3 || argc==4,"Expected active CPU/clock projections and optional RAM prefix");
+#endif
         replay(argv[1],argv[2],argc==4?argv[3]:nullptr);return 0;}
     catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}
 }

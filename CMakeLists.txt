@@ -188,6 +188,11 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_transient_removal_test tests/core/transient_removal_test.cpp)
+    target_link_libraries(lezac_transient_removal_test PRIVATE lezac_core)
+    add_test(NAME transient_removal_unit COMMAND lezac_transient_removal_test)
+    set_tests_properties(transient_removal_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "transient_removal_unit=ok state_rejections=1110 boundaries=111 computed_irq_cases=10 partial_copy_irqs=2 copy_grant_controls=4")
     add_executable(lezac_frame_tail_test tests/core/frame_tail_test.cpp)
     target_link_libraries(lezac_frame_tail_test PRIVATE lezac_core)
     add_test(NAME frame_tail_unit COMMAND lezac_frame_tail_test)
@@ -763,6 +768,26 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME transient_removal_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_transient_removal_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/transient-removal.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/transient-removal-fixture.json)
+        set_tests_properties(transient_removal_fixture_contract PROPERTIES FIXTURES_SETUP transient_removal_corpus)
+        add_test(NAME transient_removal_original COMMAND lezac_transient_removal_test
+            ${CMAKE_CURRENT_BINARY_DIR}/transient-removal.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(transient_removal_original PROPERTIES FIXTURES_REQUIRED transient_removal_corpus TIMEOUT 180
+            PASS_REGULAR_EXPRESSION "transient_removal_original=ok cases=317 replays=2853 comparisons=136490 dispatches=7111917 writes=243349 endpoint_only_long_cases=3 full_memory=1 canonical_mz_bytes=1 later_state_injected=0 actual_app_integration=0 full_frame_claim=0")
+        add_test(NAME transient_removal_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_transient_removal_fixture.py)
+        set_tests_properties(transient_removal_fixture_rejections PROPERTIES
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME transient_removal_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_transient_removal_mutations.py
+                --cxx ${CMAKE_CXX_COMPILER} --out ${CMAKE_CURRENT_BINARY_DIR}/transient-removal-mutations)
+            set_tests_properties(transient_removal_mutations PROPERTIES TIMEOUT 600
+                PASS_REGULAR_EXPRESSION "transient_removal_mutations=ok faults=12 positive_baseline=1 sources_preserved=1")
+        endif()
         if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
             add_test(NAME world_raster_owner_mutations COMMAND ${Python3_EXECUTABLE} -S -B
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_world_raster_mutations.py

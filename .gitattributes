@@ -54,6 +54,7 @@ tests/fixtures/actor_contact/** -text
 tests/fixtures/actor_finish/** -text
 tests/fixtures/actor_tile_flags/** -text
 tests/fixtures/actor_expiry/** -text
+tests/fixtures/transient_removal/** -text
 tests/fixtures/actor_steering/** -text
 tests/fixtures/actor_motion/** -text
 tests/fixtures/nonplayer_motion/** -text

@@ -188,6 +188,11 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_frame_iteration_test tests/core/frame_iteration_test.cpp)
+    target_link_libraries(lezac_frame_iteration_test PRIVATE lezac_core)
+    add_test(NAME frame_iteration_unit COMMAND lezac_frame_iteration_test)
+    set_tests_properties(frame_iteration_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "frame_iteration_unit=ok state_rejections=144 phase_boundaries=3 computed_irq_cases=3 irq_instructions=108 entry_rejections=4 full_entry_admission=1 post_render_admission=1 zero_budget=1 terminal_no_work=1 full_frame_claim=0")
     add_executable(lezac_frame_transient_queues_test tests/core/frame_transient_queues_test.cpp)
     target_link_libraries(lezac_frame_transient_queues_test PRIVATE lezac_core)
     add_test(NAME frame_transient_queues_unit COMMAND lezac_frame_transient_queues_test)
@@ -785,6 +790,26 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME frame_iteration_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_iteration_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-iteration.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/frame-iteration-fixture.json)
+        set_tests_properties(frame_iteration_fixture_contract PROPERTIES FIXTURES_SETUP frame_iteration_corpus)
+        add_test(NAME frame_iteration_original COMMAND lezac_frame_iteration_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-iteration.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(frame_iteration_original PROPERTIES FIXTURES_REQUIRED frame_iteration_corpus TIMEOUT 300
+            PASS_REGULAR_EXPRESSION "frame_iteration_original=ok cases=1102 replays=6612 comparisons=237846 dispatches=21968850 writes=675918 ports=480 dense_cases=64 caller_flag_checks=253 next_frames=952 restarts=30 completion=53 escape=9 view_change=16 runtime_errors=24 divide_errors=18 all_endpoint_flags=1 full_memory=1 canonical_mz_bytes=1 later_state_injected=0 rendering_prefix_executed=0 actual_app_integration=0 full_frame_claim=0 actor_pass_hold_cleared=0")
+        add_test(NAME frame_iteration_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_iteration_fixture.py)
+        set_tests_properties(frame_iteration_fixture_rejections PROPERTIES TIMEOUT 600
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME frame_iteration_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_iteration_mutations.py
+                --cxx ${CMAKE_CXX_COMPILER} --out ${CMAKE_CURRENT_BINARY_DIR}/frame-iteration-mutations)
+            set_tests_properties(frame_iteration_mutations PROPERTIES TIMEOUT 1200
+                PASS_REGULAR_EXPRESSION "frame_iteration_mutations=ok faults=14 positive_baseline=1 sources_preserved=1")
+        endif()
         add_test(NAME frame_transient_queues_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_transient_queues_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/frame-transient-queues.bin

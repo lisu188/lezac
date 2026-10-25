@@ -72,12 +72,13 @@ int main(int argc, char** argv) {
 
         uint64_t bankCases = 0;
         constexpr std::array<uint8_t, 4> boundary{0, 1, 2, 255};
-        for (uint16_t cursor = 0; cursor < bank.stepCount; ++cursor) {
+        for (size_t cursor = 0; cursor < bank.stepCount; ++cursor) {
+            const auto wordCursor = static_cast<uint16_t>(cursor);
             for (uint8_t acc : boundary) for (uint8_t period : boundary) for (uint8_t gate : boundary) {
-                seed(engine, cursor, {acc, gate, period});
+                seed(engine, wordCursor, {acc, gate, period});
                 const auto action = engine.advanceSoundInterrupt();
                 const bool advances = uint8_t(acc + 1) == period;
-                const uint16_t word = engine.soundStepPeriodWord(cursor);
+                const uint16_t word = engine.soundStepPeriodWord(wordCursor);
                 const bool stops = advances && word == kSoundStopPeriod;
                 const auto irq = engine.interruptState();
                 require(engine.latch().active == !stops && engine.latch().currentSelector == 5 &&
@@ -86,8 +87,8 @@ int main(int argc, char** argv) {
                         action.silence == (stops || (!advances && uint8_t(acc + 1) == gate)) &&
                         action.frequency == (advances && !stops ? word : 0), "bank action differs");
                 require(irq.accumulator == (advances ? 0 : uint8_t(acc + 1)) &&
-                        irq.gateTick == (advances && !stops ? engine.soundStepGateTick(cursor) : gate) &&
-                        irq.periodTicks == (stops ? 1 : advances ? engine.soundStepPeriodTicks(cursor) : period),
+                        irq.gateTick == (advances && !stops ? engine.soundStepGateTick(wordCursor) : gate) &&
+                        irq.periodTicks == (stops ? 1 : advances ? engine.soundStepPeriodTicks(wordCursor) : period),
                         "bank state differs");
                 hashState(engine, action);
                 ++bankCases;

@@ -1757,7 +1757,7 @@ public:
             } else if (line.rfind("map ", 0) == 0) {
                 if (!header || map || number(fields.at("width")) != level_.width || number(fields.at("height")) != level_.height)
                     throw std::runtime_error("invalid render-boundary map");
-                level_.tiles = bytes(fields.at("bytes"), level_.width * level_.height);
+                level_.tiles = bytes(fields.at("bytes"), static_cast<size_t>(level_.width) * level_.height);
                 originalMap = level_.tiles;
                 map = true;
             } else if (line.rfind("backdrop ", 0) == 0) {
@@ -1781,7 +1781,7 @@ public:
                         descriptors[at + 1] != sprite.height ||
                         (descriptors[at + 2] | descriptors[at + 3] << 8) != static_cast<int>(offset))
                         throw std::runtime_error("render-boundary sprite descriptor mismatch");
-                    offset += sprite.width * sprite.height;
+                    offset += static_cast<size_t>(sprite.width) * sprite.height;
                 }
                 sprites = true;
             } else if (line.rfind("heap ", 0) == 0) {
@@ -1984,7 +1984,7 @@ public:
             } else if (line.rfind("map ", 0) == 0) {
                 if (stage != 1 || value("width") != level_.width || value("height") != level_.height)
                     throw std::runtime_error("invalid palette map");
-                level_.tiles = bytes(fields.at("bytes"), level_.width * level_.height);
+                level_.tiles = bytes(fields.at("bytes"), static_cast<size_t>(level_.width) * level_.height);
                 stage = 2;
             } else if (line.rfind("backdrop ", 0) == 0) {
                 if (stage != 2) throw std::runtime_error("invalid palette backdrop");
@@ -2000,7 +2000,7 @@ public:
                     if (at + 4 > descriptors.size() || descriptors[at] != sprite.width || descriptors[at + 1] != sprite.height ||
                         (descriptors[at + 2] | descriptors[at + 3] << 8) != static_cast<int>(offset))
                         throw std::runtime_error("palette sprite descriptor mismatch");
-                    offset += sprite.width * sprite.height;
+                    offset += static_cast<size_t>(sprite.width) * sprite.height;
                 }
                 stage = 4;
             } else if (line.rfind("case ", 0) == 0) {
@@ -2384,7 +2384,7 @@ public:
                 if (stage != 3 || f.size() != 1) fail("misplaced sprites"); descriptors = bytes(f.at("descriptors"), 368);
                 size_t offset = 0;
                 for (size_t i = 0; i < altSprites_.sprites.size(); ++i) { const auto& s = altSprites_.sprites[i]; const size_t at = (i + 1) * 4;
-                    if (descriptors[at] != s.width || descriptors[at + 1] != s.height || le16(descriptors, at + 2) != offset) fail("sprite bank mismatch"); offset += s.width * s.height; }
+                    if (descriptors[at] != s.width || descriptors[at + 1] != s.height || le16(descriptors, at + 2) != offset) fail("sprite bank mismatch"); offset += static_cast<size_t>(s.width) * s.height; }
                 stage = 4;
             } else if (tag == "case") {
                 if (stage != 4 || caseIndex >= static_cast<int>(names.size()) || f.size() != (activeCombat ? 23u : reentry ? (activeCount ? 19u : 18u) : bombProbe ? 16u : 14u) || f.at("name") != names[caseIndex]) fail("invalid case");
@@ -2650,7 +2650,7 @@ public:
             } else if (tag == "map") {
                 requireFields({"width", "height", "bytes"});
                 if (stage != 1 || number(fields.at("width")) != level_.width || number(fields.at("height")) != level_.height) fail("invalid map");
-                originalMap = bytes(fields.at("bytes"), level_.width * level_.height);
+                originalMap = bytes(fields.at("bytes"), static_cast<size_t>(level_.width) * level_.height);
                 stage = 2;
             } else if (tag == "backdrop") {
                 requireFields({"bytes"});
@@ -2668,7 +2668,7 @@ public:
                 for (size_t i = 0; i < bank.sprites.size(); ++i) {
                     const auto& sprite = bank.sprites[i]; const auto at = (i + 1) * 4;
                     if (descriptors[at] != sprite.width || descriptors[at + 1] != sprite.height || le16(descriptors, at + 2) != offset) fail("sprite bank mismatch");
-                    offset += sprite.width * sprite.height;
+                    offset += static_cast<size_t>(sprite.width) * sprite.height;
                 }
                 stage = 3;
             } else if (tag == "case") {
@@ -2891,7 +2891,7 @@ public:
                     const auto& sprite = sprites_.sprites[i]; const auto at = (i + 1) * 4;
                     if (descriptors.at(at) != sprite.width || descriptors.at(at + 1) != sprite.height || le16(descriptors, at + 2) != offset)
                         fail("sprite descriptor mismatch");
-                    offset += sprite.width * sprite.height;
+                    offset += static_cast<size_t>(sprite.width) * sprite.height;
                 }
                 stage = 4;
             } else if (tag == "view") {
@@ -17970,7 +17970,7 @@ public:
                 const size_t spriteIndex = bombProfile(type).spriteBase;
                 const auto& sprite = sprites_.sprites.at(spriteIndex);
                 size_t offset = 0;
-                for (size_t i = 0; i < spriteIndex; ++i) offset += sprites_.sprites[i].width * sprites_.sprites[i].height;
+                for (size_t i = 0; i < spriteIndex; ++i) offset += static_cast<size_t>(sprites_.sprites[i].width) * sprites_.sprites[i].height;
                 if (static_cast<int8_t>(raw[20]) != bombHeightOffset(type)) fail("collision hotspot mismatch");
                 if (visual[4] != sprite.width || visual[5] != sprite.height || offset > 65535 ||
                     (unsigned(visual[6]) | (unsigned(visual[7]) << 8)) != offset) fail("sprite descriptor mismatch");
@@ -25922,8 +25922,8 @@ public:
         auto checkBank = [&](const SpriteBank& bank, const Descriptor& sprite40, const Descriptor& sprite91) {
             require(bank.sprites.size() == 91 && expectedDescriptor(bank, 40) == sprite40 &&
                 expectedDescriptor(bank, 91) == sprite91, "shipped sprite bank probe changed");
-            for (uint16_t sprite = 1; sprite <= bank.sprites.size(); ++sprite) {
-                require(actorSpriteDescriptor(sprite) == expectedDescriptor(bank, sprite),
+            for (size_t sprite = 1; sprite <= bank.sprites.size(); ++sprite) {
+                require(actorSpriteDescriptor(static_cast<uint16_t>(sprite)) == expectedDescriptor(bank, static_cast<uint16_t>(sprite)),
                     "active sprite bank descriptor lookup mismatch");
                 ++descriptorChecks;
             }

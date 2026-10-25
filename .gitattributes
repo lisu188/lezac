@@ -68,6 +68,7 @@ tests/fixtures/actor_update/** -text
 tests/fixtures/frame_tail/** -text
 tests/fixtures/player_post/** -text
 tests/fixtures/frame_actor_pass/** -text
+tests/fixtures/frame_iteration/** -text
 tools/frame_foreground_probe/** text eol=lf
 tools/frame_foreground_probe/*.patch -whitespace
 tests/fixtures/foreground_live/** -text

@@ -1,0 +1,257 @@
+{
+  "schema": "lezac-natural-four-frame-compact-record-v1",
+  "status": "validated",
+  "source_commit": "08c845dcf81f6b23849365c9b03efb09b6b50c84",
+  "capture_report_sha256": "e81567e2d809833c4d156736fbfb595a48f2663d6469509abd5f7cc0d26c6299",
+  "states": 1383583,
+  "original_frames": 4,
+  "original_irq_entries": 5,
+  "original_frame_boundaries": [
+    0,
+    346011,
+    691892,
+    1037733,
+    1383582
+  ],
+  "original_frame_counters": [
+    4,
+    8
+  ],
+  "memory_sha256": [
+    "5335cd909f06677b389c69ec9f3386244b45c21db4e2146a354500e0f912fd2a",
+    "5e3850f4eed237192cc0ac1b80bfcb72bd493fedd5bece7e4e039142eebf298f"
+  ],
+  "cpu_projection_sha256": "989b0a6d13c11a0e39c74b457b04d91b78dcc17abbe5706d4ab3e2b8d0da405a",
+  "clock_projection_sha256": "4ac95cfd3f91b39ebe83fedc4b4339eb12fa2e87c76e19f53f8cb927c50af9e4",
+  "original_final_rgb_sha256": "774b2cf97d6f1131c1b515a18786d5782bf78ef4f1b4f4a0381713f58d3bcbbb",
+  "cpp_final_rgb_sha256": "774b2cf97d6f1131c1b515a18786d5782bf78ef4f1b4f4a0381713f58d3bcbbb",
+  "differing_pixels": 0,
+  "verifier": {
+    "exit_code": 0,
+    "stdout": "frame_iteration_live=ok cases=1 comparisons=2767166 predicted_irqs=10 render_irqs=8 complete_memory_bytes=2097152 later_state_injected=0 actual_app_integration=0 whole_game_parity=0\n",
+    "stderr": "",
+    "sha256": "b3949a3c0e1e71d025ef44338f08688e008ea84d4a2bd7acb70bc7fc57a888f8"
+  },
+  "trace_uncompressed_bytes": 301843112,
+  "trace_uncompressed_sha256": "c751bca864050fae280d921eda375f3902f3a1466da370e6f999c9916dfa43e7",
+  "trace_end_marker": true,
+  "complete_original_code_bytes_verified": 43552,
+  "initial_memory_only_as_input": true,
+  "later_state_injected": false,
+  "full_ram_artifacts": 0,
+  "core_dumps_enabled": false,
+  "guest_memory_streamed_internally": true,
+  "guest_instruction_patches": 0,
+  "process_memory_writes": 0,
+  "process_pauses": 0,
+  "gameplay_state_seeded": false,
+  "clock_or_irq_state_seeded": false,
+  "audio": "dummy",
+  "physical_keyboard_claim": false,
+  "actual_app_integration": false,
+  "whole_game_parity": false,
+  "canonical_assets_unchanged": true,
+  "protected_inputs_preserved": true,
+  "child_exit_code": 0,
+  "producer_sha256": "b5ba5de292cf51ac7f7560e76a5fa125e7090093b7816d9573b5db0a6559695a",
+  "host_build_sha256": "69c60cd618d65bba150ae9f6d6f7321bb7e959c00f74c3e7837ebae9cef0a950",
+  "dosbox_sha256": "8280f750ce10580c2cf037d11c02881cfc80c06ee25750dde51e54603dad2746",
+  "forbidden_artifacts": [],
+  "source_hash_semantics": "Raw source bytes as consumed in the Windows-backed WSL checkout; commit records canonical Git text",
+  "candidate_source_sha256": {
+    "src/core/actor_animation.hpp": "f071b2cc4cba72b2cca99a803e0f9aa599befcb79ac585bc8e8b4061f239eef8",
+    "src/core/actor_contact.hpp": "0fee51373d3b59038b957c2fce10d659e4561856295921bc863ba654a00ee7c9",
+    "src/core/actor_expiry.hpp": "734e2ad46201f68acc8520674ccc13397f70f1f0c7e054daa5ada6c04788b576",
+    "src/core/actor_finish.hpp": "91dc3e08dbad9a5d3a5f6009c163cac5db89030dc236146a0826daa53bef764b",
+    "src/core/actor_motion.hpp": "236a11aa4a6e5855b9b09678e4cdc47ca7d009ae2bf1482a45f7bd04b37ea6cc",
+    "src/core/actor_motion_prefix.cpp": "8fb6bd9f188162237b47a835d0582be4f545b59bf5ba722a493639d63c44fc73",
+    "src/core/actor_motion_prefix.hpp": "3a662d07b688b875725583a4a5564b86c8d21289bf9ec04f35db6ed4a3119cdf",
+    "src/core/actor_precontact.hpp": "9eec029f005062afd2b5a01b60d4d82bbdd2537c725a546e6262037729bb5173",
+    "src/core/actor_real48.hpp": "a6579193bfa4dcb9e35dea58fe36e496cd2d10a9d3df38f1f01273dfffe97137",
+    "src/core/actor_steering.hpp": "c502f7837985ad7ae8d09b25104164bcf3cc87853bcf3293f7de968f18b5352c",
+    "src/core/actor_steering_vector.cpp": "d7ddbb3818b67ef30e426988204aab1970fbc5c12bfd146a521a400fbf2e31a7",
+    "src/core/actor_steering_vector.hpp": "7d10269dfb542e443376d4177a4f1eeefc6fc39ed430a45d2416d2121c405ef2",
+    "src/core/actor_terrain.hpp": "ec2a4df7453da2f85a219392d58fb32635903d3b4a5a1fcd2051da5efa54b8ea",
+    "src/core/actor_tile_flags.hpp": "e8a198a761cead29ca83023e814293ba3942963ba7c3b62b0b17a13a36488993",
+    "src/core/actor_update.hpp": "23ef1bdf84cf4f7e5d2ef51578bd3e4cf3f3f69a56a19ce13c0b6bdf8d934d85",
+    "src/core/bios_keyboard.hpp": "676a2326c6d29e890dc0985464b9a6b572efdb1889b7d0cb8c28f950f4bde438",
+    "src/core/bios_keyboard_tables.hpp": "6869dd60996e4486864048de9036664af1c170cbaac1f25ca130491176863aa3",
+    "src/core/boss_links.hpp": "547a0ae19a0566a7472183ec294f116f6e53c297df6d8a5682fc6489e08d7d9c",
+    "src/core/collapse_queue_instructions.hpp": "959daccbbb75f2dc2d4a0cf64af2c41a7c8d0f2f6bf76fbeb0c06d4ecea5da6a",
+    "src/core/constants.hpp": "305b8ae693484302837b9cb4f2c790efb8536b828779165e32ffe1f3fc73ffec",
+    "src/core/crt_delay.hpp": "a9ebf527037c836db03938e8e2cd4a2cb8d0d95a0cb825ac61462883b3166307",
+    "src/core/crt_keyboard.hpp": "7d823bd361d275624216f5e39bd9895af53c3da6089cf8d921b4006ca6e4fc67",
+    "src/core/dos_time.hpp": "85cbd423d8cfbce5c4c9de4276c4f85ca557dc5010d753c4eb08d14419f19ad2",
+    "src/core/fixed_point.hpp": "f109ce773f20334f1375d405b08bd74398cba05108e66f9e5314e22e5a2e6ab9",
+    "src/core/frame_active.hpp": "52d14b1b13ec900d952c7b0237936acbbe8ddec071253891cc8159dbc8d71151",
+    "src/core/frame_actor_entry.hpp": "e7c52ac4b2cae785ff003ada8d3f976c88984789abb78cc92a4c577594db4709",
+    "src/core/frame_actor_pass.hpp": "daff6beae58162fd22a54f822946ae3365e3fa7d834dd1c0744757e52aa644e4",
+    "src/core/frame_camera.hpp": "9071d820c1214ff4f155a0eeec5624138998cc6b43986315238accf1d8cc1ed8",
+    "src/core/frame_display.hpp": "44a252205b7afe4b0813fed9bdf95b4913dce8a1a3dc4127c9c2714afd66a7dd",
+    "src/core/frame_drawing.hpp": "b9c17d65b8fc8bc0ea69c27bed32507cf1e67fcb1219767ffdd5bb8891e5a2d4",
+    "src/core/frame_elapsed.hpp": "0c78ca9e6891a2097e132abc0d544ab3d9498b819cd51015938bf7e6e766fa7a",
+    "src/core/frame_foreground.hpp": "3b39158e553b7e795d63e358b642aef85abf6e7f9e7a475bb62e6479ba54812e",
+    "src/core/frame_hud.hpp": "8ac244656598975420bd7dbc5ef3a1812a0deccfd8307d003dacf65fd526e5b9",
+    "src/core/frame_iteration.hpp": "639817404d789b516f5e8edca39a88997c348086976b10e5606b9e36befc3a20",
+    "src/core/frame_pacing.hpp": "b9c139b78118032e3c28cb0592219c8ca2892c8a696a3751f02b1e7d679f739f",
+    "src/core/frame_pacing_calculation.hpp": "7246f0c41fd79f65a25efb53a3ca1c4dc67b890a6d3e9080fc87804cfe5e7c2d",
+    "src/core/frame_pacing_operation.hpp": "bd21bb0f024a1768fb2b94e2bc3709b6d5d530330b94ff2e43fc6319620b5138",
+    "src/core/frame_prefix.hpp": "d7fe5f92645335b562b5ddf0c3297f9ee7f26df2caad81f2b7257ad58f47dd1a",
+    "src/core/frame_render.hpp": "b738b1989ed50c7dbb08bbe93afed5f089a8ffa05f116a8c37c4b180233f0dfc",
+    "src/core/frame_spawner.hpp": "5412d4c365dcb2d3b066b3f0ab463d218cbe4e26f99bea3e9d5d9501c1c234d8",
+    "src/core/frame_tail.hpp": "3b959da5a0846c5c424316e3218f7ec290fdbf856cf6a2261ea3b5c8c54b2a8c",
+    "src/core/frame_transient_queues.hpp": "40166f676ffb5a3e44ab593191eb614f247d15b09e552a8524cf81b7803d732f",
+    "src/core/frame_view_copy.hpp": "509257be6836c6fb0defce8cf518deb24a49d76cab703a4aa2c0ccd5d2992e6e",
+    "src/core/frame_waiting.hpp": "7109c2e657ec4bef2c2754ab18f014ed611638d642b71fa524a495ca68087eb8",
+    "src/core/frame_world_raster.hpp": "b3c1ed9efd8e342189cfedc378a2eba947e53fd9d6ffa004b867158eaffbbf7f",
+    "src/core/game_keyboard.hpp": "e12544a116971228692ab18a2db99442eb05af8e53b0e71fc630df07fb4c2bc9",
+    "src/core/hud.hpp": "447e35baee167ac55fa843b43f54a30c9b9af2f1a15191b8fa3149a115f732cb",
+    "src/core/interruptible_dos_time.hpp": "afb27013aff496cb26ee8c2b93e77a59bf1a1b074e9c8962b1276b26b01e7caf",
+    "src/core/interruptible_frame_clock.hpp": "f3864c75cad459cc1894c1f1459adb20334b42edf3141c770e25b898c12dbaf7",
+    "src/core/interruptible_frame_display.hpp": "4dcb07ed410a61b3b60bd046cd994d7b4f9c91ec5edf0d6bef97b62b192f1de3",
+    "src/core/keyboard_controller.hpp": "ad7169a08f56465bd8d632f7ad16a7ecb2bc53ee1008601fb93ea8f686f9bd97",
+    "src/core/keyboard_irq.hpp": "d4c375d1604d2fdf71614d7f284ae7a77471acd66ef4aa9242bda020c9343d4f",
+    "src/core/nonplayer_loop.hpp": "77f67eadbf06825b36c8362e34d5342ac40e91dbb2cc22779d9b27e4e4a0a1c3",
+    "src/core/pacing_device_clock.hpp": "18adbdf4113fc6a881d850bc95ec16b689696544435ab14cb27ced22dd093ef4",
+    "src/core/pic_work_clock.hpp": "e11bd70657bb9b0c72d9b0a5eaf92e78376741b4aced957a94481682b5dabad1",
+    "src/core/player_motion.hpp": "9c2f7fed0d48332509f0ac9dbaa6fd8107ef28f5c161a889b7a62bf97178cc30",
+    "src/core/player_post.hpp": "a4cead7fc86be43140f21bc5f3ee3bf26841c7ad102ce3f53c7cc23aaf4e1b30",
+    "src/core/player_start.hpp": "cdc125f0e0e78d2a29f4947640890a064b7ad473f1017f2aeaf4c55a243d6440",
+    "src/core/progress.cpp": "d1a3be7462e4205036a8b1d9dc5b0e1bcdb0c9bdc5c4fbb18f4bff26b1aa4a23",
+    "src/core/progress.hpp": "ae937844744d703bb36d0847130008762ba8fa6e5825fb2c9faeeba5d935073e",
+    "src/core/random.hpp": "9a76a331aaa83bf26cc90518c7511fe6b4196d398f09cb1589ce697f4ab31e7c",
+    "src/core/startup_timing.hpp": "0f20fc8fd3d72f4b262216a823d225c9e30f860bbed85e22b56310920704adef",
+    "src/core/timer_irq.hpp": "01767b4b167354c527e777d093555ae84c0e8a75829c22170fa9f26b940f5bb1",
+    "src/core/transient_motion.hpp": "e6cadc2a4995f54693b0c4c17a42e959aa326821cc0d043df0e549c516d65cdc",
+    "src/core/transient_queue_instructions.hpp": "008fe80f7cc48fd40cbe0c66c318b9cb64ddb25caca1d6cda4d2b6d4725b0515",
+    "src/core/transient_removal.hpp": "e3615131947b29ce94e3245343b2ce2f83b1ae60e3b0e5eb34de0e5ddcddbd9e",
+    "src/core/transient_update.hpp": "7e97c161dbb6e2b965e6a44d52e3ffc1016821ff85fa66ae64f4de6c9c6954f1",
+    "src/core/vga_dac_writer.hpp": "b28985b7c3aea9d412af517d25df123ef4a307195d902fb57b99852ed53bb015",
+    "tools/frame_iteration_live_probe/capture.py": "b5ba5de292cf51ac7f7560e76a5fa125e7090093b7816d9573b5db0a6559695a",
+    "tools/frame_iteration_live_probe/transport.py": "5b2bd20adf0579ec9fe543254b29c504cec75bf01bf7ad6e46565fd29a208324",
+    "tools/frame_iteration_live_probe/build.py": "9d6e1c0448157b413084c52b6ca80c4c760db9b6eaba7980034bc8f7450689ab",
+    "tools/frame_iteration_live_probe/memory_stream.h": "70a90afe38e29090fa01b90cd8d9b68f461693bef4aee548dff8fe733949a69f",
+    "tests/core/frame_active_live_test.cpp": "2a5a2d2c77aed7797cc0cf913c3586519733898e4e35f316bcd601bd1c30fd7b",
+    "tools/frame_active_live_probe/trace.py": "d7345a7fe79bff1d31a0ac8f8c6d26d0b04ea0d19f22fc67c653a26437a6d22b",
+    "tools/frame_active_live_probe/project.py": "e206ec7a24be491ad28f4d3b4c43715f026bf7941eabbc39b135a147c8f95668",
+    "tools/original_capture_contract.py": "36e27f3441ae98db6e2a459ca64c561b72c964e1e98de854ca416321c33c33e0"
+  },
+  "observer": {
+    "schema": "lezac-iteration-stream-observer-v1",
+    "host_sha256": "8280f750ce10580c2cf037d11c02881cfc80c06ee25750dde51e54603dad2746",
+    "pristine_archive_sha256": "c0d13dd7ed2ed363b68de615475781e891cd582e8162b5c3669137502222260a",
+    "distribution_archive_sha256": "f915090262374413e520798625f5e0b948b3a408c2354ed37dd10e5bd52c083d",
+    "sdl_runtime_sha256": "b82090085ba665c89ea70909b9018a219c42029fdf9803e7d5e17c185d6d1d72",
+    "probe_sha256": "71d055a4e7adeda9f93729de2cb91aefc232b847aa182e886c42bc7084164514",
+    "active_vga_fragment_sha256": "eef9bb73e27d745b39e505d480a91235a5b6ebe73bb5157310e3935f415ef05f",
+    "frozen_active_probe_sha256": "5b654f96f7b248e3c4e4b0ba4e9dc9993f3ae8020fbd3a0556e202c58e98649e",
+    "frozen_active_probe_lf_sha256": "c23ff346b5db1c5c2729863ae9ee3036bfbc626656229617a2d362b123a7fb15",
+    "frozen_active_vga_fragment_sha256": "5f1e164d4e6d5ec6cf0e8a81ac0fd9eac9d976f466bdfa8634553aabacec08ec",
+    "frozen_active_vga_fragment_lf_sha256": "8b0af235824c28351e25bfeb0a38f8bfccf650ba53f6b8248b5bb4657fbf64e6",
+    "memory_stream_sha256": "70a90afe38e29090fa01b90cd8d9b68f461693bef4aee548dff8fe733949a69f",
+    "iteration_builder_sha256": "9d6e1c0448157b413084c52b6ca80c4c760db9b6eaba7980034bc8f7450689ab",
+    "dac_profile": "observed six-bit DAC, pel mask 255 at both endpoints; all intervening opcodes checked",
+    "guest_instruction_patches": 0,
+    "cpu_source_unchanged": true,
+    "compiled_sources_unchanged_during_build": true,
+    "release_generated_bytes_unchanged_during_build": true
+  },
+  "dac_mutations": {
+    "status": "passed",
+    "cases": [
+      {
+        "name": "baseline",
+        "exit_code": 0
+      },
+      {
+        "name": "six_bit_mask_lost",
+        "exit_code": 1
+      },
+      {
+        "name": "low_bit_replication_lost",
+        "exit_code": 1
+      },
+      {
+        "name": "write_index_not_advanced",
+        "exit_code": 1
+      },
+      {
+        "name": "red_blue_swapped",
+        "exit_code": 1
+      },
+      {
+        "name": "write_continuation_lost",
+        "exit_code": 1
+      },
+      {
+        "name": "dirty_first_lost",
+        "exit_code": 1
+      },
+      {
+        "name": "lut_prematurely_committed",
+        "exit_code": 1
+      }
+    ],
+    "protected_inputs_preserved": true,
+    "mutations_detected": 7,
+    "original_execution_claim": false
+  },
+  "native_msvc": {
+    "status": "passed",
+    "rows": [
+      {
+        "test": "dac-build",
+        "exit_code": 0
+      },
+      {
+        "test": "dac-unit",
+        "exit_code": 0
+      },
+      {
+        "test": "full-build",
+        "exit_code": 0
+      }
+    ],
+    "protected_inputs_preserved": true,
+    "full_frame_runtime_claim": false
+  },
+  "sanitizer": {
+    "dac_unit": "passed ASan and UBSan",
+    "full_frame_runtime_claim": false
+  },
+  "cold_git_checkout": {
+    "source_commit": "08c845dcf81f6b23849365c9b03efb09b6b50c84",
+    "transport_tests_passed": 9,
+    "frozen_lf_and_crlf_forms_checked": true
+  },
+  "merge_hold": {
+    "historical_actor_pass_pr": 458,
+    "dependencies": [
+      467,
+      468
+    ],
+    "cleared": false,
+    "reason": "Earlier optimized actor-pass failures remain unexplained"
+  },
+  "retention": {
+    "full_ram_artifacts": 0,
+    "raw_trace_and_clock": "RAM-only local evidence, not uploaded",
+    "cpu_projection": "in-memory only, passed through pipe",
+    "large_artifacts_permanent_fixture": false
+  },
+  "canonical_exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "focused_ctests": {
+    "passed": 19,
+    "failed": 0,
+    "groups": [
+      "11 operation, transport, DAC and prefix checks",
+      "8 device-clock and foreground checks"
+    ],
+    "mutation_ctest_repeated_successfully": true
+  },
+  "source_guardrails": {
+    "status": "passed",
+    "cases": 20,
+    "mapped_sources": 177
+  }
+}

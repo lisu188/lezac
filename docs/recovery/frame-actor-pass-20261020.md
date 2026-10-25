@@ -476,3 +476,86 @@ captures registers/stack and byte-identical owned executable text, then hands
 the stopped child to GDB as its same parent and resumes it through the expected
 failure. This validates the new capture mechanism, not a historical failure
 reproduction. All such diagnostic data stays local in RAM.
+
+## October 25 Caller Stack And Timer Review
+
+Review of e5c8caf66c0b1a28c3f3e37da011dadb86a7de49 found caller BP/SP
+ownership and impossible aggregate timer histories. A separately compiled
+probe accepts all six reported/related counterexamples on that head and
+rejects all six after this fix, without constructor bus effects.
+
+Caller restoration now checks foreground SS and BP against the owned caller
+frame, including a caller suspended by an IRQ. SP must equal callerSp except
+at the argument-push boundaries: 7EE0/7F58 require callerSp-2, and 7EE1/7F59
+require callerSp-4, with 16-bit wrap. All 50 supported caller PCs have positive
+ordinary/interrupted controls and BP, SS and both SP-direction rejection
+controls. An additional active-IRQ SS control protects the outer stack guard;
+15 positive cases cover SP values 0, 1 and 65535 across five caller entries.
+
+Timer accounting now rejects work or an active IRQ without a delivery, and
+deliveries exceeding instructions plus the single possible newly active IRQ.
+Nine new controls cover callers, actor/post children, terminal snapshots,
+immediate delivery and the uint64 limit. These are necessary ordering bounds,
+not authentication of an arbitrary forged interrupt schedule or RAM history.
+No original instruction owner, producer or frozen fixture bytes change.
+
+The unit rejects 8,350 malformed snapshots, including 401 caller-stack and
+nine timer-history controls. All 45 compiled faults are detected after the
+authenticated passing unit/full-original baseline, including five new guard
+removals. A preliminary mutation run was intentionally interrupted to add the
+active-IRQ SS control; only the complete rerun is counted as passing.
+
+Fresh strict optimized GCC, strict native MSVC /std:c++latest /W4 /WX /O2,
+and GCC ASan/UBSan builds pass the unit and all 7,884 original replays across
+876 cases: 10,432,263 register/control comparisons and complete final-memory
+checks. All four fixture tests and eight CLI controls pass on both Linux and
+Windows. The 20-case source guard passes. Fresh core.autocrlf=true cold
+checkout validation covers all 30 frozen families and 98 files, including
+30 CRLF negative controls; this is not an export-validation sweep of all
+30 families. Protected inputs remain unchanged during validation.
+
+The Release App and four focused core executables build successfully; all
+nine selected CTests pass, including the CMake-owned complete actor-pass
+original replay and fixture rejection tests. App compilation retains an
+unrelated format-truncation warning in debugDebrisShatterPlayback; this is
+not a warning-free App claim. A new silent boss_level7_fight sequence captures
+six frames through tick 220. Tick 180 retains hash 0x8640228849cc6fff, with
+the boss and one bomb visible. This is the existing seeded App path, not a
+natural level-1 route, the new actor-pass integration or aligned original
+pixel-parity evidence. No raw capture is added to this change.
+
+The separately explained intermittent optimized replay hold remains open.
+These fixes do not establish actual-App integration or full-frame fidelity.
+Current-head hosted checks and completed external review remain required.
+
+## October 25 Diagnostic Retention Boundary
+
+The earlier WSL RAM filesystem did not survive until this session. Its raw
+debugger traces, executable copies and core are no longer available locally;
+earlier references above describe historical observations, not retained files
+that can now be reinspected. No replacement full core or guest RAM dump was
+generated. New diagnostics remain RAM-only and bounded to 16 MiB per campaign.
+
+The historical executable was reconstructed using the same GCC 13.3.0 and
+published source: e5c8caf as the base, with frame_actor_pass.hpp,
+player_post.hpp and frame_actor_pass_test.cpp from eacb54ff8770f24e6f08ebfd7bd79ef43ee18636.
+The 905,632-byte result has SHA-256
+b1c719393f987cd2a98090055c8cc06d5d71589090599a36f32c4d2fd5da47f6,
+matching the previously recorded historical ELF hash. The lost old file was
+not available for a fresh direct byte comparison. The canonical original MZ
+and regenerated 35,707,847-byte replay fixture retain their recorded hashes.
+
+A software-breakpoint capture was calibrated using a deliberately mutated
+host snapshot. Before reading code it removes the breakpoints, then verifies
+all 688,128 owned executable bytes against the rebuilt ELF. The compact
+capture includes registers, an 8 KiB stack slice, maps and owned code bytes,
+not a full process core. Calibration is synthetic mechanism validation only.
+Six subsequent complete historical-hash ELF replays hit no watched failure
+branch and exited successfully; they neither reproduce nor explain the
+intermittent failure and do not clear its hold. Raw diagnostics are unpublished.
+
+Original code at 804E..806A confirms the remaining frame-loop bridge: 45FA
+is called when word DS:2076 is nonzero or DS:207E is at least 200; 5102 is
+called when word DS:2080 is nonzero. The actor pass stops before this bridge,
+and FrameTail begins after it. This is a recorded composition gap, not newly
+implemented or validated queue behavior.

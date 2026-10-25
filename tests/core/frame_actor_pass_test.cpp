@@ -294,12 +294,17 @@ void unit() {
         0x7efc,0x7f01,0x7f03,0x7f09,0x7f0b,0x7f0f,0x7f13,0x7f18,0x7f1a,0x7f1e,
         0x7f23,0x7f28,0x7f2a,0x7f2d,0x7f2f,0x7f34,0x7f3a,0x7f3c,0x7f40,0x7f44,
         0x7f49,0x7f4b,0x7f4e,0x7f53,0x7f57,0x7f58,0x7f59,0x8044,0x8049,0x804b};
+    const auto callerSpAt=[](uint16_t ip,uint16_t sp) {
+        return static_cast<uint16_t>(sp-((ip==0x7ee0 || ip==0x7f58) ? 2u :
+            (ip==0x7ee1 || ip==0x7f59) ? 4u : 0u));
+    };
     unsigned callerBoundaries=0;
     for (uint16_t ip=0x7ebb;ip<=0x804b;++ip) {
         if (ip>0x7f59 && ip<0x8044) continue;
         s=initial;s.dispatchedInstructions=1;
         if (ip==0x7ee4 || ip==0x7ee8) s.actorCalls=s.actorReturns=s.nonplayerCalls=1;
         std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.ip=ip;
+        std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.sp=callerSpAt(ip,s.callerSp);
         if (std::find(callerIps.begin(),callerIps.end(),ip)==callerIps.end()) reject(s);
         else { (void)FrameActorPassOperation(s);++callerBoundaries; }
     }
@@ -468,6 +473,49 @@ void unit() {
     FrameActorPassOperation interrupted(initial);interrupted.deliverTimerInterrupt(irqBus);
     const auto irqState=interrupted.snapshot();
     (void)FrameActorPassOperation(irqState);
+    unsigned callerStackControls=0,timerHistoryControls=0;
+    for (bool irq : {false,true}) for (uint16_t ip : callerIps) {
+        auto base=initial;base.dispatchedInstructions=1;
+        if (ip==0x7ee4 || ip==0x7ee8) base.actorCalls=base.actorReturns=base.nonplayerCalls=1;
+        auto& cpu=std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(base.callee).callee).registers;
+        cpu.ip=ip;cpu.sp=callerSpAt(ip,base.callerSp);
+        FrameActorPassOperation owned(base);Memory stackMemory;
+        if (irq) owned.deliverTimerInterrupt(stackMemory.bus());
+        base=owned.snapshot();(void)FrameActorPassOperation(base);
+        s=base;++std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.bp;
+        reject(s);++callerStackControls;
+        s=base;++std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.ss;
+        reject(s);++callerStackControls;
+        for (uint16_t delta : {uint16_t{2},uint16_t{65534}}) {
+            s=base;auto& stack=std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.sp;
+            stack=static_cast<uint16_t>(stack+delta);reject(s);++callerStackControls;
+        }
+    }
+    s=irqState;++std::get<FrameActorEntrySnapshot>(s.callee).timer->registers.ss;
+    reject(s);++callerStackControls;
+    for (uint16_t sp : {uint16_t{0},uint16_t{1},uint16_t{65535}})
+        for (uint16_t ip : {uint16_t{0x7ebb},uint16_t{0x7ee0},uint16_t{0x7ee1},uint16_t{0x7f58},uint16_t{0x7f59}}) {
+            s=initial;s.dispatchedInstructions=1;s.callerSp=sp;
+            auto& cpu=std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers;
+            cpu.ip=ip;cpu.sp=callerSpAt(ip,sp);(void)FrameActorPassOperation(s);
+        }
+    s=initial;s.dispatchedInstructions=s.timerInstructions=1;reject(s);++timerHistoryControls;
+    s=initial;s.timerDeliveries=1;reject(s);++timerHistoryControls;
+    s=initial;s.dispatchedInstructions=s.timerInstructions=1;s.timerDeliveries=2;reject(s);++timerHistoryControls;
+    s=irqState;s.timerDeliveries=2;reject(s);++timerHistoryControls;
+    s=irqState;s.dispatchedInstructions=s.timerInstructions=1;s.timerDeliveries=3;reject(s);++timerHistoryControls;
+    auto actorInterrupted=FrameActorPassOperation(actorState);actorInterrupted.deliverTimerInterrupt(irqBus);
+    (void)FrameActorPassOperation(actorInterrupted.snapshot());
+    s=actorInterrupted.snapshot();s.timerDeliveries=2;reject(s);++timerHistoryControls;
+    auto postInterrupted=FrameActorPassOperation(postState);postInterrupted.deliverTimerInterrupt(irqBus);
+    (void)FrameActorPassOperation(postInterrupted.snapshot());
+    s=postInterrupted.snapshot();s.timerDeliveries=2;reject(s);++timerHistoryControls;
+    s=initial;s.outcome=FrameActorPassOutcome::TransientQueues;s.timerDeliveries=1;
+    std::get<FrameActorEntrySnapshot>(s.callee).outcome=FrameActorEntryOutcome::TransientQueues;
+    std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.ip=0x804e;
+    reject(s);++timerHistoryControls;
+    s=initial;s.timerDeliveries=s.dispatchedInstructions=~uint64_t{0};s.timerInstructions=s.timerDeliveries-1;
+    reject(s);++timerHistoryControls;
     unsigned playerSetupControls=0,playerCapControls=0;
     for (bool irq : {false,true}) {
         for (uint16_t ip : callerIps) {
@@ -475,6 +523,7 @@ void unit() {
             s=irq ? irqState : initial;s.dispatchedInstructions=2;
             s.actorCalls=s.actorReturns=s.playerCalls=s.postCalls=s.postReturns=2;
             std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.ip=ip;
+            std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.sp=callerSpAt(ip,s.callerSp);
             reject(s);++playerSetupControls;
             s.actorCalls=s.actorReturns=s.playerCalls=s.postCalls=s.postReturns=1;
             (void)FrameActorPassOperation(s);
@@ -507,6 +556,7 @@ void unit() {
                 s.playerCalls=s.postCalls=s.postReturns=1;
                 s.actorCalls=s.actorReturns=s.nonplayerCalls+1;
                 std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.ip=ip;
+                std::get<FrameActorCallerSnapshot>(std::get<FrameActorEntrySnapshot>(s.callee).callee).registers.sp=callerSpAt(ip,s.callerSp);
                 reject(s);++callerHistoryControls;
             }
             if (ip<=0x7ec5) {
@@ -553,10 +603,10 @@ void unit() {
         try { ended.deliverTimerInterrupt(bus); } catch (const std::logic_error&) { stopped=true; }
         require(stopped && ended.advance(17,bus,all)==0 && ended.snapshot()==saved,"Finished pass changed state");
     }
-    require(rejected==7940 && callerBoundaries==50 && bossBoundaries==443 &&
+    require(rejected==8350 && callerBoundaries==50 && bossBoundaries==443 &&
         bossHistoryControls==1335 && callerHistoryControls==157 && playerSetupControls==22 &&
-        playerCapControls==5,"Pass rejection coverage differs");
-    std::cout<<"frame_actor_pass_unit=ok state_rejections="<<rejected<<" phase_controls=3 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_controls=2 caller_boundaries="<<callerBoundaries<<" skipped_post_controls=4 boss_boundaries="<<bossBoundaries<<" boss_irq_controls=2 nonplayer_return_controls=8 boss_history_controls="<<bossHistoryControls<<" caller_history_controls="<<callerHistoryControls<<" actor_history_controls=1 player_setup_controls="<<playerSetupControls<<" player_cap_controls="<<playerCapControls<<'\n';
+        playerCapControls==5 && callerStackControls==401 && timerHistoryControls==9,"Pass rejection coverage differs");
+    std::cout<<"frame_actor_pass_unit=ok state_rejections="<<rejected<<" phase_controls=3 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_controls=2 caller_boundaries="<<callerBoundaries<<" skipped_post_controls=4 boss_boundaries="<<bossBoundaries<<" boss_irq_controls=2 nonplayer_return_controls=8 boss_history_controls="<<bossHistoryControls<<" caller_history_controls="<<callerHistoryControls<<" actor_history_controls=1 player_setup_controls="<<playerSetupControls<<" player_cap_controls="<<playerCapControls<<" caller_stack_controls="<<callerStackControls<<" timer_history_controls="<<timerHistoryControls<<'\n';
 }
 }
 int main(int argc,char** argv) {

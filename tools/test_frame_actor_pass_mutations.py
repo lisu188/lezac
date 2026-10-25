@@ -46,6 +46,13 @@ FAULTS = (
         '(cpu->registers.ip<=0x7f3a || cpu->registers.ip==0x77dc) && state_.playerCalls', 'false'),
     ('player_loop_entry_history', 'cpu->registers.ip<=0x7f3a', 'cpu->registers.ip<=0x7f34'),
     ('player_call_limit', 'state_.playerCalls>2 ||', 'false ||'),
+    ('caller_bp_restoration', 'cpu->registers.bp!=state_.callerBp ||', 'false ||'),
+    ('caller_sp_restoration', 'cpu->registers.sp!=expectedCallerSp(cpu->registers.ip) ||', 'false ||'),
+    ('caller_ss_restoration', 'cpu->registers.ss!=state_.callerSs ||', 'false ||'),
+    ('timer_without_delivery', '(!state_.timerDeliveries && (state_.timerInstructions || timerActive)) ||', 'false ||'),
+    ('timer_delivery_balance',
+        '(state_.timerDeliveries>state_.timerInstructions &&\n'
+        '                state_.timerDeliveries-state_.timerInstructions>(timerActive ? 1u : 0u)) ||', 'false ||'),
     ('player_setup_history',
         '(((cpu->registers.ip>=0x7f3c && cpu->registers.ip<=0x7f59) ||\n'
         '                            cpu->registers.ip==0x804b) && state_.playerCalls>1) ||', 'false ||'),

@@ -170,6 +170,11 @@ private:
         default:return false;
         }
     }
+    uint16_t expectedCallerSp(uint16_t ip) const {
+        if (ip==0x7ee0 || ip==0x7f58) return static_cast<uint16_t>(state_.callerSp-2u);
+        if (ip==0x7ee1 || ip==0x7f59) return static_cast<uint16_t>(state_.callerSp-4u);
+        return state_.callerSp;
+    }
     void caller(DosGetTimeRegisters r) {
         state_.callee=FrameActorEntrySnapshot{FrameActorCallerSnapshot{r},state_.gameSegment,state_.idToggleMask};
         state_.actorKind=FrameActorPassKind::None;
@@ -230,12 +235,14 @@ private:
             state_.postCalls>state_.actorReturns)
             invalid();
         FrameActorPassOutcome actual=FrameActorPassOutcome::Running;
+        bool timerActive=false;
         std::visit([&](const auto& child) {
             using Child=std::remove_cvref_t<decltype(child)>;
             if (child.gameSegment!=state_.gameSegment || child.idToggleMask!=state_.idToggleMask ||
                 child.dispatchedInstructions>state_.dispatchedInstructions)
                 invalid();
             const auto active=operation(child);
+            timerActive=active.interruptInProgress();
             if constexpr (std::is_same_v<Child,FrameActorEntrySnapshot>) {
                 if (state_.actorKind!=FrameActorPassKind::None || state_.actorCalls!=state_.actorReturns ||
                     state_.playerCalls!=state_.postCalls ||
@@ -244,7 +251,10 @@ private:
                     child.tailTimerInstructions>state_.timerInstructions || child.tailTimerDeliveries>state_.timerDeliveries)
                     invalid();
                 if (const auto* cpu=std::get_if<FrameActorCallerSnapshot>(&child.callee)) {
-                    if (((cpu->registers.ip==0x7ee4 || cpu->registers.ip==0x7ee8) && !state_.nonplayerCalls) ||
+                    if (cpu->registers.ss!=state_.callerSs ||
+                        cpu->registers.bp!=state_.callerBp ||
+                        cpu->registers.sp!=expectedCallerSp(cpu->registers.ip) ||
+                        ((cpu->registers.ip==0x7ee4 || cpu->registers.ip==0x7ee8) && !state_.nonplayerCalls) ||
                         (cpu->registers.ip>=0x7ebb && cpu->registers.ip<=0x7ec5 && state_.actorCalls) ||
                         ((cpu->registers.ip<=0x7f3a || cpu->registers.ip==0x77dc) && state_.playerCalls) ||
                         (((cpu->registers.ip>=0x7f3c && cpu->registers.ip<=0x7f59) ||
@@ -299,8 +309,11 @@ private:
             if (state_.outcome==FrameActorPassOutcome::Running && active.finished()) invalid();
         },state_.callee);
         const auto r=registers();
-        if (state_.outcome!=actual || r.ss!=state_.callerSs ||
-            (finished() && interruptInProgress()) ||
+        if ((!state_.timerDeliveries && (state_.timerInstructions || timerActive)) ||
+            (state_.timerDeliveries>state_.timerInstructions &&
+                state_.timerDeliveries-state_.timerInstructions>(timerActive ? 1u : 0u)) ||
+            state_.outcome!=actual || r.ss!=state_.callerSs ||
+            (finished() && timerActive) ||
             (state_.outcome==FrameActorPassOutcome::TransientQueues &&
                 (r.cs!=state_.gameSegment || r.ip!=0x804e)) ||
             (state_.outcome==FrameActorPassOutcome::Restart && (r.cs!=state_.gameSegment || r.ip!=0x77dc)) ||

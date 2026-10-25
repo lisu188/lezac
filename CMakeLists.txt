@@ -320,6 +320,12 @@ if(BUILD_TESTING)
     add_executable(lezac_frame_prefix_live_test tests/core/frame_active_live_test.cpp)
     target_link_libraries(lezac_frame_prefix_live_test PRIVATE lezac_core)
     target_compile_definitions(lezac_frame_prefix_live_test PRIVATE LEZAC_TEST_FRAME_PREFIX=1)
+    add_executable(lezac_frame_iteration_live_test tests/core/frame_active_live_test.cpp)
+    target_link_libraries(lezac_frame_iteration_live_test PRIVATE lezac_core)
+    target_compile_definitions(lezac_frame_iteration_live_test PRIVATE LEZAC_TEST_FRAME_ITERATION=1)
+    add_executable(lezac_vga_dac_writer_test tests/core/vga_dac_writer_test.cpp)
+    target_link_libraries(lezac_vga_dac_writer_test PRIVATE lezac_core)
+    add_test(NAME vga_dac_writer_unit COMMAND lezac_vga_dac_writer_test)
     add_executable(lezac_frame_active_test tests/core/frame_active_test.cpp)
     target_link_libraries(lezac_frame_active_test PRIVATE lezac_core)
     add_test(NAME frame_active_unit COMMAND lezac_frame_active_test)
@@ -947,6 +953,15 @@ if(BUILD_TESTING)
         add_test(NAME active_live_trace_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_active_live_probe.py)
         if(UNIX AND NOT APPLE)
+            add_test(NAME frame_iteration_memory_stream COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_iteration_stream.py -v)
+            set_tests_properties(frame_iteration_memory_stream PROPERTIES TIMEOUT 60
+                ENVIRONMENT "TMPDIR=/dev/shm;SDL_AUDIODRIVER=dummy")
+            add_test(NAME vga_dac_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_vga_dac_mutations.py
+                --cxx ${CMAKE_CXX_COMPILER} --out ${CMAKE_CURRENT_BINARY_DIR}/vga-dac-mutations)
+            set_tests_properties(vga_dac_mutations PROPERTIES TIMEOUT 180
+                PASS_REGULAR_EXPRESSION "vga_dac_mutations=ok detected=7 baseline=1 production_source_preserved=1")
             add_test(NAME active_observer_builder_rejections COMMAND ${Python3_EXECUTABLE} -S -B
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_active_observer_builder.py)
             add_test(NAME frame_active_mutations COMMAND ${Python3_EXECUTABLE} -S -B

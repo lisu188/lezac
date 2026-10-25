@@ -192,7 +192,7 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_frame_iteration_test PRIVATE lezac_core)
     add_test(NAME frame_iteration_unit COMMAND lezac_frame_iteration_test)
     set_tests_properties(frame_iteration_unit PROPERTIES
-        PASS_REGULAR_EXPRESSION "frame_iteration_unit=ok state_rejections=144 phase_boundaries=3 computed_irq_cases=3 irq_instructions=108 entry_rejections=4 full_entry_admission=1 post_render_admission=1 zero_budget=1 terminal_no_work=1 full_frame_claim=0")
+        PASS_REGULAR_EXPRESSION "frame_iteration_unit=ok state_rejections=144 phase_boundaries=3 computed_irq_cases=3 irq_instructions=108 entry_rejections=4 full_entry_admission=1 post_render_admission=1 zero_budget=1 terminal_no_work=1 full_frame_claim=0 post_render_phases=4 post_render_irq_cases=1 post_render_irq_instructions=36 post_render_restart_controls=1")
     add_executable(lezac_frame_transient_queues_test tests/core/frame_transient_queues_test.cpp)
     target_link_libraries(lezac_frame_transient_queues_test PRIVATE lezac_core)
     add_test(NAME frame_transient_queues_unit COMMAND lezac_frame_transient_queues_test)
@@ -790,6 +790,26 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME frame_post_render_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_post_render_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-post-render.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/frame-post-render-fixture.json)
+        set_tests_properties(frame_post_render_fixture_contract PROPERTIES FIXTURES_SETUP frame_post_render_corpus)
+        add_test(NAME frame_post_render_original COMMAND lezac_frame_iteration_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-post-render.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(frame_post_render_original PROPERTIES FIXTURES_REQUIRED frame_post_render_corpus TIMEOUT 600
+            PASS_REGULAR_EXPRESSION "frame_post_render_original=ok cases=1348 replays=8088 .*post_render_prefix_executed=1 end_run_ui=16")
+        add_test(NAME frame_post_render_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_post_render_fixture.py)
+        set_tests_properties(frame_post_render_fixture_rejections PROPERTIES TIMEOUT 600
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME frame_post_render_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_post_render_mutations.py
+                --cxx ${CMAKE_CXX_COMPILER} --out ${CMAKE_CURRENT_BINARY_DIR}/frame-post-render-mutations)
+            set_tests_properties(frame_post_render_mutations PROPERTIES TIMEOUT 1800
+                PASS_REGULAR_EXPRESSION "frame_post_render_mutations=ok faults=14 positive_baseline=1 sources_preserved=1")
+        endif()
         add_test(NAME frame_iteration_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_iteration_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/frame-iteration.bin

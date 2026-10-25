@@ -97,20 +97,24 @@ void compare(DosGetTimeRegisters actual,DosGetTimeRegisters expected,unsigned in
 }
 void replay(const char* path,const char* root) {
     Reader input{read(path)};
-    require(input.bytes.size()==20887011 && fingerprint(input.bytes)==0x58af9ccfb5e68f3cull,"Iteration projection fingerprint differs");
-    for (char c:std::string("LZITER01")) require(input.number(1)==static_cast<uint8_t>(c),"Iteration magic differs");
+    const bool postRender=input.bytes.size()>=8 && std::equal(input.bytes.begin(),input.bytes.begin()+8,"LZPOST01");
+    require(input.bytes.size()==(postRender ? 28447607u : 20887011u) &&
+        fingerprint(input.bytes)==(postRender ? 0x04e3b488a1b15087ull : 0x58af9ccfb5e68f3cull),"Iteration projection fingerprint differs");
+    for (char c:std::string(postRender ? "LZPOST01" : "LZITER01"))
+        require(input.number(1)==static_cast<uint8_t>(c),"Iteration magic differs");
     const auto count=input.number(4),size=input.number(4);const auto exe=read(std::filesystem::path(root)/"LEZAC.EXE");
-    require(count==1102 && exe.size()==52384 && fingerprint(exe)==0x2ae32f89b95e200bull,"Iteration proof domain differs");
+    require(count==(postRender ? 1348u : 1102u) && exe.size()==52384 && fingerprint(exe)==0x2ae32f89b95e200bull,"Iteration proof domain differs");
     require(size==exe.size() && input.at+size<=input.bytes.size() &&
         std::equal(exe.begin(),exe.end(),input.bytes.begin()+input.at),"Iteration canonical MZ bytes differ");
     input.at+=size;const auto base=image(exe);
     uint64_t replays=0,comparisons=0,dispatches=0,writeCount=0,portCount=0,callerFlags=0;unsigned denseCases=0;
-    std::array<unsigned,11> outcomes{};std::array<unsigned,8> phaseMasks{};
+    std::array<unsigned,11> outcomes{};std::array<unsigned,16> phaseMasks{};
     constexpr std::array<uint16_t,6> exactCaller{{0x8053,0x8055,0x805b,0x805d,0x8065,0x8067}};
     for (unsigned index=0;index<count;++index) {
         require(input.number(4)==index,"Iteration case order differs");const auto outcome=input.number(4),phases=input.number(4);
         require(outcome<outcomes.size() && phases<phaseMasks.size(),"Iteration result reserve differs");
         const auto entry=input.registers(),endpoint=input.registers();auto initial=base;
+        require(entry.ip==(postRender ? 0x7a57 : 0x7ebb),"Iteration corpus entry differs");
         const auto patches=input.number(4);
         for (unsigned p=0;p<patches;++p) {
             const auto address=input.number(4),length=input.number(4);
@@ -146,7 +150,7 @@ void replay(const char* path,const char* root) {
             }
             compare(frame.registers(),endpoint,index,trace.size()-1,true);++comparisons;
             require(frame.snapshot().outcome==static_cast<FrameIterationOutcome>(outcome) &&
-                (1u<<frame.snapshot().callee.index())-1u==phases,"Iteration phase/outcome differs");
+                ((postRender ? 8u : 0u)|((1u<<frame.snapshot().callee.index())-1u))==phases,"Iteration phase/outcome differs");
             if (memory.writes!=writes) {
                 size_t at=0;while (at<std::min(memory.writes.size(),writes.size()) && memory.writes[at]==writes[at]) ++at;
                 std::cerr<<"case="<<index<<" writes="<<memory.writes.size()<<'/'<<writes.size()<<" first_difference="<<at<<'\n';
@@ -159,14 +163,19 @@ void replay(const char* path,const char* root) {
         ++outcomes[outcome];++phaseMasks[phases];writeCount+=writes.size();portCount+=ports.size();
     }
     require(input.at==input.bytes.size(),"Iteration fixture has trailing bytes");
-    require(outcomes==std::array<unsigned,11>{0,952,0,0,30,53,9,16,24,18,0} &&
-        phaseMasks==std::array<unsigned,8>{0,70,0,2,0,0,0,1030} && denseCases==64 &&
-        writeCount==675918 && portCount==480,"Iteration observed coverage differs");
-    std::cout<<"frame_iteration_original=ok cases="<<count<<" replays="<<replays<<" comparisons="<<comparisons<<" dispatches="<<dispatches
+    require(outcomes==(postRender ? std::array<unsigned,11>{0,1140,16,0,72,53,9,16,24,18,0} :
+            std::array<unsigned,11>{0,952,0,0,30,53,9,16,24,18,0}) &&
+        phaseMasks==(postRender ? std::array<unsigned,16>{0,0,0,0,0,0,0,0,16,112,0,2,0,0,0,1218} :
+            std::array<unsigned,16>{0,70,0,2,0,0,0,1030,0,0,0,0,0,0,0,0}) && denseCases==(postRender ? 67u : 64u) &&
+        writeCount==(postRender ? 1431749u : 675918u) && portCount==480,"Iteration observed coverage differs");
+    std::cout<<(postRender ? "frame_post_render_original=ok cases=" : "frame_iteration_original=ok cases=")<<count
+        <<" replays="<<replays<<" comparisons="<<comparisons<<" dispatches="<<dispatches
         <<" writes="<<writeCount<<" ports="<<portCount<<" dense_cases="<<denseCases<<" caller_flag_checks="<<callerFlags
         <<" next_frames="<<outcomes[1]<<" restarts="<<outcomes[4]<<" completion="<<outcomes[5]<<" escape="<<outcomes[6]
         <<" view_change="<<outcomes[7]<<" runtime_errors="<<outcomes[8]<<" divide_errors="<<outcomes[9]
-        <<" all_endpoint_flags=1 full_memory=1 canonical_mz_bytes=1 later_state_injected=0 rendering_prefix_executed=0 actual_app_integration=0 full_frame_claim=0 actor_pass_hold_cleared=0\n";
+        <<" all_endpoint_flags=1 full_memory=1 canonical_mz_bytes=1 later_state_injected=0 rendering_prefix_executed=0 actual_app_integration=0 full_frame_claim=0 actor_pass_hold_cleared=0";
+    if (postRender) std::cout<<" post_render_prefix_executed=1 end_run_ui="<<outcomes[2];
+    std::cout<<'\n';
 }
 uint64_t rejections=0;
 void rejectControls(const FrameIterationSnapshot& good) {
@@ -243,6 +252,23 @@ void unit() {
     require(full.snapshot().entry==FrameIterationEntry::Full && full.snapshot().callee.index()==0 && FrameIterationOperation(full.snapshot()).registers()==r,"Full iteration entry admission differs");
     r.ip=0x7a57;FrameIterationOperation post(r,0x1000,0x200000);
     require(post.snapshot().entry==FrameIterationEntry::PostRender && post.snapshot().callee.index()==0 && FrameIterationOperation(post.snapshot()).registers()==r,"Post-render entry admission differs");
+    auto forced=post;auto forcedMemory=memory;const auto forcedBus=forcedMemory.bus();unsigned forcedSteps=0;
+    while (!forced.finished()) {
+        require(++forcedSteps<100000,"Post-render restart control stalled");
+        forced.advance(1,forcedBus,[](uint16_t n) {return n;});forced=FrameIterationOperation(forced.snapshot());
+    }
+    require(forced.snapshot().outcome==FrameIterationOutcome::Restart && forced.registers().ip==0x77dc,
+        "Cleared post-render gate lost its original restart handoff");
+    auto postMemory=memory;postMemory.bytes[0x1aa20+0x79ca]=1;
+    irqControl(post,postMemory);
+    const auto postBus=postMemory.bus();std::set<size_t> postPhases;unsigned postSteps=0;
+    while (!post.finished()) {
+        postPhases.insert(post.snapshot().callee.index());
+        require(++postSteps<100000,"Post-render unit stalled");
+        post.advance(1,postBus,[](uint16_t n) {return n;});post=FrameIterationOperation(post.snapshot());
+    }
+    require(postPhases==std::set<size_t>{0,1,2,3} && post.snapshot().outcome==FrameIterationOutcome::NextFrame &&
+        post.registers().ip==0x7903,"Post-render continuous phase/endpoint differs");
     unsigned entries=0;
     for (unsigned field=0;field<4;++field) {
         auto bad=r;bad.ip=0x7ebb;uint32_t id=0x200000;
@@ -254,7 +280,8 @@ void unit() {
         require(failed,"Iteration admitted invalid entry");++entries;
     }
     std::cout<<"frame_iteration_unit=ok state_rejections="<<rejections<<" phase_boundaries="<<phases.size()<<" computed_irq_cases=3 irq_instructions=108 entry_rejections="<<entries
-        <<" full_entry_admission=1 post_render_admission=1 zero_budget=1 terminal_no_work=1 full_frame_claim=0\n";
+        <<" full_entry_admission=1 post_render_admission=1 zero_budget=1 terminal_no_work=1 full_frame_claim=0"
+        <<" post_render_phases="<<postPhases.size()<<" post_render_irq_cases=1 post_render_irq_instructions=36 post_render_restart_controls=1\n";
 }
 } // namespace
 int main(int argc,char** argv) {

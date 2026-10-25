@@ -130,8 +130,9 @@ int main(int argc,char** argv) {
             const auto width=sprites.number(1),height=sprites.number(1);
             descriptors.push_back({static_cast<uint8_t>(width),static_cast<uint8_t>(height),
                 static_cast<uint8_t>(offset),static_cast<uint8_t>(offset>>8)});
-            require(sprites.at+width*height<=sprites.bytes.size(),"Truncated boss sprite");
-            sprites.at+=width*height;offset+=width*height;
+            const size_t pixelCount=static_cast<size_t>(width)*height;
+            require(pixelCount<=sprites.bytes.size()-sprites.at,"Truncated boss sprite");
+            sprites.at+=pixelCount;offset+=static_cast<uint32_t>(pixelCount);
         }
         require(sprites.at==sprites.bytes.size() && offset<65536,"Boss sprite bank shape differs");
         const auto descriptor=[&](uint8_t index) { return descriptors.at(index); };

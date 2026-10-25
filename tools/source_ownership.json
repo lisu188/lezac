@@ -63,7 +63,9 @@
         "src/core/startup_timing.hpp",
         "src/core/timer_irq.hpp",
         "src/core/transient_removal.hpp",
-        "src/core/transient_motion.hpp"
+        "src/core/transient_motion.hpp",
+        "src/core/transient_queue_instructions.hpp",
+        "src/core/transient_update.hpp"
       ]
     },
     "resources": {

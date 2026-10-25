@@ -83,6 +83,7 @@ public:
             } else foregroundInstruction(bus,copies);
             ++used;++state_.dispatchedInstructions;if (timer) ++state_.timerInstructions;
             transition();
+            if (finished()) validate();
         }
         return used;
     }

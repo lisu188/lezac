@@ -86,12 +86,16 @@ timer interrupts at observed boundaries. It checks exact foreground
 restoration, one BIOS clock increment, nested-delivery rejection and
 identical resumed execution under different dispatch budgets. These
 are computed controls, not naturally observed original IRQ timing.
-Ten independently compiled behavioral/ownership faults are detected
+Eleven independently compiled behavioral/ownership faults are detected
 after an authenticated positive baseline. Seven fixture tests pass on
 Linux; Windows passes six with the UNC hardlink case explicitly skipped.
-The combined removal/motion/updater CTest selection passes all 17 tests,
+The initial combined removal/motion/updater CTest selection passes all 17 tests,
 including all three mutation campaigns, cold-checkout preservation,
 source guardrails and recovery-Python compatibility.
+Terminal ownership is checked immediately by `advance()`, with a
+corrupted final return address rejected before caller code can execute.
+All seven affected CTests, native MSVC replay and ASan/UBSan replay pass
+again with this terminal guard; the compiled fault campaign now has eleven cases.
 
 The new operation is not integrated into the live App or the held frame
 actor pass. Complete-frame execution, natural gameplay progression,

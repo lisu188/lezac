@@ -160,7 +160,7 @@ void replay(const char* path,const char* root) {
     require(count==1142 && mzBytes==mz.size() && input.at+mzBytes<=input.bytes.size(),"Updater corpus/MZ size differs");
     require(std::equal(mz.begin(),mz.end(),input.bytes.begin()+static_cast<std::ptrdiff_t>(input.at)),"Updater canonical MZ bytes differ");
     input.at+=mzBytes;const auto base=image(mz);uint64_t comparisons=0,dispatches=0,totalWrites=0,replays=0;
-    std::array<unsigned,3> outcomes{};unsigned denseCases=0;
+    std::array<unsigned,3> outcomes{};unsigned denseCases=0,terminalRejections=0;
     for (unsigned index=0;index<count;++index) {
         try {
             require(input.number(4)==index,"Updater case index differs");const auto domain=input.number(4),outcome=input.number(4);
@@ -181,6 +181,14 @@ void replay(const char* path,const char* root) {
                 expected.store(at,static_cast<uint16_t>(value),static_cast<uint8_t>(size));writes.push_back({at,static_cast<uint8_t>(size),static_cast<uint16_t>(value)});
             }
             const bool dense=trace.size()>2;if (dense) ++denseCases;
+            if (index==0) {
+                auto corrupt=initial;corrupt.store(Memory::address(entry.ss,entry.sp),0x8061);
+                const auto bus=corrupt.bus();TransientUpdateOperation op(entry,0x1000,0x200000);
+                bool failed=false;try {op.advance(4096,bus,[](uint16_t n) {return n;});}
+                catch (const std::invalid_argument&) {failed=true;}
+                require(failed && op.registers().cs==0x1000 && op.registers().ip==0x8061,
+                    "Updater advance admitted a corrupt caller return");++terminalRejections;
+            }
             for (uint16_t limit : {uint16_t{1},uint16_t{65535}}) for (uint64_t budget : {1u,17u,4096u}) {
                 auto memory=initial;const auto bus=memory.bus();TransientUpdateOperation op(entry,0x1000,0x200000);
                 const auto initialState=op.snapshot();require(op.advance(0,bus,[](uint16_t n) {return n;})==0 &&
@@ -197,7 +205,8 @@ void replay(const char* path,const char* root) {
                     catch (const std::exception&) {std::cerr << "restore_after=" << std::hex << before.cs << ':' << before.ip << std::dec << '\n';throw;}
                     if (dense && budget==1 && limit==1) {
                         ++cursor;
-                        if (cursor+1<trace.size() && before.cs==trace[cursor].cs && before.ip==trace[cursor].ip && trace[cursor].cx==0 &&
+                        if (memory.bytes[Memory::address(before.cs,before.ip)]==0xf3 && cursor+1<trace.size() &&
+                            before.cs==trace[cursor].cs && before.ip==trace[cursor].ip && trace[cursor].cx==0 &&
                             op.registers().ip!=before.ip) ++cursor;
                         require(cursor<trace.size(),"Updater exceeded original trace");compare(op.registers(),trace[cursor],index,cursor);++comparisons;
                     }
@@ -220,11 +229,13 @@ void replay(const char* path,const char* root) {
             totalWrites+=writes.size();
         } catch (const std::exception&) {std::cerr << "updater_case=" << index << '\n';throw;}
     }
-    require(input.at==input.bytes.size() && outcomes[0]==1138 && outcomes[1]==3 && outcomes[2]==1 && denseCases==18,"Updater coverage/tail differs");
+    require(input.at==input.bytes.size() && outcomes[0]==1138 && outcomes[1]==3 && outcomes[2]==1 && denseCases==18 &&
+        terminalRejections==1,"Updater coverage/tail differs");
     std::cout << "transient_update_original=ok cases=" << count << " replays=" << replays << " comparisons=" << comparisons
         << " dispatches=" << dispatches << " writes=" << totalWrites << " dense_cases=" << denseCases
         << " state_rejections=" << rejected << " computed_irq_cases=" << irqCases << " all_endpoint_flags=1"
-        << " full_memory=1 canonical_mz_bytes=1 later_state_injected=0 actual_app_integration=0 full_frame_claim=0\n";
+        << " full_memory=1 canonical_mz_bytes=1 later_state_injected=0 actual_app_integration=0 full_frame_claim=0 terminal_rejections="
+        << terminalRejections << '\n';
 }
 }
 int main(int argc,char** argv) {

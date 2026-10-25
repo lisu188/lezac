@@ -11,6 +11,7 @@ import unittest
 
 from frame_iteration_live_probe.transport import HEADER, MEMORY_BYTES, receive
 from frame_iteration_live_probe.build import observer_source
+from frame_iteration_live_probe.build import BASE_PINS, VGA_PINS, frozen_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -106,6 +107,18 @@ class StreamTest(unittest.TestCase):
         self.assertIn('LezacStreamMemory("final")', source)
         self.assertNotIn('.ram', source)
         self.assertNotIn('LezacActiveMemory(', source)
+
+    def test_frozen_lf_and_crlf_forms_are_both_pinned(self):
+        with tempfile.TemporaryDirectory(prefix='lezac-stream-text-', dir='/dev/shm') as directory:
+            path = Path(directory) / 'input.h'
+            for name, pins in (('lezac_work_probe.h', BASE_PINS), ('vga_frame_observation.inc', VGA_PINS)):
+                raw = (ROOT / 'tools/frame_active_live_probe' / name).read_bytes().replace(b'\r\n', b'\n')
+                for form in (raw, raw.replace(b'\n', b'\r\n')):
+                    path.write_bytes(form)
+                    self.assertEqual(frozen_text(path, pins), raw.decode())
+                    path.write_bytes(form + b' ')
+                    with self.assertRaises(ValueError):
+                        frozen_text(path, pins)
 
 
 if __name__ == '__main__':

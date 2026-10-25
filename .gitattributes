@@ -55,6 +55,10 @@ tests/fixtures/actor_finish/** -text
 tests/fixtures/actor_tile_flags/** -text
 tests/fixtures/actor_expiry/** -text
 tests/fixtures/transient_removal/** -text
+tests/fixtures/transient_motion/** -text
+tests/fixtures/transient_update/** -text
+tests/fixtures/collapse_update/** -text
+tests/fixtures/frame_transient_queues/** -text
 tests/fixtures/actor_steering/** -text
 tests/fixtures/actor_motion/** -text
 tests/fixtures/nonplayer_motion/** -text
@@ -63,6 +67,7 @@ tests/fixtures/player_motion/** -text
 tests/fixtures/actor_update/** -text
 tests/fixtures/frame_tail/** -text
 tests/fixtures/player_post/** -text
+tests/fixtures/frame_actor_pass/** -text
 tools/frame_foreground_probe/** text eol=lf
 tools/frame_foreground_probe/*.patch -whitespace
 tests/fixtures/foreground_live/** -text

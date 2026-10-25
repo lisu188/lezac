@@ -11,8 +11,10 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
 from frame_active_live_probe.rebuild import rebuild
 
-BASE_SHA = '5b654f96f7b248e3c4e4b0ba4e9dc9993f3ae8020fbd3a0556e202c58e98649e'
-VGA_SHA = '5f1e164d4e6d5ec6cf0e8a81ac0fd9eac9d976f466bdfa8634553aabacec08ec'
+BASE_PINS = ('c23ff346b5db1c5c2729863ae9ee3036bfbc626656229617a2d362b123a7fb15',
+             '5b654f96f7b248e3c4e4b0ba4e9dc9993f3ae8020fbd3a0556e202c58e98649e')
+VGA_PINS = ('8b0af235824c28351e25bfeb0a38f8bfccf650ba53f6b8248b5bb4657fbf64e6',
+            '5f1e164d4e6d5ec6cf0e8a81ac0fd9eac9d976f466bdfa8634553aabacec08ec')
 sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
 
 TAIL = r'''
@@ -61,11 +63,15 @@ TAIL = r'''
 '''
 
 
+def frozen_text(path, pins):
+    if sha(path) not in pins:
+        raise ValueError('Frozen observer source changed: ' + str(path))
+    return path.read_text()
+
+
 def observer_source():
     base = ROOT / 'tools/frame_active_live_probe/lezac_work_probe.h'
-    if sha(base) != BASE_SHA:
-        raise ValueError('Frozen active observer changed')
-    source = base.read_text()
+    source = frozen_text(base, BASE_PINS)
     start = source.index('inline bool LezacActiveMemory(')
     end = source.index('inline std::vector<std::string> lezac_active_previous;', start)
     source = source[:start] + '#include "memory_stream.h"\n\n' + source[end:]
@@ -103,7 +109,8 @@ def build(host, retain):
     record_path = host / 'build.json'
     record = json.loads(record_path.read_bytes())
     record.update(schema='lezac-iteration-stream-observer-v1', status='building', build_exit=None,
-                  frozen_active_probe_sha256=BASE_SHA, full_ram_artifacts=0,
+                  frozen_active_probe_sha256=sha(ROOT / 'tools/frame_active_live_probe/lezac_work_probe.h'),
+                  frozen_active_probe_lf_sha256=BASE_PINS[0], full_ram_artifacts=0,
                   memory_transport='inherited AF_UNIX SOCK_STREAM, two in-memory 1 MiB endpoints',
                   iteration_builder_sha256=sha(Path(__file__)))
     record['previous_stream_build_sha256'] = sha(retain / 'build.json')
@@ -112,12 +119,11 @@ def build(host, retain):
         helper = Path(__file__).with_name('memory_stream.h')
         shutil.copyfile(helper, root / 'src/cpu/memory_stream.h')
         fragment = ROOT / 'tools/frame_active_live_probe/vga_frame_observation.inc'
-        if sha(fragment) != VGA_SHA:
-            raise ValueError('Frozen VGA observer changed')
-        vga_source = fragment.read_text().replace('!vga.svga.bank_write_full;',
+        vga_source = frozen_text(fragment, VGA_PINS).replace('!vga.svga.bank_write_full;',
             '!vga.svga.bank_write_full && vga.dac.pel_mask==0xff && vga.dac.bits==6;')
         (root / 'src/cpu/vga_frame_observation.inc').write_text(vga_source)
-        record.update(frozen_active_vga_fragment_sha256=VGA_SHA,
+        record.update(frozen_active_vga_fragment_sha256=sha(fragment),
+                      frozen_active_vga_fragment_lf_sha256=VGA_PINS[0],
                       active_vga_fragment_sha256=sha(root / 'src/cpu/vga_frame_observation.inc'))
         record['dac_profile'] = 'observed six-bit DAC, pel mask 255 at both endpoints; all intervening opcodes checked'
         inputs = {str(p.relative_to(root)): sha(p) for parent in ('src', 'include')

@@ -1,6 +1,11 @@
 *.sh text eol=lf
 *.py text eol=lf
 *.route text eol=lf
+tools/frame_iteration_live_probe/** text eol=lf
+src/core/vga_dac_writer.hpp text eol=lf
+tests/core/frame_memory_stream_test.cpp text eol=lf
+tests/core/vga_dac_writer_test.cpp text eol=lf
+docs/recovery/frame-iteration-live-20261025.json -text
 tools/original_interrupt_probe/** text eol=lf
 tests/fixtures/interrupt_dispatch/** -text
 tools/dos_time_probe/** text eol=lf

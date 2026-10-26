@@ -12,7 +12,9 @@ permissions:
 
 jobs:
   analyze:
-    uses: lisu188/jexperiments/.github/workflows/reusable-static-analysis.yml@d3eb3aeadb71bdca8740e182211253b466575e69
+    uses: lisu188/jexperiments/.github/workflows/reusable-static-analysis.yml@0adcb8f8da733a6f8ae453a6abdadc889f3113e9
+    with:
+      run_codeql: false
     permissions:
       contents: read
       security-events: write

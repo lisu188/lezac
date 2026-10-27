@@ -188,6 +188,11 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_frame_iteration_test tests/core/frame_iteration_test.cpp)
+    target_link_libraries(lezac_frame_iteration_test PRIVATE lezac_core)
+    add_test(NAME frame_iteration_unit COMMAND lezac_frame_iteration_test)
+    set_tests_properties(frame_iteration_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "frame_iteration_unit=ok state_rejections=144 phase_boundaries=3 computed_irq_cases=3 irq_instructions=108 entry_rejections=4 full_entry_admission=1 post_render_admission=1 zero_budget=1 terminal_no_work=1 full_frame_claim=0 post_render_phases=4 post_render_irq_cases=1 post_render_irq_instructions=36 post_render_restart_controls=1")
     add_executable(lezac_frame_transient_queues_test tests/core/frame_transient_queues_test.cpp)
     target_link_libraries(lezac_frame_transient_queues_test PRIVATE lezac_core)
     add_test(NAME frame_transient_queues_unit COMMAND lezac_frame_transient_queues_test)
@@ -210,6 +215,11 @@ if(BUILD_TESTING)
     add_test(NAME frame_tail_unit COMMAND lezac_frame_tail_test)
     set_tests_properties(frame_tail_unit PROPERTIES
         PASS_REGULAR_EXPRESSION "frame_tail_unit=ok state_rejections=1401 entry_rejection=1 masked_irq=1 nested_irq=1 zero_budget=1 terminal_no_work=1 divide_control=1")
+    add_executable(lezac_frame_actor_pass_test tests/core/frame_actor_pass_test.cpp)
+    target_link_libraries(lezac_frame_actor_pass_test PRIVATE lezac_core)
+    add_test(NAME frame_actor_pass_unit COMMAND lezac_frame_actor_pass_test)
+    set_tests_properties(frame_actor_pass_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "frame_actor_pass_unit=ok state_rejections=8350 phase_controls=3 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_controls=2 caller_boundaries=50 skipped_post_controls=4 boss_boundaries=443 boss_irq_controls=2 nonplayer_return_controls=8 boss_history_controls=1335 caller_history_controls=157 actor_history_controls=1 player_setup_controls=22 player_cap_controls=5 caller_stack_controls=401 timer_history_controls=9")
     add_executable(lezac_player_post_test tests/core/player_post_test.cpp)
     target_link_libraries(lezac_player_post_test PRIVATE lezac_core)
     add_test(NAME player_post_unit COMMAND lezac_player_post_test)
@@ -780,6 +790,46 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME frame_post_render_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_post_render_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-post-render.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/frame-post-render-fixture.json)
+        set_tests_properties(frame_post_render_fixture_contract PROPERTIES FIXTURES_SETUP frame_post_render_corpus)
+        add_test(NAME frame_post_render_original COMMAND lezac_frame_iteration_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-post-render.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(frame_post_render_original PROPERTIES FIXTURES_REQUIRED frame_post_render_corpus TIMEOUT 600
+            PASS_REGULAR_EXPRESSION "frame_post_render_original=ok cases=1348 replays=8088 .*post_render_prefix_executed=1 end_run_ui=16")
+        add_test(NAME frame_post_render_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_post_render_fixture.py)
+        set_tests_properties(frame_post_render_fixture_rejections PROPERTIES TIMEOUT 600
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME frame_post_render_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_post_render_mutations.py
+                --cxx ${CMAKE_CXX_COMPILER} --out ${CMAKE_CURRENT_BINARY_DIR}/frame-post-render-mutations)
+            set_tests_properties(frame_post_render_mutations PROPERTIES TIMEOUT 1800
+                PASS_REGULAR_EXPRESSION "frame_post_render_mutations=ok faults=14 positive_baseline=1 sources_preserved=1")
+        endif()
+        add_test(NAME frame_iteration_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_iteration_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-iteration.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/frame-iteration-fixture.json)
+        set_tests_properties(frame_iteration_fixture_contract PROPERTIES FIXTURES_SETUP frame_iteration_corpus)
+        add_test(NAME frame_iteration_original COMMAND lezac_frame_iteration_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-iteration.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(frame_iteration_original PROPERTIES FIXTURES_REQUIRED frame_iteration_corpus TIMEOUT 300
+            PASS_REGULAR_EXPRESSION "frame_iteration_original=ok cases=1102 replays=6612 comparisons=237846 dispatches=21968850 writes=675918 ports=480 dense_cases=64 caller_flag_checks=253 next_frames=952 restarts=30 completion=53 escape=9 view_change=16 runtime_errors=24 divide_errors=18 all_endpoint_flags=1 full_memory=1 canonical_mz_bytes=1 later_state_injected=0 rendering_prefix_executed=0 actual_app_integration=0 full_frame_claim=0 actor_pass_hold_cleared=0")
+        add_test(NAME frame_iteration_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_iteration_fixture.py)
+        set_tests_properties(frame_iteration_fixture_rejections PROPERTIES TIMEOUT 600
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        if(UNIX AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            add_test(NAME frame_iteration_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_iteration_mutations.py
+                --cxx ${CMAKE_CXX_COMPILER} --out ${CMAKE_CURRENT_BINARY_DIR}/frame-iteration-mutations)
+            set_tests_properties(frame_iteration_mutations PROPERTIES TIMEOUT 1200
+                PASS_REGULAR_EXPRESSION "frame_iteration_mutations=ok faults=14 positive_baseline=1 sources_preserved=1")
+        endif()
         add_test(NAME frame_transient_queues_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_transient_queues_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/frame-transient-queues.bin
@@ -973,6 +1023,39 @@ if(BUILD_TESTING)
                 --out ${CMAKE_CURRENT_BINARY_DIR}/frame-tail-mutations)
             set_tests_properties(frame_tail_mutations PROPERTIES FIXTURES_REQUIRED frame_tail_corpus TIMEOUT 600
                 PASS_REGULAR_EXPRESSION "frame_tail_mutations=ok faults=28 positive_baseline=1 sources_preserved=1")
+        endif()
+        add_test(NAME frame_actor_pass_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_actor_pass_fixture.py
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass.bin
+            --report ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass-fixture.json)
+        set_tests_properties(frame_actor_pass_fixture_contract PROPERTIES FIXTURES_SETUP frame_actor_pass_corpus TIMEOUT 180)
+        add_test(NAME oracle_failure_report_contract COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_oracle_failure_report.py -v)
+        set_tests_properties(oracle_failure_report_contract PROPERTIES TIMEOUT 180
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        add_test(NAME frame_actor_pass_original COMMAND lezac_frame_actor_pass_test
+            ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass.bin ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(frame_actor_pass_original PROPERTIES FIXTURES_REQUIRED frame_actor_pass_corpus TIMEOUT 600
+            PASS_REGULAR_EXPRESSION "frame_actor_pass_original=ok cases=876 replays=7884 comparisons=10432263 dispatches=29521980 writes=590096 actor_calls=3398 actor_returns=3370 nonplayer_calls=2244 player_calls=1154 post_calls=1152 post_returns=1152 both_players=540 boss_calls=36 prefix_skips=460 queues=806 restarts=30 runtime_errors=22 divide_errors=18 computed_irq_cases=19 irq_instructions=684 partial_copy_irqs=3 full_memory=1 canonical_mz=1 later_state_injected=0 actual_app_integration=0 full_frame_claim=0")
+        add_test(NAME frame_actor_pass_cli COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_actor_pass_cli.py
+            --exe $<TARGET_FILE:lezac_frame_actor_pass_test>
+            --fixture ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass.bin
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass-cli)
+        set_tests_properties(frame_actor_pass_cli PROPERTIES FIXTURES_REQUIRED frame_actor_pass_corpus TIMEOUT 900
+            PASS_REGULAR_EXPRESSION "frame_actor_pass_cli=ok negative_controls=8 canonical_mz_bound=1 protected_inputs_preserved=1")
+        add_test(NAME frame_actor_pass_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_actor_pass_fixture.py -v)
+        set_tests_properties(frame_actor_pass_fixture_rejections PROPERTIES TIMEOUT 600
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+        if(NOT WIN32)
+            add_test(NAME frame_actor_pass_mutations COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_actor_pass_mutations.py --cxx ${CMAKE_CXX_COMPILER}
+                --fixture ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass.bin
+                --out ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass-mutations)
+            set_tests_properties(frame_actor_pass_mutations PROPERTIES FIXTURES_REQUIRED frame_actor_pass_corpus TIMEOUT 1800
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy"
+                PASS_REGULAR_EXPRESSION "frame_actor_pass_mutations=ok faults=45 positive_baseline=1 sources_preserved=1")
         endif()
         add_test(NAME player_post_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_player_post_fixture.py

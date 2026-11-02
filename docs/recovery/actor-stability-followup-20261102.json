@@ -1,0 +1,195 @@
+{
+  "actual_app_integration": false,
+  "asan_ubsan": {
+    "cases": 876,
+    "comparisons": 10432263,
+    "dispatches": 29521980,
+    "executable_sha256": "709ed64a4a25525a2a9583647a0d40da728bb86f4bb5d06383b2f0a583cee2bb",
+    "exit_code": 0,
+    "flags": [
+      "-std=c++23",
+      "-O1",
+      "-g",
+      "-fsanitize=address,undefined",
+      "-fno-omit-frame-pointer"
+    ],
+    "observation": "full tool-captured stdout; not a stability-clearance claim",
+    "replays": 7884,
+    "reported_sanitizer_errors": 0,
+    "translation_unit_sha256": "50cdaf9c0cd8c899f3720981e1a0bd053d7dd738f6f2dc3a7c407adbabfbed34"
+  },
+  "date": "2026-11-02",
+  "diagnosis_claim": false,
+  "full_ram_artifacts": 0,
+  "intermittent_hold_cleared": false,
+  "native_windows": {
+    "errors": 0,
+    "failures": 0,
+    "linux_created_link_adapter": "unsupported: Windows did not recognize the Linux-created links; not passing symlink proof",
+    "passed": 12,
+    "platform": "native Windows CPython",
+    "skipped": 2,
+    "symlink_creation_available": false,
+    "temp_storage": "WSL RAM UNC share",
+    "tests": 14
+  },
+  "original_recapture": {
+    "cases_per_capture": 876,
+    "changed_source_entries": [
+      "oracle_failure_report.py"
+    ],
+    "checkpoint_sha256": "a71da337ca2a5851396c783a140885752b7b198ff469520fda77e3bbce82a4be",
+    "checkpoints_equal": true,
+    "complete_manifests_equal": true,
+    "compressed_bytes_equal_frozen": true,
+    "compressed_sha256": "956e37149058c02aeb3519af0448e0ce5f906a08cdc8a3b52144596ea59e4307",
+    "independent_captures": 2,
+    "manifest_sha256": "ab6f2c004150b858be47d2fd76e27aff20006303ffe0f2c1cac228bd2bb4f596",
+    "projection_sha256": "799531ca906973fc9f0b619855e42898aa5eb876b4086641cc6b637eb63a40d3",
+    "writer_sha256": "3151b22c1cac49cdd022b100e6e78283868d8c66096146452a83645d7e4ed883"
+  },
+  "repair_ctests": {
+    "junit_sha256": "5d39a2d35b642ef80eaf15d4cb8a8452d8caea7e56bf0b5c148cc73f353280fc",
+    "passed": 7,
+    "total": 7
+  },
+  "review_controls": {
+    "bad_symbols_after": {
+      "child_gone": true,
+      "collector_exit_code": 1,
+      "protected_inputs_preserved": true
+    },
+    "bad_symbols_before": "owned child remained stopped; explicitly killed after identity verification",
+    "findings": [
+      4447778150,
+      4447778162
+    ],
+    "reviewed_head": "c078c4aca768e23291628ff888f7241cf08cf297",
+    "unexpected_stop": {
+      "after_exit_code": 1,
+      "after_sha256": "7e0f2afa319036d480c655f88e748699b3d3f5976bbaffedb3d622d770529af1",
+      "before_exit_code": 0,
+      "before_sha256": "c7bf00b642d8a308b8a963b6dc1ab8feca51c66af9389f9f43879d660daa4acf",
+      "control": "synthetic breakpoint at main"
+    },
+    "valid_supervised_capture": {
+      "child_gone": true,
+      "exit_code": 0,
+      "protected_inputs_preserved": true
+    }
+  },
+  "schema": "lezac-actor-stability-followup-v1",
+  "source_commit": "de63c2a81f60ab5015166de02a8557d5bdcd94e9",
+  "status": "fidelity_hold_not_cleared",
+  "targeted_campaign": {
+    "attempts": [
+      {
+        "attempt": 0,
+        "exit_code": 0
+      },
+      {
+        "attempt": 1,
+        "exit_code": 1
+      },
+      {
+        "attempt": 2,
+        "exit_code": 0
+      },
+      {
+        "attempt": 3,
+        "exit_code": 0
+      },
+      {
+        "attempt": 4,
+        "exit_code": 0
+      },
+      {
+        "attempt": 5,
+        "exit_code": 0
+      },
+      {
+        "attempt": 6,
+        "exit_code": 0
+      },
+      {
+        "attempt": 7,
+        "exit_code": 0
+      },
+      {
+        "attempt": 8,
+        "exit_code": 0
+      },
+      {
+        "attempt": 9,
+        "exit_code": 0
+      },
+      {
+        "attempt": 10,
+        "exit_code": 0
+      },
+      {
+        "attempt": 11,
+        "exit_code": 0
+      },
+      {
+        "attempt": 12,
+        "exit_code": 0
+      },
+      {
+        "attempt": 13,
+        "exit_code": 0
+      },
+      {
+        "attempt": 14,
+        "exit_code": 0
+      },
+      {
+        "attempt": 15,
+        "exit_code": 0
+      }
+    ],
+    "exit_code": 1,
+    "native_operand_capture_observed": false,
+    "other_failures": [
+      {
+        "attempt": 1,
+        "stderr": "case=656 row=14969 actual=1920:975 expected=1920:975 sp=3fca/3fca bp=15/15 flags=202/202\n8000/8000 0/0 200/0 3e/3e a/a 0/0 15/15 1920/1920 1aa2/1aa2 1aa2/1aa2 7000/7000 3fca/3fca 975/975 \nframe_actor_pass=failed Frame actor pass register/control trace differs\n"
+      }
+    ],
+    "protected_inputs_preserved": true,
+    "report_sha256": "e67f9dc15b8363cd5a2a71e9c1d9b05cbe96392703d758f88b43bc0f6df9db3c",
+    "status": "other_failures_without_target_capture"
+  },
+  "unit_regressions": {
+    "test_actor_pass_diagnostic_reports": {
+      "errors": 0,
+      "failures": 0,
+      "source_sha256": "6f755ebdb69667b0257cec3507cc5eeefa719d5240dfda28b11463cbe4ccfe01",
+      "tests": 15
+    },
+    "test_actor_pass_supervision": {
+      "errors": 0,
+      "failures": 0,
+      "source_sha256": "f688c25b5ed1e0258ebfec64d812ef39a5cb778f053ebf34623a35a947aaa0af",
+      "tests": 8
+    },
+    "test_oracle_failure_report": {
+      "errors": 0,
+      "failures": 0,
+      "source_sha256": "6971deed383dd746392ee0aa94c0ed36314b110391f7e5b9084c2c7d4b10c9ec",
+      "tests": 14
+    }
+  },
+  "unsanitized_ctests": {
+    "failed": [
+      "frame_actor_pass_original",
+      "frame_actor_pass_cli"
+    ],
+    "failure": "Frame actor entry ID-toggle profile differs",
+    "junit_sha256": "f010918418b1caba0b0ad266979202eae09cab4750344713cdd45ad763301e89",
+    "passed": 7,
+    "total": 9
+  },
+  "whole_game_parity": false,
+  "writer_commit": "98da334"
+}

@@ -2,6 +2,10 @@
 
 ## Status
 
+See the [follow-up](actor-stability-followup-20261102.md) for the preservation
+repair, review fixes and the later failed current-model replay. The receipt
+in this document remains the initial checkpoint, not the latest test result.
+
 The optimized actor-pass stability hold is **not cleared**. No production
 operation, comparator, ownership guard or original fixture is weakened here.
 This work adds authenticated single-case replay, reproducible diagnostic

@@ -10,7 +10,10 @@ The [stability investigation](docs/recovery/actor-stability-20261102.md) freshly
 reproduces the historical optimized actor-pass failure in ordinary execution
 and captures a real ownership exception before unwinding. REA/Ghidra confirms
 the two original instructions at the observed CX mismatch boundaries. Eight
-focused CTests and twelve diagnostic report tests pass, but the root cause and
+focused CTests initially passed, but a later current-model run passed seven of
+nine and reproduced the failure in full replay and its CLI positive control.
+The [follow-up](docs/recovery/actor-stability-followup-20261102.md) records
+preservation and review fixes with dual original recapture. The root cause and
 the dependent frame-recovery merge hold remain open. Bounded observer passes
 do not clear that hold. No global fidelity or completion percentage changes.
 

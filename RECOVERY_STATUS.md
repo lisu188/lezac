@@ -17,6 +17,13 @@ preservation and review fixes with dual original recapture. The root cause and
 the dependent frame-recovery merge hold remain open. Bounded observer passes
 do not clear that hold. No global fidelity or completion percentage changes.
 
+The [copy-isolation follow-up](docs/recovery/actor-copy-isolation-20261102.md)
+retains a new context-enabled ownership failure at case 722, mode 6, row 251.
+Synthetic copies, focused Memcheck and bounded GCC/Clang replay controls pass,
+but do not identify the cause. CLI diagnostics now surface bounded child output;
+source-mutation probes also handle Windows checkout newlines. No production
+guard is relaxed, and the actor-pass integration hold remains open.
+
 ## Post-Queue Tail CPU Recovery (2026-10-22)
 
 The [independent tail operation](docs/recovery/frame_tail_cpu_2026-10-22.md)

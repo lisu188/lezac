@@ -1,6 +1,7 @@
 """Compile full-pass counterexamples after an authenticated positive baseline."""
 import argparse
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -88,6 +89,13 @@ FAULTS = (
 )
 
 
+def altered_header(raw, before, after, name):
+    text = io.StringIO(raw.decode('utf-8'), newline=None).read()
+    if text.count(before) != 1:
+        raise ValueError('Pass mutation anchor differs: ' + name)
+    return text.replace(before, after)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--cxx', required=True)
@@ -126,6 +134,8 @@ def main():
         return run
 
     try:
+        mutations = [(name, altered_header(originals[HEADER], before, after, name))
+                     for name, before, after in FAULTS]
         baseline = out / 'baseline'
         baseline.mkdir()
         exe = compile_probe(baseline)
@@ -134,14 +144,11 @@ def main():
             if run.returncode or ('frame_actor_pass_' + label + '=ok').encode() not in run.stdout:
                 raise ValueError('Pass positive baseline failed: ' + label)
         report['positive_baseline_passed'] = True
-        for name, before, after in FAULTS:
-            text = originals[HEADER].decode()
-            if text.count(before) != 1:
-                raise ValueError('Pass mutation anchor differs: ' + name)
+        for name, text in mutations:
             stage = out / name
             altered = stage / HEADER
             altered.parent.mkdir(parents=True)
-            altered.write_text(text.replace(before, after), encoding='utf-8')
+            altered.write_text(text, encoding='utf-8')
             exe = compile_probe(stage)
             rejected = False
             for label, arguments in (('unit', []), ('original', [str(args.fixture), str(ROOT)])):

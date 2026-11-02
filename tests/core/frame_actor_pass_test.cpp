@@ -196,49 +196,66 @@ void replay(const char* path,const char* root,std::optional<unsigned> selected=s
         for (uint16_t limit : {uint16_t{1},uint16_t{2},uint16_t{65535}}) for (uint64_t budget : {1u,17u,4096u}) {
             auto memory=initial;const auto bus=memory.bus();FrameActorPassOperation active(entry,kGame,kIdToggle);
             const auto copies=[=](uint16_t n) { return std::min(n,limit); };
-            size_t cursor=0;compare(active.registers(),trace.front(),index,0);++comparisons;
-            while (!active.finished()) {
-                require(cursor+1<trace.size(),"Pass exceeded original endpoint");
-                if (!mode && !selected) {
-                    const auto r=active.registers();const auto& state=active.snapshot();
-                    for (size_t target=0;target<targets.size();++target) {
-                        const auto& t=targets[target];
-                        if (!irqSeen[target] && r.cs==t.cs && r.ip==t.ip &&
-                            (!t.marker || memory.word(0x1aa2,0x2082)==t.marker) &&
-                            static_cast<int>(state.actorKind)==t.kind && state.postReturns>=t.minPosts &&
-                            (!t.partial || r.cx>1)) {
-                            irqInstructions+=irqCheck(active,memory,t.partial);irqSeen[target]=true;
+            size_t cursor=0;const char* stage="initial";
+            try {
+                compare(active.registers(),trace.front(),index,0);++comparisons;
+                while (!active.finished()) {
+                    require(cursor+1<trace.size(),"Pass exceeded original endpoint");
+                    stage="irq_selection";
+                    if (!mode && !selected) {
+                        const auto r=active.registers();const auto& state=active.snapshot();
+                        for (size_t target=0;target<targets.size();++target) {
+                            const auto& t=targets[target];
+                            if (!irqSeen[target] && r.cs==t.cs && r.ip==t.ip &&
+                                (!t.marker || memory.word(0x1aa2,0x2082)==t.marker) &&
+                                static_cast<int>(state.actorKind)==t.kind && state.postReturns>=t.minPosts &&
+                                (!t.partial || r.cx>1)) {
+                                stage="irq_control";
+                                irqInstructions+=irqCheck(active,memory,t.partial);irqSeen[target]=true;
+                            }
                         }
                     }
+                    const auto before=active.snapshot().dispatchedInstructions;
+                    stage="advance";
+                    const auto used=active.advance(budget,bus,copies);
+                    require(used>0 && used<=budget && active.snapshot().dispatchedInstructions==before+used,
+                        "Pass grant/dispatch accounting differs");
+                    stage="trace_cursor";
+                    for (uint64_t step=0;step<used;++step) {
+                        require(cursor+1<trace.size(),"Pass trace exceeded endpoint");const auto r=trace[cursor];
+                        if (((r.cs==0x1920 && r.ip==0x91f) || (r.cs==0x18ac && r.ip==0x5d2) ||
+                            (r.cs==kGame && (r.ip==0x116a || r.ip==0x56a8 || r.ip==0x56b3))) && r.cx) {
+                            cursor+=std::min(r.cx,limit);require(cursor<trace.size(),"Pass REP trace truncated");
+                            if (trace[cursor].cs==r.cs && trace[cursor].ip==r.ip && trace[cursor].cx==0) ++cursor;
+                        } else ++cursor;
+                    }
+                    stage="restore";
+                    active=FrameActorPassOperation(active.snapshot());
+                    stage="compare";
+                    compare(active.registers(),trace[cursor],index,cursor);++comparisons;
                 }
-                const auto before=active.snapshot().dispatchedInstructions;
-                const auto used=active.advance(budget,bus,copies);
-                require(used>0 && used<=budget && active.snapshot().dispatchedInstructions==before+used,
-                    "Pass grant/dispatch accounting differs");
-                for (uint64_t step=0;step<used;++step) {
-                    require(cursor+1<trace.size(),"Pass trace exceeded endpoint");const auto r=trace[cursor];
-                    if (((r.cs==0x1920 && r.ip==0x91f) || (r.cs==0x18ac && r.ip==0x5d2) ||
-                        (r.cs==kGame && (r.ip==0x116a || r.ip==0x56a8 || r.ip==0x56b3))) && r.cx) {
-                        cursor+=std::min(r.cx,limit);require(cursor<trace.size(),"Pass REP trace truncated");
-                        if (trace[cursor].cs==r.cs && trace[cursor].ip==r.ip && trace[cursor].cx==0) ++cursor;
-                    } else ++cursor;
+                stage="endpoint";
+                compare(active.registers(),endpoint,index,cursor,true);require(cursor+1==trace.size(),"Pass trace extent differs");
+                const auto& state=active.snapshot();
+                constexpr std::array terminal{FrameActorPassOutcome::TransientQueues,FrameActorPassOutcome::Restart,
+                    FrameActorPassOutcome::RuntimeError,FrameActorPassOutcome::DivideError};
+                require(state.outcome==terminal[outcome] && state.actorCalls==calls && state.actorReturns==returns &&
+                    state.nonplayerCalls==npcs && state.playerCalls==players && state.postCalls==posts && state.postReturns==postEnds &&
+                    !state.timerInstructions && !state.timerDeliveries,"Pass outcome/call accounting differs");
+                if (memory.writes!=writes || memory.bytes!=expected.bytes) {
+                    std::cerr<<"write_case="<<index<<" mode="<<mode<<" writes="<<memory.writes.size()<<'/'<<writes.size()<<'\n';
+                    throw std::runtime_error("Pass ordered writes or complete memory differ");
                 }
-                active=FrameActorPassOperation(active.snapshot());
-                compare(active.registers(),trace[cursor],index,cursor);++comparisons;
+                ++replays;dispatches+=state.dispatchedInstructions;const auto saved=state;
+                require(active.advance(17,bus,copies)==0 && active.snapshot()==saved,"Finished pass dispatched work");++mode;
+            } catch (...) {
+                const auto& state=active.snapshot();
+                std::cerr<<"frame_actor_pass_context case="<<index<<" mode="<<mode<<" copy_limit="<<limit
+                    <<" budget="<<budget<<" row="<<cursor<<" stage="<<stage
+                    <<" dispatches="<<state.dispatchedInstructions<<" timer_instructions="<<state.timerInstructions
+                    <<" timer_deliveries="<<state.timerDeliveries<<" callee="<<state.callee.index()<<'\n';
+                throw;
             }
-            compare(active.registers(),endpoint,index,cursor,true);require(cursor+1==trace.size(),"Pass trace extent differs");
-            const auto& state=active.snapshot();
-            constexpr std::array terminal{FrameActorPassOutcome::TransientQueues,FrameActorPassOutcome::Restart,
-                FrameActorPassOutcome::RuntimeError,FrameActorPassOutcome::DivideError};
-            require(state.outcome==terminal[outcome] && state.actorCalls==calls && state.actorReturns==returns &&
-                state.nonplayerCalls==npcs && state.playerCalls==players && state.postCalls==posts && state.postReturns==postEnds &&
-                !state.timerInstructions && !state.timerDeliveries,"Pass outcome/call accounting differs");
-            if (memory.writes!=writes || memory.bytes!=expected.bytes) {
-                std::cerr<<"write_case="<<index<<" mode="<<mode<<" writes="<<memory.writes.size()<<'/'<<writes.size()<<'\n';
-                throw std::runtime_error("Pass ordered writes or complete memory differ");
-            }
-            ++replays;dispatches+=state.dispatchedInstructions;const auto saved=state;
-            require(active.advance(17,bus,copies)==0 && active.snapshot()==saved,"Finished pass dispatched work");++mode;
         }
         totalWrites+=writes.size();actorCalls+=calls;actorReturns+=returns;npcCalls+=npcs;playerCalls+=players;
         postCalls+=posts;postReturns+=postEnds;bothPlayers+=players==2;bossCalls+=bosses;prefixSkips+=skips;

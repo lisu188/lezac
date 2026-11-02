@@ -1,0 +1,500 @@
+{
+  "schema": "lezac-actor-copy-isolation-20261102-v1",
+  "candidate_source_hash_scope": "raw local worktree bytes before Git newline normalization",
+  "base_reviewed_commit": "d5f265d3b8240cfd111f10b158d329a8e89f0e9d",
+  "production_headers_changed": false,
+  "original_or_fixture_changed": false,
+  "root_cause_identified": false,
+  "intermittent_hold_cleared": false,
+  "actual_app_integration": false,
+  "full_frame_claim": false,
+  "game_fidelity_claim": false,
+  "host_stability_claim": false,
+  "hardware_or_compiler_diagnosis": false,
+  "full_ram_artifacts": 0,
+  "runtime_artifacts_ram_only": true,
+  "dummy_audio": true,
+  "retained_actual_failure": {
+    "case": 722,
+    "mode": 6,
+    "copy_limit": 65535,
+    "budget": 1,
+    "row": 251,
+    "stage": "advance",
+    "dispatched_instructions": 251,
+    "timer_instructions": 0,
+    "timer_deliveries": 0,
+    "outer_callee": 1,
+    "exception": "Frame actor contact ID-toggle/callee ownership differs",
+    "log": {
+      "bytes": 232,
+      "sha256": "73bd78144e0657884e7e1e800b423e925486f156d925895a7ce359ed5a4107d2"
+    }
+  },
+  "focused_initial": {
+    "tests": 13,
+    "failures": 2,
+    "failed_tests": [
+      "frame_actor_pass_cli",
+      "frame_actor_pass_mutations"
+    ]
+  },
+  "focused_after_harness_repairs": {
+    "tests": 14,
+    "failures": 0,
+    "failed_tests": []
+  },
+  "focused_suite_precedes_preflight_retention_only_followup": true,
+  "mutation_controls": {
+    "status": "passed",
+    "faults": 45,
+    "positive_baseline_passed": true,
+    "results": [
+      {
+        "fault": "caller_ss",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "caller_sp",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "caller_bp",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "return_target",
+        "rejected_by": "original",
+        "exit_code": 1
+      },
+      {
+        "fault": "skip_player_post",
+        "rejected_by": "original",
+        "exit_code": 1
+      },
+      {
+        "fault": "skip_nonplayer_loop",
+        "rejected_by": "original",
+        "exit_code": 1
+      },
+      {
+        "fault": "caller_phase_ownership",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "standalone_post_ownership",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "caller_instruction_scope",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "caller_operand_range",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "caller_post_balance",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "boss_game_instruction_scope",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "boss_library_instruction_scope",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "nonplayer_return_ownership",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "boss_actor_history",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "caller_preloop_history",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "caller_player_history",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "player_loop_entry_history",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "player_call_limit",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "caller_bp_restoration",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "caller_sp_restoration",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "caller_ss_restoration",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "timer_without_delivery",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "timer_delivery_balance",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "player_setup_history",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "nonplayer_player_history",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "running_boss_terminal",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "boss_finished_ownership",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "boss_error_ownership",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "timer_data_ownership",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "child_caller_sp",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "child_caller_bp",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "root_ss",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "actor_calls",
+        "rejected_by": "original",
+        "exit_code": 1
+      },
+      {
+        "fault": "actor_returns",
+        "rejected_by": "original",
+        "exit_code": 1
+      },
+      {
+        "fault": "post_calls",
+        "rejected_by": "original",
+        "exit_code": 1
+      },
+      {
+        "fault": "post_returns",
+        "rejected_by": "original",
+        "exit_code": 1
+      },
+      {
+        "fault": "nonplayer_calls",
+        "rejected_by": "original",
+        "exit_code": 1
+      },
+      {
+        "fault": "player_calls",
+        "rejected_by": "original",
+        "exit_code": 1
+      },
+      {
+        "fault": "dispatch_accounting",
+        "rejected_by": "original",
+        "exit_code": 1
+      },
+      {
+        "fault": "timer_accounting",
+        "rejected_by": "original",
+        "exit_code": 1
+      },
+      {
+        "fault": "irq_delivery",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "terminal_dispatch",
+        "rejected_by": "unit",
+        "exit_code": 1
+      },
+      {
+        "fault": "runtime_outcome",
+        "rejected_by": "original",
+        "exit_code": 1
+      },
+      {
+        "fault": "divide_outcome",
+        "rejected_by": "original",
+        "exit_code": 1
+      }
+    ]
+  },
+  "copy_controls": {
+    "status": "completed_controls",
+    "runs": [
+      {
+        "mode": "words",
+        "iterations": 16000000,
+        "exit_code": 0,
+        "stdout_sha256": "c241ce6c11a5ba9b5e997d149d6bce5271190f61e36a2255df2e42bc6f129ba3"
+      },
+      {
+        "mode": "variant",
+        "iterations": 16000000,
+        "exit_code": 0,
+        "stdout_sha256": "c3f4219434dcbc3544786147c865fffdaba91de127e4b0e50b0d91d262dd62db"
+      }
+    ],
+    "executable_sha256": "b0365491f08ab3f6264b26beea7f9342840784bd4b0aea037f9cf5bc0d31ac53",
+    "protected_executable_preserved": true,
+    "game_fidelity_claim": false,
+    "host_stability_claim": false,
+    "intermittent_hold_cleared": false
+  },
+  "hardware_slot_calibration": {
+    "slots": 4,
+    "expected_traps": 4,
+    "guest_execution_claim": false,
+    "protected_elf_preserved": true,
+    "owned_children_reaped": true
+  },
+  "memcheck_filtered": {
+    "cases": [
+      656,
+      813
+    ],
+    "schedules_each": 9,
+    "error_summaries": [
+      0,
+      0
+    ],
+    "full_corpus_execution_claim": false
+  },
+  "compiler_pair": {
+    "source_commit": "d5f265d3b8240cfd111f10b158d329a8e89f0e9d",
+    "compilers": {
+      "gcc": {
+        "status": "bounded_non_reproduction",
+        "attempts": [
+          {
+            "attempt": 0,
+            "exit_code": 0
+          },
+          {
+            "attempt": 1,
+            "exit_code": 0
+          },
+          {
+            "attempt": 2,
+            "exit_code": 0
+          },
+          {
+            "attempt": 3,
+            "exit_code": 0
+          }
+        ]
+      },
+      "clang": {
+        "status": "bounded_non_reproduction",
+        "attempts": [
+          {
+            "attempt": 0,
+            "exit_code": 0
+          },
+          {
+            "attempt": 1,
+            "exit_code": 0
+          },
+          {
+            "attempt": 2,
+            "exit_code": 0
+          },
+          {
+            "attempt": 3,
+            "exit_code": 0
+          }
+        ]
+      }
+    },
+    "protected_inputs_preserved": true
+  },
+  "context_campaign": {
+    "status": "bounded_non_reproduction",
+    "attempts": 8,
+    "protected_inputs_preserved": true
+  },
+  "context_injection": {
+    "schema": "lezac-actor-context-injected-control-v1",
+    "status": "passed",
+    "synthetic_injection": true,
+    "game_fidelity_claim": false,
+    "host_stability_claim": false,
+    "intermittent_hold_cleared": false,
+    "outcomes": [
+      {
+        "stage": "advance",
+        "exit_code": 1,
+        "context_retained": true,
+        "original_failure_preserved": true,
+        "stderr_sha256": "eac43c18f2211bcdec97eac251907c2df3f7f9f89ca2755b8f0d580d231bc084"
+      },
+      {
+        "stage": "restore",
+        "exit_code": 1,
+        "context_retained": true,
+        "original_failure_preserved": true,
+        "stderr_sha256": "3aaa8915addbfb19f6751be9503c39761dd605263112ea895787e1b80aa66151"
+      },
+      {
+        "stage": "endpoint",
+        "exit_code": 1,
+        "context_retained": true,
+        "original_failure_preserved": true,
+        "stderr_sha256": "a4394018ad89cf75ef13b5f13975a607ada9d4b0506655aa8fabd1f54fb0db1c"
+      }
+    ],
+    "source_sha256": "52fc420e4c6c4278da643c5adb61f4d5f1f2dd57b4888f7592ad60a423e4e48f",
+    "generated_source_sha256": "f9803bfef4002e1536edf4143197dd2d053051222712e17742618718d32a516d",
+    "generated_executable_sha256": "9c37e7cde99259465fae3bb9cf4c9f3ee398d285de821d99c95c28a6ac666dd2",
+    "protected_inputs_preserved": true,
+    "full_ram_artifacts": 0,
+    "core_dump_limit": 0,
+    "compile_command": [
+      "g++",
+      "-std=c++23",
+      "-O1",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-pedantic",
+      "-I",
+      "/mnt/c/Users/andrz/git/lezac-post-render-recovery-20261025/src",
+      "/dev/shm/lezac-actor-t286-context-control/context-control.cpp",
+      "-o",
+      "/dev/shm/lezac-actor-t286-context-control/context-control"
+    ]
+  },
+  "case722_filtered": {
+    "status": "bounded_non_reproduction",
+    "attempts": 16,
+    "schedules_per_attempt": 9,
+    "computed_irq_controls": 0,
+    "full_corpus_execution_claim": false,
+    "protected_inputs_preserved": true
+  },
+  "pure_contracts": {
+    "tests_each": 7,
+    "linux": "passed",
+    "native_windows_python": "passed",
+    "newline_forms": [
+      "LF",
+      "CRLF",
+      "CR"
+    ],
+    "source_anchors": 45,
+    "anchor_controls": 135
+  },
+  "candidate_source_sha256": {
+    "CMakeLists.txt": "317863e853031278dea07799840d82729eda4e982d9e9b44c5a4561a7969afe4",
+    "tests/core/frame_actor_pass_test.cpp": "52fc420e4c6c4278da643c5adb61f4d5f1f2dd57b4888f7592ad60a423e4e48f",
+    "tools/actor_copy_control.cpp": "de8924b50cc43c432cbd48f04951ab62f754befc64d591a3d9565a4f367869f3",
+    "tools/check_actor_copy_control_cli.py": "7d450fc2f5cfefd2af0d15031b6dc60be564c1a90011848b230fb0ccb05795ee",
+    "tools/check_frame_actor_pass_cli.py": "4337c2c1071bd6abaad5707c6f0713cd36e5b19d96fd8667ed952f4d036b3719",
+    "tools/test_frame_actor_pass_mutations.py": "f60506bdcf34f2ab8821c1ce2986a9ca097ece6b6f8331e1ed41fcb2af26303e",
+    "tools/test_actor_pass_probe_contracts.py": "f17d0cfa5469821ad7ce779e9c396919fbe2fbc2aea20659a0991571762870fd"
+  },
+  "compact_evidence_catalog": {
+    "slot_calibration": {
+      "bytes": 911,
+      "sha256": "434833b2b64ed823e8db7ab820f3c714e928ff88b1c4ca2da1bff38ff9be1463"
+    },
+    "memcheck": {
+      "bytes": 92,
+      "sha256": "06240d87fe6ee496e9beaf228d0c0e0d10e04270aa18c503d4fd9a93d1658e1b"
+    },
+    "context_eight": {
+      "bytes": 11782,
+      "sha256": "25a57b533099aa94b6a5247ae8fcfc2c9385e4e7a5d6f7cfb3089872a9a31c24"
+    },
+    "compiler_pair": {
+      "bytes": 11242,
+      "sha256": "7a275421402d0f1f775884eb8ac6d6509b7e1e0ded250872afb2f8a46c59e222"
+    },
+    "context_injection": {
+      "bytes": 1635,
+      "sha256": "e21d5c1eaa293fc5e42913a272063e2d1540e5b57d9d44b2a1204624c2a7420e"
+    },
+    "copy_controls": {
+      "bytes": 647,
+      "sha256": "cadb2f6939cdebbf9a642a1ce7d9ba03c89481fd41b5531170ed64b9fd0c1ef0"
+    },
+    "case722_filtered": {
+      "bytes": 15290,
+      "sha256": "f1ea50070afc5790609fa4296cbf04cb179a6061b2300af9d8afab5b4780bf3e"
+    },
+    "focused_initial": {
+      "bytes": 8701,
+      "sha256": "e874f2c806f341f4df1fdeb0d47357d7da08161b8f8f45617400b3ee4993f82d"
+    },
+    "focused_repair": {
+      "bytes": 8867,
+      "sha256": "368e10c68d5673e9c3baf5a031dc6e2d6d2f0c83dd27413da96c54a56feee05a"
+    },
+    "case722_failure": {
+      "bytes": 232,
+      "sha256": "73bd78144e0657884e7e1e800b423e925486f156d925895a7ce359ed5a4107d2"
+    },
+    "mutation_controls": {
+      "bytes": 12055,
+      "sha256": "c745a7ef8bfcaffba6a75841ac0eda49cb43e29626207f8d2b0188f33c77bce4"
+    }
+  }
+}

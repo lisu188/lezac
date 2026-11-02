@@ -218,6 +218,18 @@ if(BUILD_TESTING)
     add_executable(lezac_frame_actor_pass_test tests/core/frame_actor_pass_test.cpp)
     target_link_libraries(lezac_frame_actor_pass_test PRIVATE lezac_core)
     add_test(NAME frame_actor_pass_unit COMMAND lezac_frame_actor_pass_test)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_SYSTEM_NAME STREQUAL "Linux"
+            AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+        add_executable(lezac_actor_copy_control tools/actor_copy_control.cpp)
+        target_link_libraries(lezac_actor_copy_control PRIVATE lezac_core)
+        target_compile_options(lezac_actor_copy_control PRIVATE -O1)
+        add_test(NAME actor_copy_words_control COMMAND lezac_actor_copy_control 200000 words)
+        set_tests_properties(actor_copy_words_control PROPERTIES TIMEOUT 30
+            PASS_REGULAR_EXPRESSION "actor_copy_control=ok iterations=200000 words=259 copies=400000")
+        add_test(NAME actor_copy_variant_control COMMAND lezac_actor_copy_control 200000 variant)
+        set_tests_properties(actor_copy_variant_control PROPERTIES TIMEOUT 30
+            PASS_REGULAR_EXPRESSION "actor_variant_control=ok iterations=200000 snapshot_bytes=.*phases=3 mutable_callee=1")
+    endif()
     set_tests_properties(frame_actor_pass_unit PROPERTIES
         PASS_REGULAR_EXPRESSION "frame_actor_pass_unit=ok state_rejections=8350 phase_controls=3 entry_rejection=1 masked_irq=1 zero_budget=1 terminal_controls=2 caller_boundaries=50 skipped_post_controls=4 boss_boundaries=443 boss_irq_controls=2 nonplayer_return_controls=8 boss_history_controls=1335 caller_history_controls=157 actor_history_controls=1 player_setup_controls=22 player_cap_controls=5 caller_stack_controls=401 timer_history_controls=9")
     add_executable(lezac_player_post_test tests/core/player_post_test.cpp)
@@ -1066,7 +1078,18 @@ if(BUILD_TESTING)
             --out ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass-case-cli)
         set_tests_properties(frame_actor_pass_case_cli PROPERTIES FIXTURES_REQUIRED frame_actor_pass_corpus TIMEOUT 300
             PASS_REGULAR_EXPRESSION "frame_actor_pass_case_cli=ok positive_cases=3 negative_controls=11 authenticated_cases=876 full_corpus_execution_claim=0")
+        add_test(NAME frame_actor_pass_probe_contracts COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_pass_probe_contracts.py -v)
+        set_tests_properties(frame_actor_pass_probe_contracts PROPERTIES TIMEOUT 30
+            ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
         if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+            if(TARGET lezac_actor_copy_control)
+                add_test(NAME actor_copy_control_cli COMMAND ${Python3_EXECUTABLE} -S -B
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_copy_control_cli.py
+                    --exe $<TARGET_FILE:lezac_actor_copy_control>)
+                set_tests_properties(actor_copy_control_cli PROPERTIES TIMEOUT 60
+                    PASS_REGULAR_EXPRESSION "actor_copy_control_cli=ok positive_controls=4 negative_controls=12 sources_preserved=1")
+            endif()
             add_test(NAME frame_actor_pass_diagnostic_reports COMMAND ${Python3_EXECUTABLE} -S -B
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_pass_diagnostic_reports.py -v)
             set_tests_properties(frame_actor_pass_diagnostic_reports PROPERTIES TIMEOUT 30

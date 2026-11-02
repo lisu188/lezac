@@ -18,3 +18,9 @@ The current manifest also binds the bounded failure-report helper. The producer
 retains only hashes, registers and short diagnostic tails on failure, never a
 full guest RAM dump. Regeneration after that repair is byte-identical to the
 original compressed projection; the source-catalog binding alone changed.
+
+The 2026-11-02 preservation follow-up adds a non-following destination check
+before exclusive failure-report creation. Two fresh original captures again
+produce identical projections and checkpoint catalogs. Only the writer's
+source digest changes; the new manifest SHA-256 is
+ab6f2c004150b858be47d2fd76e27aff20006303ffe0f2c1cac228bd2bb4f596.

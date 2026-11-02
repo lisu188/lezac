@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / 'tests/fixtures/frame_actor_pass'
-MANIFEST_SHA = '6d27536fb70a32817a0203d6850ae408e01f4c433c59ef8bbd23ab4a5510920b'
+MANIFEST_SHA = 'ab6f2c004150b858be47d2fd76e27aff20006303ffe0f2c1cac228bd2bb4f596'
 PROJECTION_BYTES = 35707847
 COVERAGE = dict(cases=876, register_states=3360464, ordered_writes=590096,
     actor_calls=3398, actor_returns=3370, nonplayer_calls=2244, player_calls=1154,

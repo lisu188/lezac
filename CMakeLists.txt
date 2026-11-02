@@ -1059,6 +1059,22 @@ if(BUILD_TESTING)
             --out ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass-cli)
         set_tests_properties(frame_actor_pass_cli PROPERTIES FIXTURES_REQUIRED frame_actor_pass_corpus TIMEOUT 900
             PASS_REGULAR_EXPRESSION "frame_actor_pass_cli=ok negative_controls=8 canonical_mz_bound=1 protected_inputs_preserved=1")
+        add_test(NAME frame_actor_pass_case_cli COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_actor_pass_case_cli.py
+            --exe $<TARGET_FILE:lezac_frame_actor_pass_test>
+            --fixture ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass.bin
+            --out ${CMAKE_CURRENT_BINARY_DIR}/frame-actor-pass-case-cli)
+        set_tests_properties(frame_actor_pass_case_cli PROPERTIES FIXTURES_REQUIRED frame_actor_pass_corpus TIMEOUT 300
+            PASS_REGULAR_EXPRESSION "frame_actor_pass_case_cli=ok positive_cases=3 negative_controls=11 authenticated_cases=876 full_corpus_execution_claim=0")
+        if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+            add_test(NAME frame_actor_pass_diagnostic_reports COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_pass_diagnostic_reports.py -v)
+            set_tests_properties(frame_actor_pass_diagnostic_reports PROPERTIES TIMEOUT 30
+                ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+            add_test(NAME frame_actor_pass_supervision COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_pass_supervision.py -v)
+            set_tests_properties(frame_actor_pass_supervision PROPERTIES TIMEOUT 30)
+        endif()
         add_test(NAME frame_actor_pass_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_actor_pass_fixture.py -v)
         set_tests_properties(frame_actor_pass_fixture_rejections PROPERTIES TIMEOUT 600

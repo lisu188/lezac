@@ -1,6 +1,7 @@
 """Retain bounded oracle failure metadata without exporting guest RAM."""
 import hashlib
 import json
+import errno
 
 MAX_BYTES=65536
 sha=lambda raw:hashlib.sha256(raw).hexdigest()
@@ -33,6 +34,14 @@ def write_failure(out,error,*,case,profile,sources,initial=None,endpoints=(),cur
     raw=(json.dumps(report,sort_keys=True,indent=2,ensure_ascii=True)+'\n').encode('ascii')
     if len(raw)>MAX_BYTES:
         raise ValueError('Oracle failure metadata exceeds bounded reserve')
-    with (out/'failed.json').open('xb') as stream:
+    target=out/'failed.json'
+    # Some Windows runtimes follow a dangling link even for exclusive creation.
+    try:
+        target.lstat()
+    except FileNotFoundError:
+        pass
+    else:
+        raise FileExistsError(errno.EEXIST,'Oracle failure destination already exists',str(target))
+    with target.open('xb') as stream:
         stream.write(raw)
     return report

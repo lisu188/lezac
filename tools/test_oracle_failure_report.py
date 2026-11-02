@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 import oracle_failure_report as failure
 
@@ -85,6 +86,35 @@ class FailureTests(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             failure.write_failure(self.out,ValueError('new'),**self.arguments)
         self.assertTrue(target.is_symlink());self.assertFalse(missing.exists())
+
+    def test_existing_link_is_rejected_before_exclusive_create(self):
+        target=self.out/'failed.json';missing=self.out/'missing'
+        try: target.symlink_to(missing)
+        except OSError as error: self.skipTest('Symbolic links unavailable: '+str(error))
+        with mock.patch.object(Path,'open',side_effect=AssertionError('Existing link reached file creation')):
+            with self.assertRaises(FileExistsError):
+                failure.write_failure(self.out,ValueError('new'),**self.arguments)
+        self.assertTrue(target.is_symlink());self.assertFalse(missing.exists())
+
+    def test_existing_file_is_rejected_before_exclusive_create(self):
+        target=self.out/'failed.json';target.write_bytes(b'preserve')
+        with mock.patch.object(Path,'open',side_effect=AssertionError('Existing file reached creation')):
+            with self.assertRaises(FileExistsError):
+                failure.write_failure(self.out,ValueError('new'),**self.arguments)
+        self.assertEqual(target.read_bytes(),b'preserve')
+
+    def test_existing_directory_is_preserved(self):
+        target=self.out/'failed.json';target.mkdir()
+        with self.assertRaises(FileExistsError):
+            failure.write_failure(self.out,ValueError('new'),**self.arguments)
+        self.assertTrue(target.is_dir())
+
+    def test_stat_failure_does_not_create_output(self):
+        with mock.patch.object(Path,'lstat',side_effect=PermissionError('controlled stat failure')):
+            with mock.patch.object(Path,'open',side_effect=AssertionError('Stat failure reached creation')):
+                with self.assertRaises(PermissionError):
+                    failure.write_failure(self.out,ValueError('new'),**self.arguments)
+        self.assertEqual(list(self.out.iterdir()),[])
 
     def test_producer_failure_handler_only_uses_bounded_writer(self):
         source=Path(__file__).with_name('frame_actor_pass_oracle.py').read_text()

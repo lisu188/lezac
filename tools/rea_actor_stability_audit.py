@@ -7,7 +7,8 @@ from pathlib import Path
 import rea_prefix_audit as audit
 
 HELPER_SHA = 'acf74525b08220c0d976d10509c9d6592c772437628bc8990841356746924096'
-OFFSETS = (0x752d, 0x7530, 0x7533, 0x7535, 0x7537, 0x753a, 0x753e, 0x7541)
+OFFSETS = (0x30c5, 0x30c9, 0x30cb, 0x30cc, 0x30d0,
+    0x752d, 0x7530, 0x7533, 0x7535, 0x7537, 0x753a, 0x753e, 0x7541)
 sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -26,6 +27,11 @@ def run(args):
         expected = (args.repo / 'LEZAC.EXE').read_bytes()[0x770 + 0x753a:0x770 + 0x753e]
         if (instruction['bytes'], instruction['mnemonic'], instruction['operands'][0]['raw']) != (expected.hex(), 'ADD', 'DI'):
             raise ValueError('Original 753A instruction differs')
+        second = json.loads((args.out / 'instruction-30cc.json').read_bytes())['result']['structuredContent']
+        second_instruction = second['normalized_result']
+        expected_second = (args.repo / 'LEZAC.EXE').read_bytes()[0x770 + 0x30cc:0x770 + 0x30d0]
+        if (second_instruction['bytes'], second_instruction['mnemonic'], second_instruction['operands'][0]['raw']) != (expected_second.hex(), 'MOV', 'DS'):
+            raise ValueError('Original 30CC instruction differs')
         if sha(source) != source_sha or sha(helper) != HELPER_SHA:
             raise ValueError('REA adapter input changed')
         compact = dict(schema='lezac-actor-stability-instruction-v1', status='observed',
@@ -33,6 +39,7 @@ def run(args):
             inherited_advisory_decompilation_offsets=[0x2f9f, 0x6ab], direct_call_queries=[],
             evidence_id=result['evidence_id'], target_sha256=result['subject']['digest']['sha256'],
             provider=result['provider'], instruction=instruction,
+            second_instruction=second_instruction, second_evidence_id=second['evidence_id'],
             historical_host_failure_reproduced=False, intermittent_hold_cleared=False,
             limitation='Original instruction evidence does not diagnose a C++ host-memory fault')
         (args.out / 'stability-instruction.json').write_text(json.dumps(compact, indent=2) + '\n')

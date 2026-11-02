@@ -37,6 +37,9 @@ def snapshot(value, depth=0):
     if depth > 8 or value.is_optimized_out:
         return {'unavailable': 'depth or optimized value'}
     result = {'type': str(value.type), 'address': str(value.address)}
+    if str(value.type.strip_typedefs()).endswith('DosGetTimeRegisters'):
+        result['registers'] = {key: int(value[key]) for key in REGS}
+        return result
     for name in FIELDS:
         try:
             result[name] = int(value[name])
@@ -161,7 +164,7 @@ def run():
                 raise ValueError('Owned code changed before the throw')
             observed.append(dict(address=address, bytes=len(raw), sha256=hashlib.sha256(actual).hexdigest()))
         frame = gdb.newest_frame()
-        report.update(status='ownership_throw_captured', message=message, pid=inferior.pid,
+        report.update(status='failure_throw_captured', message=message, pid=inferior.pid,
                       owned_code_verified=observed, frames=[], registers={}, case_context=[], backtrace=[])
         for name in 'rax rbx rcx rdx rsi rdi rbp rsp rip r8 r9 r10 r11 r12 r13 r14 r15 eflags'.split():
             report['registers'][name] = str(frame.read_register(name))
@@ -170,7 +173,7 @@ def run():
             frame_count += 1
             item = dict(name=frame.name(), pc=hex(frame.pc()), variables={})
             report['backtrace'].append(dict(name=(item['name'] or '')[:300], pc=item['pc']))
-            for name in ('index', 'cursor', 'mode', 'limit', 'budget'):
+            for name in ('index', 'row', 'cursor', 'mode', 'limit', 'budget'):
                 try:
                     item['variables'][name] = int(local_value(frame, name))
                 except (gdb.error, TypeError, ValueError):
@@ -181,7 +184,7 @@ def run():
                     'lezac::core::' in item['name'] or 'namespace)::' in item['name'] or item['variables'])):
                 frame = frame.older()
                 continue
-            for name in ('this', 'state', 'child', 'active'):
+            for name in ('this', 'state', 'child', 'active', 'actual', 'expected'):
                 try:
                     value = local_value(frame, name)
                     if value.type.code == gdb.TYPE_CODE_PTR:

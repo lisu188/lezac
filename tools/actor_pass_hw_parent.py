@@ -12,6 +12,7 @@ import subprocess
 import time
 
 EXPECTED = 'b1c719393f987cd2a98090055c8cc06d5d71589090599a36f32c4d2fd5da47f6'
+WATCH_OFFSETS = (0x2520, 0x2330)  # Pinned invalid_argument and runtime_error constructor PLTs.
 sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -49,19 +50,22 @@ def run(args):
     args.out.mkdir()
     protected = {str(p.resolve()): sha(p) for p in (args.exe, args.symbols, args.fixture, args.root / 'LEZAC.EXE',
         args.layout, Path(__file__), Path(__file__).with_name('actor_pass_guard_gdb.py'))}
+    calibration = args.calibrate_unit or args.calibrate_cli
     report = dict(status='running', historical_elf_sha256=EXPECTED, attempts=[], core_dump_limit=0,
         protected_inputs_sha256=protected, software_breakpoints=0, preload_hooks=0,
-        code_or_guest_data_writes=0, debug_register_writes=0, calibration=args.calibrate_unit,
-        late_attach=not args.calibrate_unit, intermittent_hold_cleared=False)
+        code_or_guest_data_writes=0, debug_register_writes=0, calibration=calibration,
+        calibration_kind='invalid_argv' if args.calibrate_cli else ('unit_negative_controls' if calibration else None),
+        late_attach=not calibration, watch_offsets=list(WATCH_OFFSETS), intermittent_hold_cleared=False)
     child = None
     try:
         for attempt in range(args.attempts):
-            child = subprocess.Popen([str(args.exe), *([] if args.calibrate_unit else [str(args.fixture), str(args.root)])],
+            arguments = [] if args.calibrate_unit else [str(args.fixture)] if args.calibrate_cli else [str(args.fixture), str(args.root)]
+            child = subprocess.Popen([str(args.exe), *arguments],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                preexec_fn=(lambda: ptrace(0, 0)) if args.calibrate_unit else None,
+                preexec_fn=(lambda: ptrace(0, 0)) if calibration else None,
                 env=dict(os.environ, SDL_AUDIODRIVER='dummy', SDL_VIDEODRIVER='dummy',
                          TMPDIR=str(args.out)))
-            if args.calibrate_unit:
+            if calibration:
                 os.waitpid(child.pid, 0)
                 ptrace(0x4200, child.pid, 0, 1 << 20)
             else:
@@ -77,10 +81,11 @@ def run(args):
             if len(owned) != 1:
                 raise ValueError('Owned historical executable mapping differs')
             base = int(owned[0][0].split('-')[0], 16) - int(owned[0][2], 16)
-            ptrace(6, child.pid, 848, base + 0x2520)
+            for slot, offset in enumerate(WATCH_OFFSETS):
+                ptrace(6, child.pid, 848 + slot * 8, base + offset)
             ptrace(6, child.pid, 848 + 6 * 8, 0)
-            ptrace(6, child.pid, 848 + 7 * 8, 1)
-            report['debug_register_writes'] += 3
+            ptrace(6, child.pid, 848 + 7 * 8, 5)
+            report['debug_register_writes'] += 4
             ptrace(7, child.pid)
             deadline = time.monotonic() + 180
             while True:
@@ -99,18 +104,21 @@ def run(args):
                     if child.returncode:
                         raise RuntimeError('Historical replay failed without a captured hardware stop')
                     break
-                if os.WSTOPSIG(status) != signal.SIGTRAP or not (ptrace(3, child.pid, 848 + 6 * 8) & 1):
+                slot_mask = ptrace(3, child.pid, 848 + 6 * 8) & 3 if os.WSTOPSIG(status) == signal.SIGTRAP else 0
+                if not slot_mask:
                     raise ValueError('Unexpected hardware observation stop')
                 registers = Registers()
                 ptrace(12, child.pid, 0, ctypes.addressof(registers))
                 with open(f'/proc/{child.pid}/mem', 'rb', buffering=0) as memory:
                     message = os.pread(memory.fileno(), 160, registers.rsi).split(b'\0', 1)[0].decode('ascii')
                 report.update(status='hardware_guard_stop', message=message, stopped_attempt=attempt,
+                    hardware_stop_slot_mask=slot_mask,
                     stopped_pid=child.pid, runtime_base=hex(base), registers={n: int(getattr(registers, n)) for n, _ in Registers._fields_})
                 ptrace(6, child.pid, 848 + 7 * 8, 0)
                 ptrace(6, child.pid, 848, 0)
+                ptrace(6, child.pid, 848 + 8, 0)
                 ptrace(6, child.pid, 848 + 6 * 8, 0)
-                report['debug_register_writes'] += 3
+                report['debug_register_writes'] += 4
                 ptrace(17, child.pid, 0, signal.SIGSTOP)
                 deadline = time.monotonic() + 5
                 while time.monotonic() < deadline:
@@ -128,7 +136,7 @@ def run(args):
                     LEZAC_GUARD_OUT=str(args.out / 'guard'), LEZAC_GUARD_EXE=str(executable),
                     LEZAC_GUARD_SYMBOLS=str(args.symbols.resolve()), LEZAC_GUARD_FIXTURE=str(args.fixture.resolve()),
                     LEZAC_GUARD_ROOT=str(args.root.resolve()), LEZAC_GUARD_ATTACH_PID=str(child.pid),
-                    LEZAC_GUARD_STOP_MESSAGE=message, LEZAC_GUARD_CALIBRATION=str(int(args.calibrate_unit)))
+                    LEZAC_GUARD_STOP_MESSAGE=message, LEZAC_GUARD_CALIBRATION=str(int(calibration)))
                 command = ['gdb', '-q', '-nx', '-batch', '-x', str(Path(__file__).with_name('actor_pass_guard_gdb.py'))]
                 os.execvpe('gdb', command, env)
             (args.out / 'hardware.json').write_text(json.dumps(report, indent=2) + '\n')
@@ -156,5 +164,7 @@ if __name__ == '__main__':
     for name in ('exe', 'symbols', 'fixture', 'root', 'layout', 'out'):
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--attempts', type=int, default=8)
-    parser.add_argument('--calibrate-unit', action='store_true')
+    calibration = parser.add_mutually_exclusive_group()
+    calibration.add_argument('--calibrate-unit', action='store_true')
+    calibration.add_argument('--calibrate-cli', action='store_true')
     run(parser.parse_args())

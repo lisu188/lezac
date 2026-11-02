@@ -16,6 +16,15 @@ def require(yes, message):
         raise ValueError(message)
 
 
+def require_positive(result, report):
+    report['positive'] = dict(exit_code=result.returncode, output_bytes=len(result.stdout),
+        output_sha256=hashlib.sha256(result.stdout).hexdigest())
+    require(result.returncode == 0 and b'frame_actor_pass_original=ok' in result.stdout and
+        b'canonical_mz=1' in result.stdout,
+        'Frame actor pass CLI positive control failed (exit ' + str(result.returncode) + '):\n' +
+        result.stdout[-4096:].decode('utf-8', errors='replace'))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--exe', type=Path, required=True)
@@ -40,8 +49,7 @@ def main():
         return result
     try:
         good = run('positive', (args.fixture, checker.ROOT))
-        require(good.returncode == 0 and b'frame_actor_pass_original=ok' in good.stdout and
-            b'canonical_mz=1' in good.stdout, 'Frame actor pass CLI positive control failed')
+        require_positive(good, report)
         wrong_root = out / 'wrong-root'
         wrong_root.mkdir()
         mz = bytearray((checker.ROOT / 'LEZAC.EXE').read_bytes())

@@ -92,6 +92,8 @@ def local_value(frame, name):
         for symbol in block:
             if symbol.name == name and (symbol.is_argument or symbol.is_variable):
                 return frame.read_var(symbol)
+        if block.function:
+            break
         block = block.superblock
     raise ValueError('Local variable is unavailable: ' + name)
 
@@ -124,6 +126,7 @@ def run():
         manual_register_or_data_writes=0, debugger_inferior_function_calls=0, full_ram_artifacts=0,
         tool_installed_software_breakpoints=not bool(attach), attached_after_throw_stop=bool(attach),
         calibration=os.environ.get('LEZAC_GUARD_CALIBRATION', '0') == '1',
+        optimized_dwarf_values_are_advisory=True,
         protected_inputs_sha256=protected,
         tool_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         intermittent_hold_cleared=False)

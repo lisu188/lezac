@@ -12,7 +12,7 @@ import subprocess
 import time
 
 EXPECTED = 'b1c719393f987cd2a98090055c8cc06d5d71589090599a36f32c4d2fd5da47f6'
-WATCH_OFFSETS = (0x2520, 0x2330)  # Pinned invalid_argument and runtime_error constructor PLTs.
+WATCH_OFFSETS = (0x2520, 0x2330, 0x3abf4)
 sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -84,8 +84,8 @@ def run(args):
             for slot, offset in enumerate(WATCH_OFFSETS):
                 ptrace(6, child.pid, 848 + slot * 8, base + offset)
             ptrace(6, child.pid, 848 + 6 * 8, 0)
-            ptrace(6, child.pid, 848 + 7 * 8, 5)
-            report['debug_register_writes'] += 4
+            ptrace(6, child.pid, 848 + 7 * 8, 21)
+            report['debug_register_writes'] += 5
             ptrace(7, child.pid)
             deadline = time.monotonic() + 180
             while True:
@@ -104,21 +104,41 @@ def run(args):
                     if child.returncode:
                         raise RuntimeError('Historical replay failed without a captured hardware stop')
                     break
-                slot_mask = ptrace(3, child.pid, 848 + 6 * 8) & 3 if os.WSTOPSIG(status) == signal.SIGTRAP else 0
+                slot_mask = ptrace(3, child.pid, 848 + 6 * 8) & 7 if os.WSTOPSIG(status) == signal.SIGTRAP else 0
                 if not slot_mask:
                     raise ValueError('Unexpected hardware observation stop')
                 registers = Registers()
                 ptrace(12, child.pid, 0, ctypes.addressof(registers))
                 with open(f'/proc/{child.pid}/mem', 'rb', buffering=0) as memory:
-                    message = os.pread(memory.fileno(), 160, registers.rsi).split(b'\0', 1)[0].decode('ascii')
+                    if slot_mask & 4:
+                        message = 'Frame actor contact ID-toggle/callee ownership differs'
+                        # Exact-ELF native stack offsets at the 3ABF4 validation failure branch.
+                        # Only four game/id ownership pairs and the variant tag are retained.
+                        pairs = {}
+                        for name, offset in [('parent', 0x17a0), ('prefix_child', 0x1770),
+                                             ('contact_child', 0xfd0), ('source_parent', 0x1fc0)]:
+                            raw = os.pread(memory.fileno(), 8, registers.rsp + offset)
+                            if len(raw) != 8:
+                                raise ValueError('Native validation operand read was incomplete')
+                            value = int.from_bytes(raw, 'little')
+                            pairs[name] = dict(gameSegment=value & 0xffff, idToggleMask=value >> 32)
+                        tag = os.pread(memory.fileno(), 1, registers.rsp + 0x1fb8)
+                        if len(tag) != 1:
+                            raise ValueError('Native validation tag read was incomplete')
+                        report['native_validation'] = dict(ownership=pairs, source_variant_tag=tag[0],
+                            host_metadata_bytes_read=33, source='pinned-ELF-stack-offsets',
+                            interpretation_claim=False)
+                    else:
+                        message = os.pread(memory.fileno(), 160, registers.rsi).split(b'\0', 1)[0].decode('ascii')
                 report.update(status='hardware_guard_stop', message=message, stopped_attempt=attempt,
                     hardware_stop_slot_mask=slot_mask,
                     stopped_pid=child.pid, runtime_base=hex(base), registers={n: int(getattr(registers, n)) for n, _ in Registers._fields_})
                 ptrace(6, child.pid, 848 + 7 * 8, 0)
                 ptrace(6, child.pid, 848, 0)
                 ptrace(6, child.pid, 848 + 8, 0)
+                ptrace(6, child.pid, 848 + 16, 0)
                 ptrace(6, child.pid, 848 + 6 * 8, 0)
-                report['debug_register_writes'] += 4
+                report['debug_register_writes'] += 5
                 ptrace(17, child.pid, 0, signal.SIGSTOP)
                 deadline = time.monotonic() + 5
                 while time.monotonic() < deadline:

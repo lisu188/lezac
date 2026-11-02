@@ -2330,12 +2330,16 @@ public:
         };
         std::ifstream input(fixture); if (!input) fail("cannot open fixture");
         std::ofstream manifest;
-        if (!outDir.empty()) { std::filesystem::create_directories(outDir); manifest.open(joinPath(outDir, "manifest.csv"));
-            if (!manifest) fail("cannot create manifest"); manifest << "case,sample,frame,p1_x,p1_y,energy,head_x,head_y,different_pixels\n"; }
+        if (!outDir.empty()) {
+            std::filesystem::create_directories(outDir);
+            manifest.open(joinPath(outDir, "manifest.csv"));
+            if (!manifest) fail("cannot create manifest");
+            manifest << "case,sample,frame,p1_x,p1_y,energy,head_x,head_y,different_pixels\n";
+        }
         if (reentry) debugReentryBoundaryObserver_ = [&](const char* phase) {
             if (boundaryIndex >= pendingBoundaries.size()) fail("unexpected lifecycle boundary " + std::string(phase));
             const auto& f = pendingBoundaries[boundaryIndex++];
-            if (f.at("stage") != phase || number(f.at("frame")) != (logicTick_ & 0xffff) ||
+            if (f.at("stage") != phase || number(f.at("frame")) != static_cast<int>(logicTick_ & 0xffffu) ||
                 number(f.at("counter")) != noActivePlayerTicks_ || number(f.at("gate")) != static_cast<int>(reentryGate_)) fail("lifecycle boundary " + std::string(phase));
             const auto p = bytes(f.at("p1"), 38), flags = bytes(f.at("flags"), 9), visual = bytes(f.at("visuals"), 16);
             const auto rng = bytes(f.at("rng"), 4);
@@ -2371,20 +2375,25 @@ public:
                     (activeCombat && (f.at("head_health_modified") != "0" || f.at("seeded_bomb") != "0" || f.at("latched_input") != "1" || f.at("physical_keyboard") != "0")) ||
                     (mass && f.at("seeded_weapon") != "3") ||
                     (bombProbe && (f.at("seeded_head_hp") != "0" || f.at("seeded_head_lives") != (impact ? "1" : "0") || f.at("seeded_bomb") != "1"))) fail("invalid provenance");
-                for (int i = 0; i < 7; ++i) resetLevel(i); stage = 1;
+                for (int i = 0; i < 7; ++i) resetLevel(i);
+                stage = 1;
             } else if (tag == "map") {
                 if (stage != 1 || f.size() != 4 || f.at("width") != "140" || f.at("height") != "52") fail("invalid map");
                 originalMap = bytes(f.at("bytes"), 7280); originalWords = bytes(f.at("words"), 14560); stage = 2;
             } else if (tag == "backdrop") {
-                if (stage != 2 || f.size() != 1) fail("misplaced backdrop"); originalBackdrop = rle(f.at("bytes"), 60000); stage = 3;
+                if (stage != 2 || f.size() != 1) fail("misplaced backdrop");
+                originalBackdrop = rle(f.at("bytes"), 60000); stage = 3;
                 for (size_t i = 0; i < originalBackdrop.size(); ++i) {
                     if ((i < 80 * 320 || i >= 162 * 320) && originalBackdrop[i] != presentation_.backdropBuffer()[i]) fail("background gradient mismatch");
                 }
             } else if (tag == "sprites") {
-                if (stage != 3 || f.size() != 1) fail("misplaced sprites"); descriptors = bytes(f.at("descriptors"), 368);
+                if (stage != 3 || f.size() != 1) fail("misplaced sprites");
+                descriptors = bytes(f.at("descriptors"), 368);
                 size_t offset = 0;
                 for (size_t i = 0; i < altSprites_.sprites.size(); ++i) { const auto& s = altSprites_.sprites[i]; const size_t at = (i + 1) * 4;
-                    if (descriptors[at] != s.width || descriptors[at + 1] != s.height || le16(descriptors, at + 2) != offset) fail("sprite bank mismatch"); offset += static_cast<size_t>(s.width) * s.height; }
+                    if (descriptors[at] != s.width || descriptors[at + 1] != s.height || le16(descriptors, at + 2) != offset) fail("sprite bank mismatch");
+                    offset += static_cast<size_t>(s.width) * s.height;
+                }
                 stage = 4;
             } else if (tag == "case") {
                 if (stage != 4 || caseIndex >= static_cast<int>(names.size()) || f.size() != (activeCombat ? 23u : reentry ? (activeCount ? 19u : 18u) : bombProbe ? 16u : 14u) || f.at("name") != names[caseIndex]) fail("invalid case");
@@ -2506,7 +2515,8 @@ public:
                 ++caseIndex; stage = 4;
             } else if (tag == "complete") {
                 if (stage != 4 || caseIndex != static_cast<int>(names.size()) || f.size() != 3 || number(f.at("cases")) != caseIndex ||
-                    number(f.at("samples")) != caseIndex * samplesPerCase || number(f.at("views")) != static_cast<int>(names.size() * viewSamples.size()) || views != static_cast<int>(names.size() * viewSamples.size())) fail("incomplete coverage"); complete = true;
+                    number(f.at("samples")) != caseIndex * samplesPerCase || number(f.at("views")) != static_cast<int>(names.size() * viewSamples.size()) || views != static_cast<int>(names.size() * viewSamples.size())) fail("incomplete coverage");
+                complete = true;
             } else fail("unknown record");
         }
         if (!complete) fail("missing completion");
@@ -15719,7 +15729,7 @@ public:
                 playerCount_ = 2; lives_ = lives2_ = 1; resetLevel(0); ui_.setMenu(false);
                 level_.tiles.assign(level_.tiles.size(), 0);
                 const uint16_t cell = static_cast<uint16_t>(((static_cast<uint16_t>(y + 7) >> 3) + 1) * width + 3);
-                if (cell + 1 >= level_.tiles.size()) fail("probe outside object plane");
+                if (static_cast<size_t>(cell) + 1 >= level_.tiles.size()) fail("probe outside object plane");
                 level_.tiles[cell] = static_cast<uint8_t>(left); level_.tiles[cell + 1] = static_cast<uint8_t>(right);
                 auto& player = marker == 1 ? player_ : player2_;
                 auto& energy = marker == 1 ? energy_ : energy2_;
@@ -18358,8 +18368,8 @@ public:
             if (glyph < kDebrisShatterFrame && glyph != kDebrisDissolveByte) continue;
             if (chain.empty()) firstShatterFrame = row.first;
             lastShatterFrame = row.first;
-            char buf[8];
-            std::snprintf(buf, sizeof(buf), "0x%02x", glyph);
+            char buf[2 + sizeof(unsigned) * 2 + 1];
+            std::snprintf(buf, sizeof(buf), "0x%02x", static_cast<unsigned>(glyph));
             if (!chain.empty()) chain += ',';
             chain += buf;
             if (glyph == kDebrisDissolveByte) break;  // terminal ends the chain
@@ -24096,7 +24106,6 @@ public:
         for (uint8_t byte : bytes) fingerprint = (fingerprint ^ byte) * 1099511628211ull;
         if (bytes.size() != prefixSize + 1620 * caseSize || fingerprint != 0x0c981fe89147fa9dull)
             throw std::runtime_error("spawner construction fixture size/fingerprint mismatch");
-        const auto word = [&](size_t at) { return lezac::resources::le16(bytes, at); };
         const auto dword = [&](size_t at) { return lezac::resources::le32(bytes, at); };
         load();
         initSdl();

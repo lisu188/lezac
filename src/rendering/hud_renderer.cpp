@@ -209,7 +209,6 @@ public:
     void drawHudObjectivePanel() {
         constexpr uint32_t kBlack = 0xff000000u;
         constexpr uint32_t kYellow = 0xffffff55u;
-        constexpr uint32_t kBlue = 0xff0018dbu;
         constexpr uint32_t kCyan = 0xff00aaaau;
         const int y0 = kScreenH - 46;
         // Centre panel: bomb-count and objective (destruction target) tallies.

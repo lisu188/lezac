@@ -12,6 +12,7 @@ import subprocess
 import time
 
 from actor_pass_supervision import allow_parent_debugger, collect_guard
+from actor_pass_contact_operands import observe_contact_operands, verify_pinned_contact_sites
 
 EXPECTED = 'b1c719393f987cd2a98090055c8cc06d5d71589090599a36f32c4d2fd5da47f6'
 WATCH_OFFSETS = (0x2520, 0x2330, 0x3abf4, 0x8acf9)
@@ -52,7 +53,8 @@ def run(args):
     args.out.mkdir()
     protected = {str(p.resolve()): sha(p) for p in (args.exe, args.symbols, args.fixture, args.root / 'LEZAC.EXE',
         args.layout, Path(__file__), Path(__file__).with_name('actor_pass_guard_gdb.py'),
-        Path(__file__).with_name('actor_pass_supervision.py'))}
+        Path(__file__).with_name('actor_pass_supervision.py'),
+        Path(__file__).with_name('actor_pass_contact_operands.py'))}
     calibration = args.calibrate_unit or args.calibrate_cli
     report = dict(status='running', historical_elf_sha256=EXPECTED, attempts=[], core_dump_limit=0,
         protected_inputs_sha256=protected, software_breakpoints=0, preload_hooks=0,
@@ -129,26 +131,13 @@ def run(args):
                 with open(f'/proc/{child.pid}/mem', 'rb', buffering=0) as memory:
                     if selected_slot >= 2:
                         message = 'Frame actor contact ID-toggle/callee ownership differs'
-                        # The registers() instantiation has the same layout shifted by 16 bytes.
-                        # Only four game/id ownership pairs and the variant tag are retained.
-                        shift = 0x10 if selected_slot == 3 else 0
-                        pairs = {}
-                        for name, offset in [('parent', 0x17a0), ('prefix_child', 0x1770),
-                                             ('contact_child', 0xfd0), ('source_parent', 0x1fc0)]:
-                            raw = os.pread(memory.fileno(), 8, registers.rsp + offset + shift)
-                            if len(raw) != 8:
-                                raise ValueError('Native validation operand read was incomplete')
-                            value = int.from_bytes(raw, 'little')
-                            pairs[name] = dict(gameSegment=value & 0xffff, idToggleMask=value >> 32)
-                        tag = os.pread(memory.fileno(), 1, registers.rsp + 0x1fb8 + shift)
-                        if len(tag) != 1:
-                            raise ValueError('Native validation tag read was incomplete')
-                        report['native_validation'] = dict(ownership=pairs, source_variant_tag=tag[0],
-                            profile='ActorUpdate.registers' if shift else 'ActorUpdate.interruptInProgress',
-                            host_metadata_bytes_read=33, source='pinned-ELF-stack-offsets',
-                            interpretation_claim=False)
                     else:
                         message = os.pread(memory.fileno(), 160, registers.rsi).split(b'\0', 1)[0].decode('ascii')
+                    if message == 'Frame actor contact ID-toggle/callee ownership differs':
+                        verify_pinned_contact_sites(args.exe.read_bytes())
+                        report['native_validation'] = observe_contact_operands(
+                            lambda address, size: os.pread(memory.fileno(), size, address),
+                            registers.rsp, base, WATCH_OFFSETS[selected_slot])
                 report.update(status='hardware_guard_stop', message=message, stopped_attempt=attempt,
                     hardware_stop_slot_mask=slot_mask,
                     stopped_pid=child.pid, runtime_base=hex(base), registers={n: int(getattr(registers, n)) for n, _ in Registers._fields_})

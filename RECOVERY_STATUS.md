@@ -24,6 +24,13 @@ but do not identify the cause. CLI diagnostics now surface bounded child output;
 source-mutation probes also handle Windows checkout newlines. No production
 guard is relaxed, and the actor-pass integration hold remains open.
 
+The [ownership-operand observation](docs/recovery/actor-owner-operands-20261103.md)
+maps that retained cursor to original `JBE 654E`, confirmed with REA/Ghidra on
+WSL. A separate real historical throw retains matching ownership fields after
+exception allocation, not proof about the earlier guard reads. The observer
+now identifies eight inline constructor sites and supports three pinned operand
+layouts. The cause and integration hold remain open.
+
 ## Post-Queue Tail CPU Recovery (2026-10-22)
 
 The [independent tail operation](docs/recovery/frame_tail_cpu_2026-10-22.md)

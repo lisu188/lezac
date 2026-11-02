@@ -1071,6 +1071,9 @@ if(BUILD_TESTING)
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_pass_diagnostic_reports.py -v)
             set_tests_properties(frame_actor_pass_diagnostic_reports PROPERTIES TIMEOUT 30
                 ENVIRONMENT "TMPDIR=${CMAKE_CURRENT_BINARY_DIR};TMP=${CMAKE_CURRENT_BINARY_DIR};TEMP=${CMAKE_CURRENT_BINARY_DIR}")
+            add_test(NAME frame_actor_pass_supervision COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_pass_supervision.py -v)
+            set_tests_properties(frame_actor_pass_supervision PROPERTIES TIMEOUT 30)
         endif()
         add_test(NAME frame_actor_pass_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_actor_pass_fixture.py -v)

@@ -214,6 +214,8 @@ def run():
     if gdb.selected_inferior().pid:
         gdb.execute('kill')
     print('actor_guard_capture=' + report['status'] + ' bytes=' + str(len(raw)))
+    if report['status'] == 'unexpected_stop':
+        gdb.execute('quit 1')
 
 
 try:

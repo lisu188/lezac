@@ -11,8 +11,10 @@ import signal
 import subprocess
 import time
 
+from actor_pass_supervision import allow_parent_debugger, collect_guard
+
 EXPECTED = 'b1c719393f987cd2a98090055c8cc06d5d71589090599a36f32c4d2fd5da47f6'
-WATCH_OFFSETS = (0x2520, 0x2330, 0x3abf4)
+WATCH_OFFSETS = (0x2520, 0x2330, 0x3abf4, 0x8acf9)
 sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -49,20 +51,28 @@ def run(args):
         raise ValueError('Compiled native ptrace layout differs')
     args.out.mkdir()
     protected = {str(p.resolve()): sha(p) for p in (args.exe, args.symbols, args.fixture, args.root / 'LEZAC.EXE',
-        args.layout, Path(__file__), Path(__file__).with_name('actor_pass_guard_gdb.py'))}
+        args.layout, Path(__file__), Path(__file__).with_name('actor_pass_guard_gdb.py'),
+        Path(__file__).with_name('actor_pass_supervision.py'))}
     calibration = args.calibrate_unit or args.calibrate_cli
     report = dict(status='running', historical_elf_sha256=EXPECTED, attempts=[], core_dump_limit=0,
         protected_inputs_sha256=protected, software_breakpoints=0, preload_hooks=0,
         code_or_guest_data_writes=0, debug_register_writes=0, calibration=calibration,
         calibration_kind='invalid_argv' if args.calibrate_cli else ('unit_negative_controls' if calibration else None),
-        late_attach=not calibration, watch_offsets=list(WATCH_OFFSETS), intermittent_hold_cleared=False)
+        late_attach=not calibration, watch_offsets=list(WATCH_OFFSETS), intermittent_hold_cleared=False,
+        cleanup_owner='supervising-parent', ptrace_permission='parent-and-descendants-only',
+        validation_only=args.validation_only, uncaptured_failures=[])
     child = None
+    captured = False
+    def prepare_child():
+        allow_parent_debugger()
+        if calibration:
+            ptrace(0, 0)
     try:
         for attempt in range(args.attempts):
             arguments = [] if args.calibrate_unit else [str(args.fixture)] if args.calibrate_cli else [str(args.fixture), str(args.root)]
             child = subprocess.Popen([str(args.exe), *arguments],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                preexec_fn=(lambda: ptrace(0, 0)) if calibration else None,
+                preexec_fn=prepare_child,
                 env=dict(os.environ, SDL_AUDIODRIVER='dummy', SDL_VIDEODRIVER='dummy',
                          TMPDIR=str(args.out)))
             if calibration:
@@ -84,8 +94,9 @@ def run(args):
             for slot, offset in enumerate(WATCH_OFFSETS):
                 ptrace(6, child.pid, 848 + slot * 8, base + offset)
             ptrace(6, child.pid, 848 + 6 * 8, 0)
-            ptrace(6, child.pid, 848 + 7 * 8, 21)
-            report['debug_register_writes'] += 5
+            enabled = range(2, len(WATCH_OFFSETS)) if args.validation_only else range(len(WATCH_OFFSETS))
+            ptrace(6, child.pid, 848 + 7 * 8, sum(1 << (slot * 2) for slot in enabled))
+            report['debug_register_writes'] += len(WATCH_OFFSETS) + 2
             ptrace(7, child.pid)
             deadline = time.monotonic() + 180
             while True:
@@ -102,30 +113,38 @@ def run(args):
                     (args.out / f'{attempt}.stderr').write_bytes(stderr)
                     report['attempts'].append(dict(attempt=attempt, exit_code=child.returncode))
                     if child.returncode:
+                        if args.validation_only and child.returncode == 1 and b'frame_actor_pass=failed ' in stderr:
+                            report['uncaptured_failures'].append(dict(attempt=attempt, stderr=stderr.decode('ascii')))
+                            break
                         raise RuntimeError('Historical replay failed without a captured hardware stop')
                     break
-                slot_mask = ptrace(3, child.pid, 848 + 6 * 8) & 7 if os.WSTOPSIG(status) == signal.SIGTRAP else 0
-                if not slot_mask:
+                slot_mask = ptrace(3, child.pid, 848 + 6 * 8) & 15 if os.WSTOPSIG(status) == signal.SIGTRAP else 0
+                if not slot_mask or slot_mask & (slot_mask - 1):
                     raise ValueError('Unexpected hardware observation stop')
                 registers = Registers()
                 ptrace(12, child.pid, 0, ctypes.addressof(registers))
+                selected_slot = slot_mask.bit_length() - 1
+                if registers.rip != base + WATCH_OFFSETS[selected_slot]:
+                    raise ValueError('Hardware stop address differs from its pinned slot')
                 with open(f'/proc/{child.pid}/mem', 'rb', buffering=0) as memory:
-                    if slot_mask & 4:
+                    if selected_slot >= 2:
                         message = 'Frame actor contact ID-toggle/callee ownership differs'
-                        # Exact-ELF native stack offsets at the 3ABF4 validation failure branch.
+                        # The registers() instantiation has the same layout shifted by 16 bytes.
                         # Only four game/id ownership pairs and the variant tag are retained.
+                        shift = 0x10 if selected_slot == 3 else 0
                         pairs = {}
                         for name, offset in [('parent', 0x17a0), ('prefix_child', 0x1770),
                                              ('contact_child', 0xfd0), ('source_parent', 0x1fc0)]:
-                            raw = os.pread(memory.fileno(), 8, registers.rsp + offset)
+                            raw = os.pread(memory.fileno(), 8, registers.rsp + offset + shift)
                             if len(raw) != 8:
                                 raise ValueError('Native validation operand read was incomplete')
                             value = int.from_bytes(raw, 'little')
                             pairs[name] = dict(gameSegment=value & 0xffff, idToggleMask=value >> 32)
-                        tag = os.pread(memory.fileno(), 1, registers.rsp + 0x1fb8)
+                        tag = os.pread(memory.fileno(), 1, registers.rsp + 0x1fb8 + shift)
                         if len(tag) != 1:
                             raise ValueError('Native validation tag read was incomplete')
                         report['native_validation'] = dict(ownership=pairs, source_variant_tag=tag[0],
+                            profile='ActorUpdate.registers' if shift else 'ActorUpdate.interruptInProgress',
                             host_metadata_bytes_read=33, source='pinned-ELF-stack-offsets',
                             interpretation_claim=False)
                     else:
@@ -134,11 +153,10 @@ def run(args):
                     hardware_stop_slot_mask=slot_mask,
                     stopped_pid=child.pid, runtime_base=hex(base), registers={n: int(getattr(registers, n)) for n, _ in Registers._fields_})
                 ptrace(6, child.pid, 848 + 7 * 8, 0)
-                ptrace(6, child.pid, 848, 0)
-                ptrace(6, child.pid, 848 + 8, 0)
-                ptrace(6, child.pid, 848 + 16, 0)
+                for slot in range(len(WATCH_OFFSETS)):
+                    ptrace(6, child.pid, 848 + slot * 8, 0)
                 ptrace(6, child.pid, 848 + 6 * 8, 0)
-                report['debug_register_writes'] += 5
+                report['debug_register_writes'] += len(WATCH_OFFSETS) + 2
                 ptrace(17, child.pid, 0, signal.SIGSTOP)
                 deadline = time.monotonic() + 5
                 while time.monotonic() < deadline:
@@ -158,9 +176,15 @@ def run(args):
                     LEZAC_GUARD_ROOT=str(args.root.resolve()), LEZAC_GUARD_ATTACH_PID=str(child.pid),
                     LEZAC_GUARD_STOP_MESSAGE=message, LEZAC_GUARD_CALIBRATION=str(int(calibration)))
                 command = ['gdb', '-q', '-nx', '-batch', '-x', str(Path(__file__).with_name('actor_pass_guard_gdb.py'))]
-                os.execvpe('gdb', command, env)
+                report['collector'] = collect_guard(command, env, args.out)
+                report['status'] = 'hardware_guard_captured'
+                captured = True
+                break
             (args.out / 'hardware.json').write_text(json.dumps(report, indent=2) + '\n')
-        report['status'] = 'bounded_non_reproduction'
+            if captured:
+                break
+        if not captured:
+            report['status'] = 'other_failures_without_target_capture' if report['uncaptured_failures'] else 'bounded_non_reproduction'
     except BaseException as error:
         report.update(status='failed', error=repr(error))
         raise
@@ -176,6 +200,8 @@ def run(args):
         (args.out / 'hardware.json').write_text(json.dumps(report, indent=2) + '\n')
     if report['status'] == 'failed':
         raise RuntimeError(report.get('protected_input_error', 'Hardware observation failed'))
+    if report['status'] == 'other_failures_without_target_capture':
+        raise RuntimeError('Replay failures were observed without the requested validation-branch capture')
     print(json.dumps(report))
 
 
@@ -184,6 +210,7 @@ if __name__ == '__main__':
     for name in ('exe', 'symbols', 'fixture', 'root', 'layout', 'out'):
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--attempts', type=int, default=8)
+    parser.add_argument('--validation-only', action='store_true')
     calibration = parser.add_mutually_exclusive_group()
     calibration.add_argument('--calibrate-unit', action='store_true')
     calibration.add_argument('--calibrate-cli', action='store_true')

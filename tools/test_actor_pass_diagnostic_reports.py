@@ -4,6 +4,7 @@ import contextlib
 import io
 import json
 import os
+import signal
 from pathlib import Path
 import tempfile
 import unittest
@@ -59,7 +60,7 @@ class DiagnosticReports(unittest.TestCase):
     def test_plain_control_abnormal_exit_fails(self):
         self.assertEqual(self.plain_control(exit_code=-9)['status'], 'failed')
 
-    def exercise(self, module, mutation=False, exit_code=0):
+    def exercise(self, module, mutation=False, exit_code=0, collector_mode=None, validation_only=False):
         with tempfile.TemporaryDirectory(prefix='lezac-diagnostic-', dir='/dev/shm') as directory:
             base = Path(directory)
             root = base / 'game'
@@ -72,15 +73,18 @@ class DiagnosticReports(unittest.TestCase):
             layout = base / 'layout.json'
             layout.write_text(json.dumps(dict(debug_offset=848, register_bytes=216, word_bytes=8)))
             args = argparse.Namespace(**paths, root=root, layout=layout, out=base / 'out',
-                                      attempts=1, calibrate_unit=True, calibrate_cli=False)
+                                      attempts=1, calibrate_unit=True, calibrate_cli=False, validation_only=validation_only)
             child = mock.Mock(pid=4242, returncode=None)
-            child.communicate.return_value = (b'test-only output', b'')
+            child.communicate.return_value = (b'test-only output', b'frame_actor_pass=failed test-only\n' if validation_only else b'')
 
             def launch(*unused, **kwargs):
                 if mutation == 'delete':
                     args.fixture.unlink()
                 elif mutation:
                     args.fixture.write_bytes(b'changed after input catalog')
+                if collector_mode:
+                    kwargs['stderr'].write(b'LEZAC_THROW_STOP:Frame actor test-only ownership differs\n')
+                    kwargs['stderr'].flush()
                 return child
 
             read_text = Path.read_text
@@ -91,6 +95,8 @@ class DiagnosticReports(unittest.TestCase):
                 return read_text(path, *positional, **keywords)
 
             waits = [(4242, 0), (4242, exit_code << 8)] if module is hardware else [(4242, exit_code << 8)]
+            if collector_mode:
+                waits = [(4242, (int(signal.SIGSTOP) << 8) | 0x7f)]
             with contextlib.ExitStack() as stack:
                 stack.enter_context(mock.patch.object(module, 'EXPECTED', module.sha(args.exe)))
                 stack.enter_context(mock.patch.dict(os.environ, {}, clear=True))
@@ -99,20 +105,37 @@ class DiagnosticReports(unittest.TestCase):
                 stack.enter_context(mock.patch.object(module.os, 'waitpid', side_effect=waits))
                 stack.enter_context(mock.patch.object(Path, 'read_text', read))
                 stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+                if collector_mode:
+                    stack.enter_context(mock.patch.object(module, 'collect_guard',
+                        side_effect=RuntimeError('controlled collector failure') if collector_mode == 'failure' else None,
+                        return_value={'status': 'failure_throw_captured'}))
                 if module is hardware:
                     stack.enter_context(mock.patch.object(module, 'ptrace', return_value=0))
                     stack.enter_context(mock.patch.object(module.platform, 'machine', return_value='x86_64'))
-                if mutation or exit_code:
+                if mutation or exit_code or collector_mode == 'failure':
                     with self.assertRaises(RuntimeError):
                         module.run(args)
                 else:
                     module.run(args)
             report = json.loads((args.out / ('hardware.json' if module is hardware else 'parent.json')).read_bytes())
-            self.assertEqual(report['status'], 'failed' if mutation or exit_code else 'bounded_non_reproduction')
+            expected = 'failed' if mutation or exit_code or collector_mode == 'failure' else (
+                'throw_captured' if collector_mode else 'bounded_non_reproduction')
+            if validation_only and exit_code:
+                expected = 'other_failures_without_target_capture'
+            self.assertEqual(report['status'], expected)
             self.assertEqual(report['protected_inputs_preserved'], not mutation)
             self.assertFalse(report['intermittent_hold_cleared'])
-            self.assertEqual(report['attempts'], [dict(attempt=0, exit_code=exit_code)])
-            child.kill.assert_not_called()
+            self.assertEqual(report['attempts'], [] if collector_mode else [dict(attempt=0, exit_code=exit_code)])
+            if collector_mode:
+                child.kill.assert_called_once();child.wait.assert_called_once()
+            else:
+                child.kill.assert_not_called()
+
+    def test_preload_failed_collector_reaps_child(self):
+        self.exercise(preload, collector_mode='failure')
+
+    def test_preload_successful_collector_reaps_child(self):
+        self.exercise(preload, collector_mode='success')
 
     def test_hardware_terminal_scope(self):
         self.exercise(hardware)
@@ -134,6 +157,9 @@ class DiagnosticReports(unittest.TestCase):
 
     def test_hardware_uncaptured_failure_fails(self):
         self.exercise(hardware, exit_code=3)
+
+    def test_targeted_observation_does_not_hide_other_failures(self):
+        self.exercise(hardware, exit_code=1, validation_only=True)
 
     def test_preload_uncaptured_failure_fails(self):
         self.exercise(preload, exit_code=3)

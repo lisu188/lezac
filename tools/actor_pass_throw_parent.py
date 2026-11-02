@@ -9,6 +9,8 @@ import signal
 import subprocess
 import time
 
+from actor_pass_supervision import allow_parent_debugger, collect_guard
+
 EXPECTED = 'b1c719393f987cd2a98090055c8cc06d5d71589090599a36f32c4d2fd5da47f6'
 sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -25,11 +27,13 @@ def run(args):
         setattr(args, name, getattr(args, name).resolve(strict=True))
     args.out.mkdir()
     protected = {str(path): sha(path) for path in (args.exe, args.symbols, args.fixture, args.root / 'LEZAC.EXE',
-        args.hook, Path(__file__), Path(__file__).with_name('actor_pass_guard_gdb.py'))}
+        args.hook, Path(__file__), Path(__file__).with_name('actor_pass_guard_gdb.py'),
+        Path(__file__).with_name('actor_pass_supervision.py'))}
     report = dict(status='running', historical_elf_sha256=EXPECTED, attempts=[], core_dump_limit=0,
         hook_sha256=sha(args.hook), parent_sha256=sha(Path(__file__)),
         hook_is_host_instrumentation=True, guest_state_injected=False, intermittent_hold_cleared=False,
-        protected_inputs_sha256=protected)
+        protected_inputs_sha256=protected, cleanup_owner='supervising-parent',
+        ptrace_permission='parent-and-descendants-only')
     environment = dict(os.environ, LD_PRELOAD=str(args.hook), SDL_AUDIODRIVER='dummy', SDL_VIDEODRIVER='dummy')
     try:
         campaign(args, report, environment)
@@ -55,7 +59,8 @@ def campaign(args, report, environment):
         try:
             with (args.out / f'{attempt}.stdout').open('xb') as stdout, (args.out / f'{attempt}.stderr').open('xb') as stderr:
                 child = subprocess.Popen([str(args.exe), str(args.fixture), str(args.root)],
-                                         stdout=stdout, stderr=stderr, env=environment)
+                                         stdout=stdout, stderr=stderr, env=environment,
+                                         preexec_fn=allow_parent_debugger)
                 deadline = time.monotonic() + 180
                 while True:
                     pid, status = os.waitpid(child.pid, os.WNOHANG | os.WUNTRACED)
@@ -77,7 +82,9 @@ def campaign(args, report, environment):
                             LEZAC_GUARD_ROOT=str(args.root), LEZAC_GUARD_ATTACH_PID=str(child.pid),
                             LEZAC_GUARD_STOP_MESSAGE=message)
                         command = ['gdb', '-q', '-nx', '-batch', '-x', str(Path(__file__).with_name('actor_pass_guard_gdb.py'))]
-                        os.execvpe(command[0], command, debug_environment)
+                        report['collector'] = collect_guard(command, debug_environment, args.out)
+                        report['status'] = 'throw_captured'
+                        return
                     if pid:
                         child.returncode = os.waitstatus_to_exitcode(status)
                         report['attempts'].append(dict(attempt=attempt, exit_code=child.returncode))

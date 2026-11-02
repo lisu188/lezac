@@ -66,6 +66,11 @@ The private 55,374-byte typed report has SHA-256
 It is not included in the repository. The public receipt contains only compact
 outcomes, hashes and evidence identifiers.
 
+The final prethrow observer completed eight full runs without reproduction.
+All protected inputs remained unchanged. This is bounded non-reproduction,
+not evidence that the earlier failures disappeared; the new 33-byte operand
+capture has not yet been observed on a real prethrow branch.
+
 ## Diagnostics
 
 `actor_pass_plain_parent.py` is the uninstrumented control. It authenticates the
@@ -130,3 +135,13 @@ compiler, lifetime or hardware cause from one optimized DWARF view. A causal
 regression and a validated fix remain required before promoting the held
 actor-pass and dependent full-frame PRs. Global fidelity flags and completion
 percentages are unchanged.
+
+The [compact receipt](actor-stability-20261102.json) records these outcomes.
+Refreshing base PR #469 confirmed no formal/inline/thread finding and a clean
+exact-head Codex review. Its Linux CI was cancelled; Windows passed 1,189 of
+1,190 tests, failing `test_broken_link_is_preserved` in the bounded oracle
+failure-report contract. The existing `open('xb')` path did not raise the
+expected `FileExistsError` on that runner's dangling symlink. This separate
+cross-platform preservation defect remains open. The frozen corpus also pins
+the failure-writer source hash, so a fix must preserve or deliberately migrate
+that provenance rather than silently invalidating the fixture.

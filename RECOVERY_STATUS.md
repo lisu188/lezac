@@ -4,6 +4,16 @@ Last reviewed: 2026-09-19
 Branch: `codex/recover-player-key-ownership`
 Baseline: `origin/main` at PR #234
 
+## Actor Stability Investigation (2026-11-02)
+
+The [stability investigation](docs/recovery/actor-stability-20261102.md) freshly
+reproduces the historical optimized actor-pass failure in ordinary execution
+and captures a real ownership exception before unwinding. REA/Ghidra confirms
+the two original instructions at the observed CX mismatch boundaries. Eight
+focused CTests and twelve diagnostic report tests pass, but the root cause and
+the dependent frame-recovery merge hold remain open. Bounded observer passes
+do not clear that hold. No global fidelity or completion percentage changes.
+
 ## Post-Queue Tail CPU Recovery (2026-10-22)
 
 The [independent tail operation](docs/recovery/frame_tail_cpu_2026-10-22.md)

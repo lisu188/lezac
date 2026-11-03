@@ -31,6 +31,17 @@ exception allocation, not proof about the earlier guard reads. The observer
 now identifies eight inline constructor sites and supports three pinned operand
 layouts. The cause and integration hold remain open.
 
+The [before-allocation follow-up](docs/recovery/actor-preallocation-20261103.md)
+extends guard coverage to eight sites and avoids uninitialized constructor-tag
+storage. REA/Ghidra selected instruction bytes agree with the historical ELF;
+format-specific ELF load attestation remains unavailable. Sixteen watched
+replays and a 500000-iteration computed handoff control pass. A second campaign
+then catches a real transition guard before exception allocation after nine
+passing replays, retaining native register/flag operands and matching bounded
+ownership fields. Their cause is still unresolved. The older #472 Windows
+full suite exposes two stale fixture dependency hashes, not a green replay.
+No fidelity or completion flag changes.
+
 ## Post-Queue Tail CPU Recovery (2026-10-22)
 
 The [independent tail operation](docs/recovery/frame_tail_cpu_2026-10-22.md)

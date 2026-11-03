@@ -1,11 +1,15 @@
 """Check pinned contact layouts without launching a replay or reading host memory."""
 import struct
 import unittest
+from unittest import mock
 
 import actor_pass_contact_operands as operands
 
 
 class ContactOperands(unittest.TestCase):
+    def stack_profiles(self):
+        return {key: value for key, value in operands.PROFILES.items() if value.get('kind') != 'register-input'}
+
     def make_reader(self, profile, constructor=False, tag=0):
         base, stack = 0x100000, 0x200000
         at = stack + (8 if constructor else 0)
@@ -21,8 +25,9 @@ class ContactOperands(unittest.TestCase):
             return data[address]
         return base, stack, read, calls
 
-    def test_three_guard_layouts_read_only_33_typed_bytes(self):
-        for offset, profile in operands.PROFILES.items():
+    def test_seven_stack_guard_layouts_read_only_33_typed_bytes(self):
+        self.assertEqual(len(self.stack_profiles()), 7)
+        for offset, profile in self.stack_profiles().items():
             with self.subTest(profile=profile['name']):
                 base, stack, read, calls = self.make_reader(profile)
                 result = operands.observe_contact_operands(read, stack, base, offset)
@@ -34,7 +39,7 @@ class ContactOperands(unittest.TestCase):
                 self.assertFalse(result['interpretation_claim'])
 
     def test_constructor_caller_adds_exactly_eight_bytes_and_stack_adjustment(self):
-        for profile in operands.PROFILES.values():
+        for profile in self.stack_profiles().values():
             with self.subTest(profile=profile['name']):
                 base, stack, read, calls = self.make_reader(profile, constructor=True)
                 result = operands.observe_contact_operands(read, stack, base, 0x2520)
@@ -43,16 +48,15 @@ class ContactOperands(unittest.TestCase):
                 self.assertEqual(result['constructor_return_offset'], profile['return_offset'])
                 self.assertEqual(result['capture_phase'], 'after-allocation-at-constructor-entry')
 
-    def test_five_other_known_sites_remain_explicitly_unsupported(self):
-        supported = {profile['return_offset'] for profile in operands.PROFILES.values()}
-        other = set(operands.CONTACT_RETURNS) - supported
-        self.assertEqual(len(other), 5)
-        for offset in other:
+    def test_missing_layout_remains_explicitly_unsupported(self):
+        for omitted, profile in operands.PROFILES.items():
+            offset = profile['return_offset']
             calls = []
             def read(address, size):
                 calls.append((address, size))
                 return (0x100000 + offset).to_bytes(8, 'little')
-            result = operands.observe_contact_operands(read, 0x200000, 0x100000, 0x2520)
+            with mock.patch.dict(operands.PROFILES, {}, clear=True):
+                result = operands.observe_contact_operands(read, 0x200000, 0x100000, 0x2520)
             self.assertEqual(result['status'], 'unsupported_constructor_layout')
             self.assertEqual(result['host_metadata_bytes_read'], 8)
             self.assertEqual(calls, [(0x200000, 8)])
@@ -66,7 +70,7 @@ class ContactOperands(unittest.TestCase):
 
     def test_every_incomplete_read_is_rejected(self):
         for constructor in (False, True):
-            for profile in operands.PROFILES.values():
+            for profile in self.stack_profiles().values():
                 for short_at in range(6 if constructor else 5):
                     with self.subTest(constructor=constructor, profile=profile['name'], read=short_at):
                         base, stack, read, calls = self.make_reader(profile, constructor=constructor)
@@ -86,6 +90,54 @@ class ContactOperands(unittest.TestCase):
             self.assertEqual(result['selected_child'], selected)
             self.assertTrue(result['inactive_overlap_is_not_ownership'])
             self.assertFalse(result['interpretation_claim'])
+
+    def test_register_input_never_reads_parent_or_uninitialized_tag(self):
+        profile = operands.PROFILES[0x8c5dc]
+        for constructor in (False, True):
+            for ip, selected in ((0x6053, 'prefix_child'), (0x654e, 'contact_child')):
+                with self.subTest(constructor=constructor, entry=hex(ip)):
+                    base, stack = 0x100000, 0x200000
+                    offset = 8 if constructor else 0
+                    calls = []
+                    def read(address, size):
+                        calls.append((address, size))
+                        if constructor and address == stack:
+                            return (base + profile['return_offset']).to_bytes(8, 'little')
+                        self.assertEqual((address, size), (stack + offset + profile[selected], 8))
+                        return (0x200000a55a1000).to_bytes(8, 'little')
+                    registers = dict(rbp=0xbeef00001000, r12=0xabcd000000200000, r14=0xbeef00000000 | ip)
+                    result = operands.observe_contact_operands(read, stack, base,
+                        0x2520 if constructor else 0x8c5dc, registers)
+                    self.assertEqual(result['ownership']['parent'], dict(gameSegment=0x1000, idToggleMask=0x200000))
+                    self.assertEqual(result['selected_child'], selected)
+                    self.assertIsNone(result['variant_tag'])
+                    self.assertFalse(result['parent_memory_read'])
+                    self.assertEqual(result['variant_tag_location'], 'not-initialized-at-guard')
+                    self.assertEqual(result['host_metadata_bytes_read'], 16 if constructor else 8)
+                    self.assertEqual(sum(size for _, size in calls), result['host_metadata_bytes_read'])
+
+    def test_register_input_requires_registers_and_rejects_short_child(self):
+        for registers in (None, {}, dict(rbp=0x1000, r12=0x200000)):
+            with self.assertRaisesRegex(ValueError, 'requires its live input registers'):
+                operands.observe_contact_operands(lambda *_: self.fail('must not read'), 0, 0, 0x8c5dc, registers)
+        with self.assertRaisesRegex(ValueError, 'operand read was incomplete'):
+            operands.observe_contact_operands(lambda *_: b'\0' * 7, 0, 0, 0x8c5dc,
+                dict(rbp=0x1000, r12=0x200000, r14=0x6053))
+
+    def test_register_input_preserves_bad_game_and_id_bits(self):
+        result = operands.observe_contact_operands(lambda *_: (0x20000000001000).to_bytes(8, 'little'),
+            0, 0, 0x8c5dc, dict(rbp=0x1200, r12=0x200200, r14=0x6053))
+        self.assertEqual(result['ownership']['parent'], dict(gameSegment=0x1200, idToggleMask=0x200200))
+        self.assertEqual(result['ownership']['prefix_child'], dict(gameSegment=0x1000, idToggleMask=0x200000))
+        self.assertFalse(result['interpretation_claim'])
+
+    def test_guard_banks_cover_every_constructor_layout_once(self):
+        entries = [offset for bank in operands.GUARD_BANKS.values() for offset in bank]
+        self.assertEqual(len(entries), 8)
+        self.assertEqual(len(set(entries)), 8)
+        self.assertEqual(set(entries), set(operands.PROFILES))
+        self.assertEqual({profile['return_offset'] for profile in operands.PROFILES.values()},
+                         set(operands.CONTACT_RETURNS))
 
     def test_site_signatures_and_each_mutated_signature(self):
         image = bytearray(0xa3000)

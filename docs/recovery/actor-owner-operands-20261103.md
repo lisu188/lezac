@@ -105,3 +105,7 @@ The [compact receipt](actor-owner-operands-20261103.json) records subsequent
 observation outcomes and evidence hashes. Raw typed host reports stay private.
 No new actual-App integration, natural campaign completion, pixel comparison,
 physical input or owner acceptance is claimed by this diagnostic work.
+
+The [before-allocation follow-up](actor-preallocation-20261103.md) supersedes
+the initial three-layout reader described here. This report and its retained
+capture hashes remain the record of the earlier observation.

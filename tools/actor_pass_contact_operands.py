@@ -1,4 +1,4 @@
-"""Read bounded ownership metadata from three pinned historical native layouts."""
+"""Read bounded ownership metadata from pinned historical native guard sites."""
 import struct
 
 CONTACT_RETURNS = (0x3ac10, 0x3b353, 0x8ad15, 0x8c5f8,
@@ -7,12 +7,30 @@ PROFILES = {
     0x3abf4: dict(name='ActorUpdate.interruptInProgress', return_offset=0x3ac10,
         parent=0x17a0, prefix_child=0x1770, contact_child=0xfd0,
         source_parent=0x1fc0, variant_tag=0x1fb8, tag_location='source'),
+    0x3b337: dict(name='ActorUpdate.validate', return_offset=0x3b353,
+        parent=0x7f0, prefix_child=0x7c0, contact_child=0x20,
+        source_parent=0x1010, variant_tag=0x7e8, tag_location='destination'),
     0x8acf9: dict(name='ActorUpdate.registers', return_offset=0x8ad15,
         parent=0x17b0, prefix_child=0x1780, contact_child=0xfe0,
         source_parent=0x1fd0, variant_tag=0x1fc8, tag_location='source'),
+    0x8c5dc: dict(name='ActorUpdate.register-input', return_offset=0x8c5f8,
+        kind='register-input', prefix_child=0xfe0, contact_child=0x840),
+    0x91b5c: dict(name='ActorUpdate.deliverTimerInterrupt', return_offset=0x91b78,
+        parent=0x1890, prefix_child=0x1860, contact_child=0x10c0,
+        source_parent=0x20b0, variant_tag=0x20a8, tag_location='source'),
     0x960c8: dict(name='ActorUpdate.advance', return_offset=0x960e4,
         parent=0x930, prefix_child=0x900, contact_child=0x160,
         source_parent=0x1150, variant_tag=0x928, tag_location='destination'),
+    0x9fcbc: dict(name='ActorUpdate.transition', return_offset=0x9fcd8,
+        parent=0x800, prefix_child=0x7d0, contact_child=0x30,
+        source_parent=0x1020, variant_tag=0x1018, tag_location='source'),
+    0xa21ad: dict(name='FrameActorPass.advance.ActorUpdate.registers', return_offset=0xa21c9,
+        parent=0x17d0, prefix_child=0x17a0, contact_child=0x1000,
+        source_parent=0x2840, variant_tag=0x2838, tag_location='source'),
+}
+GUARD_BANKS = {
+    'queries': (0x3abf4, 0x3b337, 0x8acf9, 0x91b5c),
+    'updates': (0x8c5dc, 0x960c8, 0x9fcbc, 0xa21ad),
 }
 
 
@@ -31,7 +49,7 @@ def verify_pinned_contact_sites(image):
             raise ValueError('Pinned contact allocation site differs: ' + hex(offset))
 
 
-def observe_contact_operands(read, stack_pointer, image_base, stop_offset):
+def observe_contact_operands(read, stack_pointer, image_base, stop_offset, registers=None):
     consumed = 0
 
     def take(address, size):
@@ -61,6 +79,22 @@ def observe_contact_operands(read, stack_pointer, image_base, stop_offset):
             raise ValueError('Unknown native contact validation layout')
         guard_offset, profile = stop_offset, PROFILES[stop_offset]
         result['capture_phase'] = 'before-exception-allocation'
+    if profile.get('kind') == 'register-input':
+        # This guard can be reached before the parent fields or variant tag are stored.
+        if registers is None or any(name not in registers for name in ('rbp', 'r12', 'r14')):
+            raise ValueError('Register-input contact layout requires its live input registers')
+        selected = 'contact_child' if registers['r14'] & 0xffff == 0x654e else 'prefix_child'
+        child = take(stack_pointer + profile[selected], 8)
+        result.update(status='ownership_fields_captured',
+            ownership={'parent': dict(gameSegment=registers['rbp'] & 0xffff,
+                idToggleMask=registers['r12'] & 0xffffffff),
+                selected: dict(gameSegment=child & 0xffff, idToggleMask=child >> 32)},
+            selected_child=selected, entry_ip=registers['r14'] & 0xffff,
+            variant_tag=None, variant_tag_location='not-initialized-at-guard',
+            parent_source='callee-saved-input-registers', parent_memory_read=False,
+            inactive_overlap_is_not_ownership=True, profile=profile['name'], guard_offset=guard_offset,
+            host_metadata_bytes_read=consumed, source='pinned-ELF-register-input-and-child-offset')
+        return result
     pairs = {}
     for name in ('parent', 'prefix_child', 'contact_child', 'source_parent'):
         value = take(stack_pointer + profile[name], 8)

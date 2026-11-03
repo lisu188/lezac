@@ -60,7 +60,8 @@ class DiagnosticReports(unittest.TestCase):
     def test_plain_control_abnormal_exit_fails(self):
         self.assertEqual(self.plain_control(exit_code=-9)['status'], 'failed')
 
-    def exercise(self, module, mutation=False, exit_code=0, collector_mode=None, validation_only=False):
+    def exercise(self, module, mutation=False, exit_code=0, collector_mode=None, validation_only=False,
+                 bank=None, attempts=1, unit_calibration=False):
         with tempfile.TemporaryDirectory(prefix='lezac-diagnostic-', dir='/dev/shm') as directory:
             base = Path(directory)
             root = base / 'game'
@@ -73,11 +74,14 @@ class DiagnosticReports(unittest.TestCase):
             layout = base / 'layout.json'
             layout.write_text(json.dumps(dict(debug_offset=848, register_bytes=216, word_bytes=8)))
             args = argparse.Namespace(**paths, root=root, layout=layout, out=base / 'out',
-                                      attempts=1, calibrate_unit=True, calibrate_cli=False, validation_only=validation_only)
+                                      attempts=attempts, calibrate_unit=bank is None or unit_calibration, calibrate_cli=False,
+                                      validation_only=validation_only, contact_guard_bank=bank)
             child = mock.Mock(pid=4242, returncode=None)
-            child.communicate.return_value = (b'test-only output', b'frame_actor_pass=failed test-only\n' if validation_only else b'')
+            child.poll.return_value = None
+            child.communicate.return_value = (b'test-only output', b'frame_actor_pass=failed test-only\n' if validation_only or bank else b'')
 
             def launch(*unused, **kwargs):
+                child.returncode = None
                 if mutation == 'delete':
                     args.fixture.unlink()
                 elif mutation:
@@ -94,7 +98,8 @@ class DiagnosticReports(unittest.TestCase):
                     return '1000-2000 r-xp 00002000 00:00 1 ' + str(args.exe) + '\n'
                 return read_text(path, *positional, **keywords)
 
-            waits = [(4242, 0), (4242, exit_code << 8)] if module is hardware else [(4242, exit_code << 8)]
+            waits = ([(4242, 0), (4242, exit_code << 8)] if module is hardware else
+                     [(4242, exit_code << 8)]) * attempts
             if collector_mode:
                 waits = [(4242, (int(signal.SIGSTOP) << 8) | 0x7f)]
             with contextlib.ExitStack() as stack:
@@ -112,6 +117,7 @@ class DiagnosticReports(unittest.TestCase):
                 if module is hardware:
                     stack.enter_context(mock.patch.object(module, 'ptrace', return_value=0))
                     stack.enter_context(mock.patch.object(module.platform, 'machine', return_value='x86_64'))
+                    stack.enter_context(mock.patch.object(module.time, 'sleep'))
                 if mutation or exit_code or collector_mode == 'failure':
                     with self.assertRaises(RuntimeError):
                         module.run(args)
@@ -120,16 +126,18 @@ class DiagnosticReports(unittest.TestCase):
             report = json.loads((args.out / ('hardware.json' if module is hardware else 'parent.json')).read_bytes())
             expected = 'failed' if mutation or exit_code or collector_mode == 'failure' else (
                 'throw_captured' if collector_mode else 'bounded_non_reproduction')
-            if validation_only and exit_code:
+            if (validation_only or bank) and exit_code:
                 expected = 'other_failures_without_target_capture'
             self.assertEqual(report['status'], expected)
             self.assertEqual(report['protected_inputs_preserved'], not mutation)
             self.assertFalse(report['intermittent_hold_cleared'])
-            self.assertEqual(report['attempts'], [] if collector_mode else [dict(attempt=0, exit_code=exit_code)])
+            self.assertEqual(report['attempts'], [] if collector_mode else
+                             [dict(attempt=i, exit_code=exit_code) for i in range(attempts)])
             if collector_mode:
                 child.kill.assert_called_once();child.wait.assert_called_once()
             else:
                 child.kill.assert_not_called()
+            return report
 
     def test_preload_failed_collector_reaps_child(self):
         self.exercise(preload, collector_mode='failure')
@@ -160,6 +168,29 @@ class DiagnosticReports(unittest.TestCase):
 
     def test_targeted_observation_does_not_hide_other_failures(self):
         self.exercise(hardware, exit_code=1, validation_only=True)
+
+    def test_contact_banks_rotate_without_hiding_uncaptured_failures(self):
+        report = self.exercise(hardware, exit_code=1, bank='all', attempts=2)
+        self.assertTrue(report['validation_only'])
+        self.assertEqual([item['bank'] for item in report['watch_history']], ['queries', 'updates'])
+        for item in report['watch_history']:
+            self.assertEqual(item['offsets'], list(hardware.GUARD_BANKS[item['bank']]))
+            self.assertEqual(item['enabled_slots'], [0, 1, 2, 3])
+        self.assertEqual(len(report['uncaptured_failures']), 2)
+
+    def test_fixed_contact_bank_keeps_all_four_guards_enabled(self):
+        for bank in hardware.GUARD_BANKS:
+            report = self.exercise(hardware, bank=bank, attempts=2)
+            self.assertEqual(report['status'], 'bounded_non_reproduction')
+            self.assertEqual([item['bank'] for item in report['watch_history']], [bank, bank])
+            self.assertTrue(all(item['enabled_slots'] == [0, 1, 2, 3] for item in report['watch_history']))
+
+    def test_contact_unit_calibration_is_explicit_not_natural_replay(self):
+        report = self.exercise(hardware, bank='queries', unit_calibration=True)
+        self.assertTrue(report['calibration'])
+        self.assertEqual(report['calibration_kind'], 'unit_negative_controls_contact_guards')
+        self.assertFalse(report['late_attach'])
+        self.assertFalse(report['intermittent_hold_cleared'])
 
     def test_preload_uncaptured_failure_fails(self):
         self.exercise(preload, exit_code=3)

@@ -43,3 +43,5 @@ jobs:
         run: python -S -B tools/test_original_debris_phase.py -v
       - name: Original bridge-access evidence regressions
         run: python -S -B tools/test_natural_level4_bridge_access.py -v
+      - name: Level 4 bridge escape original fixture and guards
+        run: python -S -B tools/test_natural_level4_bridge_escape.py -v

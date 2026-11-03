@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 FIXTURE=ROOT/'tests/fixtures/frame_post_render'
-MANIFEST_SHA='23389f696120f03b2d8d78714a747cd70ab1b3f7624affae77bd2100fef13867'
+MANIFEST_SHA='aa6371ca36d3aa02ff59239419f4ee2d455ae3d783677ef2da7303d189947275'
 PROJECTION_BYTES=28447607
 INPUTS=('LEZAC.EXE',*[f'tools/{name}.py' for name in (
     'actor_contact_oracle','actor_motion_oracle','actor_precontact_oracle','actor_steering_oracle',

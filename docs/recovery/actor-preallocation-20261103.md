@@ -148,3 +148,8 @@ older `oracle_failure_report.py`. This is a confirmed fixture dependency gap,
 not evidence of a new passing actor replay. Its failed job is retained:
 `41530681835 / 125570544684`. Any fixture repair requires fresh original
 recapture and complete projection equality, not a hash-only manifest change.
+
+The [forward dependency repair](frame-fixture-dependencies-20261103.md) now
+performs those recaptures. Both complete projections and compressed fixtures
+are byte-equal; all six affected CTests pass locally. The historical failed
+job and real actor failure remain retained and distinct from that repair.

@@ -42,6 +42,12 @@ ownership fields. Their cause is still unresolved. The older #472 Windows
 full suite exposes two stale fixture dependency hashes, not a green replay.
 No fidelity or completion flag changes.
 
+The [frame-fixture dependency repair](docs/recovery/frame-fixture-dependencies-20261103.md)
+freshly recaptures both affected original corpora with complete compressed and
+decoded byte equality. Its four pin updates restore all six affected local
+CTests. Native Windows Python passes with two explicit hard-link skips on the
+RAM-backed UNC path. This is not new-head hosted green or an actor-fidelity fix.
+
 ## Post-Queue Tail CPU Recovery (2026-10-22)
 
 The [independent tail operation](docs/recovery/frame_tail_cpu_2026-10-22.md)

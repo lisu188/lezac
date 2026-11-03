@@ -15,6 +15,10 @@ OUTSIDE_COLUMN = (
     'tests/fixtures/natural_level4_outside_column',
     'docs/recovery/evidence/natural_level4_outside_column_20261103',
 )
+BRIDGE_ACCESS = (
+    'tests/fixtures/natural_level4_bridge_access',
+    'docs/recovery/evidence/natural_level4_bridge_access_20261103',
+)
 PAIRED_DIRECTORIES = (
     'tests/fixtures/natural_level4_first_objective',
     'docs/recovery/evidence/natural_level4_first_objective_20261007',
@@ -24,6 +28,7 @@ PAIRED_DIRECTORIES = (
     'docs/recovery/evidence/natural_level4_third_objective_20261007',
     *SUPPORT_COLUMN,
     *OUTSIDE_COLUMN,
+    *BRIDGE_ACCESS,
 )
 HEALTH_REWARD = 'tests/fixtures/natural_level4_health_reward'
 DIRECTORIES = (*PAIRED_DIRECTORIES, HEALTH_REWARD)
@@ -44,7 +49,7 @@ class EvidenceCheckoutTests(unittest.TestCase):
         for directory in FIXTURES:
             self.assertIn(directory + '/route.txt', self.files)
             evidence = ('/native.json.gz' if directory == HEALTH_REWARD else
-                        '/guard-inputs.jsonl.gz' if directory == OUTSIDE_COLUMN[0] else '/guard-input.json')
+                        '/guard-inputs.jsonl.gz' if directory in (OUTSIDE_COLUMN[0], BRIDGE_ACCESS[0]) else '/guard-input.json')
             self.assertIn(directory + evidence, self.files)
 
     def checkout(self, omitted_rules=frozenset()):
@@ -130,10 +135,23 @@ class EvidenceCheckoutTests(unittest.TestCase):
                 else:
                     self.assertEqual(expected, checked_out[name])
 
+    def test_missing_bridge_access_rules_change_only_new_text_bytes(self):
+        checked_out = self.checkout(omitted_rules={f'{directory}/** -text'.encode() for directory in BRIDGE_ACCESS})
+        changed = {BRIDGE_ACCESS[0] + '/route.txt', BRIDGE_ACCESS[1] + '/manifest.json',
+                   BRIDGE_ACCESS[1] + '/dosbox.conf'}
+        self.assertTrue(changed.issubset(self.files))
+        for name, expected in self.files.items():
+            with self.subTest(path=name):
+                if name in changed:
+                    self.assertNotIn(b'\r\n', expected)
+                    self.assertEqual(expected.replace(b'\n', b'\r\n'), checked_out[name])
+                else:
+                    self.assertEqual(expected, checked_out[name])
+
 
 if __name__ == '__main__':
     result = unittest.TextTestRunner(verbosity=2).run(
         unittest.defaultTestLoader.loadTestsFromTestCase(EvidenceCheckoutTests))
     if not result.wasSuccessful():
         raise SystemExit(1)
-    print('natural_level4_checkout_attributes=ok tests=5 negative_control=4')
+    print('natural_level4_checkout_attributes=ok tests=6 negative_control=5')

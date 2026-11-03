@@ -8444,7 +8444,7 @@ if(BUILD_TESTING)
         set_tests_properties(natural_level4_checkout_attributes PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 60 LABELS "level4;original;evidence-guard;checkout"
-            PASS_REGULAR_EXPRESSION "natural_level4_checkout_attributes=ok tests=5 negative_control=4")
+            PASS_REGULAR_EXPRESSION "natural_level4_checkout_attributes=ok tests=6 negative_control=5")
         add_test(NAME natural_level4_first_objective_original
             COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                     ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level4_first_objective.py replay
@@ -8540,6 +8540,26 @@ if(BUILD_TESTING)
         set_tests_properties(natural_level4_outside_column_fixture PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 90 LABELS "level4;original;fixture-guard;outside-column"
+            PASS_REGULAR_EXPRESSION "OK")
+        add_test(NAME natural_level4_bridge_access_original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level4_bridge_access.py replay
+                    --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/natural_level4_bridge_access_original_out)
+        set_tests_properties(natural_level4_bridge_access_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 600 LABELS "level4;campaign;original;fullframe;natural-route;bridge-access"
+            PASS_REGULAR_EXPRESSION "\"boundaries\":1882.*\"frames\":941.*\"pixels\":60224000.*\"status\":\"match\"")
+        add_test(NAME natural_level4_bridge_access_guard
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level4_bridge_access.py guard)
+        set_tests_properties(natural_level4_bridge_access_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 90 LABELS "level4;original;evidence-guard;bridge-access"
+            PASS_REGULAR_EXPRESSION "\"status\":\"guarded\".*\"stimuli\":4.*\"typed_mutations_rejected\":66")
+        add_test(NAME natural_level4_bridge_access_fixture
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_natural_level4_bridge_access.py)
+        set_tests_properties(natural_level4_bridge_access_fixture PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 120 LABELS "level4;original;fixture-guard;bridge-access"
             PASS_REGULAR_EXPRESSION "OK")
         add_test(NAME review_history_repair_contracts
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_review_history_repairs.py)

@@ -17,10 +17,19 @@ class DebrisPhaseTests(unittest.TestCase):
     def test_fixture_gzip_is_platform_independent(self):
         frozen = checker.FIXTURE.read_bytes()
         buffer = io.BytesIO()
-        with gzip.GzipFile(fileobj=buffer, mode='wb', filename='', mtime=0) as destination:
+        with gzip.GzipFile(fileobj=buffer, mode='wb', filename='', mtime=0, compresslevel=9) as destination:
             destination.write(gzip.decompress(frozen))
         self.assertEqual(frozen, buffer.getvalue())
         self.assertEqual((frozen[3], frozen[4:8], frozen[9]), (0, bytes(4), 255))
+
+    def test_level_six_does_not_reproduce_frozen_fixture(self):
+        frozen = checker.FIXTURE.read_bytes()
+        buffer = io.BytesIO()
+        with gzip.GzipFile(fileobj=buffer, mode='wb', filename='', mtime=0, compresslevel=6) as destination:
+            destination.write(gzip.decompress(frozen))
+        self.assertNotEqual(frozen, buffer.getvalue())
+        self.assertEqual(gzip.decompress(frozen), gzip.decompress(buffer.getvalue()))
+        self.assertEqual((frozen[8], buffer.getvalue()[8]), (2, 0))
 
     def test_frozen_domain_and_late_phase_counterexamples(self):
         cases = checker.read_cases()

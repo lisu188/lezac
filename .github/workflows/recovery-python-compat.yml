@@ -39,3 +39,5 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Frozen AST and bounded diagnostic regressions
         run: python -S -B tools/test_recovery_python315.py -v
+      - name: Frozen debris compression regressions
+        run: python -S -B tools/test_original_debris_phase.py -v

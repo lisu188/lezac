@@ -12,7 +12,8 @@ import subprocess
 import time
 
 from actor_pass_supervision import allow_parent_debugger, collect_guard
-from actor_pass_contact_operands import GUARD_BANKS, PROFILES, observe_contact_operands, verify_pinned_contact_sites
+from actor_pass_contact_operands import (GUARD_BANKS, PROFILES, StoppedOperandReader,
+                                        observe_contact_operands, verify_pinned_contact_sites)
 
 EXPECTED = 'b1c719393f987cd2a98090055c8cc06d5d71589090599a36f32c4d2fd5da47f6'
 WATCH_OFFSETS = (0x2520, 0x2330, 0x3abf4, 0x8acf9)
@@ -144,20 +145,31 @@ def run(args):
                 selected_slot = slot_mask.bit_length() - 1
                 if registers.rip != base + watches[selected_slot]:
                     raise ValueError('Hardware stop address differs from its pinned slot')
+                report.update(status='hardware_guard_stop', stopped_attempt=attempt,
+                    hardware_stop_slot_mask=slot_mask, stopped_pid=child.pid,
+                    runtime_base=hex(base), registers={n: int(getattr(registers, n)) for n, _ in Registers._fields_})
                 with open(f'/proc/{child.pid}/mem', 'rb', buffering=0) as memory:
                     if watches[selected_slot] in PROFILES:
                         message = 'Frame actor contact ID-toggle/callee ownership differs'
                     else:
                         message = os.pread(memory.fileno(), 160, registers.rsi).split(b'\0', 1)[0].decode('ascii')
+                    report['message'] = message
                     if message == 'Frame actor contact ID-toggle/callee ownership differs':
                         verify_pinned_contact_sites(args.exe.read_bytes())
-                        report['native_validation'] = observe_contact_operands(
+                        reader = StoppedOperandReader(
                             lambda address, size: os.pread(memory.fileno(), size, address),
+                            lambda address: ptrace(2, child.pid, address))
+                        report['stop_read_witness'] = reader.report
+                        report['native_validation'] = observe_contact_operands(
+                            reader.read,
                             registers.rsp, base, watches[selected_slot],
                             {name: int(getattr(registers, name)) for name, _ in Registers._fields_})
-                report.update(status='hardware_guard_stop', message=message, stopped_attempt=attempt,
-                    hardware_stop_slot_mask=slot_mask,
-                    stopped_pid=child.pid, runtime_base=hex(base), registers={n: int(getattr(registers, n)) for n, _ in Registers._fields_})
+                        repeated = Registers()
+                        ptrace(12, child.pid, 0, ctypes.addressof(repeated))
+                        witness = reader.finish(bytes(registers) == bytes(repeated))
+                        if witness['status'] != 'cross_reader_agreement':
+                            report['repeated_registers'] = {n: int(getattr(repeated, n)) for n, _ in Registers._fields_}
+                            raise ValueError('Stopped contact memory or register observations disagree')
                 ptrace(6, child.pid, 848 + 7 * 8, 0)
                 for slot in range(len(watches)):
                     ptrace(6, child.pid, 848 + slot * 8, 0)

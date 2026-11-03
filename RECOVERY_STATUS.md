@@ -48,6 +48,12 @@ decoded byte equality. Its four pin updates restore all six affected local
 CTests. Native Windows Python passes with two explicit hard-link skips on the
 RAM-backed UNC path. This is not new-head hosted green or an actor-fidelity fix.
 
+The [stopped-read witness](docs/recovery/actor-stop-read-witness-20261103.md)
+adds bounded `/proc`/`ptrace`/`/proc` agreement and repeated native-register
+sampling to future guard captures. Actual synthetic kernel calibration and
+failure/cleanup controls pass. These interfaces share a kernel and do not
+prove the earlier loads or clear the retained actor failure.
+
 ## Post-Queue Tail CPU Recovery (2026-10-22)
 
 The [independent tail operation](docs/recovery/frame_tail_cpu_2026-10-22.md)

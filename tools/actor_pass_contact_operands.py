@@ -34,6 +34,44 @@ GUARD_BANKS = {
 }
 
 
+class StoppedOperandReader:
+    """Compare bounded stopped-child reads through two kernel interfaces."""
+
+    def __init__(self, read, peek_word):
+        self.read_memory, self.peek_word = read, peek_word
+        self.report = dict(status='collecting', samples=[], logical_operand_bytes=0,
+            proc_bytes_returned=0, ptrace_word_bytes=0, earlier_load_values_proven=False,
+            independent_hardware_observation=False)
+
+    def read(self, address, size):
+        if size not in (1, 8):
+            raise ValueError('Stopped operand witness only accepts one byte or one native word')
+        first = self.read_memory(address, size)
+        self.report['proc_bytes_returned'] += len(first)
+        word = self.peek_word(address)
+        self.report['ptrace_word_bytes'] += 8
+        if not isinstance(word, int) or not -(1 << 63) <= word < 1 << 64:
+            raise ValueError('Stopped operand witness received an invalid native word')
+        other = (word & ((1 << 64) - 1)).to_bytes(8, 'little')[:size]
+        second = self.read_memory(address, size)
+        self.report['proc_bytes_returned'] += len(second)
+        self.report['logical_operand_bytes'] += size
+        self.report['samples'].append(dict(requested_bytes=size, proc_first_hex=first.hex(),
+            ptrace_hex=other.hex(), proc_second_hex=second.hex(),
+            equal=len(first) == size and first == other == second))
+        return first
+
+    def finish(self, registers_unchanged):
+        if not self.report['samples']:
+            raise ValueError('Stopped operand witness has no completed samples')
+        self.report['register_samples_equal'] = registers_unchanged
+        self.report['status'] = ('cross_reader_agreement' if registers_unchanged and
+            all(sample['equal'] for sample in self.report['samples']) else 'contradiction')
+        self.report['host_memory_bytes_returned'] = (self.report['proc_bytes_returned'] +
+                                                    self.report['ptrace_word_bytes'])
+        return self.report
+
+
 def verify_pinned_contact_sites(image):
     for offset in CONTACT_RETURNS:
         if (image[offset - 15:offset - 12] != bytes.fromhex('488d35') or

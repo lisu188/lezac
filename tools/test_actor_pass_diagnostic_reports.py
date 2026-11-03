@@ -1,6 +1,7 @@
 """Check diagnostic terminal reports without launching or tracing a guest."""
 import argparse
 import contextlib
+import ctypes
 import io
 import json
 import os
@@ -138,6 +139,89 @@ class DiagnosticReports(unittest.TestCase):
             else:
                 child.kill.assert_not_called()
             return report
+
+    def test_contact_stop_witness_agreement_and_fail_closed_cleanup(self):
+        for fault in (None, 'memory', 'registers', 'peek_error'):
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory(
+                    prefix='lezac-stop-witness-', dir='/dev/shm') as directory:
+                base = Path(directory)
+                for name in ('exe', 'symbols', 'fixture', 'LEZAC.EXE'):
+                    (base / name).write_bytes(('test-only ' + name).encode())
+                layout = base / 'layout.json'
+                layout.write_text(json.dumps(dict(debug_offset=848, register_bytes=216, word_bytes=8)))
+                args = argparse.Namespace(exe=base / 'exe', symbols=base / 'symbols',
+                    fixture=base / 'fixture', root=base, layout=layout, out=base / 'out',
+                    attempts=1, calibrate_unit=True, calibrate_cli=False,
+                    validation_only=False, contact_guard_bank='updates')
+                child = mock.Mock(pid=4242, returncode=None)
+                child.communicate.return_value = (b'', b'')
+                original_read = Path.read_text
+                register_reads = 0
+                value = 0x20000000001000
+
+                def read_text(path, *positional, **keywords):
+                    if str(path) == '/proc/4242/maps':
+                        return '1000-2000 r-xp 00001000 00:00 1 ' + str(args.exe) + '\n'
+                    if str(path) == '/proc/4242/status':
+                        return 'State:\tT (stopped)\nTracerPid:\t0\n'
+                    return original_read(path, *positional, **keywords)
+
+                def ptrace(request, pid, address=0, data=0):
+                    nonlocal register_reads
+                    if request == 12:
+                        register_reads += 1
+                        live = ctypes.cast(data, ctypes.POINTER(hardware.Registers)).contents
+                        live.rip, live.rsp = 0x9fcbc, 0x200000
+                        if fault == 'registers' and register_reads == 2:
+                            live.rcx = 1
+                    if request == 3:
+                        return 4
+                    if request == 2:
+                        if fault == 'peek_error':
+                            raise OSError('test-only failed peek')
+                        return (0 if address == 0x201018 else value) ^ (1 if fault == 'memory' else 0)
+                    return 0
+
+                def pread(fd, size, address):
+                    return (0 if address == 0x201018 else value).to_bytes(8, 'little')[:size]
+
+                collector = mock.Mock(return_value=dict(status='failure_throw_captured'))
+                with contextlib.ExitStack() as stack:
+                    stack.enter_context(mock.patch.object(hardware, 'EXPECTED', hardware.sha(args.exe)))
+                    stack.enter_context(mock.patch.dict(os.environ, {}, clear=True))
+                    stack.enter_context(mock.patch.object(hardware.resource, 'setrlimit'))
+                    stack.enter_context(mock.patch.object(hardware.platform, 'machine', return_value='x86_64'))
+                    stack.enter_context(mock.patch.object(hardware.subprocess, 'Popen', return_value=child))
+                    stack.enter_context(mock.patch.object(hardware.os, 'waitpid', side_effect=[
+                        (4242, 0), (4242, (int(signal.SIGTRAP) << 8) | 0x7f)]))
+                    stack.enter_context(mock.patch.object(Path, 'read_text', read_text))
+                    stack.enter_context(mock.patch.object(hardware, 'ptrace', side_effect=ptrace))
+                    stack.enter_context(mock.patch.object(hardware.os, 'pread', side_effect=pread))
+                    stack.enter_context(mock.patch('builtins.open', mock.mock_open()))
+                    stack.enter_context(mock.patch.object(hardware, 'verify_pinned_contact_sites'))
+                    stack.enter_context(mock.patch.object(hardware, 'collect_guard', collector))
+                    stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+                    if fault:
+                        with self.assertRaises(OSError if fault == 'peek_error' else ValueError):
+                            hardware.run(args)
+                    else:
+                        hardware.run(args)
+                report = json.loads((args.out / 'hardware.json').read_bytes())
+                self.assertEqual(report['message'], 'Frame actor contact ID-toggle/callee ownership differs')
+                self.assertTrue(report['protected_inputs_preserved'])
+                self.assertFalse(report['intermittent_hold_cleared'])
+                child.kill.assert_called_once()
+                child.wait.assert_called_once()
+                if fault:
+                    self.assertEqual(report['status'], 'failed')
+                    self.assertNotEqual(report['stop_read_witness']['status'], 'cross_reader_agreement')
+                    collector.assert_not_called()
+                else:
+                    self.assertEqual(report['status'], 'hardware_guard_captured')
+                    self.assertEqual(report['native_validation']['host_metadata_bytes_read'], 33)
+                    self.assertEqual(report['stop_read_witness']['host_memory_bytes_returned'], 106)
+                    self.assertEqual(report['stop_read_witness']['status'], 'cross_reader_agreement')
+                    collector.assert_called_once()
 
     def test_preload_failed_collector_reaps_child(self):
         self.exercise(preload, collector_mode='failure')

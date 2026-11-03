@@ -158,5 +158,67 @@ class ContactOperands(unittest.TestCase):
                     operands.verify_pinned_contact_sites(changed)
 
 
+class StoppedReads(unittest.TestCase):
+    def test_native_words_and_tags_use_proc_peek_proc_order(self):
+        for size, word in ((1, 0x10203040506070ff), (8, -1), (8, 0x200000a55a1000)):
+            with self.subTest(size=size, word=word):
+                raw = (word & ((1 << 64) - 1)).to_bytes(8, 'little')[:size]
+                calls = []
+                def read(address, length):
+                    calls.append(('proc', address, length))
+                    return raw
+                def peek(address):
+                    calls.append(('peek', address, 8))
+                    return word
+                reader = operands.StoppedOperandReader(read, peek)
+                self.assertEqual(reader.read(0x200001, size), raw)
+                report = reader.finish(True)
+                self.assertEqual(calls, [('proc', 0x200001, size), ('peek', 0x200001, 8),
+                                         ('proc', 0x200001, size)])
+                self.assertEqual(report['status'], 'cross_reader_agreement')
+                self.assertEqual(report['host_memory_bytes_returned'], size * 2 + 8)
+                self.assertEqual(report['logical_operand_bytes'], size)
+                self.assertFalse(report['earlier_load_values_proven'])
+                self.assertFalse(report['independent_hardware_observation'])
+
+    def test_mismatched_or_short_samples_are_not_agreement(self):
+        for first, word, last in ((b'\x01' * 8, 0, b'\x01' * 8),
+                                  (b'\0' * 8, 0, b'\x01' * 8),
+                                  (b'\0' * 7, 0, b'\0' * 8),
+                                  (b'\0' * 8, 0, b'\0' * 7)):
+            with self.subTest(first=first, word=word, last=last):
+                reads = iter((first, last))
+                reader = operands.StoppedOperandReader(lambda *_: next(reads), lambda _: word)
+                self.assertEqual(reader.read(0, 8), first)
+                report = reader.finish(True)
+                self.assertEqual(report['status'], 'contradiction')
+                self.assertFalse(report['samples'][0]['equal'])
+                self.assertEqual(report['host_memory_bytes_returned'], len(first) + len(last) + 8)
+
+    def test_changed_registers_are_not_agreement(self):
+        reader = operands.StoppedOperandReader(lambda *_: b'\0' * 8, lambda _: 0)
+        reader.read(0, 8)
+        report = reader.finish(False)
+        self.assertTrue(report['samples'][0]['equal'])
+        self.assertEqual(report['status'], 'contradiction')
+        self.assertFalse(report['register_samples_equal'])
+
+    def test_empty_or_unsupported_witness_cannot_claim_agreement(self):
+        reader = operands.StoppedOperandReader(lambda *_: self.fail('must not read'),
+                                                lambda _: self.fail('must not peek'))
+        with self.assertRaisesRegex(ValueError, 'no completed samples'):
+            reader.finish(True)
+        for size in (0, 2, 7, 9):
+            with self.assertRaisesRegex(ValueError, 'one byte or one native word'):
+                reader.read(0, size)
+        self.assertEqual(reader.report['status'], 'collecting')
+
+    def test_invalid_native_word_is_rejected(self):
+        for word in (None, 1.5, -(1 << 63) - 1, 1 << 64):
+            reader = operands.StoppedOperandReader(lambda *_: b'\0' * 8, lambda _: word)
+            with self.assertRaisesRegex(ValueError, 'invalid native word'):
+                reader.read(0, 8)
+
+
 if __name__ == '__main__':
     unittest.main()

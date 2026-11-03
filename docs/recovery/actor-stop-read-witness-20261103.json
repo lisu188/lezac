@@ -1,0 +1,235 @@
+{
+  "schema": "lezac-actor-stop-read-witness-20261103-v1",
+  "status": "diagnostic_progress_unresolved",
+  "base_reviewed_commit": "5ef27ec69df9f2049e3894e4e4a44426c51e57a0",
+  "production_code_changed": false,
+  "canonical_replay_source_changed": false,
+  "original_or_frozen_fixture_changed": false,
+  "full_guest_ram_exports": 0,
+  "core_dumps": 0,
+  "runtime_artifacts_ram_only": true,
+  "dummy_audio": true,
+  "root_cause_identified": false,
+  "earlier_load_values_proven": false,
+  "independent_hardware_observation": false,
+  "intermittent_hold_cleared": false,
+  "actual_app_integration": false,
+  "full_frame_claim": false,
+  "native_calibration": {
+    "status": "kernel_read_calibration_passed",
+    "kind": "synthetic_owned_child_kernel_reads",
+    "positive_logical_bytes": 17,
+    "positive_interface_bytes": 58,
+    "aligned_word": true,
+    "unaligned_word": true,
+    "tag_byte": true,
+    "native_registers_unchanged": true,
+    "negative_control": "observer-return-byte-only",
+    "negative_rejected": true,
+    "game_or_replay_failure_claim": false,
+    "target_memory_writes": 0,
+    "owned_child_reaped": true,
+    "protected_inputs_preserved": true
+  },
+  "historical_campaign": {
+    "status": "other_failures_without_target_capture",
+    "bank": "updates",
+    "completed_attempts": 16,
+    "passing_replays": 15,
+    "uncaptured_failures": [
+      {
+        "attempt": 5,
+        "stderr": "frame_actor_pass=failed Frame actor entry ID-toggle profile differs\n"
+      }
+    ],
+    "stopped_attempt": null,
+    "witness_exercised": false,
+    "witness_status": null,
+    "no_retrospective_witness_claim": true,
+    "protected_inputs_preserved": true,
+    "historical_elf_sha256": "b1c719393f987cd2a98090055c8cc06d5d71589090599a36f32c4d2fd5da47f6"
+  },
+  "tests": {
+    "linux_operand_tests": 16,
+    "native_windows_python_operand_tests": 16,
+    "linux_diagnostic_report_tests": 19,
+    "mocked_stop_paths": 4,
+    "focused_ctests": 5,
+    "focused_ctest_failures": 0,
+    "native_windows_cpp_claim": false
+  },
+  "private_evidence_catalog": {
+    "calibration": {
+      "bytes": 2285,
+      "sha256": "130919868d8754d3405e2d323cb77fa2d9777b7d92583bf7ddc66778ceb38aca"
+    },
+    "historical_campaign": {
+      "bytes": 6671,
+      "sha256": "9386a13692c0a1090bee42d4f6b87e5b8a9960fabce51f583e5bf067499fa5aa"
+    },
+    "contracts": {
+      "bytes": 6409,
+      "sha256": "7d452c4ae81f54b4dc1222b6dcbc95312fccdda0a1b4c409bc791dcefcaf1e5f"
+    },
+    "rea_entry": {
+      "bytes": 48572,
+      "sha256": "84703692803f82773f141a1bc8bdeb21a5386b283a22e733458ae12bcfa43bdb"
+    }
+  },
+  "rea_entry_guard_catalog": {
+    "provider": {
+      "id": "ghidra",
+      "name": "Ghidra",
+      "version": "12.1.4"
+    },
+    "historical_elf_sha256": "b1c719393f987cd2a98090055c8cc06d5d71589090599a36f32c4d2fd5da47f6",
+    "guard_offsets": [
+      202827,
+      249901,
+      252455,
+      565219,
+      596041
+    ],
+    "observed_runtime_failure_site_identified": false,
+    "runtime_operand_layouts_admitted": false,
+    "format_specific_elf_attestation": "unsupported",
+    "session_closed": true,
+    "server_exit_code": 0,
+    "target_preserved": true,
+    "selected_instructions": [
+      {
+        "offset": 202742,
+        "file_offset": 202742,
+        "evidence_id": "ev_70440661c7c37bef86dee4150edfef3b861e3facb5045650afee714a5bb55cf5",
+        "bytes": "f78734070000ffffdfff",
+        "disassembly": "TEST dword ptr [RDI + 0x734],0xffdfffff"
+      },
+      {
+        "offset": 202752,
+        "file_offset": 202752,
+        "evidence_id": "ev_eeb637be219fdcc20a65729fe19eebe2b8a94c52165f67d82c13bbd743fb985a",
+        "bytes": "7549",
+        "disassembly": "JNZ 0x0013184b"
+      },
+      {
+        "offset": 202827,
+        "file_offset": 202827,
+        "evidence_id": "ev_071405a305d80689a0eda98dc60e7058c65e2c2430617dfee266cf09efa67711",
+        "bytes": "bf10000000",
+        "disassembly": "MOV EDI,0x10"
+      },
+      {
+        "offset": 202840,
+        "file_offset": 202840,
+        "evidence_id": "ev_ab5e05e21dd226a1f94c624bb7e4320cf0ef86abf00fbf49ea162fac33e6ffc2",
+        "bytes": "488d35e19a0700",
+        "disassembly": "LEA RSI,[0x1ab340]"
+      },
+      {
+        "offset": 249641,
+        "file_offset": 249641,
+        "evidence_id": "ev_26a71eadbf749ea4303c5dab459899265e2cb81200fbdd32257369e02525dcd4",
+        "bytes": "8b8c24a4220000",
+        "disassembly": "MOV ECX,dword ptr [RSP + 0x22a4]"
+      },
+      {
+        "offset": 249901,
+        "file_offset": 249901,
+        "evidence_id": "ev_02f1ff5154237b2b4ccdc621c06b155f601f4b2774ba7916459eae123cc2bc16",
+        "bytes": "bf10000000",
+        "disassembly": "MOV EDI,0x10"
+      },
+      {
+        "offset": 249914,
+        "file_offset": 249914,
+        "evidence_id": "ev_8454319330ac33ee7b0891d631f92d923ab1acba11ff60c04461bb63ec9d4e6a",
+        "bytes": "488d35ffe20600",
+        "disassembly": "LEA RSI,[0x1ab340]"
+      },
+      {
+        "offset": 252353,
+        "file_offset": 252353,
+        "evidence_id": "ev_6fa86f17e72527d1885a1a7ac387f5e2f0bff51df672d53755500c89c5ed34b5",
+        "bytes": "f7842434070000ffffdfff",
+        "disassembly": "TEST dword ptr [RSP + 0x734],0xffdfffff"
+      },
+      {
+        "offset": 252364,
+        "file_offset": 252364,
+        "evidence_id": "ev_beb627c5a64da72dc8d65e3d0e05e1773f5d977fd064ad2ff12ea22e3f76757f",
+        "bytes": "7559",
+        "disassembly": "JNZ 0x0013da27"
+      },
+      {
+        "offset": 252455,
+        "file_offset": 252455,
+        "evidence_id": "ev_8867af122ffd9088f6fda2aada1e2929bbee21d85f15eb88f256f351d3755196",
+        "bytes": "bf10000000",
+        "disassembly": "MOV EDI,0x10"
+      },
+      {
+        "offset": 252468,
+        "file_offset": 252468,
+        "evidence_id": "ev_1e8af0c5dd42106a9180952cdbb179c2f2dc766554c8af5dc38842f87a1a4b4c",
+        "bytes": "488d3505d90600",
+        "disassembly": "LEA RSI,[0x1ab340]"
+      },
+      {
+        "offset": 565115,
+        "file_offset": 565115,
+        "evidence_id": "ev_d1812b555b6edf7b64bef88e2173d3baa954a78c70a219aa5bd760503d6606cc",
+        "bytes": "f7842434070000ffffdfff",
+        "disassembly": "TEST dword ptr [RSP + 0x734],0xffdfffff"
+      },
+      {
+        "offset": 565126,
+        "file_offset": 565126,
+        "evidence_id": "ev_1984fcfc79a73b53c373448781a361959f0182ff2fc45909d260a6a02aae5ab0",
+        "bytes": "755b",
+        "disassembly": "JNZ 0x00189fe3"
+      },
+      {
+        "offset": 565219,
+        "file_offset": 565219,
+        "evidence_id": "ev_cbe48f50f8ea81bb7941decd0e5de2b5c919336088959105bf5dac701f94172a",
+        "bytes": "bf10000000",
+        "disassembly": "MOV EDI,0x10"
+      },
+      {
+        "offset": 565232,
+        "file_offset": 565232,
+        "evidence_id": "ev_51662e66b55731775bbaf24fb31aede9c0f8f2eaf99a7e89fe6ca4369fefe16a",
+        "bytes": "488d3549130200",
+        "disassembly": "LEA RSI,[0x1ab340]"
+      },
+      {
+        "offset": 595939,
+        "file_offset": 595939,
+        "evidence_id": "ev_bfe6fb0e06b632ae254c073c66c73c1590ac62e91dd8d9581cae6fea840434fe",
+        "bytes": "f7842434070000ffffdfff",
+        "disassembly": "TEST dword ptr [RSP + 0x734],0xffdfffff"
+      },
+      {
+        "offset": 595950,
+        "file_offset": 595950,
+        "evidence_id": "ev_4f701281219cf6b1944298750f76160fcca0fcad13c6ab6edfd3e3ebf22cb5d5",
+        "bytes": "7559",
+        "disassembly": "JNZ 0x00191849"
+      },
+      {
+        "offset": 596041,
+        "file_offset": 596041,
+        "evidence_id": "ev_b85f0e28540ace01b6b3753141da597b21d826df4d0d7051dce8bbf8b4729805",
+        "bytes": "bf10000000",
+        "disassembly": "MOV EDI,0x10"
+      },
+      {
+        "offset": 596054,
+        "file_offset": 596054,
+        "evidence_id": "ev_d24dc3131638eff5ab496ff2cd7f91880f1a5d6b8171be07c2564a9a53e8e7ec",
+        "bytes": "488d35e39a0100",
+        "disassembly": "LEA RSI,[0x1ab340]"
+      }
+    ]
+  }
+}

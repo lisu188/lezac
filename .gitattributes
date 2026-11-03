@@ -224,4 +224,6 @@ tools/keyboard_irq_probe/** text eol=lf
 tests/fixtures/keyboard_device/** -text
 tools/keyboard_device_probe/** text eol=lf
 tests/gameplay/debris_wrap_original.json -text
+tests/gameplay/debris_phase_original.json -text
+tests/gameplay/debris_phase_original.bin.gz -text
 tests/gameplay/debris_wrap_original.bin.gz -text

@@ -19727,6 +19727,8 @@ public:
             return bytes;
         };
         const auto header = take(physicalStorage ? 16 : 12);
+        const bool debrisClockPhase = !collapseUpdate &&
+            std::string(header.begin(), header.begin() + 8) == "LZDP0001";
         const bool completeFracturePools = fractureStorage &&
             ((collapseMapBoundary && std::string(header.begin(), header.begin() + 8) == "LZCM0001") ||
              std::string(header.begin(), header.begin() + 8) == "LZFC0001" ||
@@ -19742,7 +19744,7 @@ public:
         const size_t fractureStateBytes = completeFracturePools ? (laneHistory ? 26724 : 26721) : 7664;
         if (std::string(header.begin(), header.begin() + 8) !=
             (collapseMapBoundary ? "LZCM0001" : fractureStorage ? (completeFracturePools ? (laneHistory ? (collapseLaneHistory ? "LZCI0001" : "LZDH0001") : "LZFC0001") : "LZFR0001") : (retirementStorage ? "LZRT0001" : (actorCreation ? "LZCA0001" :
-                (collapseUpdate ? "LZCU0001" : "LZDU0001"))))) {
+                (collapseUpdate ? "LZCU0001" : (debrisClockPhase ? "LZDP0001" : "LZDU0001")))))) {
             throw std::runtime_error("invalid debris update input header");
         }
         const uint32_t cases = le32(header, 8);
@@ -19816,6 +19818,8 @@ public:
             const int width = le16(parameters, 0), height = le16(parameters, 2);
             const size_t cells = static_cast<size_t>(width) * height;
             const size_t debrisCount = le16(parameters, 10), collapseCount = le16(parameters, 12);
+            if (debrisClockPhase && (width != 16 || height != 16 || collapseCount || !debrisCount))
+                throw std::runtime_error("unsupported debris clock-phase input");
             if (width <= 0 || width > 300 || height <= 0 || height > 200 || cells > 16384 ||
                 debrisCount > 1401 || collapseCount > 250) {
                 throw std::runtime_error("invalid debris update dimensions or live counts");
@@ -19947,6 +19951,17 @@ public:
             // The input-only collapse history mode never receives expected state.
             if (retirementStorage) take(6027);
             if (fractureStorage && !collapseLaneHistory) take(fractureStateBytes);
+            if (debrisClockPhase) {
+                // Isolate landing shatter while exercising the production frame dispatcher.
+                ui_.setMenu(false);
+                playerCount_ = 1;
+                playerDead_ = true;
+                deathStateTimer_ = 0;
+                level_.monsterSpawners.clear();
+                spawnerStates_.clear();
+                level_.requiredBonus = 1;
+                clockedSoundEnabled_ = false;
+            }
             const uint16_t initialTick = static_cast<uint16_t>(logicTick_);
             const uint32_t steps = physicsDispatch ? 16 : continuousCollapse ? 8 : 1;
             for (uint32_t step = 0; step < steps; ++step) {
@@ -19955,6 +19970,8 @@ public:
                 if (physicsDispatch) {
                     if (!debrisQueue_.empty()) updateDebrisRecords();
                     if (!collapseQueue_.empty()) updateCollapseRecords();
+                } else if (debrisClockPhase) {
+                    updateWithControls(FrameControls{}, 0.0f);
                 } else if (!continuousCollapse || !collapseQueue_.empty()) {
                     if (physicalDebrisUpdate || !collapseUpdate) updateDebrisRecords();
                     else if (collapseUpdate) updateCollapseRecords();
@@ -19963,6 +19980,7 @@ public:
                     throw std::runtime_error("retirement fixture unexpectedly created actors or debris");
                 }
                 std::vector<uint8_t> result;
+                if (debrisClockPhase) appendWord(result, static_cast<uint16_t>(logicTick_));
                 appendWord(result, static_cast<uint16_t>(randomSeed_));
                 appendWord(result, static_cast<uint16_t>(randomSeed_ >> 16));
                 appendWord(result, static_cast<uint16_t>(debrisQueue_.size()));

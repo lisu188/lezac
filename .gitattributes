@@ -185,6 +185,7 @@ docs/recovery/evidence/natural_level4_outside_column_20261103/** -text
 tests/fixtures/natural_level4_bridge_access/** -text
 docs/recovery/evidence/natural_level4_bridge_access_20261103/** -text
 tests/fixtures/natural_level4_bridge_escape/** -text
+tests/fixtures/collapse_magnitude_wrap_original.json.gz -text
 docs/recovery/evidence/natural_level4_bridge_escape_20261103/** -text
 # Preserve byte-attributed original observations and frozen producer inputs.
 docs/recovery/evidence/corpse_animation_prologue_20261009/** -text

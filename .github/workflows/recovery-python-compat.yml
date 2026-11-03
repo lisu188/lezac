@@ -45,3 +45,5 @@ jobs:
         run: python -S -B tools/test_natural_level4_bridge_access.py -v
       - name: Level 4 bridge escape original fixture and guards
         run: python -S -B tools/test_natural_level4_bridge_escape.py -v
+      - name: Wrapped collapse magnitude original fixture
+        run: python -S -B tools/test_collapse_magnitude_wrap.py -v

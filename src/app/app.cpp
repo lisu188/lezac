@@ -32700,9 +32700,10 @@ private:
             collapseQueue_[slot].restTicks = record.restTicks;
             const int magnitude = std::abs(vx) + std::abs(vy);
             sound_.writeSharedCursor(static_cast<uint16_t>(magnitude));  // 1000:555A
-            actorSlots_.setSharedResult(static_cast<uint16_t>(
-                std::abs(static_cast<int>(record.argMagnitude) - magnitude)));  // 1000:556E
-            const bool fracture = std::abs(static_cast<int>(record.argMagnitude) - magnitude) > 63;
+            const auto magnitudeDelta = lezac::gameplay::collapseMagnitudeDelta(
+                record.argMagnitude, static_cast<uint16_t>(magnitude));
+            actorSlots_.setSharedResult(magnitudeDelta);  // 1000:556E
+            const bool fracture = magnitudeDelta > 63;
             if (fracture) {
                 requestSoundOffset(0xea74, 3);
                 for (int cell : cells()) {

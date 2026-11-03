@@ -7258,6 +7258,24 @@ if(BUILD_TESTING)
     set_tests_properties(map_plane_memory_original PROPERTIES
         PASS_REGULAR_EXPRESSION "^map_plane_memory_original=ok scenes=12 events=168 compared_bytes=1573100 masks=0 production_accessor=1 production_app=0 natural_route=0 whole_game_claim=0")
 
+    add_executable(lezac_collapse_magnitude_wrap_test tests/gameplay/collapse_magnitude_wrap_test.cpp)
+    target_include_directories(lezac_collapse_magnitude_wrap_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME collapse_magnitude_wrap_unit COMMAND lezac_collapse_magnitude_wrap_test)
+    set_tests_properties(collapse_magnitude_wrap_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "^collapse_magnitude_wrap_unit=ok cases=16842752 word_wrap=1 signed_abs=1 unsigned_threshold=1")
+    add_test(NAME collapse_magnitude_wrap_fixture
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_magnitude_wrap.py)
+    set_tests_properties(collapse_magnitude_wrap_fixture PROPERTIES
+        PASS_REGULAR_EXPRESSION "\"cases\":17.*\"status\":\"fixture_verified\"")
+    add_test(NAME collapse_magnitude_wrap_checker
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_collapse_magnitude_wrap.py)
+    set_tests_properties(collapse_magnitude_wrap_checker PROPERTIES PASS_REGULAR_EXPRESSION "OK")
+    add_test(NAME collapse_magnitude_wrap_original
+        COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_magnitude_wrap.py
+            --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/collapse-magnitude-wrap-app)
+    set_tests_properties(collapse_magnitude_wrap_original PROPERTIES
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy" TIMEOUT 120
+        PASS_REGULAR_EXPRESSION "\"cases\":17.*\"status\":\"match\"")
     add_executable(lezac_damage_lane_bytes_test tests/gameplay/damage_lane_bytes_test.cpp)
     target_include_directories(lezac_damage_lane_bytes_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME damage_lane_bytes_unit COMMAND lezac_damage_lane_bytes_test)

@@ -41,3 +41,5 @@ jobs:
         run: python -S -B tools/test_recovery_python315.py -v
       - name: Frozen debris compression regressions
         run: python -S -B tools/test_original_debris_phase.py -v
+      - name: Original bridge-access evidence regressions
+        run: python -S -B tools/test_natural_level4_bridge_access.py -v

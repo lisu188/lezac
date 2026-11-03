@@ -47,3 +47,5 @@ jobs:
         run: python -S -B tools/test_natural_level4_bridge_escape.py -v
       - name: Wrapped collapse magnitude original fixture
         run: python -S -B tools/test_collapse_magnitude_wrap.py -v
+      - name: Original Level 4 left return and lossless retention
+        run: python -S -B tools/test_natural_level4_left_return.py -v

@@ -6,6 +6,13 @@
 
 namespace lezac::gameplay {
 
+// 1000:5565..5576 takes a signed absolute value after word subtraction.
+inline constexpr uint16_t collapseMagnitudeDelta(uint16_t previous, uint16_t current) noexcept {
+    const uint16_t difference = static_cast<uint16_t>(previous - current);
+    const uint16_t sign = (difference & 0x8000u) != 0 ? uint16_t{0xffff} : uint16_t{0};
+    return static_cast<uint16_t>((difference ^ sign) - sign);
+}
+
 // Original fifteen-byte collapse bank, starting at DS:6620 (slot 1).
 struct CollapseRecord {
     int x = 0, y = 0;

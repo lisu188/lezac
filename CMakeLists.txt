@@ -8297,6 +8297,11 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 30 LABELS "level2;original;evidence-guard;natural-route"
             PASS_REGULAR_EXPRESSION "\"field_mutations_rejected\":42.*\"fixture_mutations_rejected\":3.*\"invalid_bounds_rejected\":2.*\"producer_mutations_rejected\":5.*\"stale_tail_excluded\":true.*\"status\":\"guarded\"")
+        add_test(NAME natural_debris_phase_fixture
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_natural_debris_phase.py)
+        set_tests_properties(natural_debris_phase_fixture PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 30 LABELS "level2;original;evidence-guard;natural-route")
         add_test(NAME natural_campaign_original
             COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                     ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_campaign.py replay

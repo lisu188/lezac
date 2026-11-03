@@ -56,8 +56,11 @@ That distinction should be stated wherever such a pin is registered.
 
 - `debris_shatter_dice_phase` — the port's `logicTick_` standing in for the
   original's `DS:78C2` in the landing-shatter dice `uint16_t(frame + slot) % 6 > 2`.
-  The mechanism is byte-cited; the equivalence of the two counters' PHASE is
-  not, so a shatter can fire on a different tick than the original's would.
+  The mechanism is byte-cited. The counters' broad phase equivalence across
+  all game flows remains unproved, so an unobserved path may still shatter
+  on a different tick. The [natural Level-2 phase witnesses](natural_debris_phase_20261103.md)
+  now establish matching clocks throughout 500 retained native frames and
+  four actual landings that distinguish current from previous counter phase.
   The [WORD-sum rollover fix](debris_shatter_wrap_20261103.md) establishes the
   arithmetic width independently; it does not close this counter-phase item.
   The [controlled live-frame phase regression](debris_frame_phase_20261103.md)

@@ -6543,6 +6543,20 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^original_debris_contract=ok source_mutants=6 compiled_cpp=0")
 
+    add_test(NAME original_debris_wrap
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_wrap.py
+                --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(original_debris_wrap PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 120
+        PASS_REGULAR_EXPRESSION "^original_debris_wrap=ok cases=276 native_crosschecks=18 rollover_counterexamples=108 output_mutants=1 natural_gameplay=0")
+    add_test(NAME original_debris_wrap_fixture
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_original_debris_wrap.py)
+    set_tests_properties(original_debris_wrap_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        TIMEOUT 60)
+
     add_test(NAME collapse_seed_geometry_original
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_seed_geometry.py
                 --exe $<TARGET_FILE:lezac_collapse_seed_geometry_test>

@@ -6557,6 +6557,20 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         TIMEOUT 60)
 
+    add_test(NAME original_debris_phase
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_debris_phase.py
+                --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(original_debris_phase PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        TIMEOUT 150
+        PASS_REGULAR_EXPRESSION "^original_debris_phase=ok cases=360 phase_counterexamples=127 compiled_cpp=1 natural_gameplay=0 continuous_original_frame=0")
+    add_test(NAME original_debris_phase_fixture
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_original_debris_phase.py)
+    set_tests_properties(original_debris_phase_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        TIMEOUT 60)
+
     add_test(NAME collapse_seed_geometry_original
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_collapse_seed_geometry.py
                 --exe $<TARGET_FILE:lezac_collapse_seed_geometry_test>

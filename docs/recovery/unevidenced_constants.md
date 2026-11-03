@@ -60,6 +60,11 @@ That distinction should be stated wherever such a pin is registered.
   not, so a shatter can fire on a different tick than the original's would.
   The [WORD-sum rollover fix](debris_shatter_wrap_20261103.md) establishes the
   arithmetic width independently; it does not close this counter-phase item.
+  The [controlled live-frame phase regression](debris_frame_phase_20261103.md)
+  now checks the App's real counter-before-debris ordering, including rollover.
+  Its separate original counter/updater calls do not execute the intervening
+  original frame work or establish natural clock equivalence, so this entry
+  remains open.
 
 ## Deliberately not listed
 

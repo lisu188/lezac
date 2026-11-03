@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SUPPORT_COLUMN = (
@@ -80,15 +81,31 @@ class EvidenceCheckoutTests(unittest.TestCase):
                 attributes = b'\n'.join(line for line in attributes.splitlines() if line not in omitted_rules) + b'\n'
             (repo / '.gitattributes').write_bytes(attributes)
             for name, data in self.files.items():
-                blob = git('hash-object', '-w', '--stdin', data=data).decode().strip()
-                git('update-index', '--add', '--cacheinfo', '100644,' + blob + ',' + name)
+                path = repo / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+            names = tuple(self.files)
+            # Preserve raw fixture blobs without paying for two Git launches per file.
+            blobs = git('hash-object', '-w', '--no-filters', '--stdin-paths',
+                        data=('\n'.join(names) + '\n').encode('utf-8')).splitlines()
+            self.assertEqual(len(blobs), len(names))
+            git('update-index', '-z', '--index-info',
+                data=b''.join(b'100644 ' + blob + b'\t' + name.encode('utf-8') + b'\0'
+                              for name, blob in zip(names, blobs, strict=True)))
             output = repo / 'checkout'
             output.mkdir()
             git('checkout-index', '--all', '--force', '--prefix=checkout/')
             return {name: (output / name).read_bytes() for name in self.files}
 
     def test_all_pinned_files_survive_autocrlf_checkout(self):
-        checked_out = self.checkout()
+        with mock.patch.object(subprocess, 'check_output', wraps=subprocess.check_output) as commands:
+            checked_out = self.checkout()
+        hashing = [call.args[0] for call in commands.call_args_list if 'hash-object' in call.args[0]]
+        indexing = [call.args[0] for call in commands.call_args_list if 'update-index' in call.args[0]]
+        self.assertEqual(len(hashing), 1)
+        self.assertEqual(hashing[0][-4:], ['hash-object', '-w', '--no-filters', '--stdin-paths'])
+        self.assertEqual(len(indexing), 1)
+        self.assertEqual(indexing[0][-3:], ['update-index', '-z', '--index-info'])
         for name, expected in self.files.items():
             with self.subTest(path=name):
                 self.assertEqual(expected, checked_out[name])

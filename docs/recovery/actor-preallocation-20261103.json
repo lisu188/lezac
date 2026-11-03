@@ -1,0 +1,415 @@
+{
+  "schema": "lezac-actor-preallocation-20261103-v1",
+  "status": "actual_failure_retained",
+  "base_reviewed_commit": "71ef5c0f03f378b1511774f1664693d1b3f0bc2f",
+  "main_integration": "f83d245b250ae2faa4470c122837cd97eb32b263",
+  "production_code_changed": false,
+  "original_or_fixture_changed": false,
+  "root_cause_identified": false,
+  "hardware_or_compiler_diagnosis": false,
+  "intermittent_hold_cleared": false,
+  "actual_app_integration": false,
+  "full_frame_claim": false,
+  "full_campaign_claim": false,
+  "full_guest_ram_exports": 0,
+  "core_dumps": 0,
+  "runtime_artifacts_ram_only": true,
+  "dummy_audio": true,
+  "reader": {
+    "constructor_sites": 8,
+    "guard_layouts": 8,
+    "allocation_signatures": 8,
+    "stack_layouts": 7,
+    "register_input_layouts": 1,
+    "ordinary_guard_bytes": 33,
+    "register_input_guard_bytes": 8,
+    "constructor_return_bytes": 8,
+    "uninitialized_constructor_tag_read": false,
+    "inactive_overlap_disqualified": true
+  },
+  "first_campaign": {
+    "status": "bounded_non_reproduction",
+    "completed_replays": 16,
+    "guard_stop": false,
+    "source_instrumentation": false,
+    "protected_inputs_preserved": true
+  },
+  "real_capture": {
+    "status": "hardware_guard_captured",
+    "stopped_attempt_zero_based": 9,
+    "completed_passing_replays": 9,
+    "guard_offset": 654524,
+    "profile": "ActorUpdate.transition",
+    "phase": "before-exception-allocation",
+    "native_validation": {
+      "interpretation_claim": false,
+      "constructor_sites_catalogued": 8,
+      "constructor_layouts_supported": 8,
+      "capture_phase": "before-exception-allocation",
+      "status": "ownership_fields_captured",
+      "ownership": {
+        "parent": {
+          "gameSegment": 4096,
+          "idToggleMask": 2097152
+        },
+        "prefix_child": {
+          "gameSegment": 4096,
+          "idToggleMask": 2097152
+        },
+        "contact_child": {
+          "gameSegment": 4096,
+          "idToggleMask": 2097152
+        },
+        "source_parent": {
+          "gameSegment": 4096,
+          "idToggleMask": 2097152
+        }
+      },
+      "variant_tag": 0,
+      "selected_child": "prefix_child",
+      "inactive_overlap_is_not_ownership": true,
+      "variant_tag_location": "source",
+      "profile": "ActorUpdate.transition",
+      "guard_offset": 654524,
+      "host_metadata_bytes_read": 33,
+      "source": "pinned-ELF-stack-offsets"
+    },
+    "native_registers": {
+      "rcx": "0x20000100000",
+      "rsi": "0xffffffff0000ffff",
+      "eflags": "0x10206"
+    },
+    "masked_register_test": "0x20000000000",
+    "zf": false,
+    "earlier_load_values_proven": false,
+    "diagnosis_claim": false,
+    "advisory_replay_cursor": 4096,
+    "case_index_available": false,
+    "software_breakpoints": 0,
+    "preload_hooks": 0,
+    "code_or_guest_data_writes": 0,
+    "source_instrumentation": false,
+    "protected_inputs_preserved": true,
+    "owned_child_reaped": true,
+    "historical_elf_sha256": "b1c719393f987cd2a98090055c8cc06d5d71589090599a36f32c4d2fd5da47f6"
+  },
+  "rea": {
+    "provider": {
+      "id": "ghidra",
+      "name": "Ghidra",
+      "version": "12.1.4"
+    },
+    "selected_instructions": 31,
+    "format_specific_elf_attestation": "unsupported",
+    "measured_image_base": "0x100000",
+    "independent_PT_LOAD_file_comparison": true,
+    "selected_bytes_equal": true,
+    "sessions_closed": 2,
+    "servers_exit_zero": true,
+    "targets_preserved": true,
+    "instructions": [
+      {
+        "offset": 240628,
+        "file_offset": 240628,
+        "evidence_id": "ev_16f74cb745f8e4593ed10ef980902a12831bd62b4389434ca9586fc866e2f69b",
+        "bytes": "bf10000000",
+        "disassembly": "MOV EDI,0x10"
+      },
+      {
+        "offset": 242487,
+        "file_offset": 242487,
+        "evidence_id": "ev_dbe24b9a7f9f28b300959f3e7159472d0db4ac6c69fe1209569e4e079174425a",
+        "bytes": "bf10000000",
+        "disassembly": "MOV EDI,0x10"
+      },
+      {
+        "offset": 568569,
+        "file_offset": 568569,
+        "evidence_id": "ev_082003b136a6733483965ef2601bb2728ad62f918e50e16b82cf71637403a9dc",
+        "bytes": "bf10000000",
+        "disassembly": "MOV EDI,0x10"
+      },
+      {
+        "offset": 574940,
+        "file_offset": 574940,
+        "evidence_id": "ev_e7061e9d0b1d50d0774f0b4ff2bbf9eb61a7fdaaf70874a3892276bf8c24fa39",
+        "bytes": "bf10000000",
+        "disassembly": "MOV EDI,0x10"
+      },
+      {
+        "offset": 596828,
+        "file_offset": 596828,
+        "evidence_id": "ev_ca921ad7d23c952721a169f4e32d095adbb153ad480199a13e6f0a99d18bc278",
+        "bytes": "bf10000000",
+        "disassembly": "MOV EDI,0x10"
+      },
+      {
+        "offset": 614600,
+        "file_offset": 614600,
+        "evidence_id": "ev_dda49c571cc7cf8ab34f660d5847a60ecdac6d991574d737cc299d276ef09cd9",
+        "bytes": "bf10000000",
+        "disassembly": "MOV EDI,0x10"
+      },
+      {
+        "offset": 654524,
+        "file_offset": 654524,
+        "evidence_id": "ev_03758c855a004eea308ebeab43ee8622c10e92cd8ff35b2b52519532dff3cfc6",
+        "bytes": "bf10000000",
+        "disassembly": "MOV EDI,0x10"
+      },
+      {
+        "offset": 663981,
+        "file_offset": 663981,
+        "evidence_id": "ev_7bd38a709fe32351dd5dec6a7d802d8d0a7c8a7aadfcd104ed67fa8e9b623149",
+        "bytes": "bf10000000",
+        "disassembly": "MOV EDI,0x10"
+      },
+      {
+        "offset": 573930,
+        "file_offset": 573930,
+        "evidence_id": "ev_8a9733f3cf1867f71c70a19e64f14cfa767a4fbf0a35ef795e72c562119aa10d",
+        "bytes": "41f7c4ffffdfff",
+        "disassembly": "TEST R12D,0xffdfffff"
+      },
+      {
+        "offset": 573937,
+        "file_offset": 573937,
+        "evidence_id": "ev_be856f99695f0c31b5395137ee16c59b3c0976bf588e0a5b219c2719c7284a29",
+        "bytes": "0f85e5030000",
+        "disassembly": "JNZ 0x0018c5dc"
+      },
+      {
+        "offset": 573999,
+        "file_offset": 573999,
+        "evidence_id": "ev_84d25672555ada1138672d9d42449eca2c993941e9fe15e1f160d8864919e765",
+        "bytes": "88842408100000",
+        "disassembly": "MOV byte ptr [RSP + 0x1008],AL"
+      },
+      {
+        "offset": 574745,
+        "file_offset": 574745,
+        "evidence_id": "ev_24a45d8e637d0f01e76b0bb57239170cfe3318e3d4fa4699a535d310bdbb439b",
+        "bytes": "41f7c4ffffdfff",
+        "disassembly": "TEST R12D,0xffdfffff"
+      },
+      {
+        "offset": 574752,
+        "file_offset": 574752,
+        "evidence_id": "ev_dca6c57504ac8d81500c312408f0dcc709b236d882aff5747022d6922b7f8223",
+        "bytes": "0f85b6000000",
+        "disassembly": "JNZ 0x0018c5dc"
+      },
+      {
+        "offset": 654338,
+        "file_offset": 654338,
+        "evidence_id": "ev_f4b09a5953978df6138f26fc070c88949370b609043731cc2a41129a9b04bd6e",
+        "bytes": "8b8c2424100000",
+        "disassembly": "MOV ECX,dword ptr [RSP + 0x1024]"
+      },
+      {
+        "offset": 654345,
+        "file_offset": 654345,
+        "evidence_id": "ev_5b04df8e0579b57b43b637d5be21e8d5d49c6e6518ad3236e80fd0ab9559f0fb",
+        "bytes": "8bbc2440100000",
+        "disassembly": "MOV EDI,dword ptr [RSP + 0x1040]"
+      },
+      {
+        "offset": 654352,
+        "file_offset": 654352,
+        "evidence_id": "ev_be8503b22d0a7ebe80b1ea02fb5dc55d1e6a21b2b4d10de665ab4dfe9e5fa102",
+        "bytes": "f7c1ffffdfff",
+        "disassembly": "TEST ECX,0xffdfffff"
+      },
+      {
+        "offset": 654358,
+        "file_offset": 654358,
+        "evidence_id": "ev_3845a2ae27f5bc9ca4b4394f40b254b28cb3ec4f3bb9eef2f67087d2345e768a",
+        "bytes": "0f85a0000000",
+        "disassembly": "JNZ 0x0019fcbc"
+      },
+      {
+        "offset": 654364,
+        "file_offset": 654364,
+        "evidence_id": "ev_367e5f448a4675ff9ce53db70028b74bfe29a5b531657296900d2982c9dc2111",
+        "bytes": "4080feff",
+        "disassembly": "CMP SIL,0xff"
+      },
+      {
+        "offset": 654370,
+        "file_offset": 654370,
+        "evidence_id": "ev_ef09c20d210349d3929f6b1013e04b4187a9c8f4bc6988b671098f3ad29305ef",
+        "bytes": "4084f6",
+        "disassembly": "TEST SIL,SIL"
+      },
+      {
+        "offset": 654375,
+        "file_offset": 654375,
+        "evidence_id": "ev_ae922915f373a1bf0e6e71802f07715bbffeac22eac54933c7ce8e0ace0e1f3d",
+        "bytes": "898c2404080000",
+        "disassembly": "MOV dword ptr [RSP + 0x804],ECX"
+      },
+      {
+        "offset": 654382,
+        "file_offset": 654382,
+        "evidence_id": "ev_02eda418bca70682af1ef9d39b93a30fca34f9ae6304ddace34e3c8f1a98c41d",
+        "bytes": "488b8c24d0070000",
+        "disassembly": "MOV RCX,qword ptr [RSP + 0x7d0]"
+      },
+      {
+        "offset": 654390,
+        "file_offset": 654390,
+        "evidence_id": "ev_08d87ad32a97e8b092ba7bde41176f14c05915159a280476409c9523758e56a7",
+        "bytes": "48338c2400080000",
+        "disassembly": "XOR RCX,qword ptr [RSP + 0x800]"
+      },
+      {
+        "offset": 654398,
+        "file_offset": 654398,
+        "evidence_id": "ev_2f15bffc5ea8983d7e9071fbb239304491b6c75768a02dcd59122e3e4f98b290",
+        "bytes": "48beffff0000ffffffff",
+        "disassembly": "MOV RSI,-0xffff0001"
+      },
+      {
+        "offset": 654408,
+        "file_offset": 654408,
+        "evidence_id": "ev_157390592041e6e5b20bb576851411b31275f06f4742cd0b4cc70dda611a0517",
+        "bytes": "4885f1",
+        "disassembly": "TEST RCX,RSI"
+      },
+      {
+        "offset": 654411,
+        "file_offset": 654411,
+        "evidence_id": "ev_47053f11d922989ccccfea6090f1b09eeacb66697fb9dd3c739243546b2fa2bc",
+        "bytes": "756f",
+        "disassembly": "JNZ 0x0019fcbc"
+      },
+      {
+        "offset": 654489,
+        "file_offset": 654489,
+        "evidence_id": "ev_03a0a6dadca89a0331702d405c9d401f9bb5ea7bfb71e075f814e3758ae54dcd",
+        "bytes": "898c2404080000",
+        "disassembly": "MOV dword ptr [RSP + 0x804],ECX"
+      },
+      {
+        "offset": 654496,
+        "file_offset": 654496,
+        "evidence_id": "ev_bfc7c00de4ab28054d829493365e3f7129aa5671a36959e116348b393d782570",
+        "bytes": "488b4c2430",
+        "disassembly": "MOV RCX,qword ptr [RSP + 0x30]"
+      },
+      {
+        "offset": 654501,
+        "file_offset": 654501,
+        "evidence_id": "ev_8787e591f468064d35f2a0c729d3a6ca44740bf0f74bc2ddbbe64e30259dbbef",
+        "bytes": "48338c2400080000",
+        "disassembly": "XOR RCX,qword ptr [RSP + 0x800]"
+      },
+      {
+        "offset": 654509,
+        "file_offset": 654509,
+        "evidence_id": "ev_967d26a333aa93be8719d22cc7f8fa6ceafa2cdc7916925464c8b8607413440b",
+        "bytes": "48beffff0000ffffffff",
+        "disassembly": "MOV RSI,-0xffff0001"
+      },
+      {
+        "offset": 654519,
+        "file_offset": 654519,
+        "evidence_id": "ev_4f8c1f22f50ec405c300c6edb61adb3053386b91e05325eb6728268d15207523",
+        "bytes": "4885f1",
+        "disassembly": "TEST RCX,RSI"
+      },
+      {
+        "offset": 654522,
+        "file_offset": 654522,
+        "evidence_id": "ev_0a2a3266e338d98d9798ef226581fc9410ef3b9bd6ce516ffa58fc506f9b3170",
+        "bytes": "7491",
+        "disassembly": "JZ 0x0019fc4d"
+      }
+    ]
+  },
+  "handoff_control": {
+    "case": 722,
+    "mode": 6,
+    "row": 251,
+    "iterations": 500000,
+    "status": "bounded_control_passed",
+    "computed_entry_state": true,
+    "state_reseeded_each_iteration": true,
+    "source_instrumented": true,
+    "full_case_claim": false,
+    "full_corpus_claim": false,
+    "generated_source_sha256": "7375978fd66337c682026b0de4764b7f96cac102c38adaef877c1525635cbd13",
+    "generated_executable_sha256": "7288abcbf82d4a458ea7f894a4c8ce3a3bdc8439d3cae25e7fe3f715a825e8a0"
+  },
+  "unit_calibrations": {
+    "banks": [
+      "queries",
+      "updates"
+    ],
+    "guard_hits": 0,
+    "passing_operand_capture_calibration": false
+  },
+  "tests": {
+    "linux_operand_tests": 11,
+    "native_windows_python_operand_tests": 11,
+    "linux_diagnostic_report_tests": 18,
+    "focused_ctests": 5,
+    "focused_ctest_failures": 0,
+    "changed_signature_controls": 16,
+    "native_windows_cpp_claim": false
+  },
+  "historical_windows_ci": {
+    "pr": 472,
+    "head": "d5f265d3b8240cfd111f10b158d329a8e89f0e9d",
+    "run": 41530681835,
+    "job": 125570544684,
+    "conclusion": "failure",
+    "tests": 1191,
+    "failed_or_not_run": 6,
+    "failure": "stale oracle_failure_report.py in two frozen manifests",
+    "log_bytes": 755294,
+    "log_sha256": "874ce76e917d03f56d35f378aa4e767c408df40b1e08caeaffa1cf883a265314"
+  },
+  "private_evidence_catalog": {
+    "first_campaign": {
+      "bytes": 6531,
+      "sha256": "c16498e9249cdd4890812403a024bf89876d9161ecabd3382a5ab210ceff39e6"
+    },
+    "captured_campaign": {
+      "bytes": 6656,
+      "sha256": "32cf6712a7302612056b778b5fae6bbd46cf361fdae5ce1c61b4726d35854958"
+    },
+    "captured_guard": {
+      "bytes": 34163,
+      "sha256": "65459754e8d065cba275b635f2f6b7babdc9aa41e90de5f651f1060b51722769"
+    },
+    "handoff": {
+      "bytes": 11959,
+      "sha256": "9d42011099ee42da67e189c0af738bf6b50bc01142612c74f490bf311040c95b"
+    },
+    "calibration_queries": {
+      "bytes": 2372,
+      "sha256": "b2432f9d5faae7b303bd87c5cc9b657c19c29ccd0d7fbf59be6ad0a1a4b100cd"
+    },
+    "calibration_updates": {
+      "bytes": 2372,
+      "sha256": "f39a858c846881fb523dc0a9346fc5587bf492f1db09087860af5830ac33aa05"
+    },
+    "rea_guards": {
+      "bytes": 36486,
+      "sha256": "2c59dd2b4f70da3e280ddfb300ee98620ebcdb2f134007ef044259a66ed8891d"
+    },
+    "rea_transition": {
+      "bytes": 44372,
+      "sha256": "874cacdbb1ff4ae3d024fd5f044f84ca9e8d295e5767c0c1267e173d86beb28c"
+    },
+    "contracts": {
+      "bytes": 6409,
+      "sha256": "1745d4f3c1e21ead71a6620922fa89f700d369eef7f80a95fc91c01c4ac62288"
+    },
+    "windows_ci_failure_excerpt": {
+      "bytes": 577,
+      "sha256": "86defffd1623577e1f18717c60821b6458b315a6af1568cce4ded7ca41c44a0d"
+    }
+  }
+}

@@ -1,0 +1,210 @@
+{
+  "actual_app_integration": false,
+  "base_pr": {
+    "conversation_comments": 4,
+    "formal_reviews": 0,
+    "head": "2ddfc58e5e2a0e1e557439ef274ad3023154da87",
+    "inline_comments": 0,
+    "linux_ci": "cancelled",
+    "number": 469,
+    "review": "completed_no_findings",
+    "review_threads": 0,
+    "windows_ci": "failed: oracle_failure_report_contract/test_broken_link_is_preserved"
+  },
+  "canonical_mz_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "capture_source_commit": "2e750ad8e77719699663c18a4d6d953dc42889d1",
+  "core_dump_limit": 0,
+  "date": "2026-11-02",
+  "diagnosis_claim": false,
+  "fixture_sha256": "799531ca906973fc9f0b619855e42898aa5eb876b4086641cc6b637eb63a40d3",
+  "full_ram_artifacts": 0,
+  "historical_elf_sha256": "b1c719393f987cd2a98090055c8cc06d5d71589090599a36f32c4d2fd5da47f6",
+  "intermittent_hold_cleared": false,
+  "ordinary_control": {
+    "attempts": [
+      {
+        "attempt": 0,
+        "elapsed_seconds": 18.874,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_sha256": "bb79488fdbe113464255963db8ee082d072a962d65460c38815f37d77d63fbdf"
+      },
+      {
+        "attempt": 1,
+        "elapsed_seconds": 37.742,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_sha256": "bb79488fdbe113464255963db8ee082d072a962d65460c38815f37d77d63fbdf"
+      },
+      {
+        "attempt": 2,
+        "elapsed_seconds": 56.522,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_sha256": "bb79488fdbe113464255963db8ee082d072a962d65460c38815f37d77d63fbdf"
+      },
+      {
+        "attempt": 3,
+        "elapsed_seconds": 75.767,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_sha256": "bb79488fdbe113464255963db8ee082d072a962d65460c38815f37d77d63fbdf"
+      },
+      {
+        "attempt": 4,
+        "elapsed_seconds": 95.061,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_sha256": "bb79488fdbe113464255963db8ee082d072a962d65460c38815f37d77d63fbdf"
+      },
+      {
+        "attempt": 5,
+        "elapsed_seconds": 112.68,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_sha256": "bb79488fdbe113464255963db8ee082d072a962d65460c38815f37d77d63fbdf"
+      },
+      {
+        "attempt": 6,
+        "elapsed_seconds": 118.521,
+        "exit_code": 1,
+        "stderr_sha256": "6dd3b321698cb3fd52faeb864b8503915b0692c0ba780a994a0b93c24ec03270",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ],
+    "debugger_attached": false,
+    "failure": "frame_actor_pass=failed Frame actor entry ID-toggle profile differs",
+    "protected_inputs_preserved": true,
+    "report_sha256": "e2a08ee9ea1e317231286a4334ae63978628a2c7e6ac5099a0a8e52e00649922",
+    "status": "failure_reproduced"
+  },
+  "original_instructions": {
+    "instructions": [
+      {
+        "evidence_id": "ev_44a7d1933d4fe71b849bfdb96a2aa41160e5f96e0aecb38af43ee9016f92a7d8",
+        "instruction": "ADD DI,0xc21e"
+      },
+      {
+        "evidence_id": "ev_d703615e3ed3e41600e116610f88f51d147babb76fe953a5405533b5ff0ba5e9",
+        "instruction": "MOV DS,word ptr [0xc1fe]"
+      }
+    ],
+    "mcp_calls": 18,
+    "provider": {
+      "id": "ghidra",
+      "name": "Ghidra",
+      "version": "12.1.4"
+    },
+    "rea_version": "6.7.0",
+    "report_sha256": "90d614082921971e8afa4c45b3603f04c7229d1a7ebb9a73cdc2ee136ceff095",
+    "server_exit_code": 0,
+    "session_closed": true
+  },
+  "prethrow_observation": {
+    "attempts": [
+      {
+        "attempt": 0,
+        "exit_code": 0
+      },
+      {
+        "attempt": 1,
+        "exit_code": 0
+      },
+      {
+        "attempt": 2,
+        "exit_code": 0
+      },
+      {
+        "attempt": 3,
+        "exit_code": 0
+      },
+      {
+        "attempt": 4,
+        "exit_code": 0
+      },
+      {
+        "attempt": 5,
+        "exit_code": 0
+      },
+      {
+        "attempt": 6,
+        "exit_code": 0
+      },
+      {
+        "attempt": 7,
+        "exit_code": 0
+      }
+    ],
+    "native_operand_capture_observed": false,
+    "protected_inputs_preserved": true,
+    "report_sha256": "6c9557db033cf57b06df2bb4ca7eb5dec13e150e4df3791687af808f1f900313",
+    "status": "bounded_non_reproduction",
+    "watch_offsets": [
+      9504,
+      9008,
+      240628
+    ]
+  },
+  "prethrow_source_commit": "6face739a4c0d98ea96d26f2f2ab44df003d6ed5",
+  "schema": "lezac-actor-stability-investigation-v1",
+  "status": "hold_not_cleared",
+  "trace_failure": {
+    "captured_before_unwind": false,
+    "case": 813,
+    "differences": [
+      {
+        "actual": 716,
+        "expected": 204,
+        "register": "cx"
+      }
+    ],
+    "observer": "ownership-constructor-only",
+    "row": 11049,
+    "stderr_sha256": "d91e9ac17bd6efdf99d14583cc15e93700425f9ff972472ea284fc3ed89841a1"
+  },
+  "typed_failure": {
+    "attempt": 0,
+    "calibration": false,
+    "message": "Frame actor contact ID-toggle/callee ownership differs",
+    "optimized_values_are_advisory": true,
+    "owned_code_verified": [
+      {
+        "address": 8192,
+        "bytes": 684625,
+        "sha256": "cba6b0faed1b643ea0ba609d9d6e74e7a6112f31240ffa251dc2bfeebb9f57cb"
+      }
+    ],
+    "protected_inputs_preserved": true,
+    "raw_report_published": false,
+    "report_bytes": 55374,
+    "report_sha256": "3e9e2fb96e7d66fba1192c36312476d972c537a144ac3779055957b4e28d715f"
+  },
+  "validation": {
+    "compiler": "GCC 13.3.0",
+    "diagnostic_errors": 0,
+    "diagnostic_failures": 0,
+    "diagnostic_python_tests": 12,
+    "diagnostic_source_sha256": "62de062f837b40c71cac40b88b1b165c71b5688d24859ca6f676e1afd8e6ae75",
+    "flags": [
+      "-O1",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-pedantic"
+    ],
+    "focused_ctests": [
+      "frame_actor_pass_unit",
+      "frame_actor_pass_fixture_contract",
+      "oracle_failure_report_contract",
+      "frame_actor_pass_original",
+      "frame_actor_pass_cli",
+      "frame_actor_pass_case_cli",
+      "frame_actor_pass_diagnostic_reports",
+      "frame_actor_pass_fixture_rejections"
+    ],
+    "focused_junit_sha256": "a0e0a260ab6ba68f90504776a4d2b6713bc9c5b3865f000211fff0f69c86356e",
+    "standard": "C++23",
+    "wrong_elf_gdb_exit": 1
+  },
+  "whole_game_parity": false
+}

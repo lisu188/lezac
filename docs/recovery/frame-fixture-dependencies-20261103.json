@@ -1,0 +1,86 @@
+{
+  "schema": "lezac-frame-fixture-dependencies-20261103-v1",
+  "status": "fresh_original_projections_equal",
+  "actor_pass_stability_hold_cleared": false,
+  "actual_app_integration": false,
+  "full_frame_claim": false,
+  "natural_capture": false,
+  "runtime_artifacts_ram_only": true,
+  "core_dumps": 0,
+  "full_guest_ram_exports": 0,
+  "dummy_audio": true,
+  "historical_failed_head": "d5f265d3b8240cfd111f10b158d329a8e89f0e9d",
+  "historical_windows_job": 125570544684,
+  "fixtures": {
+    "frame_iteration": {
+      "cases": 1102,
+      "original_instructions": 3744434,
+      "ordered_writes": 675918,
+      "ordered_ports": 480,
+      "compressed_bytes": 1941447,
+      "compressed_sha256": "4136afc5fb8b65789242954a71b6bdeaef829819df300c0e39b0a85a3d17cb52",
+      "compressed_byte_equal": true,
+      "projection_bytes": 20887011,
+      "projection_sha256": "64eda1655482da61f8dfcbe6ea8eb5a75795dcbcd8f51a7ac5f5bf9728626ab7",
+      "complete_projection_byte_equal": true,
+      "old_manifest_sha256": "5e1c6d2c6cb40440ffba81dc9a78500ed869318cfb67a2c71d291781d58b5279",
+      "manifest_sha256": "016aaa704d83e814de022002b7edcecc9b4f334bed7392ad88ff2dc74b7b84df",
+      "old_report_helper_sha256": "b8ead7266fb75a33a8aecb2e67291f4185d28d0565817983066c452bf75048a9",
+      "report_helper_sha256": "3151b22c1cac49cdd022b100e6e78283868d8c66096146452a83645d7e4ed883",
+      "other_manifest_fields_equal": true,
+      "source_inputs_preserved": true
+    },
+    "frame_post_render": {
+      "cases": 1348,
+      "original_instructions": 4983001,
+      "ordered_writes": 1431749,
+      "ordered_ports": 480,
+      "compressed_bytes": 3349853,
+      "compressed_sha256": "f885ce1d91425da17bb1f554f53c70d1d52dfa0e5a72dd5a9300006ef8e85cb9",
+      "compressed_byte_equal": true,
+      "projection_bytes": 28447607,
+      "projection_sha256": "ada29ff0c33bf4c1d945260e9d958e5946c4fa4b90f1a03c8d89638ede9a0a9c",
+      "complete_projection_byte_equal": true,
+      "old_manifest_sha256": "23389f696120f03b2d8d78714a747cd70ab1b3f7624affae77bd2100fef13867",
+      "manifest_sha256": "aa6371ca36d3aa02ff59239419f4ee2d455ae3d783677ef2da7303d189947275",
+      "old_report_helper_sha256": "b8ead7266fb75a33a8aecb2e67291f4185d28d0565817983066c452bf75048a9",
+      "report_helper_sha256": "3151b22c1cac49cdd022b100e6e78283868d8c66096146452a83645d7e4ed883",
+      "other_manifest_fields_equal": true,
+      "source_inputs_preserved": true
+    }
+  },
+  "validation": {
+    "focused_ctests": 6,
+    "focused_ctest_failures": 0,
+    "linux_cpp_original_replays": 14700,
+    "linux_cpp_build": "GCC C++23 O1 strict warnings",
+    "windows_python_tests_total": 14,
+    "windows_python_executed": 12,
+    "windows_python_skipped": 2,
+    "windows_skip_reason": "hard links unsupported on RAM-backed UNC",
+    "native_windows_cpp_claim": false,
+    "new_head_hosted_ci_claim": false
+  },
+  "private_evidence_catalog": {
+    "ctests": {
+      "bytes": 2719,
+      "sha256": "4a9e3a655ab62ccb08000b1de3ac826102ce56e29b0b9af8d17d3180061d13e7"
+    },
+    "iteration_windows_python": {
+      "bytes": 1241,
+      "sha256": "9622c090bdb4996780c82d351a7c38de8e0dcd2127008a8e61459697250e7ae1"
+    },
+    "post_render_windows_python": {
+      "bytes": 1245,
+      "sha256": "d4ce684becb03ec46049f7c03ff9711e2da9f2a33555fc5fa0900d112724a67e"
+    },
+    "iteration_producer": {
+      "bytes": 1544,
+      "sha256": "9b8f966fed8d98323ac3da4f571017a119e86a320ffe1344ce3634f6c3e8089d"
+    },
+    "post_render_producer": {
+      "bytes": 1851,
+      "sha256": "e8c6491f0664094ef595db18c95950fbf591b84fc871363e9349dd416044e8bb"
+    }
+  }
+}

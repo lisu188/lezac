@@ -8599,6 +8599,26 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 120 LABELS "level4;original;fixture-guard;bridge-escape"
             PASS_REGULAR_EXPRESSION "OK")
+        add_test(NAME natural_level4_left_return_original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level4_left_return.py replay
+                    --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/natural_level4_left_return_original_out)
+        set_tests_properties(natural_level4_left_return_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 780 LABELS "level4;campaign;original;fullframe;natural-route;left-return"
+            PASS_REGULAR_EXPRESSION "\"boundaries\":3522.*\"frames\":1761.*\"pixels\":112704000.*\"status\":\"match\"")
+        add_test(NAME natural_level4_left_return_guard
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level4_left_return.py guard)
+        set_tests_properties(natural_level4_left_return_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 90 LABELS "level4;original;evidence-guard;left-return"
+            PASS_REGULAR_EXPRESSION "\"status\":\"guarded\".*\"stimuli\":2.*\"typed_mutations_rejected\":28")
+        add_test(NAME natural_level4_left_return_fixture
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_natural_level4_left_return.py)
+        set_tests_properties(natural_level4_left_return_fixture PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 120 LABELS "level4;original;fixture-guard;left-return"
+            PASS_REGULAR_EXPRESSION "OK")
         add_test(NAME review_history_repair_contracts
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_review_history_repairs.py)
         set_tests_properties(review_history_repair_contracts PROPERTIES

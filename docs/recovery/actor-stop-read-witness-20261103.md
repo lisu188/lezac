@@ -32,6 +32,8 @@ read** count, not total kernel-interface traffic. The new witness reports
 33, 66, 40 and 106 bytes respectively. A tag peek reads a full native word,
 but only the requested tag byte is interpreted or retained. The register-input
 constructor profile still never reads its not-yet-initialized parent/tag area.
+The witness's logical count records requested operands even when a read fails;
+the interface counts record only successfully returned bytes.
 
 Native signed `long` results are preserved bit-for-bit, including a valid
 all-ones word; the ptrace wrapper distinguishes that result from an actual
@@ -48,9 +50,10 @@ byte**, not a target-memory write, is rejected. The child is reaped and the
 observer sources are preserved. This is not a game, original-oracle or replay
 fault-capture calibration.
 
-Sixteen operand-reader tests pass on Linux and native Windows Python. Nineteen
-Linux diagnostic-report tests include four full mocked guard-stop paths:
-agreement, changed memory, changed registers and a native peek error. They
+Seventeen operand-reader tests pass on Linux and native Windows Python. Nineteen
+Linux diagnostic-report tests include five full mocked guard-stop paths:
+agreement, changed memory, changed registers, a native peek error and a failed
+second `/proc` read. They
 check retained diagnostics, collector exclusion on failure, protected inputs
 and kill/reap cleanup. The five focused diagnostic CTests pass.
 
@@ -66,6 +69,24 @@ ID-toggle profile differs`. No watched contact guard is hit, so the new read
 witness is not exercised on the historical replay. The supervisor exits
 nonzero with `other_failures_without_target_capture`, retaining the failure
 instead of calling the campaign a pass. Protected inputs remain byte-equal.
+This campaign precedes the partial-read retention review fix below; it is not
+rerun or represented as a current-head passing campaign.
+
+## Partial-Read Review Fix
+
+Review of `38d575a` finds that an operand sample was appended only after all
+three reads completed. A peek or second-read error could therefore discard
+earlier returned bytes before child cleanup. The fix creates an incomplete
+sample before starting and records each successful observation immediately,
+with its current stage and cumulative interface byte counts. An exception
+retains those bytes plus its stage/type and leaves the witness incomplete.
+Calling `finish` cannot promote an incomplete sample to agreement.
+
+Focused controls cover failures at the first read, peek and second read.
+The full supervisor tests verify retained first/peek bytes after both later
+I/O failures, collector exclusion and kill/reap cleanup. The actual synthetic
+kernel calibration is repeated successfully on the fixed reader. No new
+historical replay or retrospective witness claim is made by that repair.
 
 ## Entry Guard Follow-Up
 

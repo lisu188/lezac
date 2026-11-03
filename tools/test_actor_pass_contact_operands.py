@@ -219,6 +219,39 @@ class StoppedReads(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'invalid native word'):
                 reader.read(0, 8)
 
+    def test_each_failed_read_stage_retains_available_operand_bytes(self):
+        for failed in ('proc_first', 'ptrace', 'proc_second'):
+            with self.subTest(failed=failed):
+                calls = 0
+                def read(*unused):
+                    nonlocal calls
+                    calls += 1
+                    if failed == ('proc_first' if calls == 1 else 'proc_second'):
+                        raise OSError('test-only failed proc read')
+                    return b'\x01' * 8
+                def peek(*unused):
+                    if failed == 'ptrace':
+                        raise OSError('test-only failed peek')
+                    return 0x0101010101010101
+                reader = operands.StoppedOperandReader(read, peek)
+                with self.assertRaises(OSError):
+                    reader.read(0, 8)
+                sample, = reader.report['samples']
+                self.assertEqual((sample['status'], sample['stage']), ('incomplete', failed))
+                self.assertEqual(reader.report['status'], 'incomplete')
+                self.assertEqual(reader.report['logical_operand_bytes'], 8)
+                self.assertEqual(reader.report['host_memory_bytes_returned'],
+                                 {'proc_first': 0, 'ptrace': 8, 'proc_second': 16}[failed])
+                self.assertEqual('proc_first_hex' in sample, failed != 'proc_first')
+                self.assertEqual('ptrace_hex' in sample, failed == 'proc_second')
+                self.assertNotIn('proc_second_hex', sample)
+                if failed != 'proc_first':
+                    self.assertEqual(sample['proc_first_hex'], '01' * 8)
+                if failed == 'proc_second':
+                    self.assertEqual(sample['ptrace_hex'], '01' * 8)
+                with self.assertRaisesRegex(ValueError, 'incomplete samples'):
+                    reader.finish(True)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -29,7 +29,8 @@
     "game_or_replay_failure_claim": false,
     "target_memory_writes": 0,
     "owned_child_reaped": true,
-    "protected_inputs_preserved": true
+    "protected_inputs_preserved": true,
+    "repeated_on_partial_read_fix": true
   },
   "historical_campaign": {
     "status": "other_failures_without_target_capture",
@@ -47,13 +48,14 @@
     "witness_status": null,
     "no_retrospective_witness_claim": true,
     "protected_inputs_preserved": true,
-    "historical_elf_sha256": "b1c719393f987cd2a98090055c8cc06d5d71589090599a36f32c4d2fd5da47f6"
+    "historical_elf_sha256": "b1c719393f987cd2a98090055c8cc06d5d71589090599a36f32c4d2fd5da47f6",
+    "predates_partial_read_retention_fix": true
   },
   "tests": {
-    "linux_operand_tests": 16,
-    "native_windows_python_operand_tests": 16,
+    "linux_operand_tests": 17,
+    "native_windows_python_operand_tests": 17,
     "linux_diagnostic_report_tests": 19,
-    "mocked_stop_paths": 4,
+    "mocked_stop_paths": 5,
     "focused_ctests": 5,
     "focused_ctest_failures": 0,
     "native_windows_cpp_claim": false
@@ -74,6 +76,14 @@
     "rea_entry": {
       "bytes": 48572,
       "sha256": "84703692803f82773f141a1bc8bdeb21a5386b283a22e733458ae12bcfa43bdb"
+    },
+    "fixed_calibration": {
+      "bytes": 2521,
+      "sha256": "9c8b913d4987869a3cce5bead7a61c0e6c4d81f877dbb1388286cb7f2a46f54b"
+    },
+    "fixed_contracts": {
+      "bytes": 6408,
+      "sha256": "6e73740c2133283eede3b5c5f478f508a9a1ff0b537eed76dfc1c7eaed0444b0"
     }
   },
   "rea_entry_guard_catalog": {
@@ -231,5 +241,21 @@
         "disassembly": "LEA RSI,[0x1ab340]"
       }
     ]
+  },
+  "partial_read_review_fix": {
+    "reviewed_head": "38d575a2d60f50bcfce862642ec04f2f362f2598",
+    "review_comment_id": 4449551951,
+    "finding": "available operand bytes lost after a later read error",
+    "incomplete_sample_created_before_io": true,
+    "successful_reads_recorded_immediately": true,
+    "failed_stages_tested": [
+      "proc_first",
+      "ptrace",
+      "proc_second"
+    ],
+    "supervisor_retention_and_cleanup_tested": true,
+    "incomplete_finish_rejected": true,
+    "historical_campaign_rerun": false,
+    "actual_actor_failure_fixed": false
   }
 }

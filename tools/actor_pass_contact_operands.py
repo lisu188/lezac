@@ -40,35 +40,47 @@ class StoppedOperandReader:
     def __init__(self, read, peek_word):
         self.read_memory, self.peek_word = read, peek_word
         self.report = dict(status='collecting', samples=[], logical_operand_bytes=0,
-            proc_bytes_returned=0, ptrace_word_bytes=0, earlier_load_values_proven=False,
+            proc_bytes_returned=0, ptrace_word_bytes=0, host_memory_bytes_returned=0,
+            earlier_load_values_proven=False,
             independent_hardware_observation=False)
 
     def read(self, address, size):
         if size not in (1, 8):
             raise ValueError('Stopped operand witness only accepts one byte or one native word')
-        first = self.read_memory(address, size)
-        self.report['proc_bytes_returned'] += len(first)
-        word = self.peek_word(address)
-        self.report['ptrace_word_bytes'] += 8
-        if not isinstance(word, int) or not -(1 << 63) <= word < 1 << 64:
-            raise ValueError('Stopped operand witness received an invalid native word')
-        other = (word & ((1 << 64) - 1)).to_bytes(8, 'little')[:size]
-        second = self.read_memory(address, size)
-        self.report['proc_bytes_returned'] += len(second)
+        sample = dict(requested_bytes=size, status='reading', stage='proc_first', equal=False)
+        self.report['samples'].append(sample)
         self.report['logical_operand_bytes'] += size
-        self.report['samples'].append(dict(requested_bytes=size, proc_first_hex=first.hex(),
-            ptrace_hex=other.hex(), proc_second_hex=second.hex(),
-            equal=len(first) == size and first == other == second))
+        try:
+            first = self.read_memory(address, size)
+            self.report['proc_bytes_returned'] += len(first)
+            self.report['host_memory_bytes_returned'] += len(first)
+            sample.update(proc_first_hex=first.hex(), stage='ptrace')
+            word = self.peek_word(address)
+            if not isinstance(word, int) or not -(1 << 63) <= word < 1 << 64:
+                raise ValueError('Stopped operand witness received an invalid native word')
+            self.report['ptrace_word_bytes'] += 8
+            self.report['host_memory_bytes_returned'] += 8
+            other = (word & ((1 << 64) - 1)).to_bytes(8, 'little')[:size]
+            sample.update(ptrace_hex=other.hex(), stage='proc_second')
+            second = self.read_memory(address, size)
+            self.report['proc_bytes_returned'] += len(second)
+            self.report['host_memory_bytes_returned'] += len(second)
+            sample.update(proc_second_hex=second.hex(), status='complete', stage='complete',
+                equal=len(first) == size and first == other == second)
+        except BaseException as error:
+            sample.update(status='incomplete', error_type=type(error).__name__, error=str(error)[:256])
+            self.report['status'] = 'incomplete'
+            raise
         return first
 
     def finish(self, registers_unchanged):
         if not self.report['samples']:
             raise ValueError('Stopped operand witness has no completed samples')
+        if any(sample['status'] != 'complete' for sample in self.report['samples']):
+            raise ValueError('Stopped operand witness has incomplete samples')
         self.report['register_samples_equal'] = registers_unchanged
         self.report['status'] = ('cross_reader_agreement' if registers_unchanged and
             all(sample['equal'] for sample in self.report['samples']) else 'contradiction')
-        self.report['host_memory_bytes_returned'] = (self.report['proc_bytes_returned'] +
-                                                    self.report['ptrace_word_bytes'])
         return self.report
 
 

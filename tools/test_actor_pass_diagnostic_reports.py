@@ -141,7 +141,7 @@ class DiagnosticReports(unittest.TestCase):
             return report
 
     def test_contact_stop_witness_agreement_and_fail_closed_cleanup(self):
-        for fault in (None, 'memory', 'registers', 'peek_error'):
+        for fault in (None, 'memory', 'registers', 'peek_error', 'proc_second_error'):
             with self.subTest(fault=fault), tempfile.TemporaryDirectory(
                     prefix='lezac-stop-witness-', dir='/dev/shm') as directory:
                 base = Path(directory)
@@ -157,6 +157,7 @@ class DiagnosticReports(unittest.TestCase):
                 child.communicate.return_value = (b'', b'')
                 original_read = Path.read_text
                 register_reads = 0
+                proc_reads = 0
                 value = 0x20000000001000
 
                 def read_text(path, *positional, **keywords):
@@ -183,6 +184,10 @@ class DiagnosticReports(unittest.TestCase):
                     return 0
 
                 def pread(fd, size, address):
+                    nonlocal proc_reads
+                    proc_reads += 1
+                    if fault == 'proc_second_error' and proc_reads == 2:
+                        raise OSError('test-only failed second proc read')
                     return (0 if address == 0x201018 else value).to_bytes(8, 'little')[:size]
 
                 collector = mock.Mock(return_value=dict(status='failure_throw_captured'))
@@ -202,7 +207,7 @@ class DiagnosticReports(unittest.TestCase):
                     stack.enter_context(mock.patch.object(hardware, 'collect_guard', collector))
                     stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
                     if fault:
-                        with self.assertRaises(OSError if fault == 'peek_error' else ValueError):
+                        with self.assertRaises(OSError if fault in ('peek_error', 'proc_second_error') else ValueError):
                             hardware.run(args)
                     else:
                         hardware.run(args)
@@ -216,6 +221,11 @@ class DiagnosticReports(unittest.TestCase):
                     self.assertEqual(report['status'], 'failed')
                     self.assertNotEqual(report['stop_read_witness']['status'], 'cross_reader_agreement')
                     collector.assert_not_called()
+                    if fault in ('peek_error', 'proc_second_error'):
+                        sample, = report['stop_read_witness']['samples']
+                        self.assertEqual(sample['status'], 'incomplete')
+                        self.assertEqual(sample['proc_first_hex'], value.to_bytes(8, 'little').hex())
+                        self.assertEqual('ptrace_hex' in sample, fault == 'proc_second_error')
                 else:
                     self.assertEqual(report['status'], 'hardware_guard_captured')
                     self.assertEqual(report['native_validation']['host_metadata_bytes_read'], 33)

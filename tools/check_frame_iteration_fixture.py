@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 FIXTURE=ROOT/'tests/fixtures/frame_iteration'
-MANIFEST_SHA='5e1c6d2c6cb40440ffba81dc9a78500ed869318cfb67a2c71d291781d58b5279'
+MANIFEST_SHA='016aaa704d83e814de022002b7edcecc9b4f334bed7392ad88ff2dc74b7b84df'
 PROJECTION_BYTES=20887011
 INPUTS=('LEZAC.EXE',*[f'tools/{name}.py' for name in (
     'actor_contact_oracle','actor_motion_oracle','actor_precontact_oracle','actor_steering_oracle',

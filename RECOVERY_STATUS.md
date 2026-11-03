@@ -24,6 +24,42 @@ but do not identify the cause. CLI diagnostics now surface bounded child output;
 source-mutation probes also handle Windows checkout newlines. No production
 guard is relaxed, and the actor-pass integration hold remains open.
 
+The [ownership-operand observation](docs/recovery/actor-owner-operands-20261103.md)
+maps that retained cursor to original `JBE 654E`, confirmed with REA/Ghidra on
+WSL. A separate real historical throw retains matching ownership fields after
+exception allocation, not proof about the earlier guard reads. The observer
+now identifies eight inline constructor sites and supports three pinned operand
+layouts. The cause and integration hold remain open.
+
+The [before-allocation follow-up](docs/recovery/actor-preallocation-20261103.md)
+extends guard coverage to eight sites and avoids uninitialized constructor-tag
+storage. REA/Ghidra selected instruction bytes agree with the historical ELF;
+format-specific ELF load attestation remains unavailable. Sixteen watched
+replays and a 500000-iteration computed handoff control pass. A second campaign
+then catches a real transition guard before exception allocation after nine
+passing replays, retaining native register/flag operands and matching bounded
+ownership fields. Their cause is still unresolved. The older #472 Windows
+full suite exposes two stale fixture dependency hashes, not a green replay.
+No fidelity or completion flag changes.
+
+The [frame-fixture dependency repair](docs/recovery/frame-fixture-dependencies-20261103.md)
+freshly recaptures both affected original corpora with complete compressed and
+decoded byte equality. Its four pin updates restore all six affected local
+CTests. Native Windows Python passes with two explicit hard-link skips on the
+RAM-backed UNC path. This is not new-head hosted green or an actor-fidelity fix.
+
+The [stopped-read witness](docs/recovery/actor-stop-read-witness-20261103.md)
+adds bounded `/proc`/`ptrace`/`/proc` agreement and repeated native-register
+sampling to future guard captures. Actual synthetic kernel calibration and
+failure/cleanup controls pass. These interfaces share a kernel and do not
+prove the earlier loads or clear the retained actor failure.
+
+The [entry-ID operand observer](docs/recovery/actor-entry-id-operands-20261103.md)
+qualifies five separate native entry guards and retains four-byte IDs with
+the stopped-read witness. REA/Ghidra confirms 27 selected native instructions.
+Sixteen entry-watched historical replays pass without a guard hit; this is
+bounded non-reproduction and leaves every retained failure and hold intact.
+
 ## Post-Queue Tail CPU Recovery (2026-10-22)
 
 The [independent tail operation](docs/recovery/frame_tail_cpu_2026-10-22.md)

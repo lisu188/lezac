@@ -12,6 +12,10 @@ import subprocess
 import time
 
 from actor_pass_supervision import allow_parent_debugger, collect_guard
+from actor_pass_contact_operands import (GUARD_BANKS, PROFILES, StoppedOperandReader,
+                                        observe_contact_operands, verify_pinned_contact_sites)
+from actor_pass_entry_operands import (ENTRY_GUARD_BANKS, ENTRY_MESSAGE, ENTRY_PROFILES,
+                                      observe_entry_operands, verify_pinned_entry_sites)
 
 EXPECTED = 'b1c719393f987cd2a98090055c8cc06d5d71589090599a36f32c4d2fd5da47f6'
 WATCH_OFFSETS = (0x2520, 0x2330, 0x3abf4, 0x8acf9)
@@ -49,18 +53,38 @@ def run(args):
     layout = json.loads(args.layout.read_bytes())
     if layout != dict(debug_offset=848, register_bytes=ctypes.sizeof(Registers), word_bytes=8):
         raise ValueError('Compiled native ptrace layout differs')
+    calibration = args.calibrate_unit or args.calibrate_cli
+    bank = getattr(args, 'contact_guard_bank', None)
+    entry_bank = getattr(args, 'entry_id_guard_bank', None)
+    if bank not in (None, 'all', *GUARD_BANKS):
+        raise ValueError('Unknown contact guard bank')
+    if entry_bank not in (None, 'all', *ENTRY_GUARD_BANKS):
+        raise ValueError('Unknown entry-ID guard bank')
+    if bank and entry_bank:
+        raise ValueError('Contact and entry-ID guard banks are mutually exclusive')
+    if args.calibrate_cli and (bank or entry_bank):
+        raise ValueError('Guard banks are not invalid-argv calibrations')
+    targeted = args.validation_only or bank is not None or entry_bank is not None
+    calibration_kind = None
+    if args.calibrate_cli:
+        calibration_kind = 'invalid_argv'
+    elif args.calibrate_unit:
+        calibration_kind = ('unit_negative_controls_entry_id_guards' if entry_bank else
+            'unit_negative_controls_contact_guards' if bank else 'unit_negative_controls')
     args.out.mkdir()
     protected = {str(p.resolve()): sha(p) for p in (args.exe, args.symbols, args.fixture, args.root / 'LEZAC.EXE',
         args.layout, Path(__file__), Path(__file__).with_name('actor_pass_guard_gdb.py'),
-        Path(__file__).with_name('actor_pass_supervision.py'))}
-    calibration = args.calibrate_unit or args.calibrate_cli
+        Path(__file__).with_name('actor_pass_supervision.py'),
+        Path(__file__).with_name('actor_pass_contact_operands.py'),
+        Path(__file__).with_name('actor_pass_entry_operands.py'))}
     report = dict(status='running', historical_elf_sha256=EXPECTED, attempts=[], core_dump_limit=0,
         protected_inputs_sha256=protected, software_breakpoints=0, preload_hooks=0,
         code_or_guest_data_writes=0, debug_register_writes=0, calibration=calibration,
-        calibration_kind='invalid_argv' if args.calibrate_cli else ('unit_negative_controls' if calibration else None),
+        calibration_kind=calibration_kind,
         late_attach=not calibration, watch_offsets=list(WATCH_OFFSETS), intermittent_hold_cleared=False,
         cleanup_owner='supervising-parent', ptrace_permission='parent-and-descendants-only',
-        validation_only=args.validation_only, uncaptured_failures=[])
+        validation_only=targeted, contact_guard_bank=bank, entry_id_guard_bank=entry_bank,
+        watch_history=[], uncaptured_failures=[])
     child = None
     captured = False
     def prepare_child():
@@ -69,6 +93,11 @@ def run(args):
             ptrace(0, 0)
     try:
         for attempt in range(args.attempts):
+            selected_bank = tuple(GUARD_BANKS)[attempt % len(GUARD_BANKS)] if bank == 'all' else bank
+            watches = GUARD_BANKS[selected_bank] if selected_bank else WATCH_OFFSETS
+            if entry_bank:
+                selected_bank = tuple(ENTRY_GUARD_BANKS)[attempt % len(ENTRY_GUARD_BANKS)] if entry_bank == 'all' else entry_bank
+                watches = ENTRY_GUARD_BANKS[selected_bank]
             arguments = [] if args.calibrate_unit else [str(args.fixture)] if args.calibrate_cli else [str(args.fixture), str(args.root)]
             child = subprocess.Popen([str(args.exe), *arguments],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -91,12 +120,17 @@ def run(args):
             if len(owned) != 1:
                 raise ValueError('Owned historical executable mapping differs')
             base = int(owned[0][0].split('-')[0], 16) - int(owned[0][2], 16)
-            for slot, offset in enumerate(WATCH_OFFSETS):
+            for slot, offset in enumerate(watches):
                 ptrace(6, child.pid, 848 + slot * 8, base + offset)
             ptrace(6, child.pid, 848 + 6 * 8, 0)
-            enabled = range(2, len(WATCH_OFFSETS)) if args.validation_only else range(len(WATCH_OFFSETS))
+            enabled = [slot for slot, offset in enumerate(watches)
+                       if not targeted or offset in PROFILES or offset in ENTRY_PROFILES]
             ptrace(6, child.pid, 848 + 7 * 8, sum(1 << (slot * 2) for slot in enabled))
-            report['debug_register_writes'] += len(WATCH_OFFSETS) + 2
+            report['debug_register_writes'] += len(watches) + 2
+            report['watch_offsets'] = list(watches)
+            report['watch_history'].append(dict(attempt=attempt, bank=selected_bank,
+                family='entry-id' if entry_bank else 'contact' if bank else 'default',
+                offsets=list(watches), enabled_slots=enabled))
             ptrace(7, child.pid)
             deadline = time.monotonic() + 180
             while True:
@@ -113,7 +147,7 @@ def run(args):
                     (args.out / f'{attempt}.stderr').write_bytes(stderr)
                     report['attempts'].append(dict(attempt=attempt, exit_code=child.returncode))
                     if child.returncode:
-                        if args.validation_only and child.returncode == 1 and b'frame_actor_pass=failed ' in stderr:
+                        if targeted and child.returncode == 1 and b'frame_actor_pass=failed ' in stderr:
                             report['uncaptured_failures'].append(dict(attempt=attempt, stderr=stderr.decode('ascii')))
                             break
                         raise RuntimeError('Historical replay failed without a captured hardware stop')
@@ -124,39 +158,48 @@ def run(args):
                 registers = Registers()
                 ptrace(12, child.pid, 0, ctypes.addressof(registers))
                 selected_slot = slot_mask.bit_length() - 1
-                if registers.rip != base + WATCH_OFFSETS[selected_slot]:
+                if registers.rip != base + watches[selected_slot]:
                     raise ValueError('Hardware stop address differs from its pinned slot')
+                report.update(status='hardware_guard_stop', stopped_attempt=attempt,
+                    hardware_stop_slot_mask=slot_mask, stopped_pid=child.pid,
+                    runtime_base=hex(base), registers={n: int(getattr(registers, n)) for n, _ in Registers._fields_})
                 with open(f'/proc/{child.pid}/mem', 'rb', buffering=0) as memory:
-                    if selected_slot >= 2:
+                    if watches[selected_slot] in PROFILES:
                         message = 'Frame actor contact ID-toggle/callee ownership differs'
-                        # The registers() instantiation has the same layout shifted by 16 bytes.
-                        # Only four game/id ownership pairs and the variant tag are retained.
-                        shift = 0x10 if selected_slot == 3 else 0
-                        pairs = {}
-                        for name, offset in [('parent', 0x17a0), ('prefix_child', 0x1770),
-                                             ('contact_child', 0xfd0), ('source_parent', 0x1fc0)]:
-                            raw = os.pread(memory.fileno(), 8, registers.rsp + offset + shift)
-                            if len(raw) != 8:
-                                raise ValueError('Native validation operand read was incomplete')
-                            value = int.from_bytes(raw, 'little')
-                            pairs[name] = dict(gameSegment=value & 0xffff, idToggleMask=value >> 32)
-                        tag = os.pread(memory.fileno(), 1, registers.rsp + 0x1fb8 + shift)
-                        if len(tag) != 1:
-                            raise ValueError('Native validation tag read was incomplete')
-                        report['native_validation'] = dict(ownership=pairs, source_variant_tag=tag[0],
-                            profile='ActorUpdate.registers' if shift else 'ActorUpdate.interruptInProgress',
-                            host_metadata_bytes_read=33, source='pinned-ELF-stack-offsets',
-                            interpretation_claim=False)
+                    elif watches[selected_slot] in ENTRY_PROFILES:
+                        message = ENTRY_MESSAGE
                     else:
                         message = os.pread(memory.fileno(), 160, registers.rsi).split(b'\0', 1)[0].decode('ascii')
-                report.update(status='hardware_guard_stop', message=message, stopped_attempt=attempt,
-                    hardware_stop_slot_mask=slot_mask,
-                    stopped_pid=child.pid, runtime_base=hex(base), registers={n: int(getattr(registers, n)) for n, _ in Registers._fields_})
+                    report['message'] = message
+                    contact = message == 'Frame actor contact ID-toggle/callee ownership differs'
+                    entry = watches[selected_slot] in ENTRY_PROFILES
+                    if contact or entry:
+                        if entry:
+                            verify_pinned_entry_sites(args.exe.read_bytes())
+                        else:
+                            verify_pinned_contact_sites(args.exe.read_bytes())
+                        reader = StoppedOperandReader(
+                            lambda address, size: os.pread(memory.fileno(), size, address),
+                            lambda address: ptrace(2, child.pid, address))
+                        report['stop_read_witness'] = reader.report
+                        live_registers = {name: int(getattr(registers, name)) for name, _ in Registers._fields_}
+                        report['native_validation'] = (observe_entry_operands(reader.read, live_registers,
+                            watches[selected_slot]) if entry else observe_contact_operands(reader.read,
+                            registers.rsp, base, watches[selected_slot], live_registers))
+                        repeated = Registers()
+                        ptrace(12, child.pid, 0, ctypes.addressof(repeated))
+                        witness = reader.finish(bytes(registers) == bytes(repeated))
+                        if witness['status'] != 'cross_reader_agreement':
+                            report['repeated_registers'] = {n: int(getattr(repeated, n)) for n, _ in Registers._fields_}
+                            raise ValueError('Stopped actor memory or register observations disagree')
+                    elif message == ENTRY_MESSAGE:
+                        report['native_validation'] = dict(status='unsupported_entry_constructor_layout',
+                            capture_phase='after-allocation-at-constructor-entry', interpretation_claim=False)
                 ptrace(6, child.pid, 848 + 7 * 8, 0)
-                for slot in range(len(WATCH_OFFSETS)):
+                for slot in range(len(watches)):
                     ptrace(6, child.pid, 848 + slot * 8, 0)
                 ptrace(6, child.pid, 848 + 6 * 8, 0)
-                report['debug_register_writes'] += len(WATCH_OFFSETS) + 2
+                report['debug_register_writes'] += len(watches) + 2
                 ptrace(17, child.pid, 0, signal.SIGSTOP)
                 deadline = time.monotonic() + 5
                 while time.monotonic() < deadline:
@@ -211,6 +254,9 @@ if __name__ == '__main__':
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--attempts', type=int, default=8)
     parser.add_argument('--validation-only', action='store_true')
+    guards = parser.add_mutually_exclusive_group()
+    guards.add_argument('--contact-guard-bank', choices=('all', *GUARD_BANKS))
+    guards.add_argument('--entry-id-guard-bank', choices=('all', *ENTRY_GUARD_BANKS))
     calibration = parser.add_mutually_exclusive_group()
     calibration.add_argument('--calibrate-unit', action='store_true')
     calibration.add_argument('--calibrate-cli', action='store_true')

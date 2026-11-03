@@ -1097,6 +1097,12 @@ if(BUILD_TESTING)
             add_test(NAME frame_actor_pass_supervision COMMAND ${Python3_EXECUTABLE} -S -B
                 ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_pass_supervision.py -v)
             set_tests_properties(frame_actor_pass_supervision PROPERTIES TIMEOUT 30)
+            add_test(NAME frame_actor_pass_contact_operands COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_pass_contact_operands.py -v)
+            set_tests_properties(frame_actor_pass_contact_operands PROPERTIES TIMEOUT 30)
+            add_test(NAME frame_actor_pass_entry_operands COMMAND ${Python3_EXECUTABLE} -S -B
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_actor_pass_entry_operands.py -v)
+            set_tests_properties(frame_actor_pass_entry_operands PROPERTIES TIMEOUT 30)
         endif()
         add_test(NAME frame_actor_pass_fixture_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_frame_actor_pass_fixture.py -v)

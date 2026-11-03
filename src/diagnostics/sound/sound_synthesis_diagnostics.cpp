@@ -452,7 +452,7 @@ void SoundDiagnostics::debugSoundTickStaticModel() {
     int byteReads = countBytes("26 8a 45");
     int wordReads = countBytes("26 81 3d") + countBytes("26 ff 35");
     int tailReadPatterns = 0;
-    for (const std::string& pattern : {
+    for (const std::string pattern : {
              "26 8a 45 04", "26 8a 45 05", "26 8b 45 04",
              "26 8b 45 05", "26 ff 75 04", "26 ff 75 05",
          }) {

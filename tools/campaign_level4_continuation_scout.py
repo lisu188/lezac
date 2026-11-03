@@ -67,6 +67,17 @@ def pinned():
     return source, fidelity.strict_json(guard.decode('utf-8'))
 
 
+def actor_pass_optional(before, after):
+    flow = before['flow']
+    if any(flow[index] for index in (0, 2, 3, 4)):
+        return True
+    # App's reentry prepass can reset the run before its actor-pass observer.
+    return (after['flow'][:5] == [1, 5, 0, 0, 0] and after['level'] == 1 and
+            after['flow'][6] == flow[6] + 1 and
+            all(player['health'][2] and player['health'][1] == 0
+                for player in before['players'][:before['player_count']]))
+
+
 def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
     check((directory / 'trace.jsonl').is_file(), 'missing scout trace')
     expected_native = support.fixture()[-2]
@@ -91,6 +102,8 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
     first_gain = None
     lowest_health = None
     first_level5 = None
+    first_dead = None
+    first_game_over = None
     gate_ticks = []
     final = None
     baseline_words = bytes.fromhex(endpoint['words_hex'])
@@ -144,9 +157,7 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
                 prev_index = phase_order.index(previous_phase)
                 allowed = ({(previous_tick, phase_order[prev_index + 1])} if prev_index < 3
                            else {(previous_tick + 1, 'input')})
-                if previous_phase == 'present' and (
-                        previous_state.get('flow', [0] * 5)[3] or
-                        previous_state.get('flow', [0] * 5)[4]):
+                if previous_phase == 'present' and actor_pass_optional(previous_state, row['state']):
                     allowed.add((previous_tick, 'post_update'))
                 check((tick, phase) in allowed, 'invalid C++ checkpoint phase progression')
             previous_phase, previous_tick, previous_state = phase, tick, row['state']
@@ -197,6 +208,10 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
             health = state['players'][0]['health'][0]
             lowest_health = health if lowest_health is None else min(lowest_health, health)
             player = state['players'][0]
+            if player['health'][2] and first_dead is None:
+                first_dead = tick
+            if state['flow'][:2] == [1, 5] and first_game_over is None:
+                first_game_over = tick
             bombs = state.get('bombs', [])
             present_counts = (len(bombs), player['inventory'][1], health,
                               state['progress'][1], len(state.get('flames', [])))
@@ -248,6 +263,7 @@ def inspect_trace(directory, endpoint, pattern, last, route, settings, events):
                 route_end_tick=last, baseline_destroyed=244, best_destroyed=best_destroyed,
                 new_destruction=best_destroyed - 244, first_gain_tick=first_gain,
                 lowest_health=lowest_health, final_level=final['level'],
+                first_dead_tick=first_dead, first_game_over_tick=first_game_over,
                 final_objectives=final['progress'][0], final_destroyed=final['progress'][1],
                 final_health=final['players'][0]['health'][0],
                 final_player_xy=[final['players'][0]['x'], final['players'][0]['y']],
@@ -340,8 +356,8 @@ class ScoutChecks(unittest.TestCase):
                                  score=51190, animation=[1, 10, 17, 1, 4, 0, 1],
                                  inventory=[200, 4, 0, 0, 1], hud_score=[51190, 2],
                                  health=[22, 0]),
-                            dict(inventory=[200, 20, 6, 0, 0])])
-        state = dict(endpoint, collapse=[], players=[
+                            dict(inventory=[200, 20, 6, 0, 0], health=[100, 2, 0])])
+        state = dict(endpoint, collapse=[], player_count=1, flow=[0, 0, 0, 0, 0, 0, 5, 0], players=[
             {**endpoint['players'][0], 'health': [22, 0, False]},
             endpoint['players'][1]])
         seed, step = 305441741, 40800
@@ -403,6 +419,46 @@ class ScoutChecks(unittest.TestCase):
                     row['seq'] -= 1
                 rows[-1]['retained_checkpoints'] = 7
                 rows[-1]['checkpoints'] = 7
+            elif mutation == 'missing_actors':
+                rows.pop(3)
+                for index, row in enumerate(rows[1:-1]):
+                    row['seq'] = index
+                rows[-1]['retained_checkpoints'] = 7
+                rows[-1]['checkpoints'] = 7
+            elif mutation and (mutation.startswith('inactive_') or mutation.startswith('game_over')):
+                if mutation.startswith('inactive_'):
+                    index = {'menu': 0, 'paused': 2, 'intro': 3, 'outro': 4}[mutation.removeprefix('inactive_')]
+                    for row in rows[5:9]:
+                        row['state']['flow'][index] = 1
+                else:
+                    for row in rows[5:7]:
+                        row['state']['players'][0]['health'] = [100, 0, 1, 0, 0]
+                    rows[8]['state']['flow'] = [1, 5, 0, 0, 0, 0, 6, 0]
+                    rows[8]['state']['level'] = 1
+                    rows[8]['state']['players'][0]['health'] = [100, 2, 0, 0, 0]
+                    if mutation == 'game_over_alive':
+                        rows[6]['state']['players'][0]['health'][2] = 0
+                    elif mutation == 'game_over_reserve':
+                        rows[6]['state']['players'][0]['health'][1] = 1
+                    elif mutation == 'game_over_page':
+                        rows[8]['state']['flow'][1] = 0
+                    elif mutation == 'game_over_generation':
+                        rows[8]['state']['flow'][6] = 5
+                    elif mutation == 'game_over_level':
+                        rows[8]['state']['level'] = 4
+                    elif mutation.startswith('game_over_two_'):
+                        for row in rows[5:7]:
+                            row['state']['player_count'] = 2
+                            row['state']['players'][1]['health'] = [100, 0, 1]
+                        if mutation == 'game_over_two_alive':
+                            rows[6]['state']['players'][1]['health'][2] = 0
+                        elif mutation == 'game_over_two_reserve':
+                            rows[6]['state']['players'][1]['health'][1] = 1
+                rows.pop(7)
+                for index, row in enumerate(rows[1:-1]):
+                    row['seq'] = index
+                rows[-1]['retained_checkpoints'] = 7
+                rows[-1]['checkpoints'] = 7
             (root / 'trace.jsonl').write_text(
                 '\n'.join(json.dumps(row) for row in rows) + '\n', encoding='utf-8')
             expected = dict(section='level4', index=BASE, phase='post_update')
@@ -434,6 +490,25 @@ class ScoutChecks(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'invalid'):
                 self.attempt_trace(variant)
 
+    def test_inactive_ui_actor_pass_omission_accepted(self):
+        for mode in ('menu', 'paused', 'intro', 'outro'):
+            with self.subTest(mode=mode):
+                report = self.attempt_trace('inactive_' + mode)
+                self.assertEqual(report['post_update_states'], 2)
+                self.assertIsNone(report['first_game_over_tick'])
+
+    def test_game_over_prepass_omission_accepted(self):
+        for mutation in ('game_over', 'game_over_two_dead'):
+            report = self.attempt_trace(mutation)
+            self.assertEqual(report['first_game_over_tick'], BASE + 1)
+            self.assertEqual(report['final_level'], 1)
+            self.assertFalse(report['original_game_verified'])
+
+    def test_uncorroborated_game_over_omission_rejected(self):
+        for control in ('alive', 'reserve', 'page', 'generation', 'level', 'two_alive', 'two_reserve'):
+            with self.subTest(control=control), self.assertRaisesRegex(ValueError, 'phase progression'):
+                self.attempt_trace('game_over_' + control)
+
     def test_invalid_checkpoint_state_rejected(self):
         with self.assertRaisesRegex(ValueError, 'invalid checkpoint health'):
             self.attempt_trace('invalid_state')
@@ -451,7 +526,7 @@ class ScoutChecks(unittest.TestCase):
             self.attempt_trace('player')
 
     def test_omitted_post_update_or_present_rejected(self):
-        for mutation in ('missing', 'missing_present'):
+        for mutation in ('missing', 'missing_present', 'missing_actors'):
             with self.assertRaisesRegex(ValueError, r'(missing|invalid|incomplete)'):
                 self.attempt_trace(mutation)
 
@@ -470,7 +545,7 @@ def main():
             unittest.defaultTestLoader.loadTestsFromTestCase(ScoutChecks))
         if not result.wasSuccessful():
             raise SystemExit(1)
-        print('campaign_level4_continuation_scout=ok checks=13 candidates=3')
+        print('campaign_level4_continuation_scout=ok checks=16 candidates=3')
         return
     check(args.exe is not None and args.out is not None, 'executable and output required')
     report = replay(args.exe, args.out, args.pattern, args.ticks, args.timeout)

@@ -35,7 +35,7 @@ guard stimulus **and the complete original-backed projected player, actor, and
 terrain state**. It verifies the actual route, all input/time boundaries, each
 ordered checkpoint, the full presentation/post-update count and the replay
 footer. Selected captured RGB buffers are checked against their reported FNV
-fingerprints. Thirteen focused regression tests include corrupted routes, changed
+fingerprints. Sixteen focused regression tests include corrupted routes, changed
 player state, invalid checkpoint state, invalid phase transitions, omitted checkpoint/frame rejection and post-end checkpoint rejection. The summary reports additional destruction, minimum health, completion-gate
 candidates and any **C++-only** Level 5 entry. The alternate-route follow-up
 also retains bounded per-tick observations near bomb placement and when active
@@ -56,3 +56,13 @@ No synthetic route is promoted to an original-evidence fixture. A candidate
 can also produce zero additional destruction or lead to player death; both
 outcomes are legitimate exploratory findings. The existing 3/7 campaign
 coverage and broad completion/fidelity flags remain unchanged.
+
+The actor-pass checkpoint is optional for menu, pause, intro and outro frames,
+as in the production update guards. An active gameplay presentation can also
+reach Game Over during the reentry prepass, before the actor observer runs.
+That omission requires all active players to be dead with zero reserve, the
+Game Over page, a reset to Level 1 and exactly one reset-generation increment.
+Seven negative controls reject uncorroborated Game Over omissions, including
+two-player cases with a living player or remaining reserve. Ordinary
+gameplay still requires its actor-pass checkpoint. Candidate summaries report
+the first observed death and Game Over ticks without claiming original parity.

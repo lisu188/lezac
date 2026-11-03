@@ -55,9 +55,11 @@ That distinction should be stated wherever such a pin is registered.
   `flame_lifecycle_runtime_2026-09-06.md` for scope and remaining gaps.
 
 - `debris_shatter_dice_phase` — the port's `logicTick_` standing in for the
-  original's `DS:78C2` in the landing-shatter dice `(frame + slot) % 6 > 2`.
+  original's `DS:78C2` in the landing-shatter dice `uint16_t(frame + slot) % 6 > 2`.
   The mechanism is byte-cited; the equivalence of the two counters' PHASE is
   not, so a shatter can fire on a different tick than the original's would.
+  The [WORD-sum rollover fix](debris_shatter_wrap_20261103.md) establishes the
+  arithmetic width independently; it does not close this counter-phase item.
 
 ## Deliberately not listed
 

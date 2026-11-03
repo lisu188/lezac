@@ -32424,10 +32424,11 @@ private:
                 }
                 // Landing shatter 4AE6..4B32. The dice is
                 // (DS:78C2 + slot) mod 6 â€” a frame counter, not the RNG; the
+                // ADD AX at 4AFD wraps before unsigned DIV 6 at 4B05. The
                 // port's logicTick_ stands in for DS:78C2 (INFERRED @unevidenced:debris_shatter_dice_phase,
                 // equivalence, phase not pinned against the original).
                 if (vy > 0 && vy > kDebrisLandingShatterVyGate && code > 0x66 &&
-                    (logicTick_ + static_cast<uint32_t>(slot)) % 6u > 2u) {
+                    static_cast<uint16_t>(logicTick_ + static_cast<uint32_t>(slot)) % 6u > 2u) {
                     setObjectByte(pos, kDebrisShatterFrame);  // 4B16
                     debrisQueue_[i].lookup = kDebrisShatterFrame;
                     code = kDebrisShatterFrame;

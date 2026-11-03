@@ -26,6 +26,35 @@ PRODUCER_SHA256 = '788ad44a1a4592a3c0bb79fde0f4a6c20399b97e85bf3785c66b73b7640d5
 BASE_OBSERVER = ROOT / 'docs/recovery/evidence/pickup_landing_2026-10-01/base-observer.py'
 BASE_SHA256 = 'acb311ed85fb594afc1d92d6774036a742388339b920bcc0f81206cabfb30dec'
 require = fidelity.require
+LANDING_PHASE_ANCHORS = ((992, 567, 210), (1010, 585, 210), (1020, 595, 212), (1037, 612, 213))
+
+
+def landing_phase_witnesses(rows):
+    """Identify original landing decisions that distinguish the current clock from the prior one."""
+    boundaries = rows[1:-1]
+    require(len(boundaries) == 2 * FRAMES, 'natural debris phase extent differs')
+    witnesses = []
+    for index in range(FRAMES):
+        before, after = boundaries[2 * index:2 * index + 2]
+        for phase, row in (('present', before), ('post_update', after)):
+            require((row['tick'], row['phase'], row['mapped']['frame']) ==
+                    (FIRST_TICK + index, phase, 318 + index), 'natural debris clock continuity differs')
+            require(row['tables']['last_live_debris'] == 199 + len(row['tables']['debris']),
+                    'natural debris phase live bound differs')
+        for position, (old, new) in enumerate(zip(before['tables']['debris'], after['tables']['debris'])):
+            # These four witnessed records keep their physical slots across the update.
+            if old[1] != new[1] or old[7] >= 0x76 or new[7] != 0x76:
+                continue
+            require(old[7] > 0x66 and old[3] > 0x3c, 'natural shatter is not a landing witness')
+            frame, slot = after['mapped']['frame'], 200 + position
+            current = ((frame + slot) & 65535) % 6
+            previous = ((frame - 1 + slot) & 65535) % 6
+            require(current > 2 and previous <= 2, 'natural shatter does not distinguish clock phase')
+            witnesses.append({'tick': after['tick'], 'frame': frame, 'slot': slot,
+                'before': old, 'after': new, 'current_remainder': current, 'previous_remainder': previous})
+    require(tuple((row['tick'], row['frame'], row['slot']) for row in witnesses) == LANDING_PHASE_ANCHORS,
+            'natural landing phase witness coverage differs')
+    return witnesses
 
 
 def compact_boundary(value):
@@ -187,6 +216,7 @@ def fixture(root=FIXTURE):
             rows[-1] == {'kind': 'complete', 'boundaries': FRAMES * 2, 'patches_restored': True},
             'natural Level 2 fixture extent differs')
     require(rows[0]['assets'] == {name: fidelity.sha256(ROOT / name) for name in fidelity.ASSETS}, 'fixture assets differ')
+    landing_phase_witnesses(rows)
     return rows
 
 

@@ -112,7 +112,9 @@ def check_source(source):
         'physicsDispatch ? cases * 16 : continuousCollapse ? cases * 8 : cases',
         'const uint32_t steps = physicsDispatch ? 16 : continuousCollapse ? 8 : 1;',
         'if (physicsDispatch) { if (!debrisQueue_.empty()) updateDebrisRecords(); '
-            'if (!collapseQueue_.empty()) updateCollapseRecords(); } else if (!continuousCollapse || !collapseQueue_.empty()) {')
+            'if (!collapseQueue_.empty()) updateCollapseRecords(); } '
+            'else if (debrisClockPhase) { updateWithControls(FrameControls{}, 0.0f); } '
+            'else if (!continuousCollapse || !collapseQueue_.empty()) {')
     if any(diagnostic.count(compact(token)) != 1 for token in required):
         raise ValueError('physics dispatch mode, dimensions or original gated phase order differs')
     cli = compact('"--debug-original-physics-dispatch") { app.debugOriginalDebrisUpdate(argv[2], argv[3], '
@@ -208,6 +210,8 @@ def self_check(data, source):
         ('logicTick_ = static_cast<uint16_t>(initialTick + step);', 'logicTick_ = initialTick;'),
         ('logicTick_ = static_cast<uint16_t>(initialTick + step);', 'logicTick_ = static_cast<uint16_t>(initialTick + step); resetLevel(0);'),
         ('logicTick_ = static_cast<uint16_t>(initialTick + step);', 'logicTick_ = static_cast<uint16_t>(initialTick + step); take(26730);'),
+        ('else if (debrisClockPhase) {', 'else if (true) {'),
+        ('updateWithControls(FrameControls{}, 0.0f);', 'updateDebrisRecords();'),
         ('true, false, false, true, false, true, true, false, true);', 'true, false, false, true, false, true, true, false, false);'))
     for old, new in mutations:
         mutant = source.replace(old, new)
@@ -284,7 +288,7 @@ def self_check(data, source):
                     raise ValueError('physics dispatch rerun changed prior evidence')
             preserved = {path: sha(path.read_bytes()) for path in root.rglob('*') if path.is_file()}
             attempts += len(calls)
-    print('physics_dispatch_checker=ok source_mutants=12 metadata_mutants=8 fixture_mutants=4 sequence_mutants=3 '
+    print('physics_dispatch_checker=ok source_mutants=' + str(len(mutations)) + ' metadata_mutants=8 fixture_mutants=4 sequence_mutants=3 '
         'output_mutants=5 mocked_failures=' + str(failures) + ' mocked_batches=' + str(attempts) + ' production_app=0')
 
 

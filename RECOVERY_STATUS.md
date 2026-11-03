@@ -4,6 +4,56 @@ Last reviewed: 2026-09-19
 Branch: `codex/recover-player-key-ownership`
 Baseline: `origin/main` at PR #234
 
+## Actor Stability Investigation (2026-11-02)
+
+The [stability investigation](docs/recovery/actor-stability-20261102.md) freshly
+reproduces the historical optimized actor-pass failure in ordinary execution
+and captures a real ownership exception before unwinding. REA/Ghidra confirms
+the two original instructions at the observed CX mismatch boundaries. Eight
+focused CTests initially passed, but a later current-model run passed seven of
+nine and reproduced the failure in full replay and its CLI positive control.
+The [follow-up](docs/recovery/actor-stability-followup-20261102.md) records
+preservation and review fixes with dual original recapture. The root cause and
+the dependent frame-recovery merge hold remain open. Bounded observer passes
+do not clear that hold. No global fidelity or completion percentage changes.
+
+The [copy-isolation follow-up](docs/recovery/actor-copy-isolation-20261102.md)
+retains a new context-enabled ownership failure at case 722, mode 6, row 251.
+Synthetic copies, focused Memcheck and bounded GCC/Clang replay controls pass,
+but do not identify the cause. CLI diagnostics now surface bounded child output;
+source-mutation probes also handle Windows checkout newlines. No production
+guard is relaxed, and the actor-pass integration hold remains open.
+
+The [ownership-operand observation](docs/recovery/actor-owner-operands-20261103.md)
+maps that retained cursor to original `JBE 654E`, confirmed with REA/Ghidra on
+WSL. A separate real historical throw retains matching ownership fields after
+exception allocation, not proof about the earlier guard reads. The observer
+now identifies eight inline constructor sites and supports three pinned operand
+layouts. The cause and integration hold remain open.
+
+The [before-allocation follow-up](docs/recovery/actor-preallocation-20261103.md)
+extends guard coverage to eight sites and avoids uninitialized constructor-tag
+storage. REA/Ghidra selected instruction bytes agree with the historical ELF;
+format-specific ELF load attestation remains unavailable. Sixteen watched
+replays and a 500000-iteration computed handoff control pass. A second campaign
+then catches a real transition guard before exception allocation after nine
+passing replays, retaining native register/flag operands and matching bounded
+ownership fields. Their cause is still unresolved. The older #472 Windows
+full suite exposes two stale fixture dependency hashes, not a green replay.
+No fidelity or completion flag changes.
+
+The [frame-fixture dependency repair](docs/recovery/frame-fixture-dependencies-20261103.md)
+freshly recaptures both affected original corpora with complete compressed and
+decoded byte equality. Its four pin updates restore all six affected local
+CTests. Native Windows Python passes with two explicit hard-link skips on the
+RAM-backed UNC path. This is not new-head hosted green or an actor-fidelity fix.
+
+The [stopped-read witness](docs/recovery/actor-stop-read-witness-20261103.md)
+adds bounded `/proc`/`ptrace`/`/proc` agreement and repeated native-register
+sampling to future guard captures. Actual synthetic kernel calibration and
+failure/cleanup controls pass. These interfaces share a kernel and do not
+prove the earlier loads or clear the retained actor failure.
+
 ## Post-Queue Tail CPU Recovery (2026-10-22)
 
 The [independent tail operation](docs/recovery/frame_tail_cpu_2026-10-22.md)

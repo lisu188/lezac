@@ -13,23 +13,63 @@ import capture_original_debris_wrap as wrap
 import check_original_debris_phase as checker
 
 
+def recompress(raw, compresslevel=9):
+    buffer = io.BytesIO()
+    with gzip.GzipFile(fileobj=buffer, mode='wb', filename='', mtime=0, compresslevel=compresslevel) as destination:
+        destination.write(raw)
+    return buffer.getvalue()
+
+
 class DebrisPhaseTests(unittest.TestCase):
-    def test_fixture_gzip_is_platform_independent(self):
+    def test_fixture_gzip_metadata_and_lossless_recompression(self):
         frozen = checker.FIXTURE.read_bytes()
-        buffer = io.BytesIO()
-        with gzip.GzipFile(fileobj=buffer, mode='wb', filename='', mtime=0, compresslevel=9) as destination:
-            destination.write(gzip.decompress(frozen))
-        self.assertEqual(frozen, buffer.getvalue())
-        self.assertEqual((frozen[3], frozen[4:8], frozen[9]), (0, bytes(4), 255))
+        raw = gzip.decompress(frozen)
+        metadata = json.loads(checker.META.read_bytes())
+        self.assertEqual(checker.sha(frozen), metadata['fixture_sha256'])
+        self.assertEqual((len(raw), checker.sha(raw)), (metadata['decoded_bytes'], metadata['decoded_sha256']))
+        self.assertEqual(frozen[:10], bytes.fromhex('1f8b08000000000002ff'))
+        # DEFLATE encoding can vary across runtimes; the frozen evidence may not.
+        encoded = recompress(raw)
+        self.assertEqual(encoded, recompress(raw))
+        self.assertEqual(encoded[:10], frozen[:10])
+        self.assertEqual(encoded[-8:], frozen[-8:])
+        self.assertEqual(gzip.decompress(encoded), raw)
 
     def test_level_six_does_not_reproduce_frozen_fixture(self):
         frozen = checker.FIXTURE.read_bytes()
-        buffer = io.BytesIO()
-        with gzip.GzipFile(fileobj=buffer, mode='wb', filename='', mtime=0, compresslevel=6) as destination:
-            destination.write(gzip.decompress(frozen))
-        self.assertNotEqual(frozen, buffer.getvalue())
-        self.assertEqual(gzip.decompress(frozen), gzip.decompress(buffer.getvalue()))
-        self.assertEqual((frozen[8], buffer.getvalue()[8]), (2, 0))
+        encoded = recompress(gzip.decompress(frozen), compresslevel=6)
+        self.assertNotEqual(frozen, encoded)
+        self.assertEqual(gzip.decompress(frozen), gzip.decompress(encoded))
+        self.assertEqual((frozen[8], encoded[8]), (2, 0))
+
+    def test_lossless_reencoding_cannot_replace_frozen_evidence(self):
+        frozen = checker.FIXTURE.read_bytes()
+        raw = gzip.decompress(frozen)
+        encoded = recompress(raw, compresslevel=0)
+        self.assertNotEqual(frozen, encoded)
+        self.assertEqual(gzip.decompress(encoded), raw)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'reencoded.gz'
+            path.write_bytes(encoded)
+            with mock.patch.object(checker, 'FIXTURE', path), self.assertRaisesRegex(ValueError, 'fixture differs'):
+                checker.read_cases()
+
+    def test_decoded_payload_hash_is_checked_after_container_hash(self):
+        raw = gzip.decompress(checker.FIXTURE.read_bytes())
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for changed in (raw[:-1], raw + b'\0', raw[:100] + bytes((raw[100] ^ 1,)) + raw[101:]):
+                encoded = recompress(changed)
+                fixture, metadata = root / 'fixture.gz', root / 'metadata.json'
+                fixture.write_bytes(encoded)
+                value = json.loads(checker.META.read_bytes())
+                value['fixture_sha256'] = checker.sha(encoded)
+                metadata.write_bytes(json.dumps(value).encode('ascii'))
+                with self.subTest(decoded_bytes=len(changed)), mock.patch.object(checker, 'FIXTURE', fixture), \
+                        mock.patch.object(checker, 'META', metadata), \
+                        mock.patch.object(checker, 'META_SHA', checker.sha(metadata.read_bytes())), \
+                        self.assertRaisesRegex(ValueError, 'decoded extent differs'):
+                    checker.read_cases()
 
     def test_frozen_domain_and_late_phase_counterexamples(self):
         cases = checker.read_cases()

@@ -11,7 +11,7 @@ provenance without changing the historical ELF or production game operations.
 For each supported operand, the observer now performs, without resuming the
 owned child:
 
-1. A bounded `/proc/PID/mem` read of one byte or eight bytes.
+1. A bounded `/proc/PID/mem` read of one, four or eight bytes.
 2. A `PTRACE_PEEKDATA` native-word read at the same address, retaining only the
    requested logical bytes in the typed private report.
 3. A second bounded `/proc/PID/mem` read.

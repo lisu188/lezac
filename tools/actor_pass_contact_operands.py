@@ -45,8 +45,8 @@ class StoppedOperandReader:
             independent_hardware_observation=False)
 
     def read(self, address, size):
-        if size not in (1, 8):
-            raise ValueError('Stopped operand witness only accepts one byte or one native word')
+        if size not in (1, 4, 8):
+            raise ValueError('Stopped operand witness only accepts one byte, a 32-bit operand or one native word')
         sample = dict(requested_bytes=size, status='reading', stage='proc_first', equal=False)
         self.report['samples'].append(sample)
         self.report['logical_operand_bytes'] += size

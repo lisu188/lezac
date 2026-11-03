@@ -160,7 +160,7 @@ class ContactOperands(unittest.TestCase):
 
 class StoppedReads(unittest.TestCase):
     def test_native_words_and_tags_use_proc_peek_proc_order(self):
-        for size, word in ((1, 0x10203040506070ff), (8, -1), (8, 0x200000a55a1000)):
+        for size, word in ((1, 0x10203040506070ff), (4, -1), (8, -1), (8, 0x200000a55a1000)):
             with self.subTest(size=size, word=word):
                 raw = (word & ((1 << 64) - 1)).to_bytes(8, 'little')[:size]
                 calls = []
@@ -209,7 +209,7 @@ class StoppedReads(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'no completed samples'):
             reader.finish(True)
         for size in (0, 2, 7, 9):
-            with self.assertRaisesRegex(ValueError, 'one byte or one native word'):
+            with self.assertRaisesRegex(ValueError, 'one byte, a 32-bit operand or one native word'):
                 reader.read(0, size)
         self.assertEqual(reader.report['status'], 'collecting')
 

@@ -54,6 +54,12 @@ sampling to future guard captures. Actual synthetic kernel calibration and
 failure/cleanup controls pass. These interfaces share a kernel and do not
 prove the earlier loads or clear the retained actor failure.
 
+The [entry-ID operand observer](docs/recovery/actor-entry-id-operands-20261103.md)
+qualifies five separate native entry guards and retains four-byte IDs with
+the stopped-read witness. REA/Ghidra confirms 27 selected native instructions.
+Sixteen entry-watched historical replays pass without a guard hit; this is
+bounded non-reproduction and leaves every retained failure and hold intact.
+
 ## Post-Queue Tail CPU Recovery (2026-10-22)
 
 The [independent tail operation](docs/recovery/frame_tail_cpu_2026-10-22.md)

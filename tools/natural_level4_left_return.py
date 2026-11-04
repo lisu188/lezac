@@ -15,6 +15,7 @@ import tempfile
 import uuid
 
 import natural_level4_bridge_access as prior
+from natural_route_window import compare_window
 from original_capture_contract import ASSET_PINS, read_canonical_assets
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -215,51 +216,9 @@ def compare(cpp, *, first=FIRST, last=LAST):
     current, selected = fidelity.read_route(cpp / 'route.txt')
     require(current == {**settings, 'ticks': last} and selected == {tick: items for tick, items in events.items() if tick < last},
             'left-return chunk ordinary route differs')
-    frames = count = boundaries = 0
-    previous = footer = None
-    with (cpp / 'run/trace.jsonl').open() as stream:
-        header = fidelity.strict_json(next(stream))
-        require(set(header) == fidelity.HEADER_KEYS | {'capture_from_tick', 'candidate_only'} and
-                header['schema'] == 'lezac.level1.scout.v1' and header['source'] == 'cpp' and header['candidate_only'] is True and
-                header['ticks'] == last and header['capture_from_tick'] == first and header['original_fidelity_claim'] is False and
-                header['phase_model'] == 'cpp-pre-actors-v2' and header['state_scope'] == 'level1-observations-v2' and
-                header['input_model'] == 'sdl-events-original-intro-wait-v1' and (header['width'], header['height']) == (320, 200) and
-                header['seed'] == settings['seed'] and header['step_us'] == settings['step_us'] and
-                header['route_fnv1a64'] == fidelity.fnv1a64((cpp / 'route.txt').read_bytes()) and
-                header['asset_fnv1a64'] == {name: fidelity.fnv1a64((ROOT / name).read_bytes()) for name in fidelity.ASSETS},
-                'left-return C++ header differs')
-        for line in stream:
-            row = fidelity.strict_json(line)
-            require(footer is None, 'left-return data after footer')
-            if row['kind'] == 'complete':
-                footer = row
-                require(set(row) == {'kind', 'ticks', 'frames', 'retained_checkpoints', 'checkpoints', 'events', 'capture_from_tick',
-                        'candidate_only', 'level1_route_complete', 'original_fidelity_claim', 'port_functionally_complete'} and
-                        row['ticks'] == last and row['capture_from_tick'] == first and row['frames'] == frames == last - first + 1 and
-                        row['retained_checkpoints'] == count == frames * 4 and row['checkpoints'] == previous + 1 and
-                        row['events'] == sum(map(len, selected.values())) and row['candidate_only'] is True and
-                        row['level1_route_complete'] is True and row['original_fidelity_claim'] is False and
-                        row['port_functionally_complete'] is False, 'left-return C++ footer differs')
-                continue
-            tick, phase = first + count // 4, ('input', 'present', 'after_nonplayers', 'post_update')[count % 4]
-            keys = {'kind', 'seq', 'tick', 'phase', 'time_ms', 'events', 'state'} | ({'frame', 'rgb_fnv1a64'} if phase == 'present' else set())
-            require(set(row) == keys and row['kind'] == 'checkpoint' and (row['tick'], row['phase']) == (tick, phase) and tick <= last and
-                    (previous is None or row['seq'] == previous + 1) and row['events'] == events.get(tick - 1, []) and
-                    row['time_ms'] == (tick - 1) * settings['step_us'] // 1000, 'left-return C++ phase/input/time differs')
-            fidelity.validate_state(row['state'])
-            if phase in ('present', 'post_update'):
-                support.recovered.check_cpp(row['state'], wanted[tick, phase])
-                boundaries += 1
-            if phase == 'present':
-                require(row['frame'] == f'frame_{tick:06d}.ppm', 'left-return RGB filename differs')
-                pixels = fidelity.read_ppm(fidelity.safe_file(cpp / 'run', row['frame']))
-                require(fidelity.fnv1a64(pixels) == row['rgb_fnv1a64'] and hashlib.sha256(pixels).hexdigest() == wanted[tick, phase]['rgb_sha256'],
-                        'left-return original RGB differs')
-                frames += 1
-            previous, count = row['seq'], count + 1
-    require(footer is not None and boundaries == frames * 2, 'left-return C++ window incomplete')
-    return dict(status='match', first=first, last=last, frames=frames, boundaries=boundaries, checkpoints=count,
-        pixels=frames * 64000, expected_bytes_source='original_only', comparison_scope='projected fields and full RGB only',
+    result = compare_window(cpp, first=first, last=last, settings=settings, events=selected,
+        expected=wanted, asset_root=ROOT, compare_state=support.recovered.check_cpp)
+    return dict(result, expected_bytes_source='original_only', comparison_scope='projected fields and full RGB only',
         final_destroyed=261, remaining_for_threshold=44, gameplay_state_injections=False, **CLAIMS)
 
 

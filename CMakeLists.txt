@@ -8619,6 +8619,26 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 120 LABELS "level4;original;fixture-guard;left-return"
             PASS_REGULAR_EXPRESSION "OK")
+        add_test(NAME natural_level4_cavity_bomb_original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level4_cavity_bomb.py replay
+                    --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/natural_level4_cavity_bomb_original_out)
+        set_tests_properties(natural_level4_cavity_bomb_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 780 LABELS "level4;campaign;original;fullframe;natural-route;cavity-bomb"
+            PASS_REGULAR_EXPRESSION "\"boundaries\":2002.*\"frames\":1001.*\"pixels\":64064000.*\"status\":\"match\"")
+        add_test(NAME natural_level4_cavity_bomb_guard
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/natural_level4_cavity_bomb.py guard)
+        set_tests_properties(natural_level4_cavity_bomb_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 90 LABELS "level4;original;evidence-guard;cavity-bomb"
+            PASS_REGULAR_EXPRESSION "\"bomb_mutations_rejected\":14.*\"status\":\"guarded\"")
+        add_test(NAME natural_level4_cavity_bomb_fixture
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_natural_level4_cavity_bomb.py)
+        set_tests_properties(natural_level4_cavity_bomb_fixture PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 120 LABELS "level4;original;fixture-guard;cavity-bomb"
+            PASS_REGULAR_EXPRESSION "OK")
         add_test(NAME review_history_repair_contracts
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_review_history_repairs.py)
         set_tests_properties(review_history_repair_contracts PROPERTIES

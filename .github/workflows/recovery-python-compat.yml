@@ -51,3 +51,5 @@ jobs:
         run: python -S -B tools/test_natural_level4_left_return.py -v
       - name: Original Level 4 cavity bomb and complete private readback
         run: python -S -B tools/test_natural_level4_cavity_bomb.py -v
+      - name: Literal map buffer transport controls
+        run: python -S -B tools/test_literal_map_buffers.py -v

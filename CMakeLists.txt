@@ -8639,6 +8639,13 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 120 LABELS "level4;original;fixture-guard;cavity-bomb"
             PASS_REGULAR_EXPRESSION "OK")
+        add_test(NAME literal_map_buffers_fixture
+            COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_literal_map_buffers.py)
+        set_tests_properties(literal_map_buffers_fixture PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy;SDL_VIDEODRIVER=dummy;PYTHONDONTWRITEBYTECODE=1"
+            TIMEOUT 30 LABELS "capture;fixture-guard;literal-buffers"
+            PASS_REGULAR_EXPRESSION "OK")
         add_test(NAME review_history_repair_contracts
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_review_history_repairs.py)
         set_tests_properties(review_history_repair_contracts PROPERTIES

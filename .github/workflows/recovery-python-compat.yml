@@ -55,3 +55,5 @@ jobs:
         run: python -S -B tools/test_literal_map_buffers.py -v
       - name: Literal map observation and private readback controls
         run: python -S -B tools/test_literal_map_observer.py -v
+      - name: Declared live flame state projection controls
+        run: python -S -B tools/test_flame_state_projection.py -v

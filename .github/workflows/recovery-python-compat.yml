@@ -53,3 +53,5 @@ jobs:
         run: python -S -B tools/test_natural_level4_cavity_bomb.py -v
       - name: Literal map buffer transport controls
         run: python -S -B tools/test_literal_map_buffers.py -v
+      - name: Literal map observation and private readback controls
+        run: python -S -B tools/test_literal_map_observer.py -v

@@ -44,8 +44,8 @@ that the caller actually observed the original game.
 
 Readers reject changed extents, pointers, DS bytes, hashes, roles, instants,
 metadata, unsupported phases, noncanonical JSON/hex, duplicate JSON keys, DAC
-values above63, corrupted gzip, trailing bytes and concatenated gzip members.
-Compressed and decoded documents are both bounded to256KiB before parsing.
+values above 63, corrupted gzip, trailing bytes and concatenated gzip members.
+Compressed and decoded documents are both bounded to 256 KiB before parsing.
 Packing uses a fixed gzip header with no filename or timestamp. Repeat packing
 is deterministic in a given runtime; cross-zlib compressed-byte identity is not
 required for reading a receipt-checked existing container.
@@ -54,15 +54,15 @@ required for reading a receipt-checked existing container.
 
 `literal_map_buffers_fixture` runs synthetic controls without game assets,
 Pillow, optional executors or guest execution. It covers all four previously
-observed campaign dimensions, the full64KiB word span, complete byte roundtrips,
+observed campaign dimensions, the full 64 KiB word span, complete byte roundtrips,
 external receipt binding, coherent data/metadata mutations, bounded decoding and
 an isolated source-checkout roundtrip. The Python compatibility matrix includes
-this suite on Python3.12/3.15 and Linux/Windows.
+this suite on Python 3.12/3.15 and Linux/Windows.
 
-Local validation passes19synthetic tests on Windows Python3.12.14 and WSL
-Python3.12.3, plus five focused CTests including existing capture regressions.
-A private bounded original Level1probe also passed:17samples,34boundaries and
-228072complete literal buffer bytes read back. No C++ expectations constructed
+Local validation passes 19 synthetic tests on Windows Python 3.12.14 and WSL
+Python 3.12.3, plus five focused CTests including existing capture regressions.
+A private bounded original Level 1 probe also passed: 17 samples, 34 boundaries
+and 228,072 complete literal buffer bytes read back. No C++ expectations constructed
 those observations. Hooks, the trampoline function and protected inputs were
 restored. The codec used in that probe has SHA-256
 `2b1ace49dca24d499b147e3b7a57f35ce808977114151e6d7eac17379dc31f08`.
@@ -73,7 +73,7 @@ stopped-window screenshot assertion failed; its diagnostics are retained, not
 counted as a successful run. The corrected probe uses the established
 presentation screenshot path and leaves the codec unchanged.
 
-This is a transport contract, not a new Level4capture, a C++ map comparison,
+This is a transport contract, not a new Level 4 capture, a C++ map comparison,
 a complete palette-model verification, a raw-memory normalization policy, or
 whole-frame equivalence. Original/runtime evidence must be obtained and audited
 before making any of those claims. Raw captures remain private.

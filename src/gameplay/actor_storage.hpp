@@ -46,7 +46,7 @@ public:
         return index == 0 ? state_.player1 : state_.actors[0];
     }
 
-    // DS:2072 is shared by allocation and the generic tile-damage query.
+    // DS:2072 is shared by allocation, tile queries and HUD drawing cursors.
     void setSharedResult(uint16_t value) { state_.success = value; }
 
     // Link row zero aliases live globals; only rows 1..7 are boss links.

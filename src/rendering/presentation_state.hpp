@@ -8,6 +8,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <vector>
 
 namespace lezac::resources {
@@ -17,6 +18,7 @@ namespace lezac::gameplay { class MapPlaneMemory; }
 
 namespace lezac::rendering {
 class Canvas;
+using HudWordWriter = std::function<void(uint16_t)>;
 
 struct PresentationSnapshot {
     resources::Palette palette{};
@@ -63,9 +65,10 @@ public:
     void clearHudScores() { hudScores_ = {}; }
     void beginOriginalPlay(bool fromMenu);
     void prepareHudObjectives(uint16_t frame, int collected, int destructionPercent,
-                              int requiredBonus, int requiredDestruction);
+                              int requiredBonus, int requiredDestruction, const HudWordWriter& writeShared = {});
     void updateHudScores(int playerCount, const std::array<uint32_t, 2>& scores,
-                         const std::array<bool, 2>& dead, const std::array<int, 2>& deathTimers);
+                         const std::array<bool, 2>& dead, const std::array<int, 2>& deathTimers,
+                         const HudWordWriter& writeShared = {}, std::array<uint16_t, 2> hudX = {0, 180});
     void updateHudEnergy(size_t player, uint16_t value, uint8_t globalState);
     void updateHudEnergy(size_t player, uint16_t value, uint8_t globalState, uint8_t& physicalCache);
     void sampleHudInventory(size_t player, gameplay::BombInventory& inventory, uint8_t globalState);

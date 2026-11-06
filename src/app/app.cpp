@@ -25966,6 +25966,82 @@ public:
                   << " legacy_adoptions=0 legacy_retirements=0 seeded=1 natural_route=0 whole_game_claim=0\n";
     }
 
+    void debugBombWritebackOrder() {
+        load();
+        initSdl();
+        legacyActorSeedsEnabled_ = false;
+        const auto require = [](bool condition, const char* message) {
+            if (!condition) throw std::runtime_error(message);
+        };
+        const auto word = [](const auto& bytes, size_t offset) {
+            return static_cast<uint16_t>(bytes[offset] | (uint16_t{bytes[offset + 1]} << 8));
+        };
+        size_t cases = 0, observations = 0;
+        for (const BombType type : {BombType::Small, BombType::Medium, BombType::Large, BombType::Super}) {
+            for (uint32_t parity : {0u, 1u}) for (bool full : {false, true}) {
+                resetLevel(0);
+                prepareAutoplayerMonsterFixtureLevel();
+                playerDead_ = player2Dead_ = true;
+                player_.x = 184; player_.y = 100;
+                logicTick_ = 100 + parity;
+                bombInventory_.selected = type;
+                bombInventory_.counts[static_cast<size_t>(bombTypeIndex(type))] = 1;
+                placeBombAt(player_, bombInventory_, 1);
+                const uint64_t order = bombs_.front().actorOrder;
+                // Explicit fixture seed: both paths expire on an odd original tick.
+                bombs_.front().timer = parity ? 2 : 1;
+                bombs_.front().vx8 = 513; bombs_.front().vy8 = -257;
+                bombs_.front().fracX = 165; bombs_.front().fracY = 90;
+                actorSlots_.setTimer(order, 1);
+                while (full && actorSlots_.count() < 30)
+                    require(spawnTransientActor(184, 100, 0, 69, 10, 60) != nullptr, "bomb order capacity fixture failed");
+                const auto before = actorSlots_.actor(order);
+                const auto fadeDescriptor = actorSpriteDescriptor(69);
+                std::vector<std::string> phases;
+                lezac::gameplay::ActorStorage::Actor converted{};
+                lezac::gameplay::ActorStorage::Visual convertedVisual{};
+                debugBombExpiryObserver_ = [&](const Bomb& bomb, const char* phase) {
+                    require(bomb.actorOrder == order, "bomb order observer selected a foreign actor");
+                    const auto& raw = actorSlots_.actor(order);
+                    const auto& visual = actorSlots_.visual(order);
+                    require(word(visual, 0) == static_cast<uint16_t>(bomb.pixelX) &&
+                            word(visual, 2) == static_cast<uint16_t>(bomb.pixelY) &&
+                            word(raw, 10) == bomb.fracX && word(raw, 12) == bomb.fracY,
+                        "bomb motion writeback must precede explosion dispatch");
+                    if (std::string(phase) == "before_explosion") {
+                        require(phases.empty() && raw[0] == bombProfile(type).actorKind && raw[2] == 0 &&
+                                word(raw, 6) == static_cast<uint16_t>(bomb.vx8) && word(raw, 8) == static_cast<uint16_t>(bomb.vy8),
+                            "bomb countdown/velocity order differs before explosion");
+                    } else if (std::string(phase) == "before_particles") {
+                        require(phases == std::vector<std::string>{"before_explosion"} && raw[0] == 0 && raw[2] == 18 &&
+                                raw[21] == 5 && word(raw, 6) == 0 && word(raw, 8) == 0 &&
+                                std::equal(fadeDescriptor.begin(), fadeDescriptor.end(), visual.begin() + 4),
+                            "bomb conversion must precede particle constructors");
+                        converted = raw; convertedVisual = visual;
+                    } else {
+                        require(std::string(phase) == "after_particles" && phases.size() == 2 &&
+                                raw == converted && visual == convertedVisual,
+                            "particle construction changed converted bomb backing");
+                    }
+                    require(std::equal(before.begin() + 29, before.end(), raw.begin() + 29),
+                        "bomb phase changed backup or opaque tail");
+                    phases.emplace_back(phase);
+                    ++observations;
+                };
+                try {
+                    while (!bombs_.empty()) { ++logicTick_; updateBombs(); }
+                } catch (...) { debugBombExpiryObserver_ = {}; throw; }
+                debugBombExpiryObserver_ = {};
+                require(phases == std::vector<std::string>{"before_explosion", "before_particles", "after_particles"},
+                    "bomb phase observations incomplete");
+                ++cases;
+            }
+        }
+        require(legacyActorAdoptions_ == 0 && legacyActorRetirements_ == 0, "bomb order probe used legacy adapter");
+        std::cout << "bomb_writeback_order=ok cases=" << cases << " observations=" << observations
+                  << " types=4 parities=2 capacities=2 legacy_adapter=0 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
     void debugProductionActorLifecycle() {
         load();
         initSdl();
@@ -28558,6 +28634,7 @@ private:
     std::vector<ExplosionEffect> explosionEffects_;
     lezac::gameplay::RetainedRecordQueue<FlameRecord> flameRecords_;
     std::function<void()> debugActorPassObserver_;
+    std::function<void(const Bomb&, const char*)> debugBombExpiryObserver_;
     std::function<void(const ActiveMonster&, bool)> debugMonsterAnimationObserver_;
     std::function<void()> debugInteractiveTickObserver_;
     std::function<void(const SDL_Event&)> debugPhysicalInputObserver_;
@@ -31733,12 +31810,14 @@ private:
         for (Bomb& b : bombs_) {
             if (onlyOrder && b.actorOrder != onlyOrder) continue;
             updateBombMotion(b);
+            // 754A..7588 precedes the 75B0 countdown and 75FB explosion call.
+            actorSlots_.writeBombMotion(b.actorOrder, b);
             --b.timer;
             actorSlots_.setTimer(b.actorOrder, static_cast<uint8_t>((b.timer + 1) / 2));
             if (b.timer <= 0) {
                 expired.push_back(b);
                 pendingActorConversions_.push_back(b.actorOrder);
-            } else actorSlots_.writeBombMotion(b.actorOrder, b);
+            }
         }
         bombs_.erase(std::remove_if(bombs_.begin(), bombs_.end(),
                                     [onlyOrder](const Bomb& b) { return b.timer <= 0 && (!onlyOrder || b.actorOrder == onlyOrder); }),
@@ -31770,6 +31849,7 @@ private:
     }
 
     void spawnExplosionEffect(const Bomb& bomb) {
+        if (debugBombExpiryObserver_) debugBombExpiryObserver_(bomb, "before_explosion");
         if (explosionVisualType(bomb.type) > 1) cameraShakeTicks_ = 2;  // 1000:4164
         int visualType = explosionVisualType(bomb.type);
         int ticks = explosionEffectTicks(visualType);
@@ -32174,9 +32254,9 @@ private:
         fade.hotspotY = static_cast<uint8_t>(16 - descriptor[1]);
         actorSlots_.enterBombFade(bomb.actorOrder, fade, descriptor);
         transientActors_.push_back(fade);
+        if (debugBombExpiryObserver_) debugBombExpiryObserver_(bomb, "before_particles");
         spawnExpiryParticles(bomb.pixelX, bomb.pixelY, bombTypeIndex(bomb.type) + 2);
-        // The common 777F writeback follows the 76F4 particle constructors.
-        actorSlots_.writeTransient(bomb.actorOrder, fade, false, {});
+        if (debugBombExpiryObserver_) debugBombExpiryObserver_(bomb, "after_particles");
     }
 
     int monsterDamageForBomb(BombType type) const {
@@ -33373,6 +33453,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc == 4 && std::string(argv[1]) == "--debug-reward-storage-original") {
             app.debugRewardStorageOriginal(argv[2], argv[3]);
+            return 0;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--debug-bomb-writeback-order") {
+            app.debugBombWritebackOrder();
             return 0;
         }
         if (argc == 2 && std::string(argv[1]) == "--debug-production-actor-lifecycle") {

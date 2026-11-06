@@ -115,9 +115,9 @@ public:
             bytes[offset] = static_cast<uint8_t>(value);
             bytes[offset + 1] = static_cast<uint8_t>(value >> 8);
         };
-        word(raw, 6, static_cast<uint16_t>(bomb.vx8)); word(raw, 8, static_cast<uint16_t>(bomb.vy8));
-        word(raw, 10, bomb.fracX); word(raw, 12, bomb.fracY);
         word(row, 0, static_cast<uint16_t>(bomb.pixelX)); word(row, 2, static_cast<uint16_t>(bomb.pixelY));
+        word(raw, 10, bomb.fracX); word(raw, 12, bomb.fracY);
+        word(raw, 6, static_cast<uint16_t>(bomb.vx8)); word(raw, 8, static_cast<uint16_t>(bomb.vy8));
     }
 
     void enterBombFade(uint64_t order, const TransientActor& fade, const Descriptor& descriptor) {

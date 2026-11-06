@@ -74,6 +74,7 @@ void WorldRaster::prepare(const WorldRenderView& world, const PresentationState&
         throw std::invalid_argument("World raster geometry differs");
     sprites_ = world.levelIndex == 6 || normal_.descriptors.empty() ? &alternate_ : &normal_;
     physical_ = world.physicalVisuals;
+    explicitDestination_ = false;
     const int center = ((pitch / 8 - 2) / 2) * 8;
     struct Word { uint16_t offset, value; };
     for (const auto& [offset, value] : std::array<Word, 20>{{
@@ -152,6 +153,8 @@ uint8_t WorldRaster::read(uint16_t segment, uint32_t offset, const WorldRenderVi
                           const PresentationState& presentation, const Canvas& canvas) const {
     if (offset > 65536) throw std::out_of_range("World raster word exceeds adjacent byte");
     if (segment == Data) {
+        if (physical_ && !explicitDestination_ && offset >= 0x79f0 && offset < 0x79f4)
+            return physical_->links[0][offset-0x79ea];
         if (physical_ && offset >= 0xc21e && offset < 0xc21e + physical_->visualCount*8u)
             return physical_->visuals[(offset-0xc21e)/8][(offset-0xc21e)%8];
         if (!defined_[offset])
@@ -239,8 +242,10 @@ void WorldRaster::drawGame(const WorldRenderView& world, const PresentationState
     const auto initial = ViewportLayout::initialize(world.playerCount,world.viewWidth);
     const auto& layout = world.viewportLayout ? *world.viewportLayout : initial;
     prepare(world,presentation,layout.pitch);
-    word(0x79f0,static_cast<uint16_t>(1284+layout.left[0]));
-    word(0x79f2,static_cast<uint16_t>(1284+layout.left[1]));
+    if (!physical_) {
+        word(0x79f0,static_cast<uint16_t>(1284+layout.left[0]));
+        word(0x79f2,static_cast<uint16_t>(1284+layout.left[1]));
+    }
     execute(world,presentation,canvas);
 }
 
@@ -249,6 +254,7 @@ void WorldRaster::drawView(const WorldRenderView& world, const gameplay::Player&
                            const PresentationState& presentation, Canvas& canvas) {
     if (height != 152) throw std::invalid_argument("World raster view height differs");
     prepare(world,presentation,width+8);
+    explicitDestination_ = true;
     byte(0x79e6,1); byte(0x79e7,0);
     word(0x79f0,static_cast<uint16_t>(y*320+x));
     execute(world,presentation,canvas,&camera);

@@ -23,6 +23,12 @@ public:
     const State& state() const { return storage_.state(); }
     void setSharedResult(uint16_t value) { storage_.setSharedResult(value); }
     void setPlayer2Health(uint8_t value) { storage_.actor(0)[36] = value; }
+    void setPlayerReserve(size_t index, uint8_t value) { storage_.setPlayerReserve(index, value); }
+    uint8_t& hudEnergyCache(size_t index) { return storage_.hudEnergyCache(index); }
+    void setSavedViewportColumns(uint16_t value) { storage_.setSavedViewportColumns(value); }
+    void setViewportDestination(size_t index, uint16_t value) { storage_.setViewportDestination(index, value); }
+    void resetHudDestinations() { storage_.resetHudDestinations(); }
+    void setSpriteBankTag(uint8_t value) { storage_.setSpriteBankTag(value); }
     const ActorStorage::Actor& actor(uint64_t order) const { return state().actors[require(order)]; }
     const ActorStorage::Visual& visual(uint64_t order) const { return state().visuals[actor(order)[1]]; }
 

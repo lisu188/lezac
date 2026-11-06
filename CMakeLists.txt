@@ -624,6 +624,8 @@ if(BUILD_TESTING)
     target_include_directories(lezac_actor_storage_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_executable(lezac_actor_slots_test tests/gameplay/actor_slots_test.cpp)
     target_include_directories(lezac_actor_slots_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_executable(lezac_actor_alias_test tests/gameplay/actor_alias_test.cpp)
+    target_include_directories(lezac_actor_alias_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_executable(lezac_actor_storage_trace_test tests/diagnostics/actor_storage_trace_test.cpp)
     target_include_directories(lezac_actor_storage_trace_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME actor_storage_trace_unit COMMAND lezac_actor_storage_trace_test)
@@ -639,6 +641,9 @@ if(BUILD_TESTING)
         src/sound/sound_engine.cpp src/sound/sound_interrupt_runtime.cpp src/resources/binary.cpp)
     target_include_directories(lezac_corpse_storage_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME actor_slots_binding_contract COMMAND lezac_actor_slots_test)
+    add_test(NAME actor_alias_storage COMMAND lezac_actor_alias_test)
+    set_tests_properties(actor_alias_storage PROPERTIES
+        PASS_REGULAR_EXPRESSION "^actor_alias_storage=ok cases=6466 bounds=6 full_state_preserved=1 whole_game_claim=0")
     set_tests_properties(actor_slots_binding_contract PROPERTIES
         ENVIRONMENT "SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^actor_slots=ok operations=1800")
@@ -647,6 +652,11 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^production_actor_lifecycle=ok capacity=30.*descriptor_banks=2 descriptor_checks=295 descriptor_reset=1 descriptor_bounds=2 boss_copied_hotspots=7 boss_hotspot_rejections=7")
+    add_test(NAME link_alias_ownership_app COMMAND lezac_cpp --debug-link-alias-ownership)
+    set_tests_properties(link_alias_ownership_app PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^link_alias_ownership=ok widths=20 losses=6 hud_cases=5120 phase_gates=4 legacy_adapter=0 seeded=1 natural_route=0 whole_game_claim=0 menu_bank=1")
     add_test(NAME player_terrain_scratch_app COMMAND lezac_cpp --debug-player-terrain-scratch)
     set_tests_properties(player_terrain_scratch_app PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -797,7 +807,7 @@ if(BUILD_TESTING)
     add_test(NAME world_raster_owners COMMAND lezac_world_raster_owners_test)
     set_tests_properties(world_raster_owners PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} ENVIRONMENT "SDL_AUDIODRIVER=dummy"
-        PASS_REGULAR_EXPRESSION "^world_raster_owners=ok lazy_assets=1 physical_rows=1 live_map=1 word_adjacent_byte=1 rejected_sprite_heap=1 rejected_unknown_tile=1")
+        PASS_REGULAR_EXPRESSION "^world_raster_owners=ok lazy_assets=1 physical_rows=1 live_map=1 word_adjacent_byte=1 rejected_sprite_heap=1 rejected_unknown_tile=1 physical_view_destinations=1")
 
     add_executable(lezac_render_view_gate_test tests/rendering/render_view_gate_test.cpp)
     target_link_libraries(lezac_render_view_gate_test PRIVATE lezac_rendering)
@@ -922,7 +932,7 @@ if(BUILD_TESTING)
             set_tests_properties(world_raster_owner_mutations PROPERTIES
                 ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR}"
                 FIXTURES_REQUIRED "viewport_width_corpus;standalone_camera_corpus"
-                PASS_REGULAR_EXPRESSION "world_raster_mutations=ok faults=9 original_source_preserved=1")
+                PASS_REGULAR_EXPRESSION "world_raster_mutations=ok faults=10 original_source_preserved=1")
         endif()
         add_test(NAME active_live_trace_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_active_live_probe.py)

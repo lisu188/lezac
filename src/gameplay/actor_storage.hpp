@@ -43,6 +43,20 @@ public:
     // DS:2072 is shared by allocation and the generic tile-damage query.
     void setSharedResult(uint16_t value) { state_.success = value; }
 
+    // Link row zero aliases live globals; only rows 1..7 are boss links.
+    void setPlayerReserve(size_t index, uint8_t value) { aliasPlayerByte(index, 0) = value; }
+    uint8_t& hudEnergyCache(size_t index) { return aliasPlayerByte(index, 2); }
+    void setSavedViewportColumns(uint16_t value) { word(state_.links[0], 4, value); }
+    void setViewportDestination(size_t index, uint16_t value) {
+        if (index >= 2) throw std::out_of_range("invalid viewport alias index");
+        word(state_.links[0], 6 + index * 2, value);
+    }
+    void resetHudDestinations() {
+        word(state_.links[0], 12, 180);
+        word(state_.links[0], 10, 0);
+    }
+    void setSpriteBankTag(uint8_t value) { state_.links[0][14] = value; }
+
     void restore(const State& state) {
         if (state.count > capacity || state.visualCount != state.count + 2 || state.links[0][15] > 7) {
             throw std::invalid_argument("invalid actor storage counts");
@@ -138,6 +152,11 @@ public:
     }
 
 private:
+    uint8_t& aliasPlayerByte(size_t index, size_t base) {
+        if (index >= 2) throw std::out_of_range("invalid player alias index");
+        return state_.links[0][base + index];
+    }
+
     template <size_t Size>
     static void word(std::array<uint8_t, Size>& raw, size_t offset, uint16_t value) {
         raw[offset] = static_cast<uint8_t>(value);

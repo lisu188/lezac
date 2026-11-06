@@ -1,4 +1,4 @@
-"""Require live-raster ownership controls to reject nine isolated faults."""
+"""Require live-raster ownership controls to reject ten isolated faults."""
 import argparse
 import hashlib
 import json
@@ -17,11 +17,14 @@ def run(cxx, libraries, viewport_oracle, camera_oracle, out):
     faults = (
         ('physical_visual_bypass', paths[0], 'physical_ = world.physicalVisuals;', 'physical_ = nullptr;'),
         ('player_visual_bypass', paths[0], 'physical_ && offset >= 0xc21e', 'physical_ && offset >= 0xc22e'),
-        ('player_descriptor_projection', paths[0], 'if (!physical_) {', 'if (true) {'),
+        ('player_descriptor_projection', paths[0], 'if (!physical_) {\n            auto image', 'if (true) {\n            auto image'),
         ('wrapped_word_high_byte', paths[1],
          'return readByte(objectBase + offset, tiles, words);',
          'return readByte(objectBase + static_cast<uint16_t>(offset), tiles, words);'),
-        ('wrong_vga_destination', paths[0], '1284+layout.left[0]', '1285+layout.left[0]'),
+        ('wrong_vga_destination', paths[0], 'physical_->links[0][offset-0x79ea]',
+         'static_cast<uint8_t>(physical_->links[0][offset-0x79ea] ^ (offset==0x79f0 ? 1u : 0u))'),
+        ('viewport_alias_bypass', paths[0], 'physical_ && !explicitDestination_ && offset >= 0x79f0',
+         'physical_ && explicitDestination_ && offset >= 0x79f0'),
         ('caller_bypass', paths[2], 'worldRaster_.drawGame(world, presentation_, canvas_);', 'preview.drawGame();'),
         ('unknown_data_zero_fill', paths[0],
          'throw std::out_of_range("World raster reached unrecovered data byte " + std::to_string(offset));',
@@ -36,7 +39,7 @@ def run(cxx, libraries, viewport_oracle, camera_oracle, out):
         name: hashlib.sha256(raw).hexdigest() for name, raw in originals.items()})
     try:
         for name, relative, before, after in faults:
-            source = originals[relative].decode('ascii')
+            source = originals[relative].decode('ascii').replace('\r\n', '\n')
             if source.count(before) != 1:
                 raise ValueError('Mutation location differs: ' + name)
             variant = out / name
@@ -78,7 +81,7 @@ def run(cxx, libraries, viewport_oracle, camera_oracle, out):
         (out / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     if not report['original_source_preserved']:
         raise ValueError('Live-raster source changed during mutation checks')
-    print('world_raster_mutations=ok faults=9 original_source_preserved=1 report=' + str(out / 'report.json'))
+    print(f'world_raster_mutations=ok faults={len(faults)} original_source_preserved=1 report=' + str(out / 'report.json'))
 
 
 if __name__ == '__main__':

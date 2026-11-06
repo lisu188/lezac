@@ -94,7 +94,9 @@ visual count and shared result, totaling 1,608 bytes per platform. The prior
 direct-DS verifier checks complete pools without masks and rejects 1,446
 single-byte payload corruptions per platform. Link row 0 still differs by
 4,020 bytes across the window; that unmasked residual is not treated as a
-pass. Pixel equality already held before this shared-state repair.
+pass at this checkpoint. The later `link_alias_ownership_20261106.md` repair
+closes those link-row differences in the same bounded window. Pixel equality
+already held before these shared-state repairs.
 
 The first comparison adapter accidentally selected the retained pre-fix
 health captures through an unchanged filename prefix. Its zero-difference
@@ -108,7 +110,8 @@ This recovers owners of three represented shared fields. It does not create
 a unified DS address space or claim all physical scratch globals are owned.
 Unmatched flame glyphs without a corresponding record, out-of-bounds and
 segment-wrapped map accesses, player 1's separate raw record and full active
-two-player physical state require further original-backed work. Link row 0
-aliases, full-frame stability, whole campaign and level-7 boss completion,
+two-player physical state require further original-backed work. Link row 0's
+subsequent ownership work is documented separately; full-frame stability,
+whole campaign and level-7 boss completion,
 wall-clock/physical-input timing and owner acceptance remain open. Broad
 full-frame, whole-storage and whole-game fidelity flags stay false.

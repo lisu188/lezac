@@ -34,6 +34,8 @@ int main() {
         map.beginLevel({}, {}, level.tiles.size());
         gameplay::ActorStorage slots;
         slots.resetForLevel({16,16,0,0});
+        slots.setViewportDestination(0, 1284);
+        slots.setViewportDestination(1, 1284);
         gameplay::Player first, second;
         first.x = 104; first.y = 168;
         second.x = 136; second.y = 168; second.spriteIndex = 1;
@@ -76,6 +78,8 @@ int main() {
         const auto split = rendering::ViewportLayout::initialize(2,320);
         auto twoPlayers = world;
         twoPlayers.playerCount = 2; twoPlayers.players[1].globalState = 1; twoPlayers.viewportLayout = &split;
+        slots.setViewportDestination(0, 1284);
+        slots.setViewportDestination(1, 1444);
         position(1, 136, 168);
         slots.visual(1)[6] = 0; slots.visual(1)[7] = 1;
         rendering::Canvas full, oneView;
@@ -86,6 +90,20 @@ int main() {
             require(oneView.paletteIndices()[at] == full.paletteIndices()[at],
                 "Second-player camera overwrote the first player's visual position");
         }
+        slots.setViewportDestination(0, 1292);
+        const auto destinationOwner = slots.state();
+        rendering::Canvas shifted, explicitView;
+        raster.drawGame(twoPlayers,presentation,shifted);
+        raster.drawView(twoPlayers,first,12,4,152,152,presentation,explicitView);
+        for (size_t y = 4; y < 156; ++y) for (size_t x = 12; x < 164; ++x) {
+            const size_t at = y*320+x;
+            require(shifted.paletteIndices()[at] == explicitView.paletteIndices()[at],
+                "Raster ignored the physical viewport destination");
+        }
+        require(slots.state().links == destinationOwner.links,
+            "Raster projected typed layout into viewport aliases");
+        slots.setViewportDestination(0, 1284);
+        slots.setViewportDestination(1, 1284);
         position(1, 10000, 6000);
 
         const auto& sprite = assets.sprites().sprites.front().pixels;
@@ -181,7 +199,7 @@ int main() {
         try { raster.drawGame(world,presentation,canvas); }
         catch (const std::out_of_range&) { rejected = true; }
         require(rejected && canvas.pixels() == retained,"Unrecovered sprite heap access was silently painted");
-        std::cout << "world_raster_owners=ok lazy_assets=1 physical_rows=1 live_map=1 word_adjacent_byte=1 rejected_sprite_heap=1 rejected_unknown_tile=1\n";
+        std::cout << "world_raster_owners=ok lazy_assets=1 physical_rows=1 live_map=1 word_adjacent_byte=1 rejected_sprite_heap=1 rejected_unknown_tile=1 physical_view_destinations=1\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << "world_raster_owners=failed " << error.what() << '\n';

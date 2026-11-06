@@ -207,6 +207,14 @@ void PresentationState::updateHudEnergy(size_t player, uint16_t value, uint8_t g
     if (globalState == 1) hudEnergy_.at(player).observe(value);
 }
 
+void PresentationState::updateHudEnergy(size_t player, uint16_t value, uint8_t globalState, uint8_t& physicalCache) {
+    if (globalState != 1) return;
+    auto& bar = hudEnergy_.at(player);
+    bar.cached = physicalCache;
+    if (physicalCache != value) physicalCache = static_cast<uint8_t>(value);
+    bar.observe(value);
+}
+
 void PresentationState::beginResultScore(size_t player, uint32_t value) {
     auto& reel = hudScores_.at(player);
     reel.setValue(value);

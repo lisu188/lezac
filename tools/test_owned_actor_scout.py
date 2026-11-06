@@ -53,6 +53,22 @@ class OwnedScoutTests(unittest.TestCase):
         self.check_original_window("two_player_reentry", 604, 1204,
             "e2d5562294d6d131d452a601df8a802b3fe8cf926292e6087a1c8a4db84bcca9")
 
+    def test_original_two_player_second_reentry_window(self):
+        points = self.check_original_window("two_player_second_reentry", 1204, 1804,
+            "db209007ec54a3f442c127795cc3290e2d286d7783dfdc20b6202956534fbcfe")
+        def players(tick):
+            return points[tick, "post_update"][0]["state"]["players"]
+        self.assertEqual(players(1253)[1]["health"][:3], [100, 1, 1])
+        self.assertEqual(players(1301)[1]["health"][:3], [100, 1, 0])
+        for tick, player, selection in ((1311, 1, 0), (1321, 0, 2)):
+            self.assertEqual(players(tick)[player]["inventory"][selection],
+                             players(tick - 1)[player]["inventory"][selection] - 1)
+        # Original 6CA9/6CAE consumes BOTH banks after P1's constructor attempt.
+        for tick in (1441, 1541):
+            self.assertEqual(players(tick)[0]["inventory"][2], players(tick - 1)[0]["inventory"][2] - 1)
+            self.assertEqual(players(tick)[1]["inventory"], players(tick - 1)[1]["inventory"])
+            self.assertEqual([player["waiting"][3] for player in players(tick)], [0, 0])
+
     def check_original_window(self, name, first, last, fixture_sha256):
         fixture = ROOT / f"tests/fixtures/{name}_original.json"
         raw_fixture = fixture.read_bytes()
@@ -112,6 +128,7 @@ class OwnedScoutTests(unittest.TestCase):
         self.assertEqual(self.assets, {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
                                      for name in self.assets})
         self.assertEqual(fixture.read_bytes(), raw_fixture)
+        return checkpoints
 
     def test_owned_window_is_deterministic_read_only_and_complete(self):
         full, result = self.replay("owned-full", 1)

@@ -106,6 +106,29 @@ public:
         std::copy(bytes.begin(), bytes.end(), raw.begin() + 29);
     }
 
+    void setTimer(uint64_t order, uint8_t timer) { storage_.actor(require(order))[2] = timer; }
+
+    void writeBombMotion(uint64_t order, const Bomb& bomb) {
+        auto& raw = storage_.actor(require(order));
+        auto& row = storage_.visual(raw[1]);
+        const auto word = [](auto& bytes, size_t offset, uint16_t value) {
+            bytes[offset] = static_cast<uint8_t>(value);
+            bytes[offset + 1] = static_cast<uint8_t>(value >> 8);
+        };
+        word(raw, 6, static_cast<uint16_t>(bomb.vx8)); word(raw, 8, static_cast<uint16_t>(bomb.vy8));
+        word(raw, 10, bomb.fracX); word(raw, 12, bomb.fracY);
+        word(row, 0, static_cast<uint16_t>(bomb.pixelX)); word(row, 2, static_cast<uint16_t>(bomb.pixelY));
+    }
+
+    void enterBombFade(uint64_t order, const TransientActor& fade, const Descriptor& descriptor) {
+        auto& raw = storage_.actor(require(order));
+        // 1000:7604..766A changes dispatch/visual state before particle creation.
+        raw[0] = 0; raw[2] = fade.timer; raw[21] = 5;
+        std::fill(raw.begin() + 6, raw.begin() + 10, uint8_t{0});
+        setSpriteDescriptor(order, descriptor);
+        setActiveAnimation(order, fade.animation);
+    }
+
     void setSpriteDescriptor(uint64_t order, const Descriptor& descriptor) {
         auto& raw = storage_.actor(require(order));
         auto& row = storage_.visual(raw[1]);

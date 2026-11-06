@@ -7625,6 +7625,13 @@ if(BUILD_TESTING)
     set_tests_properties(timed_writeback_fixture PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^timed_writeback_fixture=ok cases=1184 bytes=94784 kinds=12,13 profiles=10 timer_parities=2 original_exit=0x777f")
+    add_test(NAME bomb_owned_writeback_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-timed-actor-writeback
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/timed_actor_writeback_original.bin)
+    set_tests_properties(bomb_owned_writeback_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "owned_bomb_writeback=ok records=592 record_bytes=38 visual_bytes=8 legacy_adapter=0")
 
     add_test(NAME timed_writeback_fixture_selftest
         COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_timed_writeback_fixture.py --self-test)

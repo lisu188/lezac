@@ -626,11 +626,16 @@ if(BUILD_TESTING)
     target_include_directories(lezac_actor_slots_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_executable(lezac_actor_alias_test tests/gameplay/actor_alias_test.cpp)
     target_include_directories(lezac_actor_alias_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_executable(lezac_player_record_test tests/gameplay/player_record_test.cpp)
+    target_include_directories(lezac_player_record_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME player_record_storage COMMAND lezac_player_record_test)
+    set_tests_properties(player_record_storage PROPERTIES
+        PASS_REGULAR_EXPRESSION "^player_record_storage=ok cases=2304 bounds=9 full_state_preserved=1 whole_game_claim=0")
     add_executable(lezac_actor_storage_trace_test tests/diagnostics/actor_storage_trace_test.cpp)
     target_include_directories(lezac_actor_storage_trace_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_test(NAME actor_storage_trace_unit COMMAND lezac_actor_storage_trace_test)
     set_tests_properties(actor_storage_trace_unit PROPERTIES
-        PASS_REGULAR_EXPRESSION "actor_storage_trace=ok boundary_counts=3 bytes_per_sample=1570 read_only=1 inactive_tail=1 corpse=1 compaction=1")
+        PASS_REGULAR_EXPRESSION "actor_storage_trace=ok boundary_counts=3 bytes_per_sample=1608 read_only=1 inactive_tail=1 corpse=1 compaction=1 player1=1")
     add_executable(lezac_transient_storage_probe tests/gameplay/transient_storage_probe.cpp)
     target_include_directories(lezac_transient_storage_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_executable(lezac_marker_storage_probe tests/gameplay/marker_storage_probe.cpp)
@@ -652,6 +657,11 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^production_actor_lifecycle=ok capacity=30.*descriptor_banks=2 descriptor_checks=295 descriptor_reset=1 descriptor_bounds=2 boss_copied_hotspots=7 boss_hotspot_rejections=7")
+    add_test(NAME player_record_ownership_app COMMAND lezac_cpp --debug-player-record-ownership)
+    set_tests_properties(player_record_ownership_app PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^player_record_ownership=ok players=2 motion_cases=512 legacy_adapter=0 seeded=1 natural_route=0 whole_game_claim=0")
     add_test(NAME link_alias_ownership_app COMMAND lezac_cpp --debug-link-alias-ownership)
     set_tests_properties(link_alias_ownership_app PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}

@@ -109,8 +109,9 @@ and independent proof pins their executable and storage hashes explicitly.
 This recovers owners of three represented shared fields. It does not create
 a unified DS address space or claim all physical scratch globals are owned.
 Unmatched flame glyphs without a corresponding record, out-of-bounds and
-segment-wrapped map accesses, player 1's separate raw record and full active
-two-player physical state require further original-backed work. Link row 0's
+segment-wrapped map accesses and full active two-player physical state require
+further original-backed work. Player 1's separate raw record is subsequently
+covered in `player_record_ownership_20261106.md`. Link row 0's
 subsequent ownership work is documented separately; full-frame stability,
 whole campaign and level-7 boss completion,
 wall-clock/physical-input timing and owner acceptance remain open. Broad

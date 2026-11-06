@@ -23,6 +23,7 @@ inline std::string actorStorageCheckpoint(const gameplay::ActorSlots& slots, uin
         {"tick", std::to_string(tick)}, {"phase", level1::quote(phase)},
         {"count", std::to_string(state.count)}, {"visual_count", std::to_string(state.visualCount)},
         {"success", std::to_string(state.success)}, {"orders", level1::array(orders)},
+        {"player1_hex", level1::quote(level1::hexBytes(std::vector<uint8_t>(state.player1.begin(), state.player1.end())))},
         {"actors_hex", actorStorageHex(state.actors)}, {"visuals_hex", actorStorageHex(state.visuals)},
         {"links_hex", actorStorageHex(state.links)}});
 }

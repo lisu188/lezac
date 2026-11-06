@@ -18,6 +18,7 @@ public:
     static constexpr size_t capacity = 30;
 
     struct State {
+        Actor player1{}; // DS:1B88 precedes the reserved player2/pool bank.
         std::array<Actor, capacity + 1> actors{}; // Slot0 is player2.
         // Row32 is inactive guard memory; its last four bytes alias descriptor0.
         std::array<Visual, capacity + 3> visuals{};
@@ -39,6 +40,11 @@ public:
     };
 
     const State& state() const { return state_; }
+
+    Actor& player(size_t index) {
+        if (index >= 2) throw std::out_of_range("invalid player record index");
+        return index == 0 ? state_.player1 : state_.actors[0];
+    }
 
     // DS:2072 is shared by allocation and the generic tile-damage query.
     void setSharedResult(uint16_t value) { state_.success = value; }
@@ -141,14 +147,17 @@ public:
                 state_.visuals[row][i + 4] = playerDescriptor[i];
             }
         }
-        Actor& player2 = state_.actors[0];
-        player2[0] = 0;
-        player2[1] = 1;
-        for (size_t i = 6; i < 16; ++i) player2[i] = 0;
-        player2[20] = 0;
-        player2[21] = 1;
-        const auto animation = ActorAnimation::initialize(21, 28, 1, 1).packed();
-        for (size_t i = 0; i < animation.size(); ++i) player2[22 + i] = animation[i];
+        for (size_t index = 0; index < 2; ++index) {
+            Actor& raw = player(index);
+            raw[0] = 0;
+            raw[1] = static_cast<uint8_t>(index);
+            for (size_t i = 6; i < 16; ++i) raw[i] = 0;
+            raw[20] = 0;
+            raw[21] = static_cast<uint8_t>(index);
+            const auto animation = index == 0 ? ActorAnimation::initialize(2, 9, 1, 1).packed() :
+                ActorAnimation::initialize(21, 28, 1, 1).packed();
+            for (size_t i = 0; i < animation.size(); ++i) raw[22 + i] = animation[i];
+        }
     }
 
 private:

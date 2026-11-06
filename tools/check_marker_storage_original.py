@@ -12,6 +12,7 @@ import tempfile
 import traceback
 
 from check_transient_storage_original import difference, require, sha
+from source_guardrails import function_ranges
 
 STATE_BYTES = 1575
 OPERATIONS = 1008
@@ -32,6 +33,15 @@ def decode_fixture(packed, compressed_sha, raw_sha, limit=2 * 1024**2):
         require(len(raw) <= limit, 'decompressed marker fixture exceeds limit')
     require(sha(raw) == raw_sha, 'decompressed marker fixture hash mismatch')
     return raw
+
+
+def marker_diagnostic_bounds(source):
+    name = 'debugMarkerStorageOriginal'
+    ranges = function_ranges(source, (name,))
+    require(name in ranges, 'missing marker diagnostic definition')
+    first, last = ranges[name]
+    lines = source.splitlines(keepends=True)
+    return sum(map(len, lines[:first - 1])), sum(map(len, lines[:last]))
 
 
 def check_routing(source):
@@ -66,7 +76,8 @@ def check_routing(source):
             'marker retires records that have not received their ordered update')
     require('case SharedActorKind::Marker: updateLaunchPadMarkers(entry.order); break;' in source,
             'marker is not routed through ordered production dispatch')
-    diagnostic = body('    void debugMarkerStorageOriginal(', '    void debugProductionActorLifecycle(')
+    first, last = marker_diagnostic_bounds(source)
+    diagnostic = source[first:last]
     ordered(diagnostic, 'legacyActorSeedsEnabled_ = false;', 'actorSlots_.restoreForFixture(state, orders);',
             'updateOrderedActors(0);', 'spawnLaunchPadMarker(position.x, position.y);',
             'spawnPortalMarker(position.x, position.y);')

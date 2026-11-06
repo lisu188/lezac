@@ -67,8 +67,33 @@ void playerVisuals() {
     }
 }
 
+void playerHealth() {
+    ActorSlots slots;
+    auto state = slots.state();
+    for (size_t slot = 0; slot < state.actors.size(); ++slot)
+        for (size_t byte = 0; byte < state.actors[slot].size(); ++byte)
+            state.actors[slot][byte] = static_cast<uint8_t>(slot * 31 + byte * 17);
+    state.actors[0][1] = 1;
+    slots.restoreForFixture(state, {});
+    for (int health = 0; health < 256; ++health) {
+        auto expected = state;
+        expected.actors[0][36] = static_cast<uint8_t>(health);
+        slots.setPlayer2Health(static_cast<uint8_t>(health));
+        require(slots.state().actors == expected.actors && slots.state().visuals == expected.visuals &&
+            slots.state().links == expected.links && slots.state().count == expected.count &&
+            slots.state().visualCount == expected.visualCount && slots.state().success == expected.success,
+            "player health write cleared another field or actor");
+    }
+    slots.setPlayer2Health(41);
+    slots.resetForLevel({16,16,0,0});
+    require(slots.state().actors[0][36] == 41, "level reset refilled reserved player health");
+    require(slots.append(1,{10,12,5,1,0,0,184,100},{16,16,0,0}), "health compaction probe did not allocate");
+    require(slots.retire(1) && slots.state().actors[0][36] == 41, "nonplayer retirement changed reserved player health");
+}
+
 void run() {
     playerVisuals();
+    playerHealth();
     ActorSlots slots;
     auto seed = slots.state();
     std::array<std::array<uint8_t, 7>, ActorStorage::capacity + 1> retained{};

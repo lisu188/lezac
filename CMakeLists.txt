@@ -647,6 +647,16 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^production_actor_lifecycle=ok capacity=30.*descriptor_banks=2 descriptor_checks=295 descriptor_reset=1 descriptor_bounds=2 boss_copied_hotspots=7 boss_hotspot_rejections=7")
+    add_test(NAME player_health_ownership_app COMMAND lezac_cpp --debug-player-health-ownership)
+    set_tests_properties(player_health_ownership_app PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^player_health_ownership=ok players=2 observations=5141 fatal_boundaries=330 bonus_writes=1334 damage_order_checks=1536 legacy_adapter=0 seeded=1 natural_route=0 whole_game_claim=0")
+    add_test(NAME hotdog_byte_health_app COMMAND lezac_cpp --debug-hotdog-byte-health)
+    set_tests_properties(hotdog_byte_health_app PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^hotdog_byte_health=ok players=2 cases=512 overflow_cases=66 seeded=1 natural_route=0 whole_game_claim=0")
     add_test(NAME player_visual_ownership_app COMMAND lezac_cpp --debug-player-visual-ownership)
     set_tests_properties(player_visual_ownership_app PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}

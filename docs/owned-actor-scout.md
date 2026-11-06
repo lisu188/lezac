@@ -48,8 +48,10 @@ and expiry conversion gaps are now repaired; see
 [the bounded recovery evidence](recovery/bomb_owned_writeback_20261106.md).
 The [player visual ownership recovery](recovery/player_visual_ownership_20261106.md)
 also removes player-row reconstruction from production rendering. All 33
-visual rows now match in that bounded combat window. Reserved player-2 health,
-link-bank and shared-result differences remain open.
+visual rows now match in that bounded combat window. The subsequent
+[player health recovery](recovery/player_health_ownership_20261106.md) also
+matches all 31 captured actor rows. Link-bank and shared-result differences
+remain open, as does player 1's separately stored raw record.
 This command exposes those differences; it does not assert raw storage parity
 or correct them during capture. Private original snapshots and comparison
 artifacts are not included in this change.

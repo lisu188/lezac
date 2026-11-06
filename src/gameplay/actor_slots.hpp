@@ -22,6 +22,7 @@ public:
     size_t count() const { return storage_.state().count; }
     const State& state() const { return storage_.state(); }
     void setSharedResult(uint16_t value) { storage_.setSharedResult(value); }
+    void setPlayer2Health(uint8_t value) { storage_.actor(0)[36] = value; }
     const ActorStorage::Actor& actor(uint64_t order) const { return state().actors[require(order)]; }
     const ActorStorage::Visual& visual(uint64_t order) const { return state().visuals[actor(order)[1]]; }
 

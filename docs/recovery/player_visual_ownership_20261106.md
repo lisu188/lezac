@@ -79,8 +79,10 @@ ownership and previously differing storage, not an invented new pixel result.
 
 ## Remaining Limits
 
-The raw reserved player-2 health byte, link row 0 and shared result WORD still
-differ and remain unmasked. Player 1's separate actor record is not part of
+The subsequent [health ownership recovery](player_health_ownership_20261106.md)
+matches all 31 captured actor records in the same combat window. Link row 0
+and the shared result WORD still differ and remain unmasked. Player 1's
+separate actor record is not part of
 `ActorStorage::State`. Whole storage/frame equivalence, full campaign and
 level-7 boss completion, frame-pass stability, physical-input timing and owner
 acceptance remain open. No broad fidelity flag is changed by this work.

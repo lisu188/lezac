@@ -8785,7 +8785,7 @@ if(BUILD_TESTING)
         set_tests_properties(owned_actor_scout PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 240 LABELS "level1;replay;candidate;owned-storage;evidence-guard"
-            PASS_REGULAR_EXPRESSION "owned_actor_scout_tests=ok tests=3 candidate_only=1 original_fidelity_claim=0")
+            PASS_REGULAR_EXPRESSION "owned_actor_scout_tests=ok tests=5 candidate_only=1 original_fidelity_claim=0")
 
         add_test(NAME level1_replay
             COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

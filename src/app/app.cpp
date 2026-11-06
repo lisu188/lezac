@@ -25966,6 +25966,88 @@ public:
                   << " legacy_adoptions=0 legacy_retirements=0 seeded=1 natural_route=0 whole_game_claim=0\n";
     }
 
+    void debugPlayerVisualOwnership() {
+        load(); initSdl(); legacyActorSeedsEnabled_ = false;
+        const auto require = [](bool condition, const char* message) {
+            if (!condition) throw std::runtime_error(message);
+        };
+        const auto word = [](const auto& bytes, size_t offset) {
+            return static_cast<uint16_t>(bytes[offset] | (uint16_t{bytes[offset + 1]} << 8));
+        };
+        const auto positioned = [&](size_t index, const Player& player) {
+            const auto& row = actorSlots_.state().visuals[index];
+            return word(row, 0) == static_cast<uint16_t>(static_cast<int>(player.x)) &&
+                word(row, 2) == static_cast<uint16_t>(static_cast<int>(player.y));
+        };
+        const auto reset = [&](int count) {
+            playerCount_ = count; lives_ = lives2_ = 2;
+            resetLevel(0); ui_.setMenu(false); levelFlow_.restoreIntro({});
+        };
+        reset(1);
+        require(positioned(0, player_), "player setup did not write the owned visual position");
+        require(word(actorSlots_.state().visuals[1], 0) == 10000 &&
+            word(actorSlots_.state().visuals[1], 2) == 6000, "inactive player setup lost the original sentinel");
+        reset(2);
+        require(positioned(0, player_) && positioned(1, player2_), "two-player setup lost a visual owner");
+        size_t observations = 4;
+        for (uint8_t marker : {uint8_t{1}, uint8_t{2}}) {
+            Player& player = marker == 1 ? player_ : player2_;
+            const size_t index = marker - 1;
+            const uint8_t base = marker == 1 ? 0 : 19;
+            auto seed = actorSlots_.state();
+            seed.visuals[index][4] = seed.visuals[index][5] = 1;
+            actorSlots_.restoreForFixture(seed, {});
+            player.animation = ActorAnimation::initialize(base + 2, base + 9, 0, 1);
+            updatePlayer(player, false, false, false, false, base);
+            const auto expected = actorSpriteDescriptor(player.animation.current);
+            const auto& animated = actorSlots_.state().visuals[index];
+            require(animated[4] == 1 && animated[5] == 1 && animated[6] == expected[2] &&
+                animated[7] == expected[3], "player animation replaced dimensions or missed the owned offset");
+            require(positioned(index, player), "player integration did not write owned coordinates");
+            observations += 2;
+            int y = static_cast<int>(player.y);
+            player.vy8 = 1700;
+            player.animation = ActorAnimation::initialize(base + 1, base + 1, 2, 0);
+            updatePlayerGravity(player, true, base, y);
+            const auto pose = actorSpriteDescriptor(player.spriteIndex + 1);
+            require(std::equal(pose.begin(), pose.end(), actorSlots_.state().visuals[index].begin() + 4),
+                "landing did not install the full owned player descriptor");
+            ++observations;
+            for (bool gate : {false, true}) {
+                reset(2);
+                auto& target = marker == 1 ? player_ : player2_;
+                auto& energy = marker == 1 ? energy_ : energy2_;
+                auto& lives = marker == 1 ? lives_ : lives2_;
+                auto& dead = marker == 1 ? playerDead_ : player2Dead_;
+                auto& timer = marker == 1 ? reentryTimer_ : reentryTimer2_;
+                beginPlayerDeath(target, energy, lives, dead, timer, marker);
+                reentryGate_ = gate; timer = deathStateTimerFor(marker) = 1;
+                updateReentry(target, energy, lives, dead, timer, marker, false);
+                require(positioned(index, target), "waiting placement did not write the owned visual");
+                const auto& waiting = actorSlots_.state().visuals[index];
+                const auto image = actorSpriteDescriptor(0x27);
+                require(waiting[6] == image[2] && waiting[7] == image[3] &&
+                    waiting[4] == (gate ? 16 : 1) && waiting[5] == (gate ? 16 : 1),
+                    "waiting descriptor did not preserve or reduce the original dimensions");
+                observations += 2;
+            }
+            reset(2);
+            auto& dead = marker == 1 ? playerDead_ : player2Dead_;
+            auto& lives = marker == 1 ? lives_ : lives2_;
+            auto& timer = marker == 1 ? reentryTimer_ : reentryTimer2_;
+            const auto retainedY = word(actorSlots_.state().visuals[index], 2);
+            pendingLifeLossFor(marker) = true; lives = 0;
+            finalizePendingLifeLoss(dead, lives, timer, marker);
+            require(word(actorSlots_.state().visuals[index], 0) == 10000 &&
+                word(actorSlots_.state().visuals[index], 2) == retainedY,
+                "elimination did not write only the owned X sentinel");
+            ++observations;
+        }
+        require(legacyActorAdoptions_ == 0 && legacyActorRetirements_ == 0, "player regression used legacy projection");
+        std::cout << "player_visual_ownership=ok players=2 observations=" << observations
+                  << " legacy_adapter=0 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
     void debugBombWritebackOrder() {
         load();
         initSdl();
@@ -28874,11 +28956,18 @@ private:
             state.cooldown = spawner.cooldown;
             spawnerStates_.push_back(state);
         }
-        placePlayerAtStart(player_, 1);
-        placePlayerAtStart(player2_, 2);
         if (playerCount_ > 1) {
             playerDead_ = lives_ < 0;
             player2Dead_ = lives2_ < 0;
+        }
+        for (uint8_t marker : {uint8_t{1}, uint8_t{2}}) {
+            Player& player = marker == 1 ? player_ : player2_;
+            if (originalPlayerState(marker) == 1) placePlayerAtStart(player, marker);
+            else {
+                // 2E1E/2E3D: inactive setup writes both coordinates, unlike elimination.
+                player.x = 10000; player.y = 6000;
+                writePlayerPosition(player);
+            }
         }
         bossLinks_.clear();
         bossPresent_ = false;
@@ -28970,11 +29059,32 @@ private:
         levelFlow_.updateLevelIntro(now);
     }
 
-    void placePlayerAtStart(Player& player, uint8_t marker) const {
+    std::optional<size_t> ownedPlayerIndex(const Player& player) const {
+        if (&player == &player_) return 0;
+        if (&player == &player2_) return 1;
+        return std::nullopt; // Value-only fragment probes have no physical owner.
+    }
+
+    void writePlayerPosition(const Player& player) {
+        if (const auto index = ownedPlayerIndex(player))
+            actorSlots_.setPlayerPosition(*index, static_cast<uint16_t>(static_cast<int>(player.x)),
+                static_cast<uint16_t>(static_cast<int>(player.y)));
+    }
+
+    void writePlayerSprite(const Player& player, bool fullDescriptor = false) {
+        if (const auto index = ownedPlayerIndex(player)) {
+            const auto descriptor = actorSpriteDescriptor(player.spriteIndex + 1);
+            if (fullDescriptor) actorSlots_.setPlayerDescriptor(*index, descriptor);
+            else actorSlots_.setPlayerSpriteOffset(*index, descriptor);
+        }
+    }
+
+    void placePlayerAtStart(Player& player, uint8_t marker) {
         const auto [x, y] = lezac::gameplay::playerStart(level_.portals, marker);
         player.x = static_cast<float>(x);
         player.y = static_cast<float>(y);
         player.idleTicks = 0;
+        writePlayerPosition(player);
     }
 
     UiActions uiActions() {
@@ -29384,6 +29494,7 @@ private:
                 if (updateState2VisualCursor(state2Visual_)) {
                     player_.spriteIndex = state2Visual_.current - 1;
                     player_.singlePixelSprite = false;
+                    writePlayerSprite(player_);
                 }
                 updateDyingPlayerMotion(player_);
             }
@@ -29398,6 +29509,7 @@ private:
                     if (updateState2VisualCursor(state2Visual2_)) {
                         player2_.spriteIndex = state2Visual2_.current - 1;
                         player2_.singlePixelSprite = false;
+                        writePlayerSprite(player2_);
                     }
                     updateDyingPlayerMotion(player2_);
                 }
@@ -29589,7 +29701,7 @@ private:
         }
     }
 
-    static void selectPlayerPosture(Player& player, uint8_t spriteBase, bool dropping) {
+    void selectPlayerPosture(Player& player, uint8_t spriteBase, bool dropping) {
         // 1000:6772..67FE and 69BB..6A43 preserve the running cursor, or
         // initialize an idle backup, before selecting the temporary pose.
         if (player.animation.first == spriteBase + 18) return;
@@ -29599,9 +29711,10 @@ private:
                                                        spriteBase + (dropping ? 19 : 18), 3, 3);
         player.spriteIndex = spriteBase + 17;
         player.singlePixelSprite = false;
+        writePlayerSprite(player, true);
     }
 
-    static void updatePlayerGravity(Player& player, bool bottom, uint8_t spriteBase, int& y) {
+    void updatePlayerGravity(Player& player, bool bottom, uint8_t spriteBase, int& y) {
         // 1000:6743..6813 precedes input; a new jump does not add gravity.
         if (!bottom || player.vy8 < 0) {
             const int16_t accelerated = static_cast<int16_t>(player.vy8 + kPlayerGravity8);
@@ -29624,6 +29737,7 @@ private:
         if (player.animation.advance(player.animationBackup)) {
             player.spriteIndex = static_cast<uint8_t>(player.animation.current - 1);
             player.singlePixelSprite = false;
+            writePlayerSprite(player);
         }
         const uint8_t inputFrame = player.animation.current;
         int x = static_cast<int>(player.x);
@@ -29690,6 +29804,7 @@ private:
             player.animation.current = 1;
             player.spriteIndex = spriteBase;
             player.singlePixelSprite = false;
+            writePlayerSprite(player, true);
         }
         if (jump && edges.bottom && player.vy8 == 0) {
             player.vy8 = kPlayerJumpVelocity8;
@@ -29752,7 +29867,7 @@ private:
         integratePlayerMotion(player, x, y, edges);
     }
 
-    static void integratePlayerMotion(Player& player, int x, int y,
+    void integratePlayerMotion(Player& player, int x, int y,
                                       const ActiveMonster::EdgeFlags& edges) {
         if (edges.top && player.vy8 < 0) player.vy8 = 1;
         if (edges.left && edges.right) {
@@ -29765,6 +29880,7 @@ private:
         integrateAxis8_8(x, player.fracX, player.vx8);
         player.x = static_cast<float>(x);
         player.y = static_cast<float>(y);
+        writePlayerPosition(player);
         player.grounded = edges.bottom && player.vy8 == 0;
         syncPlayerVelocityMirror(player);
     }
@@ -30191,6 +30307,7 @@ private:
         if (activatePortal(x, y, down)) {
             player.x = static_cast<float>(x);
             player.y = static_cast<float>(y);
+            writePlayerPosition(player);
             portalCooldown = 0;
         } else if (tile == 0x72 && triggerCooldown == 0) {
             if (applyTileTrigger(wordAt(tx, ty))) {
@@ -31411,6 +31528,7 @@ private:
             timer = 0;
             state2VisualCursorFor(startMarker).active = false;
             state2EffectEntryFor(startMarker).active = false;
+            actorSlots_.hidePlayer(startMarker - 1);
             if (remainingPlayerCount() == 1) gameRenderer_.clearEliminatedViewport(startMarker - 1);
             if (allPlayersOutOfLives()) beginGameOver();
         }
@@ -31557,6 +31675,8 @@ private:
         // cell has the unsigned Y > 24 guard; neither branch gates fire.
         if (solid(cell) || (solid(static_cast<uint16_t>(cell + 1)) && y > 24)) {
             player.y = static_cast<float>(static_cast<uint16_t>(y - 1));
+            if (const auto index = ownedPlayerIndex(player))
+                actorSlots_.setPlayerY(*index, static_cast<uint16_t>(static_cast<int>(player.y)));
         }
     }
 
@@ -31577,6 +31697,8 @@ private:
                 placePlayerAtStart(player, startMarker);
                 player.spriteIndex = 0x27 - 1;
                 player.singlePixelSprite = !reentryGate_;
+                writePlayerSprite(player);
+                if (!reentryGate_) actorSlots_.reducePlayerDimensions(startMarker - 1);
                 auto& inventory = startMarker == 2 ? bombInventory2_ : bombInventory_;
                 constexpr std::array<int, 3> minimum{100, 10, 2};
                 for (size_t i = 0; i < minimum.size(); ++i) {
@@ -33453,6 +33575,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc == 4 && std::string(argv[1]) == "--debug-reward-storage-original") {
             app.debugRewardStorageOriginal(argv[2], argv[3]);
+            return 0;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--debug-player-visual-ownership") {
+            app.debugPlayerVisualOwnership();
             return 0;
         }
         if (argc == 2 && std::string(argv[1]) == "--debug-bomb-writeback-order") {

@@ -1,4 +1,4 @@
-"""Require live-raster ownership controls to reject seven isolated faults."""
+"""Require live-raster ownership controls to reject nine isolated faults."""
 import argparse
 import hashlib
 import json
@@ -16,6 +16,8 @@ def run(cxx, libraries, viewport_oracle, camera_oracle, out):
     originals = {name: (ROOT / name).read_bytes() for name in paths}
     faults = (
         ('physical_visual_bypass', paths[0], 'physical_ = world.physicalVisuals;', 'physical_ = nullptr;'),
+        ('player_visual_bypass', paths[0], 'physical_ && offset >= 0xc21e', 'physical_ && offset >= 0xc22e'),
+        ('player_descriptor_projection', paths[0], 'if (!physical_) {', 'if (true) {'),
         ('wrapped_word_high_byte', paths[1],
          'return readByte(objectBase + offset, tiles, words);',
          'return readByte(objectBase + static_cast<uint16_t>(offset), tiles, words);'),
@@ -76,7 +78,7 @@ def run(cxx, libraries, viewport_oracle, camera_oracle, out):
         (out / 'report.json').write_text(json.dumps(report, indent=2) + '\n')
     if not report['original_source_preserved']:
         raise ValueError('Live-raster source changed during mutation checks')
-    print('world_raster_mutations=ok faults=7 original_source_preserved=1 report=' + str(out / 'report.json'))
+    print('world_raster_mutations=ok faults=9 original_source_preserved=1 report=' + str(out / 'report.json'))
 
 
 if __name__ == '__main__':

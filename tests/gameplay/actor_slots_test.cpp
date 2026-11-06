@@ -26,7 +26,49 @@ ActorAnimation animation(const std::array<uint8_t, 7>& bytes) {
     return {bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], static_cast<int8_t>(bytes[6])};
 }
 
+void playerVisuals() {
+    ActorSlots slots;
+    slots.resetForLevel({16,16,0,0});
+    const auto word = [](auto& row, size_t offset, uint16_t value) {
+        row[offset] = static_cast<uint8_t>(value); row[offset + 1] = static_cast<uint8_t>(value >> 8);
+    };
+    for (size_t index = 0; index < 2; ++index) {
+        const auto retained = slots.state();
+        auto expected = retained;
+        auto check = [&] {
+            require(slots.state().visuals == expected.visuals, "player visual write touched another field or row");
+            require(slots.state().actors == retained.actors && slots.state().links == retained.links &&
+                slots.state().count == retained.count && slots.state().visualCount == retained.visualCount &&
+                slots.state().success == retained.success, "player visual write touched unrelated storage");
+        };
+        auto& row = expected.visuals[index];
+        slots.setPlayerPosition(index,65535,32768);
+        word(row,0,65535); word(row,2,32768); check();
+        slots.setPlayerSpriteOffset(index,{7,9,0x35,0xa7});
+        row[6]=0x35; row[7]=0xa7; check();
+        slots.reducePlayerDimensions(index); row[4]=row[5]=1; check();
+        slots.setPlayerSpriteOffset(index,{16,16,0x79,0x13});
+        row[6]=0x79; row[7]=0x13; check();
+        slots.setPlayerDescriptor(index,{12,15,0x81,0x23});
+        row[4]=12; row[5]=15; row[6]=0x81; row[7]=0x23; check();
+        slots.setPlayerY(index,65535); word(row,2,65535); check();
+        slots.hidePlayer(index); word(row,0,10000); check();
+    }
+    const auto retained = slots.state();
+    for (size_t index : {size_t{2}, size_t(-1)}) {
+        rejects<std::out_of_range>([&] { slots.setPlayerPosition(index,1,2); });
+        rejects<std::out_of_range>([&] { slots.setPlayerY(index,1); });
+        rejects<std::out_of_range>([&] { slots.hidePlayer(index); });
+        rejects<std::out_of_range>([&] { slots.setPlayerSpriteOffset(index,{1,2,3,4}); });
+        rejects<std::out_of_range>([&] { slots.setPlayerDescriptor(index,{1,2,3,4}); });
+        rejects<std::out_of_range>([&] { slots.reducePlayerDimensions(index); });
+        require(slots.state().visuals == retained.visuals && slots.state().actors == retained.actors,
+            "invalid player index changed storage before rejection");
+    }
+}
+
 void run() {
+    playerVisuals();
     ActorSlots slots;
     auto seed = slots.state();
     std::array<std::array<uint8_t, 7>, ActorStorage::capacity + 1> retained{};

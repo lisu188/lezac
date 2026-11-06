@@ -25,6 +25,30 @@ public:
     const ActorStorage::Actor& actor(uint64_t order) const { return state().actors[require(order)]; }
     const ActorStorage::Visual& visual(uint64_t order) const { return state().visuals[actor(order)[1]]; }
 
+    void setPlayerPosition(size_t index, uint16_t x, uint16_t y) {
+        auto& row = playerVisual(index);
+        playerWord(row, 0, x); playerWord(row, 2, y);
+    }
+
+    void setPlayerY(size_t index, uint16_t y) { playerWord(playerVisual(index), 2, y); }
+    void hidePlayer(size_t index) { playerWord(playerVisual(index), 0, 10000); }
+
+    void setPlayerSpriteOffset(size_t index, const Descriptor& descriptor) {
+        auto& row = playerVisual(index);
+        row[6] = descriptor[2]; row[7] = descriptor[3];
+    }
+
+    void setPlayerDescriptor(size_t index, const Descriptor& descriptor) {
+        setPlayerSpriteOffset(index, descriptor);
+        auto& row = playerVisual(index);
+        row[4] = descriptor[0]; row[5] = descriptor[1];
+    }
+
+    void reducePlayerDimensions(size_t index) {
+        auto& row = playerVisual(index);
+        row[4] = row[5] = 1;
+    }
+
     size_t find(uint64_t order) const {
         if (order == 0) return 0;
         for (size_t slot = 1; slot <= count(); ++slot) {
@@ -344,6 +368,16 @@ public:
     }
 
 private:
+    static void playerWord(ActorStorage::Visual& row, size_t offset, uint16_t value) {
+        row[offset] = static_cast<uint8_t>(value);
+        row[offset + 1] = static_cast<uint8_t>(value >> 8);
+    }
+
+    ActorStorage::Visual& playerVisual(size_t index) {
+        if (index >= 2) throw std::out_of_range("invalid player visual index");
+        return storage_.visual(index);
+    }
+
     size_t require(uint64_t order) const {
         const size_t slot = find(order);
         if (slot == 0) throw std::out_of_range("unbound production actor");

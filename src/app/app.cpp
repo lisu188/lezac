@@ -25966,6 +25966,151 @@ public:
                   << " legacy_adoptions=0 legacy_retirements=0 seeded=1 natural_route=0 whole_game_claim=0\n";
     }
 
+    void debugHotDogByteHealth() {
+        load(); initSdl(); legacyActorSeedsEnabled_ = false;
+        playerCount_ = 2; resetLevel(0); ui_.setMenu(false);
+        for (uint8_t marker : {uint8_t{1}, uint8_t{2}}) for (int health = 0; health < 256; ++health) {
+            Player& player = marker == 1 ? player_ : player2_;
+            auto& energy = marker == 1 ? energy_ : energy2_;
+            auto& inventory = marker == 1 ? bombInventory_ : bombInventory2_;
+            energy = health;
+            applyBonus(BonusType::HotDog, player, energy, inventory, marker);
+            if (energy != std::min(100, int{static_cast<uint8_t>(health + 33)}))
+                throw std::runtime_error("Hot Dog health addition must wrap before the cap");
+        }
+        std::cout << "hotdog_byte_health=ok players=2 cases=512 overflow_cases=66 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
+    void debugPlayerHealthOwnership() {
+        load(); initSdl(); legacyActorSeedsEnabled_ = false;
+        levelFlow_.setInteractiveEnabled(false);
+        const auto require = [](bool condition, const char* message) {
+            if (!condition) throw std::runtime_error(message);
+        };
+        const auto rawHealth = [&] { return actorSlots_.state().actors[0][36]; };
+        size_t observations = 0, fatalChecks = 0, bonusWrites = 0, damageOrderChecks = 0;
+        for (int players : {1, 2}) {
+            playerCount_ = players; lives_ = lives2_ = 2;
+            ui_.setMenu(true); beginLevelForPlay(0); ui_.setMenu(false);
+            require(rawHealth() == 100, "new-game initialization did not write reserved player health");
+            ++observations;
+        }
+        const auto seed = [&](uint8_t marker, int health) {
+            auto state = actorSlots_.state();
+            state.actors[0][36] = marker == 2 ? static_cast<uint8_t>(health) : 19;
+            actorSlots_.restoreForFixture(state, {});
+            (marker == 1 ? energy_ : energy2_) = health;
+            (marker == 1 ? playerDead_ : player2Dead_) = false;
+            (marker == 1 ? lives_ : lives2_) = 2;
+            pendingLifeLossFor(marker) = false;
+            deathStateTimerFor(marker) = 0;
+            ui_.setMenu(false);
+        };
+        for (int level : {1, 1}) {
+            seed(2, 41); beginLevelForPlay(level);
+            require(energy2_ == 41 && rawHealth() == 41, "level advance or restart refilled reserved player health");
+            ++observations;
+        }
+        seed(2, 73); resetLevel(0);
+        require(rawHealth() == 73, "level reset cleared the retained player health byte");
+        ++observations;
+        const auto check = [&](uint8_t marker, int expected, const char* message) {
+            require((marker == 1 ? energy_ : energy2_) == expected &&
+                rawHealth() == (marker == 2 ? expected : 19), message);
+            ++observations;
+        };
+        for (uint8_t marker : {uint8_t{1}, uint8_t{2}}) {
+            Player& player = marker == 1 ? player_ : player2_;
+            auto& energy = marker == 1 ? energy_ : energy2_;
+            auto& inventory = marker == 1 ? bombInventory_ : bombInventory2_;
+            auto& dead = marker == 1 ? playerDead_ : player2Dead_;
+            auto& lives = marker == 1 ? lives_ : lives2_;
+            auto& timer = marker == 1 ? reentryTimer_ : reentryTimer2_;
+            auto& cooldown = marker == 1 ? damageCooldown_ : damageCooldown2_;
+            for (int health = 0; health < 256; ++health) {
+                seed(marker, health);
+                std::vector<uint8_t> writes;
+                uint32_t scoreBefore = scoreForPlayer(marker);
+                debugPlayerHealthWriteObserver_ = [&](uint8_t observed, uint8_t value) {
+                    require(observed == marker && rawHealth() == (marker == 2 ? value : 19), "bonus health write crossed its owner");
+                    require(scoreForPlayer(marker) == scoreBefore, "bonus score advanced before the health writes");
+                    writes.push_back(value); ++bonusWrites;
+                };
+                applyBonus(BonusType::FirstAid, player, energy, inventory, marker);
+                require(writes == std::vector<uint8_t>{100}, "First Aid health write sequence differs");
+                check(marker, 100, "First Aid did not write the owned health byte");
+                seed(marker, health); writes.clear(); scoreBefore = scoreForPlayer(marker);
+                applyBonus(BonusType::HotDog, player, energy, inventory, marker);
+                const uint8_t summed = static_cast<uint8_t>(health + 33);
+                std::vector<uint8_t> expectedWrites{summed};
+                if (summed > 100) expectedWrites.push_back(100);
+                require(writes == expectedWrites, "Hot Dog health write sequence differs");
+                debugPlayerHealthWriteObserver_ = {};
+                check(marker, std::min(100, int{static_cast<uint8_t>(health + 33)}), "Hot Dog owned health differs");
+            }
+            sound_.setRequestAttemptCounting(true);
+            for (int health = 0; health < 256; ++health) for (uint8_t damage : {uint8_t{0}, uint8_t{1}, uint8_t{255}}) {
+                seed(marker, health);
+                const uint8_t wrapped = static_cast<uint8_t>(health - damage);
+                const auto soundBefore = sound_.requestAttemptCount();
+                bool firstWrite = true;
+                debugPlayerHealthWriteObserver_ = [&](uint8_t observed, uint8_t value) {
+                    if (!firstWrite) return;
+                    require(observed == marker && value == wrapped && sound_.requestAttemptCount() == soundBefore,
+                        "queued damage sound preceded the health write");
+                    firstWrite = false; ++damageOrderChecks;
+                };
+                debugDeathGateObserver_ = [&](uint8_t observed) {
+                    require(observed == marker, "health regression crossed player identity");
+                    require(rawHealth() == (marker == 2 ? wrapped : 19), "queued damage did not reach storage before death dispatch");
+                    ++fatalChecks;
+                };
+                uint8_t pending = damage;
+                drainPlayerDamageCounter(player, energy, lives, dead, timer, pending, marker);
+                debugDeathGateObserver_ = {};
+                debugPlayerHealthWriteObserver_ = {};
+                check(marker, wrapped > 200 ? 100 : wrapped, "post-damage or death owned health differs");
+                require(pending == 0, "health regression did not drain queued damage");
+                require(sound_.requestAttemptCount() == soundBefore + (damage != 0 ? 1u : 0u) + (wrapped > 200 ? 1u : 0u),
+                    "health regression did not count the damage and death requests");
+            }
+            sound_.setRequestAttemptCounting(false);
+            std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+            std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+            flameRecords_.clear(); player.x = player.y = 16;
+            const std::array<std::array<int, 2>, 4> cells{{{2,2},{3,2},{3,3},{2,3}}};
+            for (int health = 0; health < 256; ++health) for (size_t flames = 0; flames <= 4; ++flames) {
+                seed(marker, health);
+                for (size_t i = 0; i < cells.size(); ++i) tileRef(cells[i][0], cells[i][1]) = i < flames ? 0x75 : 0;
+                applyPlayerTerrainDamage(player, energy);
+                check(marker, static_cast<uint8_t>(health - static_cast<int>(flames * 2)), "terrain damage did not write owned health");
+            }
+            seed(marker, 75); dead = true;
+            uint8_t pending = 255;
+            drainPlayerDamageCounter(player, energy, lives, dead, timer, pending, marker);
+            check(marker, 75, "dying-player queued damage changed retained health");
+            for (BonusType type : {BonusType::Present, BonusType::JollyCloud, BonusType::YellowBombBox,
+                    BonusType::GreenBombBox, BonusType::BigDiamond}) {
+                seed(marker, 41);
+                auto state = actorSlots_.state(); state.actors[0][36] = 19; actorSlots_.restoreForFixture(state, {});
+                applyBonus(type, player, energy, inventory, marker);
+                require(energy == 41 && rawHealth() == 19, "non-health bonus projected typed health into storage");
+                ++observations;
+            }
+            for (bool gate : {false, true}) {
+                seed(marker, 73); dead = true; reentryGate_ = gate;
+                reentryFire1_ = reentryFire2_ = true;
+                tryReenterPlayer(player, energy, lives, dead, timer, cooldown, marker);
+                check(marker, gate ? 100 : 73, "reentry gate did not preserve or refill owned health");
+                require(dead != gate && reentryFire1_ != gate && reentryFire2_ != gate, "reentry health crossed its control gate");
+            }
+        }
+        require(observations == 5141 && fatalChecks == 330 && bonusWrites == 1334 && damageOrderChecks == 1536,
+            "player health coverage changed");
+        require(legacyActorAdoptions_ == 0 && legacyActorRetirements_ == 0, "health regression used legacy projection");
+        std::cout << "player_health_ownership=ok players=2 observations=5141 fatal_boundaries=330 bonus_writes=1334 damage_order_checks=1536 legacy_adapter=0 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
     void debugPlayerVisualOwnership() {
         load(); initSdl(); legacyActorSeedsEnabled_ = false;
         const auto require = [](bool condition, const char* message) {
@@ -28721,6 +28866,7 @@ private:
     std::function<void()> debugInteractiveTickObserver_;
     std::function<void(const SDL_Event&)> debugPhysicalInputObserver_;
     std::function<void(uint8_t)> debugDeathGateObserver_;
+    std::function<void(uint8_t, uint8_t)> debugPlayerHealthWriteObserver_;
     std::function<void(const char*)> debugReentryBoundaryObserver_;
     lezac::gameplay::RetainedRecordQueue<DebrisRecord> debrisQueue_;
     lezac::gameplay::RetainedRecordQueue<CollapseRecord> collapseQueue_;
@@ -28995,6 +29141,7 @@ private:
             bombInventory2_ = {};
             // 2F30/2F35 refill energy only on the new-game path.
             energy_ = energy2_ = 100;
+            writePlayerHealth(2, energy2_);
         }
         // 1000:2AF2 resets selection on reload; 2F69 initializes counts only for a new game.
         bombInventory_.selected = bombInventory2_.selected = BombType::Small;
@@ -29063,6 +29210,12 @@ private:
         if (&player == &player_) return 0;
         if (&player == &player2_) return 1;
         return std::nullopt; // Value-only fragment probes have no physical owner.
+    }
+
+    void writePlayerHealth(uint8_t marker, int health) {
+        // P1's separate raw actor record is not part of ActorSlots yet.
+        if (marker == 2) actorSlots_.setPlayer2Health(static_cast<uint8_t>(health));
+        if (debugPlayerHealthWriteObserver_) debugPlayerHealthWriteObserver_(marker, static_cast<uint8_t>(health));
     }
 
     void writePlayerPosition(const Player& player) {
@@ -29849,6 +30002,8 @@ private:
             }
         }
         energy = static_cast<uint8_t>(energy - damage);
+        if (const auto index = ownedPlayerIndex(player))
+            writePlayerHealth(static_cast<uint8_t>(*index + 1), energy);
     }
 
     void updateDyingPlayerMotion(Player& player) {
@@ -31363,14 +31518,16 @@ private:
         const uint8_t globalState = originalPlayerState(startMarker);
         uint8_t amount = pending;
         pending = 0;
-        if (amount != 0) requestPlayerDamageSound();
         if (dead) {
+            if (amount != 0) requestPlayerDamageSound();
             presentation_.updateHudEnergy(startMarker - 1, static_cast<uint8_t>(energy), globalState);
             return;
         }
         uint8_t updatedEnergy =
             static_cast<uint8_t>(std::clamp(energy, 0, 255) - amount);
         energy = static_cast<int>(updatedEnergy);
+        writePlayerHealth(startMarker, energy);
+        if (amount != 0) requestPlayerDamageSound();
         uint16_t hudEnergy = updatedEnergy;
         if (static_cast<uint16_t>(updatedEnergy) > 0x00c8) {
             // Death helper 30A3 leaves this count in DS:2074 while resetting
@@ -31420,13 +31577,14 @@ private:
         reentryGate_ = canReenterLevel();
         if (debugDeathGateObserver_) debugDeathGateObserver_(startMarker);
         pendingLifeLossFor(startMarker) = lives >= 0;
-        energy = 100;
         deathStateTimerFor(startMarker) = kDeathStateTicks;
         State2VisualCursor& cursor = state2VisualCursorFor(startMarker);
         resetState2VisualCursor(cursor);
         refreshState2EffectEntry(player, cursor, state2EffectEntryFor(startMarker));
         syncPlayerVelocityMirror(player);
         player.grounded = false;
+        energy = 100;
+        writePlayerHealth(startMarker, energy);
         if (lives < 0) {
             dead = true;
             timer = 0;
@@ -31746,13 +31904,14 @@ private:
         const auto& animation = state2VisualCursorFor(startMarker);
         player.animation = ActorAnimation{animation.current, animation.first, animation.last,
             animation.counter, animation.delay, animation.mode, animation.step};
-        energy = 100;
         deathStateTimerFor(startMarker) = 0;
         state2VisualCursorFor(startMarker).active = false;
         state2EffectEntryFor(startMarker).active = false;
         (void)damageCooldown;
         dead = false;
         reentryFire1_ = reentryFire2_ = false;
+        energy = 100;
+        writePlayerHealth(startMarker, energy);
     }
 
     void respawnPlayerAtStart(Player& player, int& energy, uint8_t startMarker) {
@@ -32602,12 +32761,19 @@ private:
                 addScore(playerIndex, 2000);
                 break;
             case BonusType::FirstAid:
-                addScore(playerIndex, 1000);
                 energy = 100;
+                writePlayerHealth(playerIndex, energy);
+                addScore(playerIndex, 1000);
                 break;
             case BonusType::HotDog:
+                // 6E64 adds a BYTE before the unsigned cap at 6E6C.
+                energy = static_cast<uint8_t>(energy + 33);
+                writePlayerHealth(playerIndex, energy);
+                if (energy > 100) {
+                    energy = 100;
+                    writePlayerHealth(playerIndex, energy);
+                }
                 addScore(playerIndex, 1500);
-                energy = std::min(100, energy + 33);
                 break;
             case BonusType::JollyCloud:
                 addScore(playerIndex, 2000);
@@ -33575,6 +33741,14 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc == 4 && std::string(argv[1]) == "--debug-reward-storage-original") {
             app.debugRewardStorageOriginal(argv[2], argv[3]);
+            return 0;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--debug-player-health-ownership") {
+            app.debugPlayerHealthOwnership();
+            return 0;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--debug-hotdog-byte-health") {
+            app.debugHotDogByteHealth();
             return 0;
         }
         if (argc == 2 && std::string(argv[1]) == "--debug-player-visual-ownership") {

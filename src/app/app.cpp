@@ -25966,6 +25966,103 @@ public:
                   << " legacy_adoptions=0 legacy_retirements=0 seeded=1 natural_route=0 whole_game_claim=0\n";
     }
 
+    void debugPlayerTerrainScratch(const std::filesystem::path& outputPath = {}) {
+        load(); initSdl(); legacyActorSeedsEnabled_ = false;
+        playerCount_ = 2; resetLevel(0); ui_.setMenu(false);
+        std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+        std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+        sound_.setRequestAttemptCounting(true);
+        const auto require = [](bool condition, const char* message) {
+            if (!condition) throw std::runtime_error(message);
+        };
+        std::vector<uint8_t> bytes{'P','T','D','S','v','1',0,0};
+        const auto word = [&](uint16_t value) {
+            bytes.push_back(static_cast<uint8_t>(value));
+            bytes.push_back(static_cast<uint8_t>(value >> 8));
+        };
+        size_t cases = 0, healthBoundaries = 0;
+        const auto run = [&](uint8_t marker, uint8_t glyph, uint8_t mask, uint8_t mass, uint16_t footprint) {
+            Player& player = marker == 1 ? player_ : player2_;
+            auto& energy = marker == 1 ? energy_ : energy2_;
+            const uint8_t health = static_cast<uint8_t>(glyph * 17 + mask * 13);
+            const std::array<uint16_t, 4> cells{{footprint, static_cast<uint16_t>(footprint + 1),
+                static_cast<uint16_t>(footprint + level_.width + 1), static_cast<uint16_t>(footprint + level_.width)}};
+            int damage = 0, lastIndex = -1;
+            uint16_t last = 0;
+            for (size_t i = 0; i < cells.size(); ++i) {
+                const auto value = static_cast<uint8_t>((mask & (1u << i)) != 0 ? glyph : 0);
+                tileRef(cells[i] % level_.width, cells[i] / level_.width) = value;
+                if (value == 0x75) { damage += 2; last = cells[i]; lastIndex = static_cast<int>(i); }
+                else if (i < 2 && value >= 1 && value <= 0x4c) damage += 2;
+            }
+            flameRecords_.clear();
+            for (int i = 0; i < 8; ++i) {
+                const int part = i % 4;
+                FlameRecord ray;
+                ray.cell = cells[part]; ray.mass = mass;
+                ray.vx = static_cast<int8_t>(i < 4 ? part + 1 : -part - 1);
+                ray.vy = static_cast<int8_t>(i < 4 ? -part - 2 : part + 2);
+                flameRecords_.push_back(ray);
+            }
+            const uint16_t cursor = last != 0 ? static_cast<uint16_t>(lastIndex + 5) : footprint;
+            const int16_t vx = last != 0 ? static_cast<int16_t>((-lastIndex - 1) * 8) : int16_t{0x1234};
+            const int16_t vy = last != 0 ? static_cast<int16_t>((lastIndex + 2) * 8) : int16_t{-292};
+            if (last != 0 && mass > 1) damage += mass / 10;
+            const uint8_t expectedHealth = static_cast<uint8_t>(health - damage);
+            player.x = (footprint % level_.width) * 8 - 4;
+            player.y = (footprint / level_.width) * 8;
+            player.vx8 = 0x1234; player.vy8 = -292; energy = health;
+            actorSlots_.setPlayer2Health(marker == 2 ? health : 19);
+            actorSlots_.setSharedResult(0x55aa); sound_.writeSharedCursor(0xa55a);
+            monsterTileDamageDelta_ = 0x5a;
+            auto expectedStorage = actorSlots_.state();
+            expectedStorage.success = last;
+            if (marker == 2) expectedStorage.actors[0][36] = expectedHealth;
+            const auto requests = sound_.requestAttemptCount();
+            debugPlayerHealthWriteObserver_ = [&](uint8_t observed, uint8_t value) {
+                require(observed == marker && value == expectedHealth, "terrain scratch crossed the health owner");
+                require(actorSlots_.state().success == last && sound_.requestCursor() == cursor &&
+                    monsterTileDamageDelta_ == -damage, "terrain scratch was not committed before the health write");
+                ++healthBoundaries;
+            };
+            applyPlayerTerrainDamage(player, energy);
+            debugPlayerHealthWriteObserver_ = {};
+            require(energy == expectedHealth && player.vx8 == vx && player.vy8 == vy,
+                "terrain scratch changed health or flame impulse");
+            const auto& actual = actorSlots_.state();
+            require(actual.actors == expectedStorage.actors && actual.visuals == expectedStorage.visuals &&
+                actual.links == expectedStorage.links && actual.count == expectedStorage.count &&
+                actual.visualCount == expectedStorage.visualCount && actual.success == expectedStorage.success,
+                "terrain scratch changed unrelated actor storage");
+            require(sound_.requestAttemptCount() == requests, "terrain scratch submitted a sound request");
+            bytes.insert(bytes.end(), {marker, glyph, mask, mass, health});
+            word(footprint); word(actual.success); word(sound_.requestCursor());
+            bytes.push_back(static_cast<uint8_t>(monsterTileDamageDelta_));
+            bytes.push_back(static_cast<uint8_t>(energy));
+            word(static_cast<uint16_t>(player.vx8)); word(static_cast<uint16_t>(player.vy8));
+            ++cases;
+        };
+        for (uint8_t marker : {uint8_t{1}, uint8_t{2}})
+            for (int glyph = 0; glyph < 256; ++glyph) for (uint8_t mask = 0; mask < 16; ++mask)
+                run(marker, static_cast<uint8_t>(glyph), mask, 1, 282);
+        for (uint8_t marker : {uint8_t{1}, uint8_t{2}})
+            for (uint8_t mass : {uint8_t{0}, uint8_t{1}, uint8_t{2}, uint8_t{9}, uint8_t{10}, uint8_t{255}})
+                for (uint8_t mask : {uint8_t{1}, uint8_t{3}, uint8_t{8}, uint8_t{15}})
+                    run(marker, 0x75, mask, mass, 282);
+        for (uint8_t marker : {uint8_t{1}, uint8_t{2}}) run(marker, 0x75, 1, 255, 0);
+        require(cases == 8242 && healthBoundaries == cases && bytes.size() == 8 + cases * 17,
+            "terrain scratch coverage changed");
+        sound_.setRequestAttemptCounting(false);
+        if (!outputPath.empty()) {
+            std::ofstream output(outputPath, std::ios::binary);
+            output.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+            if (!output) throw std::runtime_error("cannot write terrain scratch diagnostic");
+        }
+        require(legacyActorAdoptions_ == 0 && legacyActorRetirements_ == 0, "terrain scratch used legacy projection");
+        std::cout << "player_terrain_scratch=ok cases=8242 glyph_masks=8192 mass_cases=48 zero_cell=2"
+                  << " health_boundaries=8242 legacy_adapter=0 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
     void debugHotDogByteHealth() {
         load(); initSdl(); legacyActorSeedsEnabled_ = false;
         playerCount_ = 2; resetLevel(0); ui_.setMenu(false);
@@ -29981,6 +30078,11 @@ private:
         const int x = (static_cast<int>(player.x) + 4) >> 3;
         const int y = static_cast<int>(player.y) >> 3;
         const std::array<std::array<int, 2>, 4> cells{{{x,y}, {x+1,y}, {x+1,y+1}, {x,y+1}}};
+        // 6F98..56C2 passes cutoff 2, then clears the shared query outputs.
+        sound_.writeSharedCursor(static_cast<uint16_t>(y * level_.width + x));
+        actorSlots_.setSharedResult(2);
+        monsterTileDamageDelta_ = 0;
+        actorSlots_.setSharedResult(0);
         int damage = 0, flameCell = 0;
         for (size_t i = 0; i < cells.size(); ++i) {
             const auto& cell = cells[i];
@@ -29988,17 +30090,22 @@ private:
             if (glyph == 0x75) {
                 damage += 2;
                 flameCell = cell[1] * level_.width + cell[0];
+                actorSlots_.setSharedResult(static_cast<uint16_t>(flameCell));
             } else if (i < 2 && glyph >= 1 && glyph <= 0x4c) {
                 damage += 2;
             }
+            monsterTileDamageDelta_ = static_cast<int8_t>(-damage);
         }
         if (flameCell != 0) {
             const auto ray = std::find_if(flameRecords_.rbegin(), flameRecords_.rend(),
                 [flameCell](const FlameRecord& item) { return item.cell == flameCell; });
             if (ray != flameRecords_.rend()) {
+                // 3A56 searches backward and replaces the cell cursor with a one-based slot.
+                sound_.writeSharedCursor(static_cast<uint16_t>(std::distance(ray, flameRecords_.rend())));
                 player.vx8 = static_cast<int16_t>(ray->vx * 8);
                 player.vy8 = static_cast<int16_t>(ray->vy * 8);
                 if (ray->mass > 1) damage += ray->mass / 10;
+                monsterTileDamageDelta_ = static_cast<int8_t>(-damage);
             }
         }
         energy = static_cast<uint8_t>(energy - damage);
@@ -33741,6 +33848,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc == 4 && std::string(argv[1]) == "--debug-reward-storage-original") {
             app.debugRewardStorageOriginal(argv[2], argv[3]);
+            return 0;
+        }
+        if ((argc == 2 || argc == 3) && std::string(argv[1]) == "--debug-player-terrain-scratch") {
+            app.debugPlayerTerrainScratch(argc == 3 ? std::filesystem::path(argv[2]) : std::filesystem::path{});
             return 0;
         }
         if (argc == 2 && std::string(argv[1]) == "--debug-player-health-ownership") {

@@ -647,6 +647,11 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^production_actor_lifecycle=ok capacity=30.*descriptor_banks=2 descriptor_checks=295 descriptor_reset=1 descriptor_bounds=2 boss_copied_hotspots=7 boss_hotspot_rejections=7")
+    add_test(NAME player_terrain_scratch_app COMMAND lezac_cpp --debug-player-terrain-scratch)
+    set_tests_properties(player_terrain_scratch_app PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^player_terrain_scratch=ok cases=8242 glyph_masks=8192 mass_cases=48 zero_cell=2 health_boundaries=8242 legacy_adapter=0 seeded=1 natural_route=0 whole_game_claim=0")
     add_test(NAME player_health_ownership_app COMMAND lezac_cpp --debug-player-health-ownership)
     set_tests_properties(player_health_ownership_app PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}

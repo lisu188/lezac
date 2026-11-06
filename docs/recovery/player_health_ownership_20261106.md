@@ -87,8 +87,10 @@ storage repair; this is not a claim of a new visual improvement.
 
 ## Remaining Limits
 
-The captured link row 0 and shared result WORD still differ and remain
-unmasked. Player 1's separate raw actor record is excluded from this storage
+At this checkpoint, captured link row 0 and the shared result WORD still
+differed and remained unmasked. The subsequent shared-result repair is
+documented in `player_terrain_scratch_20261106.md`; link row 0 remains open.
+Player 1's separate raw actor record is excluded from this storage
 format. The inactive-player-2 combat window does not prove complete active
 two-player record motion/animation ownership. Full frame-pass stability,
 whole-campaign/level-7 boss completion, wall-clock and physical-input timing,

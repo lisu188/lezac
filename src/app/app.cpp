@@ -25969,6 +25969,86 @@ public:
                   << " legacy_adoptions=0 legacy_retirements=0 seeded=1 natural_route=0 whole_game_claim=0\n";
     }
 
+    void debugPlayerWalkBands() {
+        load(); initSdl(); legacyActorSeedsEnabled_ = false;
+        levelFlow_.setInteractiveEnabled(false);
+        playerCount_ = 2; lives_ = lives2_ = 2;
+        ui_.setMenu(true); beginLevelForPlay(0); ui_.setMenu(false);
+        std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+        std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+        size_t cases = 0;
+        for (size_t index = 0; index < 2; ++index) for (bool left : {false, true}) {
+            const uint8_t base = index == 0 ? 0 : 19;
+            const uint8_t first = left ? (index == 0 ? 10 : 29) : (index == 0 ? 2 : 21);
+            const uint8_t last = left ? (index == 0 ? 17 : 35) : (index == 0 ? 9 : 28);
+            auto& player = index == 0 ? player_ : player2_;
+            for (unsigned cursor = 0; cursor < 256; ++cursor) {
+                player = {}; player.x = 100; player.y = 100; player.idleTicks = 7;
+                player.animation = {static_cast<uint8_t>(cursor), 77, 88, 0, 0, 0, 1};
+                updatePlayer(player, left, !left, false, false, base);
+                const bool retained = cursor >= first && cursor <= last;
+                if (player.animation.current != (retained ? cursor : first) ||
+                    player.animation.first != (retained ? 77 : first) ||
+                    player.animation.last != (retained ? 88 : last) || player.idleTicks != (retained ? 7 : 0))
+                    throw std::runtime_error("player walk band differs from original table");
+                const auto packed = player.animation.packed();
+                if (!std::equal(packed.begin(), packed.end(), actorSlots_.playerRecord(index).begin() + 22))
+                    throw std::runtime_error("player walk band did not commit its physical record");
+                ++cases;
+            }
+        }
+        if (cases != 1024 || legacyActorAdoptions_ || legacyActorRetirements_)
+            throw std::runtime_error("player walk coverage or ownership differs");
+        std::cout << "player_walk_bands=ok players=2 cases=1024 physical_records=1 legacy_adapter=0 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
+    void debugHudScratchOwnership() {
+        load(); initSdl(); legacyActorSeedsEnabled_ = false;
+        levelFlow_.setInteractiveEnabled(false);
+        playerCount_ = 2; lives_ = lives2_ = 2;
+        ui_.setMenu(true); beginLevelForPlay(0); ui_.setMenu(false);
+        const auto require = [](bool condition, const char* message) {
+            if (!condition) throw std::runtime_error(message);
+        };
+        presentation_.resetHudObjectivesForLevel(); collected_ = 0; logicTick_ = 1;
+        actorSlots_.setSharedResult(0x55aa); prepareHudObjectives();
+        require(actorSlots_.state().success == 0xe416, "dirty objective helper did not own the shared cursor");
+        actorSlots_.setSharedResult(0xa55a); prepareHudObjectives();
+        require(actorSlots_.state().success == 0xa55a, "clean objective helper rewrote the shared cursor");
+        collected_ = 1; prepareHudObjectives();
+        require(actorSlots_.state().success == 0xd016, "bonus-only helper did not own the shared cursor");
+        size_t cases = 0;
+        for (int count : {1, 2}) for (uint8_t phase : {uint8_t{0}, uint8_t{1}, uint8_t{2}, uint8_t{255}})
+            for (unsigned gate = 0; gate < 4; ++gate) for (uint16_t destination : {uint16_t{180}, uint16_t{65535}}) {
+                playerCount_ = count; score_ = score2_ = 0;
+                playerDead_ = (gate & 1) != 0; player2Dead_ = (gate & 2) != 0;
+                deathStateTimer_ = deathStateTimer2_ = 0;
+                auto state = presentation_.snapshot();
+                state.hudScores = {};
+                for (auto& reel : state.hudScores) reel.phase = phase;
+                presentation_.restore(state);
+                auto backing = actorSlots_.state();
+                backing.links[0][10] = backing.links[0][12] = static_cast<uint8_t>(destination);
+                backing.links[0][11] = backing.links[0][13] = static_cast<uint8_t>(destination >> 8);
+                std::array<uint64_t, lezac::gameplay::ActorStorage::capacity + 1> orders{};
+                for (size_t slot = 1; slot <= actorSlots_.count(); ++slot) orders[slot] = actorSlots_.order(slot);
+                actorSlots_.restoreForFixture(backing, orders);
+                actorSlots_.setSharedResult(0x55aa);
+                uint16_t expected = 0x55aa;
+                for (int index = 0; index < count; ++index) if ((gate & (1u << index)) == 0)
+                    expected = phase < 2 ? static_cast<uint16_t>(0xdc00u + destination + 81u) :
+                        static_cast<uint16_t>(index * 46);
+                updateHudScores();
+                require(actorSlots_.state().success == expected, "score owner lost phase, player, destination or skip gate");
+                const auto before = actorSlots_.state(); draw();
+                require(actorSlots_.state().success == before.success, "drawing synthesized a shared HUD cursor");
+                ++cases;
+            }
+        require(cases == 64 && legacyActorAdoptions_ == 0 && legacyActorRetirements_ == 0,
+            "HUD scratch coverage or ownership differs");
+        std::cout << "hud_scratch_ownership=ok objective_gates=3 score_cases=64 physical_destinations=1 draw_preserved=1 legacy_adapter=0 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
     void debugPlayerRecordOwnership() {
         load(); initSdl(); legacyActorSeedsEnabled_ = false;
         levelFlow_.setInteractiveEnabled(false);
@@ -29987,12 +30067,19 @@ private:
 
     void prepareHudObjectives() {
         presentation_.prepareHudObjectives(static_cast<uint16_t>(logicTick_), collected_, destructionPercent(),
-                                           level_.requiredBonus, level_.requiredDestruction);
+                                           level_.requiredBonus, level_.requiredDestruction,
+                                           [this](uint16_t value) { actorSlots_.setSharedResult(value); });
     }
 
     void updateHudScores() {
+        const auto& aliases = actorSlots_.state().links[0];
+        const auto destination = [&](size_t at) {
+            return static_cast<uint16_t>(aliases[at] | (uint16_t{aliases[at + 1]} << 8));
+        };
         presentation_.updateHudScores(playerCount_, {{score_, score2_}}, {{playerDead_, player2Dead_}},
-                                      {{deathStateTimer_, deathStateTimer2_}});
+                                      {{deathStateTimer_, deathStateTimer2_}},
+                                      [this](uint16_t value) { actorSlots_.setSharedResult(value); },
+                                      {{destination(10), destination(12)}});
     }
 
     bool activateLaunchPad(Player& player, bool down, int localY) {
@@ -30237,8 +30324,10 @@ private:
                 player.vx8 = -250;
                 edges.left = false;
             }
-            if (inputFrame < spriteBase + 10 || inputFrame > spriteBase + 17) {
-                player.animation = ActorAnimation::initialize(spriteBase + 10, spriteBase + 17, 0, 1);
+            // DS:0065 is 17, but DS:0069 ends P2's shorter band at 35.
+            const uint8_t lastLeft = spriteBase == 19 ? 35 : 17;
+            if (inputFrame < spriteBase + 10 || inputFrame > lastLeft) {
+                player.animation = ActorAnimation::initialize(spriteBase + 10, lastLeft, 0, 1);
                 writePlayerAnimation(player);
                 player.idleTicks = 0;
                 if (const auto index = ownedPlayerIndex(player)) actorSlots_.setPlayerIdle(*index, 0);
@@ -34090,6 +34179,14 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc == 2 && std::string(argv[1]) == "--debug-player-record-ownership") {
             app.debugPlayerRecordOwnership();
+            return 0;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--debug-player-walk-bands") {
+            app.debugPlayerWalkBands();
+            return 0;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--debug-hud-scratch-ownership") {
+            app.debugHudScratchOwnership();
             return 0;
         }
         if (argc == 2 && std::string(argv[1]) == "--debug-link-alias-ownership") {

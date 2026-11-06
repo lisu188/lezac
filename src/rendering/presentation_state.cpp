@@ -169,23 +169,36 @@ void PresentationState::beginOriginalPlay(bool fromMenu) {
 }
 
 void PresentationState::prepareHudObjectives(uint16_t frame, int collected, int destructionPercent,
-                                             int requiredBonus, int requiredDestruction) {
+                                             int requiredBonus, int requiredDestruction, const HudWordWriter& writeShared) {
     collected = static_cast<uint16_t>(collected);
     if ((frame % 30) == 0) hudDestructionPercent_ = static_cast<uint8_t>(destructionPercent);
     // 79E8 calls 3184 only when an objective display is dirty.
     if (collected == hudPreviousCollected_ && hudDestructionPercent_ == hudPreviousDestruction_) return;
+    // 319B seeds DS:2072; 3169 moves left after each of the two digits.
+    uint16_t cursor = 0xd028;
+    if (writeShared) writeShared(cursor);
+    const auto advanceDigits = [&] {
+        for (int digit = 0; digit < 2; ++digit) {
+            cursor = static_cast<uint16_t>(cursor - 9);
+            if (writeShared) writeShared(cursor);
+        }
+    };
     if (collected != hudPreviousCollected_) {
         hudPreviousCollected_ = collected;
         hudPaletteQueue_.request(245, {63, 63, 63}, {1, 1, 41});
         if (core::hudBonusRemaining(static_cast<uint16_t>(requiredBonus), static_cast<uint16_t>(collected)) == 0)
             hudBonusComplete_ = true;
+        advanceDigits();
     }
     if (hudDestructionPercent_ != hudPreviousDestruction_) {
         hudPreviousDestruction_ = hudDestructionPercent_;
         hudPaletteQueue_.request(246, {63, 63, 63}, {1, 1, 41});
+        cursor = 0xe428;
+        if (writeShared) writeShared(cursor);
         if (core::hudDestructionRemaining(static_cast<uint8_t>(requiredDestruction),
                                          static_cast<uint8_t>(hudDestructionPercent_)) == 0)
             hudDestructionComplete_ = true;
+        advanceDigits();
     }
     // 325B requests the shared border whenever that dirty-only helper runs.
     if (hudBonusComplete_ && hudDestructionComplete_)
@@ -193,11 +206,23 @@ void PresentationState::prepareHudObjectives(uint16_t frame, int collected, int 
 }
 
 void PresentationState::updateHudScores(int playerCount, const std::array<uint32_t, 2>& scores,
-                                       const std::array<bool, 2>& dead, const std::array<int, 2>& deathTimers) {
+                                       const std::array<bool, 2>& dead, const std::array<int, 2>& deathTimers,
+                                       const HudWordWriter& writeShared, std::array<uint16_t, 2> hudX) {
     for (int i = 0; i < playerCount; ++i) {
         hudScores_[i].setValue(scores[i]);
         if (dead[i] && deathTimers[i] == 0) continue;
+        // 7FE4/7FF8 write the score-table offset even when the reel is settled.
+        if (writeShared) writeShared(static_cast<uint16_t>(i * 46));
+        const bool paint = hudScores_[i].phase < 2;
         hudScores_[i].advance();
+        if (paint && writeShared) {
+            uint16_t cursor = static_cast<uint16_t>(0xdc00u + hudX[i]);
+            writeShared(cursor); // 124B, followed by nine 1271 increments.
+            for (size_t digit = 0; digit < hudScores_[i].current.size(); ++digit) {
+                cursor = static_cast<uint16_t>(cursor + 9);
+                writeShared(cursor);
+            }
+        }
         hudColumnReady_[i] = true;
     }
 }

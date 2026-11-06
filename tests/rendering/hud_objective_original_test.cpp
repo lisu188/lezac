@@ -85,8 +85,13 @@ int main(int argc, char** argv) {
                 presentation.restore(state);
                 const auto required = word(input, 0x2086), collected = word(input, 0x2088);
                 const auto destructionRequired = byte(input, 0x79b3), destruction = byte(input, 0x79b5);
+                uint16_t shared = 0x55aa;
+                const bool dirty = collected != word(input, 0x208a) || destruction != byte(input, 0x79b6);
                 presentation.prepareHudObjectives(1, int{collected} + bias * 65536, int{destruction} + bias * 256 + 1,
-                    int{required} + bias * 65536, int{destructionRequired} + bias * 256);
+                    int{required} + bias * 65536, int{destructionRequired} + bias * 256,
+                    [&](uint16_t value) { shared = value; });
+                require(shared == (dirty ? word(expected, 0x2072) : 0x55aa),
+                        "App objective shared cursor differs from original endpoint or clean caller gate");
                 flagDifferences += presentation.hudBonusComplete() != (byte(expected, 0x79c5) != 0);
                 flagDifferences += presentation.hudDestructionComplete() != (byte(expected, 0x79c6) != 0);
                 require(presentation.hudPreviousCollected() == word(expected, 0x208a) &&

@@ -662,6 +662,16 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^player_record_ownership=ok players=2 motion_cases=512 legacy_adapter=0 seeded=1 natural_route=0 whole_game_claim=0")
+    add_test(NAME player_walk_bands_app COMMAND lezac_cpp --debug-player-walk-bands)
+    set_tests_properties(player_walk_bands_app PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^player_walk_bands=ok players=2 cases=1024 physical_records=1 legacy_adapter=0 seeded=1 natural_route=0 whole_game_claim=0")
+    add_test(NAME hud_scratch_ownership_app COMMAND lezac_cpp --debug-hud-scratch-ownership)
+    set_tests_properties(hud_scratch_ownership_app PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^hud_scratch_ownership=ok objective_gates=3 score_cases=64 physical_destinations=1 draw_preserved=1 legacy_adapter=0 seeded=1 natural_route=0 whole_game_claim=0")
     add_test(NAME link_alias_ownership_app COMMAND lezac_cpp --debug-link-alias-ownership)
     set_tests_properties(link_alias_ownership_app PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -803,6 +813,11 @@ if(BUILD_TESTING)
     set_tests_properties(record_save_original PROPERTIES
         PASS_REGULAR_EXPRESSION "^record_save_original=ok cases=5 compared_bytes=460 differences=0")
 
+    add_executable(lezac_hud_scratch_test tests/rendering/hud_scratch_test.cpp)
+    target_link_libraries(lezac_hud_scratch_test PRIVATE lezac_rendering)
+    add_test(NAME hud_scratch COMMAND lezac_hud_scratch_test)
+    set_tests_properties(hud_scratch PROPERTIES
+        PASS_REGULAR_EXPRESSION "^hud_scratch=ok objective_cases=4 score_cases=192 ordered_writes=1 whole_game_claim=0")
     add_executable(lezac_render_state_boundary_test tests/rendering/render_state_boundary_test.cpp)
     target_link_libraries(lezac_render_state_boundary_test PRIVATE lezac_rendering)
     add_test(NAME render_state_boundary COMMAND lezac_render_state_boundary_test)

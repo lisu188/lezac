@@ -876,6 +876,8 @@ public:
             loadOriginalAssets();
         }
         presentation_.captureInitialPalette();
+        actorSlots_.setSavedViewportColumns(40);  // 2905, before the first menu.
+        actorSlots_.setSpriteBankTag(1);
         if (buildPreviewBackdrop) buildBackdropBuffer();
         else presentation_.initializeBackdropBuffer(playerCount_);
     }
@@ -25966,6 +25968,100 @@ public:
                   << " legacy_adoptions=0 legacy_retirements=0 seeded=1 natural_route=0 whole_game_claim=0\n";
     }
 
+    void debugLinkAliasOwnership() {
+        load(); initSdl(); legacyActorSeedsEnabled_ = false;
+        levelFlow_.setInteractiveEnabled(false);
+        const auto require = [](bool condition, const char* message) {
+            if (!condition) throw std::runtime_error(message);
+        };
+        const auto aliases = [&]() -> const auto& { return actorSlots_.state().links[0]; };
+        const auto word = [&](size_t at) { return static_cast<uint16_t>(aliases()[at] | (uint16_t{aliases()[at + 1]} << 8)); };
+        require(word(4) == 40 && aliases()[14] == 1, "alias startup did not write saved width and font tag");
+        for (int count : {1, 2}) {
+            playerCount_ = count; lives_ = lives2_ = 2;
+            ui_.setMenu(true); beginLevelForPlay(0); ui_.setMenu(false);
+            require(aliases()[0] == 2 && aliases()[1] == 2 && aliases()[2] == 255 && aliases()[3] == 255,
+                "new-game alias reserves or energy caches differ");
+            require(word(4) == 40 && word(6) == 1284 && word(8) == (count == 2 ? 1444 : 1284) &&
+                word(10) == 0 && word(12) == 180 && aliases()[14] == 2,
+                "new-game alias geometry or sprite bank differs");
+        }
+        playerCount_ = 1; resetLevel(0);
+        size_t widths = 0;
+        for (int pitch = 320; pitch >= 168; pitch -= 8) {
+            require(gameplayViewWidth_ == pitch && word(4) == pitch / 8 &&
+                word(6) == 1284 + (320 - pitch) / 2 && word(8) == word(6), "resize aliases differ");
+            const auto before = aliases();
+            adjustGameplayViewWidth(-8);
+            if (pitch == 168) require(aliases() == before, "blocked resize rewrote aliases");
+            ++widths;
+        }
+        for (int pitch = 168; pitch < 320; pitch += 8) adjustGameplayViewWidth(8);
+        require(word(4) == 40 && word(6) == 1284 && word(8) == 1284, "growing viewport lost saved aliases");
+        playerCount_ = 2; lives_ = lives2_ = 2; resetLevel(0);
+        auto before = aliases(); adjustGameplayViewWidth(-8);
+        require(aliases() == before, "two-player resize rewrote aliases");
+        lives_ = lives2_ = -1; before = aliases(); initializeGameplayView();
+        require(aliases() == before, "zero-player frame setup replaced retained destinations");
+        size_t losses = 0;
+        for (uint8_t marker : {uint8_t{1}, uint8_t{2}}) {
+            lives_ = lives2_ = 2;
+            actorSlots_.setPlayerReserve(0, 2); actorSlots_.setPlayerReserve(1, 2);
+            auto& lives = marker == 1 ? lives_ : lives2_;
+            auto& dead = marker == 1 ? playerDead_ : player2Dead_;
+            auto& timer = marker == 1 ? reentryTimer_ : reentryTimer2_;
+            for (int reserve : {1, 0, -1}) {
+                pendingLifeLossFor(marker) = true;
+                finalizePendingLifeLoss(dead, lives, timer, marker);
+                require(lives == reserve && aliases()[marker - 1] == static_cast<uint8_t>(reserve),
+                    "countdown loss did not write the reserve alias");
+                const auto retained = aliases();
+                finalizePendingLifeLoss(dead, lives, timer, marker);
+                require(aliases() == retained, "reserve loss ran twice");
+                ++losses;
+            }
+        }
+        size_t hudCases = 0, gates = 0;
+        for (size_t index = 0; index < 2; ++index) for (int cached = 0; cached < 256; ++cached)
+            for (uint16_t value : {uint16_t{0},uint16_t{1},uint16_t{7},uint16_t{100},uint16_t{101},
+                    uint16_t{200},uint16_t{255},uint16_t{256},uint16_t{257},uint16_t{65535}}) {
+                auto state = presentation_.snapshot();
+                state.hudEnergy[index] = {};
+                state.hudEnergy[index].cached = static_cast<uint8_t>(cached + 1);
+                presentation_.restore(state);
+                actorSlots_.hudEnergyCache(index) = static_cast<uint8_t>(cached);
+                const auto beforeHud = aliases();
+                updatePlayerHudEnergy(static_cast<uint8_t>(index + 1), value, 1);
+                auto expected = beforeHud;
+                expected[index + 2] = static_cast<uint8_t>(value);
+                const auto& bar = presentation_.hudEnergy()[index];
+                require(aliases() == expected && bar.cached == static_cast<uint8_t>(value) &&
+                    bar.painted == (value <= 100 && value != cached), "HUD cache did not use the physical alias");
+                ++hudCases;
+            }
+        for (size_t index = 0; index < 2; ++index) for (uint8_t globalState : {uint8_t{0},uint8_t{2}}) {
+            auto state = presentation_.snapshot(); state.hudEnergy[index].cached = 19; presentation_.restore(state);
+            actorSlots_.hudEnergyCache(index) = 83;
+            const auto beforeHud = aliases();
+            updatePlayerHudEnergy(static_cast<uint8_t>(index + 1), 37, globalState);
+            require(aliases() == beforeHud && presentation_.hudEnergy()[index].cached == 19,
+                "inactive HUD cache was projected into physical storage");
+            ++gates;
+        }
+        lives_ = lives2_ = 2;
+        actorSlots_.setPlayerReserve(0, 41); actorSlots_.setPlayerReserve(1, 73);
+        actorSlots_.setSavedViewportColumns(30);
+        resetLevel(1);
+        require(aliases()[0] == 41 && aliases()[1] == 73 && word(4) == 30 && aliases()[2] == 255 && aliases()[3] == 255,
+            "level reset refilled reserves or lost alias carry");
+        require(widths == 20 && losses == 6 && hudCases == 5120 && gates == 4, "alias ownership coverage changed");
+        uiActions().resetAfterEndRun();
+        require(aliases()[14] == 1, "post-run reset selected gameplay rather than font bank");
+        require(legacyActorAdoptions_ == 0 && legacyActorRetirements_ == 0, "alias ownership used legacy projection");
+        std::cout << "link_alias_ownership=ok widths=20 losses=6 hud_cases=5120 phase_gates=4"
+                  << " legacy_adapter=0 seeded=1 natural_route=0 whole_game_claim=0 menu_bank=1\n";
+    }
+
     void debugPlayerTerrainScratch(const std::filesystem::path& outputPath = {}) {
         load(); initSdl(); legacyActorSeedsEnabled_ = false;
         playerCount_ = 2; resetLevel(0); ui_.setMenu(false);
@@ -29131,6 +29227,7 @@ private:
         }
         level_ = levels_[levelIndex_];
         presentation_.beginLevel(static_cast<size_t>(level_.width) * level_.height);
+        actorSlots_.resetHudDestinations();  // 2B85..2B90, before actor-pool reset.
         player_ = {};
         player2_ = {};
         player2_.animation = ActorAnimation::initialize(21, 28, 1, 1);
@@ -29156,6 +29253,8 @@ private:
         collected_ = 0;
         destroyed_ = 0;
         presentation_.resetHudForLevel();
+        actorSlots_.setSpriteBankTag(2);
+        actorSlots_.hudEnergyCache(0) = actorSlots_.hudEnergyCache(1) = 255;
         completeTimer_ = 0;
         portalCooldown_ = 0;
         triggerCooldown_ = 0;
@@ -29219,6 +29318,7 @@ private:
         // current-level byte DS:0x79B7 equals 7 (callsite 1000:2E78).
         if (levelIndex_ == 6) spawnLevel7Boss();
         initializeGameplayView();
+        writeViewportDestinations();
     }
 
     LevelIntroPattern makeLevelIntroPattern() {
@@ -29239,6 +29339,8 @@ private:
             // 2F30/2F35 refill energy only on the new-game path.
             energy_ = energy2_ = 100;
             writePlayerHealth(2, energy2_);
+            actorSlots_.setPlayerReserve(0, static_cast<uint8_t>(lives_));
+            actorSlots_.setPlayerReserve(1, static_cast<uint8_t>(lives2_));
         }
         // 1000:2AF2 resets selection on reload; 2F69 initializes counts only for a new game.
         bombInventory_.selected = bombInventory2_.selected = BombType::Small;
@@ -29265,6 +29367,7 @@ private:
         presentation_.resetHudObjectivesForLevel();
         // 1000:2BF9 reloads all of BOMPAL before generating the intro, without resetting DS:79AD.
         presentation_.setPalette(assets_.palette());
+        actorSlots_.setSpriteBankTag(1);
         LevelIntroPattern pattern = makeLevelIntroPattern();
         levelFlow_.beginIntro(levelIndex_, std::move(pattern), presentationMilliseconds());
         if (levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("intro_wait");
@@ -29315,6 +29418,10 @@ private:
         if (debugPlayerHealthWriteObserver_) debugPlayerHealthWriteObserver_(marker, static_cast<uint8_t>(health));
     }
 
+    void updatePlayerHudEnergy(uint8_t marker, uint16_t value, uint8_t globalState) {
+        presentation_.updateHudEnergy(marker - 1, value, globalState, actorSlots_.hudEnergyCache(marker - 1));
+    }
+
     void writePlayerPosition(const Player& player) {
         if (const auto index = ownedPlayerIndex(player))
             actorSlots_.setPlayerPosition(*index, static_cast<uint16_t>(static_cast<int>(player.x)),
@@ -29350,6 +29457,7 @@ private:
                 lives_ = kInitialReserveLives;
                 lives2_ = kInitialReserveLives;
                 resetLevel(0);
+                actorSlots_.setSpriteBankTag(1);
             },
             [this] { requestRecordNamePromptSound(); },
             [this] { requestRecordNameCommitSound(); },
@@ -31627,7 +31735,7 @@ private:
         pending = 0;
         if (dead) {
             if (amount != 0) requestPlayerDamageSound();
-            presentation_.updateHudEnergy(startMarker - 1, static_cast<uint8_t>(energy), globalState);
+            updatePlayerHudEnergy(startMarker, static_cast<uint8_t>(energy), globalState);
             return;
         }
         uint8_t updatedEnergy =
@@ -31642,7 +31750,7 @@ private:
             hudEnergy = static_cast<uint16_t>(remainingObjectiveTiles());
             beginPlayerDeath(player, energy, lives, dead, timer, startMarker);
         }
-        presentation_.updateHudEnergy(startMarker - 1, hudEnergy, globalState);
+        updatePlayerHudEnergy(startMarker, hudEnergy, globalState);
     }
 
     void damagePlayer(Player& player, int& energy, int& lives, bool& dead,
@@ -31788,6 +31896,7 @@ private:
         if (!pending) return;
         pending = false;
         --lives;  // The original reserve byte marks out at FF, not at zero.
+        actorSlots_.setPlayerReserve(startMarker - 1, static_cast<uint8_t>(lives));
         if (lives < 0) {
             dead = true;
             timer = 0;
@@ -32065,6 +32174,7 @@ private:
     }
 
     void abortRun() {
+        actorSlots_.setSpriteBankTag(1);
         endScreenPattern_ = makeLevelIntroPattern();
         auto actions = uiActions();
         // Natural Escape retains the live map through Game Over and the menu.
@@ -32074,6 +32184,7 @@ private:
     }
 
     void beginEndRun(EndReason reason) {
+        actorSlots_.setSpriteBankTag(1);
         if (reason == EndReason::GameOver) endScreenPattern_ = makeLevelIntroPattern();
         ui_.beginEndRun(reason, levelIndex_, playerCount_, score_, score2_, recordStore_, uiActions());
     }
@@ -33382,11 +33493,20 @@ private:
     void adjustGameplayViewWidth(int delta) {
         if (!viewportLayout_.adjustWidth(remainingPlayerCount(), delta)) return;
         gameplayViewWidth_ = viewportLayout_.pitch;
+        actorSlots_.setSavedViewportColumns(static_cast<uint16_t>(gameplayViewWidth_ / 8));
+        writeViewportDestinations();
         gameRenderer_.resizePlayfield(gameplayViewWidth_);
     }
 
     int remainingPlayerCount() const {
         return static_cast<int>(lives_ >= 0) + static_cast<int>(playerCount_ > 1 && lives2_ >= 0);
+    }
+
+    void writeViewportDestinations() {
+        const int remaining = remainingPlayerCount();
+        if (remaining != 1 && remaining != 2) return;
+        for (size_t index = 0; index < 2; ++index)
+            actorSlots_.setViewportDestination(index, static_cast<uint16_t>(1284 + viewportLayout_.left[index]));
     }
 
     void initializeGameplayView() {
@@ -33848,6 +33968,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc == 4 && std::string(argv[1]) == "--debug-reward-storage-original") {
             app.debugRewardStorageOriginal(argv[2], argv[3]);
+            return 0;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--debug-link-alias-ownership") {
+            app.debugLinkAliasOwnership();
             return 0;
         }
         if ((argc == 2 || argc == 3) && std::string(argv[1]) == "--debug-player-terrain-scratch") {

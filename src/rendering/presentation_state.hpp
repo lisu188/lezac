@@ -67,6 +67,7 @@ public:
     void updateHudScores(int playerCount, const std::array<uint32_t, 2>& scores,
                          const std::array<bool, 2>& dead, const std::array<int, 2>& deathTimers);
     void updateHudEnergy(size_t player, uint16_t value, uint8_t globalState);
+    void updateHudEnergy(size_t player, uint16_t value, uint8_t globalState, uint8_t& physicalCache);
     void sampleHudInventory(size_t player, gameplay::BombInventory& inventory, uint8_t globalState);
     void advanceHudPalette();
     void beginResultScore(size_t player, uint32_t value);

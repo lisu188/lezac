@@ -55,6 +55,7 @@ private:
     SpritePixels normal_, alternate_;
     const SpritePixels* sprites_ = nullptr;
     const gameplay::ActorStorage::State* physical_ = nullptr;
+    bool explicitDestination_ = false;
     WorldRasterWork work_;
 
     void byte(uint16_t offset, uint8_t value);

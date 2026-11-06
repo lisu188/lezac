@@ -89,7 +89,8 @@ storage repair; this is not a claim of a new visual improvement.
 
 At this checkpoint, captured link row 0 and the shared result WORD still
 differed and remained unmasked. The subsequent shared-result repair is
-documented in `player_terrain_scratch_20261106.md`; link row 0 remains open.
+documented in `player_terrain_scratch_20261106.md`; the later
+`link_alias_ownership_20261106.md` closes link row 0 in this bounded window.
 Player 1's separate raw actor record is excluded from this storage
 format. The inactive-player-2 combat window does not prove complete active
 two-player record motion/animation ownership. Full frame-pass stability,

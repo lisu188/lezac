@@ -1,8 +1,10 @@
 # Two-Player Walk And HUD Owners
 
 The ordinary-startup `tests/routes/two_player_walk_hud.route` selects two
-players through the menu and exercises both players' movement, jump, posture
-and fire controls. The retained original window is ticks 4..204: 201 complete
+players through the menu and exercises movement, jump and posture, plus
+Player 2 fire. Player 1 keys are Z=left, X=right, M=jump, N=fire, C=posture;
+the short route contains no N events and does not establish Player 1 firing.
+The retained original window is ticks 4..204: 201 complete
 320x200 RGB frames and 402 presentation/post-update boundaries. One initial
 RNG seed and normalized control-bank events are declared controls; there are
 no later gameplay-state injections. This is not wall-clock or physical-input

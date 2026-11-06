@@ -237,4 +237,6 @@ tests/gameplay/debris_phase_original.json -text
 tests/gameplay/debris_phase_original.bin.gz -text
 tests/gameplay/debris_wrap_original.bin.gz -text
 tests/fixtures/natural_level4_cavity_bomb/** -text
+tests/fixtures/two_player_fire_stress_original.json -text
+tests/fixtures/two_player_reentry_original.json -text
 docs/recovery/evidence/natural_level4_cavity_bomb_20261104/** -text

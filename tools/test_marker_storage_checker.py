@@ -61,8 +61,7 @@ class MarkerCheckerTest(unittest.TestCase):
                 self.assertEqual(source.count(token), 1)
                 with self.assertRaises(RuntimeError):
                     checker.check_routing(source.replace(token, '/* missing marker route */'))
-        start = source.index('    void debugMarkerStorageOriginal(')
-        end = source.index('    void debugProductionActorLifecycle(', start)
+        start, end = checker.marker_diagnostic_bounds(source)
         diagnostic = source[start:end]
         for old, new in (
             ('legacyActorSeedsEnabled_ = false;', 'legacyActorSeedsEnabled_ = true;'),
@@ -83,6 +82,31 @@ class MarkerCheckerTest(unittest.TestCase):
         for count in (1, 2):
             with self.assertRaises(RuntimeError):
                 checker.check_routing(source.replace(retirement, 'marker.timer == 0', count))
+
+    def test_neighbor_diagnostics_do_not_change_marker_scope(self):
+        source = (ROOT / 'src/app/app.cpp').read_text(encoding='utf-8')
+        start, end = checker.marker_diagnostic_bounds(source)
+        neighbor = '''    void neighboringProbe%s() {
+        legacyActorSeedsEnabled_ = false;
+        actorSlots_.restoreForFixture(state, orders);
+        updateOrderedActors(0);
+        const char* text = R"probe( } void debugMarkerStorageOriginal() { )probe";
+    }
+'''
+        augmented = source[:start] + neighbor % 'Before' + source[start:end] + neighbor % 'After' + source[end:]
+        checker.check_routing(augmented)
+        first, last = checker.marker_diagnostic_bounds(augmented)
+        diagnostic = augmented[first:last]
+        self.assertEqual(diagnostic, source[start:end])
+        for token in ('legacyActorSeedsEnabled_ = false;', 'actorSlots_.restoreForFixture(state, orders);',
+                      'updateOrderedActors(0);'):
+            self.assertEqual(diagnostic.count(token), 1)
+            with self.subTest(token=token), self.assertRaises(RuntimeError):
+                checker.check_routing(augmented[:first] + diagnostic.replace(token, '/* missing owned route */') + augmented[last:])
+        with self.assertRaisesRegex(RuntimeError, 'missing marker diagnostic'):
+            checker.marker_diagnostic_bounds(source.replace('void debugMarkerStorageOriginal(', 'void renamedMarkerProbe('))
+        with self.assertRaisesRegex(RuntimeError, 'duplicate function definition'):
+            checker.marker_diagnostic_bounds(source + source[start:end])
 
     def test_mocked_execution_contract(self):
         expected = gzip.decompress((ROOT / 'tests/fixtures/marker_storage/expected.bin.gz').read_bytes())

@@ -123,8 +123,10 @@ payload corruptions per platform. Pixels already matched before this repair.
 
 ## Remaining Scope
 
-The serialized actor bank starts at player 2; player 1's separate raw actor is
-not included. This inactive-player-2 combat window does not prove complete
+At this checkpoint the serialized actor bank started at player 2. The later
+`player_record_ownership_20261106.md` work adds player 1's separate raw actor
+and closes that omission in the same window. This inactive-player-2 combat
+window does not prove complete
 active two-player physical records or every boss link trajectory. Unified DS
 ownership, original loader lifetime, whole-frame stability, complete campaign
 and level-7 boss acceptance, wall-clock/physical-input timing and owner

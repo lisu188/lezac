@@ -4,8 +4,9 @@ The App now writes the reserved player-2 health byte at its gameplay owners:
 new-game initialization, health bonuses, terrain damage, queued damage, death
 and reentry. Level setup deliberately preserves that byte; it is not refilled
 on ordinary level advance or restart. No draw/capture-time synchronization is
-used. Player 1 still has typed health only: its separate raw actor record is
-not part of `ActorSlots` yet.
+used. At this checkpoint Player 1 had typed health only. The later
+`player_record_ownership_20261106.md` work adds its separate raw record and
+connects health owners for both players.
 
 The Hot Dog bonus also corrects an arithmetic difference. Original `6E64`
 adds 33 to a BYTE before comparing with 100. Thus a seeded value of 223 wraps
@@ -91,8 +92,9 @@ At this checkpoint, captured link row 0 and the shared result WORD still
 differed and remained unmasked. The subsequent shared-result repair is
 documented in `player_terrain_scratch_20261106.md`; the later
 `link_alias_ownership_20261106.md` closes link row 0 in this bounded window.
-Player 1's separate raw actor record is excluded from this storage
-format. The inactive-player-2 combat window does not prove complete active
+The later player-record work extends this storage format with Player 1's
+separate raw actor record. The inactive-player-2 combat window does not prove
+complete active
 two-player record motion/animation ownership. Full frame-pass stability,
 whole-campaign/level-7 boss completion, wall-clock and physical-input timing,
 and owner acceptance remain open. Broad fidelity flags remain false.

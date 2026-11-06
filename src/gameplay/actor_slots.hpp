@@ -21,8 +21,28 @@ public:
 
     size_t count() const { return storage_.state().count; }
     const State& state() const { return storage_.state(); }
+    const ActorStorage::Actor& playerRecord(size_t index) const {
+        if (index >= 2) throw std::out_of_range("invalid player record index");
+        return index == 0 ? state().player1 : state().actors[0];
+    }
+    void setPlayerHealth(size_t index, uint8_t value) { storage_.player(index)[36] = value; }
+    void setPlayerIdle(size_t index, uint8_t value) { storage_.player(index)[2] = value; }
+    void setPlayerDropTicks(size_t index, uint16_t value) { playerWord(storage_.player(index), 14, value); }
+    void setPlayerCountdown(size_t index, uint16_t value) { playerWord(storage_.player(index), 16, value); }
+    void setPlayerBehavior(size_t index, uint8_t value) { storage_.player(index)[21] = value; }
+    void setPlayerAnimation(size_t index, const ActorAnimation& animation, bool backup = false) {
+        auto& raw = storage_.player(index);
+        const auto bytes = animation.packed();
+        std::copy(bytes.begin(), bytes.end(), raw.begin() + (backup ? 29 : 22));
+    }
+    void writePlayerMotion(size_t index, const Player& player) {
+        auto& raw = storage_.player(index);
+        playerWord(raw, 10, player.fracX); playerWord(raw, 12, player.fracY);
+        playerWord(raw, 6, static_cast<uint16_t>(player.vx8));
+        playerWord(raw, 8, static_cast<uint16_t>(player.vy8));
+    }
     void setSharedResult(uint16_t value) { storage_.setSharedResult(value); }
-    void setPlayer2Health(uint8_t value) { storage_.actor(0)[36] = value; }
+    void setPlayer2Health(uint8_t value) { setPlayerHealth(1, value); }
     void setPlayerReserve(size_t index, uint8_t value) { storage_.setPlayerReserve(index, value); }
     uint8_t& hudEnergyCache(size_t index) { return storage_.hudEnergyCache(index); }
     void setSavedViewportColumns(uint16_t value) { storage_.setSavedViewportColumns(value); }
@@ -375,7 +395,8 @@ public:
     }
 
 private:
-    static void playerWord(ActorStorage::Visual& row, size_t offset, uint16_t value) {
+    template<size_t Size>
+    static void playerWord(std::array<uint8_t, Size>& row, size_t offset, uint16_t value) {
         row[offset] = static_cast<uint8_t>(value);
         row[offset + 1] = static_cast<uint8_t>(value >> 8);
     }

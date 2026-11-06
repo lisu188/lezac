@@ -641,6 +641,7 @@ public:
                 {"legacy_actor_seed_adapter", "false"}, {"candidate_only", "true"},
                 {"original_fidelity_claim", "false"}, {"capture_from_tick", std::to_string(scoutStartTick)},
                 {"actor_layout", trace::numbers({31, 38})}, {"visual_layout", trace::numbers({33, 8})},
+                {"separate_player1_layout", trace::numbers({1, 38})},
                 {"link_layout", trace::numbers({8, 16})}, {"reserved_player2_slot", "0"},
                 {"inactive_tails_included", "true"}, {"visual_guard_included", "true"},
                 {"route_fnv1a64", trace::quote(trace::fingerprint(readFile(routePath)))}}) << '\n';
@@ -25968,6 +25969,83 @@ public:
                   << " legacy_adoptions=0 legacy_retirements=0 seeded=1 natural_route=0 whole_game_claim=0\n";
     }
 
+    void debugPlayerRecordOwnership() {
+        load(); initSdl(); legacyActorSeedsEnabled_ = false;
+        levelFlow_.setInteractiveEnabled(false);
+        const auto le16 = [](const auto& raw, size_t at) {
+            return static_cast<uint16_t>(raw[at] | (uint16_t{raw[at + 1]} << 8));
+        };
+        const auto require = [](bool condition, const char* message) {
+            if (!condition) throw std::runtime_error(message);
+        };
+        playerCount_ = 2; lives_ = lives2_ = 2;
+        ui_.setMenu(true); beginLevelForPlay(0); ui_.setMenu(false);
+        for (size_t index = 0; index < 2; ++index) {
+            const auto& raw = actorSlots_.playerRecord(index);
+            require(raw[36] == 100, "new-game player record health is missing");
+            require(raw[0] == 0 && raw[1] == index && raw[20] == 0 && raw[21] == index,
+                "player record level setup is missing");
+        }
+        size_t cases = 0;
+        for (size_t index = 0; index < 2; ++index) {
+            auto& player = index == 0 ? player_ : player2_;
+            const auto marker = static_cast<uint8_t>(index + 1);
+            auto& energy = index == 0 ? energy_ : energy2_;
+            auto& lives = index == 0 ? lives_ : lives2_;
+            auto& dead = index == 0 ? playerDead_ : player2Dead_;
+            auto& timer = index == 0 ? reentryTimer_ : reentryTimer2_;
+            for (int byte = 0; byte < 256; ++byte) {
+                energy = byte;
+                writePlayerHealth(marker, energy);
+                player.vx8 = static_cast<int16_t>(byte * 257);
+                player.vy8 = static_cast<int16_t>(-byte * 129);
+                player.fracX = static_cast<uint8_t>(byte);
+                player.fracY = static_cast<uint8_t>(255 - byte);
+                player.x = 100; player.y = 100;
+                const ActiveMonster::EdgeFlags clear{};
+                integratePlayerMotion(player, 100, 100, clear);
+                const auto& raw = actorSlots_.playerRecord(index);
+                require(raw[36] == byte && le16(raw, 6) == static_cast<uint16_t>(player.vx8) &&
+                    le16(raw, 8) == static_cast<uint16_t>(player.vy8) && le16(raw, 10) == player.fracX &&
+                    le16(raw, 12) == player.fracY, "player integration did not commit its record");
+                ++cases;
+            }
+            energy = 73; writePlayerHealth(marker, energy); dead = false; timer = 0;
+            player.animationBackup = ActorAnimation{7, 6, 9, 2, 3, 1, -1};
+            selectPlayerPosture(player, index == 0 ? 0 : 19, true);
+            const auto packed = player.animation.packed(), backup = player.animationBackup.packed();
+            const auto& pose = actorSlots_.playerRecord(index);
+            require(std::equal(packed.begin(), packed.end(), pose.begin() + 22) &&
+                std::equal(backup.begin(), backup.end(), pose.begin() + 29), "posture record or backup is missing");
+            const auto before = actorSlots_.state();
+            draw();
+            require(actorSlots_.state().player1 == before.player1 && actorSlots_.state().actors == before.actors,
+                "drawing synthesized a player record");
+            beginPlayerDeath(player, energy, lives, dead, timer, marker);
+            const auto& death = actorSlots_.playerRecord(index);
+            const auto& cursor = state2VisualCursorFor(marker);
+            require(death[21] == 2 && le16(death, 16) == kDeathStateTicks && death[36] == 100 &&
+                death[22] == cursor.current && death[25] == cursor.counter, "death record is missing");
+            updateReentry(player, energy, lives, dead, timer, marker, false);
+            require(le16(actorSlots_.playerRecord(index), 16) == kDeathStateTicks - 1,
+                "waiting countdown did not write its record");
+            deathStateTimerFor(marker) = 0; reentryGate_ = true;
+            tryReenterPlayer(player, energy, lives, dead, timer,
+                index == 0 ? damageCooldown_ : damageCooldown2_, marker);
+            require(actorSlots_.playerRecord(index)[21] == index && actorSlots_.playerRecord(index)[36] == 100,
+                "reentry record is missing");
+            actorSlots_.setPlayerCountdown(index, 0x55aa);
+            writePlayerHealth(marker, 41);
+        }
+        resetLevel(1);
+        for (size_t index = 0; index < 2; ++index)
+            require(le16(actorSlots_.playerRecord(index), 16) == 0x55aa && actorSlots_.playerRecord(index)[36] == 41,
+                "level setup cleared retained player fields");
+        require(cases == 512 && legacyActorAdoptions_ == 0 && legacyActorRetirements_ == 0,
+            "player record coverage or ownership differs");
+        std::cout << "player_record_ownership=ok players=2 motion_cases=512 legacy_adapter=0 seeded=1 natural_route=0 whole_game_claim=0\n";
+    }
+
     void debugLinkAliasOwnership() {
         load(); initSdl(); legacyActorSeedsEnabled_ = false;
         levelFlow_.setInteractiveEnabled(false);
@@ -26114,6 +26192,7 @@ public:
             auto expectedStorage = actorSlots_.state();
             expectedStorage.success = last;
             if (marker == 2) expectedStorage.actors[0][36] = expectedHealth;
+            else expectedStorage.player1[36] = expectedHealth;
             const auto requests = sound_.requestAttemptCount();
             debugPlayerHealthWriteObserver_ = [&](uint8_t observed, uint8_t value) {
                 require(observed == marker && value == expectedHealth, "terrain scratch crossed the health owner");
@@ -26126,7 +26205,7 @@ public:
             require(energy == expectedHealth && player.vx8 == vx && player.vy8 == vy,
                 "terrain scratch changed health or flame impulse");
             const auto& actual = actorSlots_.state();
-            require(actual.actors == expectedStorage.actors && actual.visuals == expectedStorage.visuals &&
+            require(actual.player1 == expectedStorage.player1 && actual.actors == expectedStorage.actors && actual.visuals == expectedStorage.visuals &&
                 actual.links == expectedStorage.links && actual.count == expectedStorage.count &&
                 actual.visualCount == expectedStorage.visualCount && actual.success == expectedStorage.success,
                 "terrain scratch changed unrelated actor storage");
@@ -29338,6 +29417,7 @@ private:
             bombInventory2_ = {};
             // 2F30/2F35 refill energy only on the new-game path.
             energy_ = energy2_ = 100;
+            writePlayerHealth(1, energy_);
             writePlayerHealth(2, energy2_);
             actorSlots_.setPlayerReserve(0, static_cast<uint8_t>(lives_));
             actorSlots_.setPlayerReserve(1, static_cast<uint8_t>(lives2_));
@@ -29413,9 +29493,20 @@ private:
     }
 
     void writePlayerHealth(uint8_t marker, int health) {
-        // P1's separate raw actor record is not part of ActorSlots yet.
-        if (marker == 2) actorSlots_.setPlayer2Health(static_cast<uint8_t>(health));
+        actorSlots_.setPlayerHealth(marker - 1, static_cast<uint8_t>(health));
         if (debugPlayerHealthWriteObserver_) debugPlayerHealthWriteObserver_(marker, static_cast<uint8_t>(health));
+    }
+
+    void writePlayerAnimation(const Player& player, bool backup = false) {
+        if (const auto index = ownedPlayerIndex(player))
+            actorSlots_.setPlayerAnimation(*index, backup ? player.animationBackup : player.animation, backup);
+    }
+
+    void writeState2Animation(const State2VisualCursor& cursor) {
+        const size_t index = &cursor == &state2Visual_ ? 0 : 1;
+        if (&cursor != &state2Visual_ && &cursor != &state2Visual2_) return;
+        actorSlots_.setPlayerAnimation(index, ActorAnimation{cursor.current, cursor.first, cursor.last,
+            cursor.counter, cursor.delay, cursor.mode, cursor.step});
     }
 
     void updatePlayerHudEnergy(uint8_t marker, uint16_t value, uint8_t globalState) {
@@ -29441,6 +29532,7 @@ private:
         player.x = static_cast<float>(x);
         player.y = static_cast<float>(y);
         player.idleTicks = 0;
+        if (const auto index = ownedPlayerIndex(player)) actorSlots_.setPlayerIdle(*index, 0);
         writePlayerPosition(player);
     }
 
@@ -30065,8 +30157,10 @@ private:
         if (player.animation.first == spriteBase + 18) return;
         player.animationBackup = player.animation.mode == 0 ?
             ActorAnimation::initialize(spriteBase + 1, spriteBase + 1, 2, 3) : player.animation;
+        writePlayerAnimation(player, true);
         player.animation = ActorAnimation::initialize(spriteBase + 17,
                                                        spriteBase + (dropping ? 19 : 18), 3, 3);
+        writePlayerAnimation(player);
         player.spriteIndex = spriteBase + 17;
         player.singlePixelSprite = false;
         writePlayerSprite(player, true);
@@ -30092,7 +30186,10 @@ private:
     // motion integrates in 8.8 fixed point, independent of wall-clock dt.
     void updatePlayer(Player& player, bool left, bool right, bool jump, bool switchWeapon,
                       uint8_t spriteBase, bool down = false) {
-        if (player.animation.advance(player.animationBackup)) {
+        const bool animationEnabled = player.animation.mode != 0;
+        const bool animationAdvanced = player.animation.advance(player.animationBackup);
+        if (animationEnabled) writePlayerAnimation(player);
+        if (animationAdvanced) {
             player.spriteIndex = static_cast<uint8_t>(player.animation.current - 1);
             player.singlePixelSprite = false;
             writePlayerSprite(player);
@@ -30122,13 +30219,16 @@ private:
                 } else {
                     selectPlayerPosture(player, spriteBase, true);
                     player.dropTicks = 4;
+                    if (const auto index = ownedPlayerIndex(player)) actorSlots_.setPlayerDropTicks(*index, 4);
                 }
             }
             if (player.dropTicks != 0) {
                 // 1000:6A5E..6A76 lowers the local Y before integration.
                 y += 2;
                 --player.dropTicks;
+                if (const auto index = ownedPlayerIndex(player)) actorSlots_.setPlayerDropTicks(*index, player.dropTicks);
                 player.idleTicks = 0xF8;
+                if (const auto index = ownedPlayerIndex(player)) actorSlots_.setPlayerIdle(*index, player.idleTicks);
             }
         }
         if (left) {
@@ -30139,7 +30239,9 @@ private:
             }
             if (inputFrame < spriteBase + 10 || inputFrame > spriteBase + 17) {
                 player.animation = ActorAnimation::initialize(spriteBase + 10, spriteBase + 17, 0, 1);
+                writePlayerAnimation(player);
                 player.idleTicks = 0;
+                if (const auto index = ownedPlayerIndex(player)) actorSlots_.setPlayerIdle(*index, 0);
             }
         }
         if (right) {
@@ -30150,19 +30252,27 @@ private:
             }
             if (inputFrame < spriteBase + 2 || inputFrame > spriteBase + 9) {
                 player.animation = ActorAnimation::initialize(spriteBase + 2, spriteBase + 9, 0, 1);
+                writePlayerAnimation(player);
                 player.idleTicks = 0;
+                if (const auto index = ownedPlayerIndex(player)) actorSlots_.setPlayerIdle(*index, 0);
             }
         }
         player.vx8 = playerWalkVelocity(player.vx8, left, right, edges.bottom);
         player.animation.delay = static_cast<uint8_t>(4 - std::abs(player.vx8) / 256);
-        if (!left && !right && !down && ++player.idleTicks == 5) {
-            player.animation.mode = 0;
-            // The cursor becomes 1 even for player 2; its displayed idle
-            // descriptor is independently selected as 20 (1000:6BAD..6BD1).
-            player.animation.current = 1;
-            player.spriteIndex = spriteBase;
-            player.singlePixelSprite = false;
-            writePlayerSprite(player, true);
+        writePlayerAnimation(player);
+        if (!left && !right && !down) {
+            ++player.idleTicks;
+            if (const auto index = ownedPlayerIndex(player)) actorSlots_.setPlayerIdle(*index, player.idleTicks);
+            if (player.idleTicks == 5) {
+                player.animation.mode = 0;
+                // The cursor becomes 1 even for player 2; its displayed idle
+                // descriptor is independently selected as 20 (1000:6BAD..6BD1).
+                player.animation.current = 1;
+                writePlayerAnimation(player);
+                player.spriteIndex = spriteBase;
+                player.singlePixelSprite = false;
+                writePlayerSprite(player, true);
+            }
         }
         if (jump && edges.bottom && player.vy8 == 0) {
             player.vy8 = kPlayerJumpVelocity8;
@@ -30251,6 +30361,7 @@ private:
         player.x = static_cast<float>(x);
         player.y = static_cast<float>(y);
         writePlayerPosition(player);
+        if (const auto index = ownedPlayerIndex(player)) actorSlots_.writePlayerMotion(*index, player);
         player.grounded = edges.bottom && player.vy8 == 0;
         syncPlayerVelocityMirror(player);
     }
@@ -31795,6 +31906,8 @@ private:
         deathStateTimerFor(startMarker) = kDeathStateTicks;
         State2VisualCursor& cursor = state2VisualCursorFor(startMarker);
         resetState2VisualCursor(cursor);
+        actorSlots_.setPlayerBehavior(startMarker - 1, 2);
+        actorSlots_.setPlayerCountdown(startMarker - 1, kDeathStateTicks);
         refreshState2EffectEntry(player, cursor, state2EffectEntryFor(startMarker));
         syncPlayerVelocityMirror(player);
         player.grounded = false;
@@ -31855,12 +31968,13 @@ private:
         cursor.mode = 1;
         cursor.step = 1;
         cursor.active = true;
+        writeState2Animation(cursor);
     }
 
     bool updateState2VisualCursor(State2VisualCursor& cursor) {
         if (!cursor.active || cursor.mode == 0) return false;
         ++cursor.counter;
-        if (cursor.counter <= cursor.delay) return false;
+        if (cursor.counter <= cursor.delay) { writeState2Animation(cursor); return false; }
         cursor.counter = 0;
         cursor.current = static_cast<uint8_t>(
             static_cast<int>(cursor.current) + static_cast<int>(cursor.step));
@@ -31868,11 +31982,13 @@ private:
             if (cursor.current >= cursor.last || cursor.current <= cursor.first) {
                 cursor.step = static_cast<int8_t>(-cursor.step);
             }
+            writeState2Animation(cursor);
             return true;
         }
         if (cursor.current > cursor.last) {
             cursor.current = cursor.first;
         }
+        writeState2Animation(cursor);
         return true;
     }
 
@@ -32060,6 +32176,7 @@ private:
         (void)allowLevelRestart;
         if (!dead || lives < 0) return;
         timer = static_cast<uint16_t>(timer - 1);
+        actorSlots_.setPlayerCountdown(startMarker - 1, static_cast<uint16_t>(timer));
         int& deathStateTimer = deathStateTimerFor(startMarker);
         if (deathStateTimer > 0) --deathStateTimer;
         if (timer == 0) {
@@ -32126,6 +32243,7 @@ private:
         (void)damageCooldown;
         dead = false;
         reentryFire1_ = reentryFire2_ = false;
+        actorSlots_.setPlayerBehavior(startMarker - 1, startMarker - 1);
         energy = 100;
         writePlayerHealth(startMarker, energy);
     }
@@ -33968,6 +34086,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc == 4 && std::string(argv[1]) == "--debug-reward-storage-original") {
             app.debugRewardStorageOriginal(argv[2], argv[3]);
+            return 0;
+        }
+        if (argc == 2 && std::string(argv[1]) == "--debug-player-record-ownership") {
+            app.debugPlayerRecordOwnership();
             return 0;
         }
         if (argc == 2 && std::string(argv[1]) == "--debug-link-alias-ownership") {

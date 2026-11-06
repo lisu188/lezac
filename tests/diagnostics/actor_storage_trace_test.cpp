@@ -33,6 +33,7 @@ void run() {
     fill(state.actors);
     fill(state.visuals);
     fill(state.links);
+    for (size_t at = 0; at < state.player1.size(); ++at) state.player1[at] = static_cast<uint8_t>(at * 31 + 17);
     state.links[0][15] = 7;
     state.success = 65535;
     std::array<uint64_t, ActorStorage::capacity + 1> orders{};
@@ -50,12 +51,13 @@ void run() {
             {"seq", "18446744073709551615"}, {"tick", "20000"}, {"phase", trace::quote("post_update")},
             {"count", std::to_string(count)}, {"visual_count", std::to_string(state.visualCount)},
             {"success", "65535"}, {"orders", trace::array(expectedOrders)},
+            {"player1_hex", expectedHex(std::array<ActorStorage::Actor, 1>{state.player1})},
             {"actors_hex", expectedHex(state.actors)}, {"visuals_hex", expectedHex(state.visuals)},
             {"links_hex", expectedHex(state.links)}});
         for (size_t repeat = 0; repeat < 2; ++repeat)
             require(lezac::diagnostics::actorStorageCheckpoint(slots, UINT64_MAX, 20000, "post_update") == expected,
                 "owned storage trace omitted or changed backing bytes");
-        require(slots.state().actors == state.actors && slots.state().visuals == state.visuals &&
+        require(slots.state().player1 == state.player1 && slots.state().actors == state.actors && slots.state().visuals == state.visuals &&
             slots.state().links == state.links && slots.state().count == state.count &&
             slots.state().visualCount == state.visualCount && slots.state().success == state.success,
             "owned storage trace mutated backing");
@@ -75,7 +77,7 @@ void run() {
     require(lezac::diagnostics::actorStorageCheckpoint(slots, 10, 18620, "post_update").find(
         expectedHex(compacted.actors)) != std::string::npos, "compacted inactive tail not retained");
     std::cout << "actor_storage_trace=ok boundary_counts=" << cases
-              << " bytes_per_sample=1570 read_only=1 inactive_tail=1 corpse=1 compaction=1\n";
+              << " bytes_per_sample=1608 read_only=1 inactive_tail=1 corpse=1 compaction=1 player1=1\n";
 }
 } // namespace
 

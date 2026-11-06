@@ -63,6 +63,7 @@
 #include <vector>
 
 #include "diagnostics/level1_trace.hpp"
+#include "diagnostics/actor_storage_trace.hpp"
 #include "core/constants.hpp"
 #include "core/fixed_point.hpp"
 #include "core/actor_steering_vector.hpp"
@@ -614,11 +615,13 @@ public:
     void enableLegacyActorSeeds() { legacyActorSeedsEnabled_ = true; }
     void debugLevel1Replay(const std::string& routePath, const std::string& outDir, bool originalIntroWait = false,
                            bool captureResultReels = false, bool captureResultTyping = false,
-                           uint32_t scoutStartTick = 0) {
+                           uint32_t scoutStartTick = 0, bool captureOwnedActors = false) {
         namespace trace = lezac::diagnostics::level1;
         const auto route = trace::readRoute(routePath);
         if (scoutStartTick > route.ticks)
             throw std::runtime_error("level1 scout start exceeds route end");
+        if (captureOwnedActors && (legacyActorSeedsEnabled_ || scoutStartTick == 0))
+            throw std::runtime_error("owned actor scout requires a capture window without legacy actor seeds");
         const char* json = std::getenv("LEZAC_LOAD_JSON_ASSETS");
         const char* raw = std::getenv("LEZAC_LOAD_ORIGINAL_ASSETS");
         if ((json && std::string(json) != "0") || (raw && std::string(raw) == "0"))
@@ -628,6 +631,20 @@ public:
         std::filesystem::create_directories(outDir);
         std::ofstream output(joinPath(outDir, "trace.jsonl"));
         output.exceptions(std::ios::failbit | std::ios::badbit);
+        std::ofstream ownedActors;
+        if (captureOwnedActors) {
+            ownedActors.open(joinPath(outDir, "actor_storage.jsonl"));
+            ownedActors.exceptions(std::ios::failbit | std::ios::badbit);
+            ownedActors << trace::object({{"kind", trace::quote("header")},
+                {"schema", trace::quote("lezac.actor-storage.scout.v1")},
+                {"actor_storage_mode", trace::quote("production-owned")},
+                {"legacy_actor_seed_adapter", "false"}, {"candidate_only", "true"},
+                {"original_fidelity_claim", "false"}, {"capture_from_tick", std::to_string(scoutStartTick)},
+                {"actor_layout", trace::numbers({31, 38})}, {"visual_layout", trace::numbers({33, 8})},
+                {"link_layout", trace::numbers({8, 16})}, {"reserved_player2_slot", "0"},
+                {"inactive_tails_included", "true"}, {"visual_guard_included", "true"},
+                {"route_fnv1a64", trace::quote(trace::fingerprint(readFile(routePath)))}}) << '\n';
+        }
         std::ofstream results;
         std::ofstream typing;
         uint32_t resultSamples = 0;
@@ -685,6 +702,10 @@ public:
             header["candidate_only"] = "true";
             header["capture_from_tick"] = std::to_string(scoutStartTick);
         }
+        if (captureOwnedActors) {
+            header["actor_storage_mode"] = trace::quote("production-owned");
+            header["legacy_actor_seed_adapter"] = "false";
+        }
         output << trace::object(header) << '\n';
         SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
         randomSeed_ = route.seed;
@@ -723,6 +744,8 @@ public:
                 row["rgb_fnv1a64"] = trace::quote(trace::fingerprint(pixels));
             }
             output << trace::object(row) << '\n';
+            if (captureOwnedActors)
+                ownedActors << lezac::diagnostics::actorStorageCheckpoint(actorSlots_, checkpointSequence, tick, phase) << '\n';
         };
         try {
             load();
@@ -788,6 +811,12 @@ public:
             }
             output << trace::object(footer) << '\n';
             output.flush();
+            if (captureOwnedActors) {
+                ownedActors << trace::object({{"kind", trace::quote("complete")},
+                    {"retained_checkpoints", std::to_string(retainedCheckpoints)},
+                    {"candidate_only", "true"}, {"original_fidelity_claim", "false"}}) << '\n';
+                ownedActors.flush();
+            }
             if (captureResultTyping) {
                 typing << trace::object({{"kind", trace::quote("complete")},
                     {"samples", std::to_string(typingSamples)}, {"original_fidelity_claim", "false"}}) << '\n';
@@ -32898,15 +32927,16 @@ int lezac::app::runApplication(int argc, char** argv) {
     try {
         App app;
         // Direct seeded records in historical diagnostics are not constructors.
-        // The lifecycle regression below explicitly disables this adapter.
+        // The owned-storage scout and lifecycle regression do not use this adapter.
+        const bool ownedScout = argc > 1 && std::string(argv[1]) == "--replay-level1-owned-scout";
         if (argc > 1 && (std::string(argv[1]).rfind("--debug-", 0) == 0 ||
-            std::string(argv[1]).rfind("--replay-", 0) == 0 ||
+            (std::string(argv[1]).rfind("--replay-", 0) == 0 && !ownedScout) ||
             std::string(argv[1]) == "--capture-frame-sequence" || std::string(argv[1]) == "--smoke-controls"))
             app.enableLegacyActorSeeds();
         if (argc > 1 && (std::string(argv[1]) == "--replay-level1" ||
-                         std::string(argv[1]) == "--replay-level1-scout")) {
-            const bool scout = std::string(argv[1]) == "--replay-level1-scout";
-            const char* usage = "usage: --replay-level1 ROUTE OUTPUT_DIR [--original-intro-wait [--result-reels] [--result-typing]]; --replay-level1-scout adds START_TICK before the optional flags";
+                         std::string(argv[1]) == "--replay-level1-scout" || ownedScout)) {
+            const bool scout = std::string(argv[1]) == "--replay-level1-scout" || ownedScout;
+            const char* usage = "usage: --replay-level1 ROUTE OUTPUT_DIR [--original-intro-wait [--result-reels] [--result-typing]]; --replay-level1-scout and --replay-level1-owned-scout add START_TICK before the optional flags";
             const int firstFlag = scout ? 5 : 4;
             if (argc < firstFlag || argc > firstFlag + 3 ||
                 (argc > firstFlag && std::string(argv[firstFlag]) != "--original-intro-wait"))
@@ -32920,7 +32950,7 @@ int lezac::app::runApplication(int argc, char** argv) {
                 else if (flag == "--result-typing" && !typing) typing = true;
                 else throw std::runtime_error(usage);
             }
-            app.debugLevel1Replay(argv[2], argv[3], argc > firstFlag, reels, typing, scoutStartTick);
+            app.debugLevel1Replay(argv[2], argv[3], argc > firstFlag, reels, typing, scoutStartTick, ownedScout);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--validate") {

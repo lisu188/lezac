@@ -624,6 +624,11 @@ if(BUILD_TESTING)
     target_include_directories(lezac_actor_storage_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_executable(lezac_actor_slots_test tests/gameplay/actor_slots_test.cpp)
     target_include_directories(lezac_actor_slots_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_executable(lezac_actor_storage_trace_test tests/diagnostics/actor_storage_trace_test.cpp)
+    target_include_directories(lezac_actor_storage_trace_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    add_test(NAME actor_storage_trace_unit COMMAND lezac_actor_storage_trace_test)
+    set_tests_properties(actor_storage_trace_unit PROPERTIES
+        PASS_REGULAR_EXPRESSION "actor_storage_trace=ok boundary_counts=3 bytes_per_sample=1570 read_only=1 inactive_tail=1 corpse=1 compaction=1")
     add_executable(lezac_transient_storage_probe tests/gameplay/transient_storage_probe.cpp)
     target_include_directories(lezac_transient_storage_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
     add_executable(lezac_marker_storage_probe tests/gameplay/marker_storage_probe.cpp)
@@ -8706,6 +8711,14 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 120 LABELS "level1;replay;candidate;evidence-guard"
             PASS_REGULAR_EXPRESSION "level1_scout_tests=ok tests=4 candidate_only=1 original_fidelity_claim=0")
+        add_test(NAME owned_actor_scout
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_owned_actor_scout.py
+                    --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/owned_actor_scout_out)
+        set_tests_properties(owned_actor_scout PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 240 LABELS "level1;replay;candidate;owned-storage;evidence-guard"
+            PASS_REGULAR_EXPRESSION "owned_actor_scout_tests=ok tests=3 candidate_only=1 original_fidelity_claim=0")
 
         add_test(NAME level1_replay
             COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

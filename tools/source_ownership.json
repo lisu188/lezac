@@ -198,6 +198,7 @@
       "diagnostics": [
         "src/app/app.cpp",
         "src/diagnostics/actor_steering_fixture.hpp",
+        "src/diagnostics/actor_storage_trace.hpp",
         "src/diagnostics/nonplayer_motion_fixture.hpp",
         "src/diagnostics/level1_trace.hpp",
         "src/diagnostics/marker_storage_fixture.hpp",

@@ -46,8 +46,10 @@ typed gameplay observations but raw-record and rendered-frame differences
 with the adapter disabled. The bomb construction, motion/countdown write-back
 and expiry conversion gaps are now repaired; see
 [the bounded recovery evidence](recovery/bomb_owned_writeback_20261106.md).
-Reserved-player, inactive visual, link-bank and shared-result differences
-remain open.
+The [player visual ownership recovery](recovery/player_visual_ownership_20261106.md)
+also removes player-row reconstruction from production rendering. All 33
+visual rows now match in that bounded combat window. Reserved player-2 health,
+link-bank and shared-result differences remain open.
 This command exposes those differences; it does not assert raw storage parity
 or correct them during capture. Private original snapshots and comparison
 artifacts are not included in this change.

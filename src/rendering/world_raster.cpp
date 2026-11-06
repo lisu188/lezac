@@ -91,10 +91,12 @@ void WorldRaster::prepare(const WorldRenderView& world, const PresentationState&
         const auto& view = world.players[i];
         const bool visible = i < static_cast<size_t>(world.playerCount) &&
             (!view.dead || (view.lives >= 0 && view.state2Cursor.active));
-        auto image = visible ? descriptor(view.player.spriteIndex) : gameplay::ActorStorage::Descriptor{
-            1,1,static_cast<uint8_t>(sprites_->blank),static_cast<uint8_t>(sprites_->blank>>8)};
-        if (visible && view.player.singlePixelSprite) { image[0] = 1; image[1] = 1; }
-        visual(i, static_cast<int>(view.player.x), static_cast<int>(view.player.y), image);
+        if (!physical_) {
+            auto image = visible ? descriptor(view.player.spriteIndex) : gameplay::ActorStorage::Descriptor{
+                1,1,static_cast<uint8_t>(sprites_->blank),static_cast<uint8_t>(sprites_->blank>>8)};
+            if (visible && view.player.singlePixelSprite) { image[0] = 1; image[1] = 1; }
+            visual(i, static_cast<int>(view.player.x), static_cast<int>(view.player.y), image);
+        }
         byte(static_cast<uint16_t>(0x79e6+i), i < static_cast<size_t>(world.playerCount) ? view.globalState : 0);
     }
     size_t count = 2;
@@ -150,7 +152,7 @@ uint8_t WorldRaster::read(uint16_t segment, uint32_t offset, const WorldRenderVi
                           const PresentationState& presentation, const Canvas& canvas) const {
     if (offset > 65536) throw std::out_of_range("World raster word exceeds adjacent byte");
     if (segment == Data) {
-        if (physical_ && offset >= 0xc22e && offset < 0xc21e + physical_->visualCount*8u)
+        if (physical_ && offset >= 0xc21e && offset < 0xc21e + physical_->visualCount*8u)
             return physical_->visuals[(offset-0xc21e)/8][(offset-0xc21e)%8];
         if (!defined_[offset])
             throw std::out_of_range("World raster reached unrecovered data byte " + std::to_string(offset));

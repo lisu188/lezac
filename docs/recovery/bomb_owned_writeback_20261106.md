@@ -77,6 +77,9 @@ rewritten. Original snapshots, binary slices and screenshots are not published.
 
 This bounded combat window is not whole-campaign, level-7 boss, wall-clock,
 physical-input or owner-acceptance proof. Reserved player 2, inactive visual,
-link-bank and shared-result differences remain visible in the full storage
-capture. Whole storage/frame equivalence and the earlier frame-pass stability
-hold remain open; the capture's original-fidelity flags stay false.
+link-bank and shared-result differences were visible in that full storage
+capture. The subsequent [player visual recovery](player_visual_ownership_20261106.md)
+matches all 33 visual rows in the same bounded window; reserved player-2 health,
+link-bank and shared-result differences remain. Whole storage/frame equivalence
+and the earlier frame-pass stability hold remain open; the capture's
+original-fidelity flags stay false.

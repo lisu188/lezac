@@ -37,6 +37,12 @@ int main() {
         gameplay::Player first, second;
         first.x = 104; first.y = 168;
         second.x = 136; second.y = 168; second.spriteIndex = 1;
+        const auto position = [&](size_t index, uint16_t x, uint16_t y) {
+            auto& row = slots.visual(index);
+            row[0] = static_cast<uint8_t>(x); row[1] = static_cast<uint8_t>(x >> 8);
+            row[2] = static_cast<uint8_t>(y); row[3] = static_cast<uint8_t>(y >> 8);
+        };
+        position(0, 104, 168); position(1, 10000, 6000);
         const gameplay::State2VisualCursor cursor;
         const gameplay::State2EffectEntry effect;
         const std::vector<gameplay::Bomb> bombs;
@@ -70,6 +76,8 @@ int main() {
         const auto split = rendering::ViewportLayout::initialize(2,320);
         auto twoPlayers = world;
         twoPlayers.playerCount = 2; twoPlayers.players[1].globalState = 1; twoPlayers.viewportLayout = &split;
+        position(1, 136, 168);
+        slots.visual(1)[6] = 0; slots.visual(1)[7] = 1;
         rendering::Canvas full, oneView;
         raster.drawGame(twoPlayers,presentation,full);
         raster.drawView(twoPlayers,second,164,4,152,152,presentation,oneView);
@@ -78,6 +86,7 @@ int main() {
             require(oneView.paletteIndices()[at] == full.paletteIndices()[at],
                 "Second-player camera overwrote the first player's visual position");
         }
+        position(1, 10000, 6000);
 
         const auto& sprite = assets.sprites().sprites.front().pixels;
         const auto nonzero = std::find_if(sprite.begin(),sprite.end(),[](uint8_t value) { return value != 0; });
@@ -105,6 +114,28 @@ int main() {
         require(canvas.paletteIndices()[56*320+124] == *nonzero &&
             canvas.pixels()[46*320+104] == baseline[46*320+104],
             "Raster cached an actor snapshot or refreshed a latched descriptor");
+
+        const auto retainedPlayers = slots.state();
+        const auto camera = first;
+        const auto oldFirst = first;
+        position(0,100,130);
+        std::copy(latched.begin(),latched.end(),slots.visual(0).begin()+4);
+        first.x = 250; first.y = 300; first.spriteIndex = 255; first.singlePixelSprite = true;
+        rendering::Canvas playerOwned;
+        const auto ownerBeforeDraw = slots.state();
+        raster.drawView(world,camera,4,4,312,152,presentation,playerOwned);
+        for (size_t y = 0; y < 3; ++y) for (size_t x = 0; x < 5; ++x) {
+            const auto value = sprite[source+y*5+x];
+            const size_t at = (46+y)*320+104+x;
+            require(value ? playerOwned.paletteIndices()[at] == value : playerOwned.pixels()[at] == baseline[at],
+                "Raster reconstructed a player visual from conflicting typed state");
+        }
+        require(playerOwned.pixels()[46*320+109] == baseline[46*320+109],
+            "Raster replaced the latched player width");
+        require(slots.state().visuals == ownerBeforeDraw.visuals && slots.state().actors == ownerBeforeDraw.actors,
+            "Raster wrote back a player visual projection");
+        first = oldFirst;
+        slots.restore(retainedPlayers);
 
         const auto& tile = assets.tiles().pixels;
         const auto colored = std::find_if(tile.begin()+64,tile.begin()+128,[](uint8_t value) { return value != 0; });

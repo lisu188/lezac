@@ -647,6 +647,11 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^production_actor_lifecycle=ok capacity=30.*descriptor_banks=2 descriptor_checks=295 descriptor_reset=1 descriptor_bounds=2 boss_copied_hotspots=7 boss_hotspot_rejections=7")
+    add_test(NAME player_visual_ownership_app COMMAND lezac_cpp --debug-player-visual-ownership)
+    set_tests_properties(player_visual_ownership_app PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^player_visual_ownership=ok players=2 observations=20 legacy_adapter=0 seeded=1 natural_route=0 whole_game_claim=0")
     add_test(NAME bomb_writeback_order_app COMMAND lezac_cpp --debug-bomb-writeback-order)
     set_tests_properties(bomb_writeback_order_app PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -902,7 +907,7 @@ if(BUILD_TESTING)
             set_tests_properties(world_raster_owner_mutations PROPERTIES
                 ENVIRONMENT "SDL_AUDIODRIVER=dummy;TMPDIR=${CMAKE_CURRENT_BINARY_DIR}"
                 FIXTURES_REQUIRED "viewport_width_corpus;standalone_camera_corpus"
-                PASS_REGULAR_EXPRESSION "world_raster_mutations=ok faults=7 original_source_preserved=1")
+                PASS_REGULAR_EXPRESSION "world_raster_mutations=ok faults=9 original_source_preserved=1")
         endif()
         add_test(NAME active_live_trace_rejections COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_active_live_probe.py)

@@ -1369,6 +1369,9 @@ public:
                          static_cast<int>(player_.y) / 8,
                          contactProfile.fuseTicks, BombType::Small,
                          contactProfile.fuseTicks};
+        contactBomb.actorOrder = allocateActor({contactProfile.actorKind, 1, 2,
+            static_cast<uint16_t>(contactProfile.spriteBase + 1), 0, 0, 0, 0});
+        if (!contactBomb.actorOrder) throw std::runtime_error("contact bomb fixture allocation failed");
         explode(contactBomb);
         if (energy_ != 100) throw std::runtime_error("bomb expiry applied instant damage");
         for (int tick = 0; tick < 8 && energy_ == 100; ++tick) {
@@ -18192,6 +18195,10 @@ public:
             }
 
             Bomb bomb{probe.x, probe.y, 1, BombType::Small, 1, 1};
+            const auto profile = bombProfile(bomb.type);
+            bomb.actorOrder = allocateActor({profile.actorKind, 1, 2,
+                static_cast<uint16_t>(profile.spriteBase + 1), 0, 0, 0, 0});
+            if (!bomb.actorOrder) throw std::runtime_error("object bomb fixture allocation failed");
             explode(bomb);
             if (tileAt(probe.x, probe.y) != probe.tile || score_ != 0 ||
                 !debrisQueue_.empty() || !collapseQueue_.empty() || flameRecords_.size() != 8 ||
@@ -19109,6 +19116,7 @@ public:
             pixelOffset += sprite.width * sprite.height;
         }
         std::string helperMismatches, callerMismatches, timerMismatches, visualMismatches;
+        size_t physicalBombRecords = 0;
         const auto mismatch = [](std::string& list, size_t index) {
             if (!list.empty()) list += ",";
             list += std::to_string(index);
@@ -19180,13 +19188,38 @@ public:
                 seed.timer = 2 * bytes[at + 5] - static_cast<int>(logicTick_ & 1u);
                 seed.fuseTicks = 2 * bytes[at + 5]; seed.actorOrder = 1;
                 bombs_ = {seed};
+                auto storage = actorSlots_.state();
+                storage.count = 1; storage.visualCount = 3;
+                std::copy_n(bytes.begin() + static_cast<std::ptrdiff_t>(actor), 38, storage.actors[1].begin());
+                storage.actors[1][2] = bytes[at + 5];
+                const auto setWord = [](auto& raw, size_t offset, uint16_t value) {
+                    raw[offset] = static_cast<uint8_t>(value);
+                    raw[offset + 1] = static_cast<uint8_t>(value >> 8);
+                };
+                setWord(storage.actors[1], 6, static_cast<uint16_t>(seed.vx8));
+                setWord(storage.actors[1], 8, static_cast<uint16_t>(seed.vy8));
+                setWord(storage.actors[1], 10, seed.fracX); setWord(storage.actors[1], 12, seed.fracY);
+                std::copy_n(bytes.begin() + static_cast<std::ptrdiff_t>(visual), 8, storage.visuals[2].begin());
+                setWord(storage.visuals[2], 0, static_cast<uint16_t>(seed.pixelX));
+                setWord(storage.visuals[2], 2, static_cast<uint16_t>(seed.pixelY));
+                std::array<uint64_t, lezac::gameplay::ActorStorage::capacity + 1> orders{};
+                orders[1] = seed.actorOrder;
+                actorSlots_.restoreForFixture(storage, orders);
+                legacyActorSeedsEnabled_ = false;
                 updateBombs();
+                legacyActorSeedsEnabled_ = true;
                 if (bombs_.size() != 1) throw std::runtime_error("timed writeback lost its bomb");
                 const auto& actual = bombs_.front();
                 actualX = actual.pixelX; actualY = actual.pixelY;
                 actualVx = actual.vx8; actualVy = actual.vy8;
                 actualFracX = actual.fracX; actualFracY = actual.fracY;
                 actualTimer = (actual.timer + 1) / 2; spriteIndex = bombProfile(actual.type).spriteBase;
+                if (!std::equal(actorSlots_.actor(seed.actorOrder).begin(), actorSlots_.actor(seed.actorOrder).end(),
+                        bytes.begin() + static_cast<std::ptrdiff_t>(actor)) ||
+                     !std::equal(actorSlots_.visual(seed.actorOrder).begin(), actorSlots_.visual(seed.actorOrder).end(),
+                        bytes.begin() + static_cast<std::ptrdiff_t>(visual)))
+                    throw std::runtime_error("owned bomb physical writeback differs at case " + std::to_string(index));
+                ++physicalBombRecords;
             }
             if (actualX != word(at + 20) || actualVx != word(at + 24) || actualVy != word(at + 26) ||
                 actualFracX != bytes[at + 28] || actualFracY != bytes[at + 29] || randomSeed_ != le32(bytes, at + 30)) {
@@ -19202,6 +19235,7 @@ public:
         }
         std::cout << "timed_actor_writeback=ok cases=1184 helper_updates=1184 caller_updates=1184 kinds=12,13"
                   << " motion_timer_rng_descriptor=1 seeded_original=1 natural_route_claim=0 visual_claim=0\n";
+        std::cout << "owned_bomb_writeback=ok records=" << physicalBombRecords << " record_bytes=38 visual_bytes=8 legacy_adapter=0\n";
     }
 
     void debugDyingPlayerGravityWordEvidence(const std::string& fixturePath) {
@@ -25963,6 +25997,66 @@ public:
             return Descriptor{static_cast<uint8_t>(image.width), static_cast<uint8_t>(image.height),
                 static_cast<uint8_t>(offset), static_cast<uint8_t>(offset >> 8)};
         };
+        for (const BombType type : {BombType::Small, BombType::Medium, BombType::Large, BombType::Super}) {
+            for (uint32_t parity : {0u, 1u}) {
+                room();
+                logicTick_ = 100 + parity;
+                auto backing = actorSlots_.state();
+                for (size_t byte = 0; byte < 38; ++byte)
+                    backing.actors[1][byte] = static_cast<uint8_t>(byte * 17 + 91);
+                actorSlots_.restoreForFixture(backing, {});
+                player_.x = 184; player_.y = 100;
+                player_.vx8 = -400; player_.vy8 = -200;
+                bombInventory_.selected = type;
+                bombInventory_.counts[static_cast<size_t>(bombTypeIndex(type))] = 1;
+                placeBombAt(player_, bombInventory_, 1);
+                require(bombs_.size() == 1, "owned bomb lifecycle placement failed");
+                const uint64_t order = bombs_.front().actorOrder;
+                const auto word = [](auto& raw, size_t offset, uint16_t value) {
+                    raw[offset] = static_cast<uint8_t>(value);
+                    raw[offset + 1] = static_cast<uint8_t>(value >> 8);
+                };
+                auto expected = backing.actors[1];
+                const auto profile = bombProfile(type);
+                const auto descriptor = expectedDescriptor(sprites_, static_cast<uint16_t>(profile.spriteBase + 1));
+                expected[0] = profile.actorKind; expected[1] = 2;
+                expected[2] = static_cast<uint8_t>(profile.fuseTicks / 2);
+                word(expected, 6, static_cast<uint16_t>(-600)); word(expected, 8, static_cast<uint16_t>(-700));
+                word(expected, 10, 0); word(expected, 12, 0);
+                expected[20] = static_cast<uint8_t>(16 - descriptor[1]); expected[21] = 2;
+                std::fill(expected.begin() + 22, expected.begin() + 28, uint8_t{0}); expected[28] = 1;
+                require(actorSlots_.actor(order) == expected, "owned bomb constructor record differs");
+                auto expectedVisual = backing.visuals[2];
+                word(expectedVisual, 0, 184); word(expectedVisual, 2, 100);
+                std::copy(descriptor.begin(), descriptor.end(), expectedVisual.begin() + 4);
+                require(actorSlots_.visual(order) == expectedVisual, "owned bomb constructor visual differs");
+                for (size_t step = 0; step < 4; ++step) {
+                    ++logicTick_;
+                    updateBombs();
+                    const auto& bomb = bombs_.front();
+                    expected[2] = static_cast<uint8_t>((bomb.timer + 1) / 2);
+                    word(expected, 6, static_cast<uint16_t>(bomb.vx8)); word(expected, 8, static_cast<uint16_t>(bomb.vy8));
+                    word(expected, 10, bomb.fracX); word(expected, 12, bomb.fracY);
+                    word(expectedVisual, 0, static_cast<uint16_t>(bomb.pixelX));
+                    word(expectedVisual, 2, static_cast<uint16_t>(bomb.pixelY));
+                    require(actorSlots_.actor(order) == expected && actorSlots_.visual(order) == expectedVisual,
+                        "owned bomb live motion/countdown differs");
+                    for (size_t slot = 2; slot < backing.actors.size(); ++slot)
+                        require(actorSlots_.state().actors[slot] == backing.actors[slot], "owned bomb update changed inactive tail");
+                }
+                bombs_.front().timer = 1; bombs_.front().moving = false;
+                const auto fadeDescriptor = expectedDescriptor(sprites_, 69);
+                updateBombs();
+                expected[0] = 0; expected[2] = 18; expected[20] = static_cast<uint8_t>(16 - fadeDescriptor[1]); expected[21] = 5;
+                word(expected, 6, 0); word(expected, 8, 0);
+                const std::array<uint8_t, 7> animation{{69, 69, 79, 2, 2, 1, 1}};
+                std::copy(animation.begin(), animation.end(), expected.begin() + 22);
+                std::copy(fadeDescriptor.begin(), fadeDescriptor.end(), expectedVisual.begin() + 4);
+                require(bombs_.empty() && actorSlots_.actor(order) == expected && actorSlots_.visual(order) == expectedVisual,
+                    "owned bomb expiry record/descriptor differs");
+                checkBindings();
+            }
+        }
         size_t descriptorChecks = 0;
         auto checkPhysicalDescriptor = [&](uint64_t order, const Descriptor& expected, uint8_t expectedHotspot) {
             const size_t slot = actorSlots_.find(order);
@@ -31568,6 +31662,8 @@ private:
             static_cast<uint16_t>(profile.spriteBase + 1), bomb.vx8, bomb.vy8,
             static_cast<int16_t>(bomb.pixelX), static_cast<int16_t>(bomb.pixelY)});
         if (!bomb.actorOrder) throw std::runtime_error("bomb allocation disagrees with capacity");
+        // 1000:6C65..6C7B initializes the new slot's active animation, not its backup.
+        actorSlots_.setActiveAnimation(bomb.actorOrder, {0, 0, 0, 0, 0, 0, 1});
         bombs_.push_back(bomb);
         requestBombPlaceSound();
         --inventory.counts[static_cast<size_t>(bombTypeIndex(inventory.selected))];
@@ -31637,10 +31733,12 @@ private:
         for (Bomb& b : bombs_) {
             if (onlyOrder && b.actorOrder != onlyOrder) continue;
             updateBombMotion(b);
-            if (--b.timer <= 0) {
+            --b.timer;
+            actorSlots_.setTimer(b.actorOrder, static_cast<uint8_t>((b.timer + 1) / 2));
+            if (b.timer <= 0) {
                 expired.push_back(b);
                 pendingActorConversions_.push_back(b.actorOrder);
-            }
+            } else actorSlots_.writeBombMotion(b.actorOrder, b);
         }
         bombs_.erase(std::remove_if(bombs_.begin(), bombs_.end(),
                                     [onlyOrder](const Bomb& b) { return b.timer <= 0 && (!onlyOrder || b.actorOrder == onlyOrder); }),
@@ -32072,8 +32170,13 @@ private:
         fade.actorOrder = bomb.actorOrder;
         fade.bossVisualOrder = bomb.bossVisualOrder;
         fade.animationBackup = conversionBackup(bomb.actorOrder);
+        const auto descriptor = actorSpriteDescriptor(69);
+        fade.hotspotY = static_cast<uint8_t>(16 - descriptor[1]);
+        actorSlots_.enterBombFade(bomb.actorOrder, fade, descriptor);
         transientActors_.push_back(fade);
         spawnExpiryParticles(bomb.pixelX, bomb.pixelY, bombTypeIndex(bomb.type) + 2);
+        // The common 777F writeback follows the 76F4 particle constructors.
+        actorSlots_.writeTransient(bomb.actorOrder, fade, false, {});
     }
 
     int monsterDamageForBomb(BombType type) const {

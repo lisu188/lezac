@@ -43,9 +43,11 @@ streams keep `candidate_only: true` and `original_fidelity_claim: false`.
 
 The first private, original-backed level-4 combat comparison found matching
 typed gameplay observations but raw-record and rendered-frame differences
-with the adapter disabled. In particular, live bomb updates do not yet write
-their typed motion/countdown back into the owned slot. Reserved-player,
-inactive-tail, link-bank and shared-result differences also remain open.
+with the adapter disabled. The bomb construction, motion/countdown write-back
+and expiry conversion gaps are now repaired; see
+[the bounded recovery evidence](recovery/bomb_owned_writeback_20261106.md).
+Reserved-player, inactive visual, link-bank and shared-result differences
+remain open.
 This command exposes those differences; it does not assert raw storage parity
 or correct them during capture. Private original snapshots and comparison
 artifacts are not included in this change.

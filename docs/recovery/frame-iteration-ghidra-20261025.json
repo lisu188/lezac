@@ -1,0 +1,477 @@
+{
+  "address_coordinates": "linear-byte-offset",
+  "calls": [
+    {
+      "call_site": "0x17ee1",
+      "evidence_id": "ev_563d91d0df577ffd7b98e0f6154954f5528ac4468532e23ca27dee8a647cba43",
+      "response_sha256": "53934f464d20c934acf30b76b50064ce02d8fa5729c9f742b75cb53fc7d54b71",
+      "status": "direct",
+      "targets": [
+        "0x16053"
+      ]
+    },
+    {
+      "call_site": "0x17f59",
+      "evidence_id": "ev_a2680ba6648d1f72a3b2e86c55241125ac59a888e9776a052e2517c447da3edb",
+      "response_sha256": "8c9ba892100733b4ee4e732608818bbc0538be64beb00a836f98f2f9a8ba2ca8",
+      "status": "direct",
+      "targets": [
+        "0x16053"
+      ]
+    },
+    {
+      "call_site": "0x1805d",
+      "evidence_id": "ev_dc56a5619c7debb149e1ab9281a3c4a97f7b5573716e552309ae6b8b0f0b48a2",
+      "response_sha256": "13ff5008dc9c787ecbf7f17d39db662f542929a9e462e50af87a22afc5c0cf1e",
+      "status": "direct",
+      "targets": [
+        "0x145fa"
+      ]
+    },
+    {
+      "call_site": "0x18067",
+      "evidence_id": "ev_69d79d76c41a44e1a4d9d136c576a2c4557710d5dd09e520d77fb551ddd6fd4b",
+      "response_sha256": "cb6ca27175568a70aa9567d7a3cc5b56c5a29ebeb3f10ef7fc3aea0059d8e667",
+      "status": "direct",
+      "targets": [
+        "0x15102"
+      ]
+    }
+  ],
+  "decompilations": [
+    {
+      "advisory_not_compilable_source": true,
+      "evidence_id": "ev_b9c5cba9a2e383598f57adb8e0a4d9aa8a40ecec85847bf55d00881f71b34a50",
+      "procedure": "0x145fa",
+      "response_sha256": "ef8600dedcfb834798d228fb9fc6120b2ecf7901864ef035c7fd7ddbbc7b60f6",
+      "text_bytes": 10703,
+      "text_sha256": "93f1ab6c27a46b265feff2862267141060ee41751ae2e6ab1612b6fb70632ab8"
+    },
+    {
+      "advisory_not_compilable_source": true,
+      "evidence_id": "ev_a1a6eaa12cf26cd79ef6cbf3ebf3d5dbff9e9e5f77b0e37b26d6ae2283d25c3b",
+      "procedure": "0x15102",
+      "response_sha256": "10c7b6c4de610bf2a101e5435ce5241e87df42f8d86a92b9b805b51b087a0a4d",
+      "text_bytes": 8154,
+      "text_sha256": "9ece97459879e55395bc3369586e3a235fd55e47b75df482a6711face0a120ec"
+    }
+  ],
+  "entry": {
+    "linear_address": "0x17783",
+    "offset": 30595,
+    "relative_segment": 0
+  },
+  "full_frame_claim": false,
+  "guest_execution": false,
+  "guest_ram_exported": false,
+  "header_bytes": 1904,
+  "host": "WSL Ubuntu",
+  "instructions": [
+    {
+      "address": "0x17ebb",
+      "bytes": "803ef97900",
+      "evidence_id": "ev_95f31a9c351fba362497870a3c0df1dc1d9bd5b1b40427af0bfd626fd224a3b2",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "FALL_THROUGH"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [],
+        "kind": "fallthrough"
+      },
+      "length": 5,
+      "raw_disassembly": "CMP byte ptr [0x79f9],0x0",
+      "response_sha256": "e8a6efc07c7527962105cb9f160e4a2e3a7a4900c5f5963b18752fb0a7da3751",
+      "status": "decoded"
+    },
+    {
+      "address": "0x17ee1",
+      "bytes": "e86fe1",
+      "evidence_id": "ev_1817b019d20f38978d03864c98492c3b305b52e6b099ce65a67bc80a8f916d3a",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "UNCONDITIONAL_CALL"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [
+          "0x16053"
+        ],
+        "kind": "call"
+      },
+      "length": 3,
+      "raw_disassembly": "CALL 0x1000:6053",
+      "response_sha256": "992d33a59846cb1bdc44f97a4627c1436c4f0cf0c8d784211aad46b4b2639e59",
+      "status": "decoded"
+    },
+    {
+      "address": "0x17f59",
+      "bytes": "e8f7e0",
+      "evidence_id": "ev_e3c51542d48800c86e95de286d151a5e3cfddda76e2359761c820ed54c633986",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "UNCONDITIONAL_CALL"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [
+          "0x16053"
+        ],
+        "kind": "call"
+      },
+      "length": 3,
+      "raw_disassembly": "CALL 0x1000:6053",
+      "response_sha256": "86c3edfb9f7ae192043d0947950a79feae7328f3f263a864f69b756e923ec820",
+      "status": "decoded"
+    },
+    {
+      "address": "0x1804e",
+      "bytes": "833e762000",
+      "evidence_id": "ev_74396add9d104bec45a3f02d9d670a1e56c16fc40bcbf97bdedf0c1519560ea3",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "FALL_THROUGH"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [],
+        "kind": "fallthrough"
+      },
+      "length": 5,
+      "raw_disassembly": "CMP word ptr [0x2076],0x0",
+      "response_sha256": "607a7afeb601f31950d93aa0e8c141537f470771319274938462ea99bab17e15",
+      "status": "decoded"
+    },
+    {
+      "address": "0x18053",
+      "bytes": "7708",
+      "evidence_id": "ev_e1006c68d5cb762f623af3ef625c9ef5c51d84394116adad308fd8d031e05988",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "CONDITIONAL_JUMP"
+          }
+        ],
+        "computed": false,
+        "conditional": true,
+        "direct_destinations": [
+          "0x1805d"
+        ],
+        "kind": "jump"
+      },
+      "length": 2,
+      "raw_disassembly": "JA 0x1000:805d",
+      "response_sha256": "54a0296e68b6a4fea3dae19ae76e683dc26b94f67b8ef9b82e60c3a1962d4036",
+      "status": "decoded"
+    },
+    {
+      "address": "0x18055",
+      "bytes": "813e7e20c800",
+      "evidence_id": "ev_a85f13dff9e1da51ee0d6a1f1a1442e52910f2672dde783008dc2205d97e4249",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "FALL_THROUGH"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [],
+        "kind": "fallthrough"
+      },
+      "length": 6,
+      "raw_disassembly": "CMP word ptr [0x207e],0xc8",
+      "response_sha256": "adbb61bf9c8e16987c8e949fe96f6d8a9e2a6a07bcff04a40b4ed30ea69a4e8f",
+      "status": "decoded"
+    },
+    {
+      "address": "0x1805b",
+      "bytes": "7203",
+      "evidence_id": "ev_c7ff0c4021049c96b612e5e399f57b8ebdde8e81ff469cf57e915392717384f8",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "CONDITIONAL_JUMP"
+          }
+        ],
+        "computed": false,
+        "conditional": true,
+        "direct_destinations": [
+          "0x18060"
+        ],
+        "kind": "jump"
+      },
+      "length": 2,
+      "raw_disassembly": "JC 0x1000:8060",
+      "response_sha256": "6abae9fc612b743dbe960af3c3417f313b85af0fdcc40e52dc0359504af1cc61",
+      "status": "decoded"
+    },
+    {
+      "address": "0x1805d",
+      "bytes": "e89ac5",
+      "evidence_id": "ev_b8c4e7ae16a3e2ac0f3087fcf78474919b5c738417de5dbf137fe5771b0271b6",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "UNCONDITIONAL_CALL"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [
+          "0x145fa"
+        ],
+        "kind": "call"
+      },
+      "length": 3,
+      "raw_disassembly": "CALL 0x1000:45fa",
+      "response_sha256": "c46aba1d89386f2a2cb9b3364cd797910471fd5fcf323e34d73756133b6e385f",
+      "status": "decoded"
+    },
+    {
+      "address": "0x18060",
+      "bytes": "833e802000",
+      "evidence_id": "ev_e5430e9a6f188ee75756f5b3dc2f66d581b4f826dc0be32cdfe1a67074fc7ad8",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "FALL_THROUGH"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [],
+        "kind": "fallthrough"
+      },
+      "length": 5,
+      "raw_disassembly": "CMP word ptr [0x2080],0x0",
+      "response_sha256": "1277bebcff322de9fde310e5071bb5966a43cc6e5e1be35226ba5709a22790cf",
+      "status": "decoded"
+    },
+    {
+      "address": "0x18065",
+      "bytes": "7603",
+      "evidence_id": "ev_b6f99033e66f73baa96027056defa9d6addfa12d1b3157f4c24306b1ee370ea5",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "CONDITIONAL_JUMP"
+          }
+        ],
+        "computed": false,
+        "conditional": true,
+        "direct_destinations": [
+          "0x1806a"
+        ],
+        "kind": "jump"
+      },
+      "length": 2,
+      "raw_disassembly": "JBE 0x1000:806a",
+      "response_sha256": "ae545433e0d30f61a2288ee21cbe3bec0387382ad4bf96e1c4bd83347759eac4",
+      "status": "decoded"
+    },
+    {
+      "address": "0x18067",
+      "bytes": "e898d0",
+      "evidence_id": "ev_09b3c661370f1d8f731a942feeb708f8655615e1a5ff48888ff2225a843c1897",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "UNCONDITIONAL_CALL"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [
+          "0x15102"
+        ],
+        "kind": "call"
+      },
+      "length": 3,
+      "raw_disassembly": "CALL 0x1000:5102",
+      "response_sha256": "ba6091c476a89b9abf367510beddbc3cd45c80e8607476f8fd5f81b2fa42664b",
+      "status": "decoded"
+    },
+    {
+      "address": "0x1806a",
+      "bytes": "833e9c2000",
+      "evidence_id": "ev_0b1c9ab5d81fb86bb5e662a28aef983a106bbee322b021d1dbeae1909c1e4e65",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "FALL_THROUGH"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [],
+        "kind": "fallthrough"
+      },
+      "length": 5,
+      "raw_disassembly": "CMP word ptr [0x209c],0x0",
+      "response_sha256": "a85382fceede4f8553218e2c4691f180edc8dfd4e2b13d681cda8170c81e8e15",
+      "status": "decoded"
+    },
+    {
+      "address": "0x18222",
+      "bytes": "7525",
+      "evidence_id": "ev_905e676d8527e59ccff9b53c7dc514d3780db89f05139ef604747e1f78679f07",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "CONDITIONAL_JUMP"
+          }
+        ],
+        "computed": false,
+        "conditional": true,
+        "direct_destinations": [
+          "0x18249"
+        ],
+        "kind": "jump"
+      },
+      "length": 2,
+      "raw_disassembly": "JNZ 0x1000:8249",
+      "response_sha256": "a2e05b2c6e6a92ae851450fbc9dc69392e63b87a726455addd0575b82e75bd29",
+      "status": "decoded"
+    },
+    {
+      "address": "0x1825c",
+      "bytes": "7525",
+      "evidence_id": "ev_a3b0d9c57799bfea636c008f9d7307920b87f2c12083f0667bd10bc95fb99816",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "CONDITIONAL_JUMP"
+          }
+        ],
+        "computed": false,
+        "conditional": true,
+        "direct_destinations": [
+          "0x18283"
+        ],
+        "kind": "jump"
+      },
+      "length": 2,
+      "raw_disassembly": "JNZ 0x1000:8283",
+      "response_sha256": "4808df186153b06322413920222890b16c29f5a4d197012f75bda08d0dd78e73",
+      "status": "decoded"
+    },
+    {
+      "address": "0x18296",
+      "bytes": "7517",
+      "evidence_id": "ev_a74cce47f941392d1c316d9f354b8a21ce4702c76b4bd5e59aafd3aaf0723d09",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "CONDITIONAL_JUMP"
+          }
+        ],
+        "computed": false,
+        "conditional": true,
+        "direct_destinations": [
+          "0x182af"
+        ],
+        "kind": "jump"
+      },
+      "length": 2,
+      "raw_disassembly": "JNZ 0x1000:82af",
+      "response_sha256": "d0cc04d2476e4353d619248d997de277a32984952246fab40d1490ccaa75c152",
+      "status": "decoded"
+    },
+    {
+      "address": "0x182b4",
+      "bytes": "7403",
+      "evidence_id": "ev_fe62263a80a26488dc874645e64502f37e203a52ef9bba634105002346e68412",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "CONDITIONAL_JUMP"
+          }
+        ],
+        "computed": false,
+        "conditional": true,
+        "direct_destinations": [
+          "0x182b9"
+        ],
+        "kind": "jump"
+      },
+      "length": 2,
+      "raw_disassembly": "JZ 0x1000:82b9",
+      "response_sha256": "cbfc709e87b421669940192d6f9ccea59c16215d100922502adbc6fc37c03b76",
+      "status": "decoded"
+    },
+    {
+      "address": "0x182b6",
+      "bytes": "e94af6",
+      "evidence_id": "ev_cc716c9d1dc49e0dcc6553739653294b3c9f7827a53b06e0d993ce6ea2128b31",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "UNCONDITIONAL_JUMP"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [
+          "0x17903"
+        ],
+        "kind": "jump"
+      },
+      "length": 3,
+      "raw_disassembly": "JMP 0x1000:7903",
+      "response_sha256": "7293708e56a58d1268018ba56d63ae711bcb0982d14c8eed5855d9d5ef5da5fc",
+      "status": "decoded"
+    }
+  ],
+  "language": "x86:LE:16:Real Mode",
+  "limitations": [
+    "Static decoder and reference observations are not runtime execution proof.",
+    "Decompiler types, calling conventions, segment aliases and inferred locals are advisory.",
+    "Ghidra applies MZ relocations in an ephemeral import; the target file is unchanged.",
+    "No BIOS, DOS, device or shared-clock behavior is established by this audit."
+  ],
+  "load_evidence_id": "ev_0f9626911e7dcf5c8a9d92501ddd015fb7deeeafaa2e4b3fdc22b8fad31d72d8",
+  "load_segment": 4096,
+  "load_status": "verified",
+  "module_bytes": 50480,
+  "overlay_bytes": 0,
+  "provider": {
+    "id": "ghidra",
+    "name": "Ghidra",
+    "version": "12.1.4"
+  },
+  "raw_static_snapshot_published": false,
+  "rea_version": "6.7.0",
+  "schema": "lezac-rea-ghidra-static-correlation-v1",
+  "session_calls": 26,
+  "session_closed": true,
+  "session_report_sha256": "05979ca308005a56136a88f1c1b170f0ac9b8427dddbb53383d9f00068afd067",
+  "target_preserved": true,
+  "target_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
+}

@@ -22,7 +22,7 @@ jobs:
           - left_short_medium
           - right_short_medium
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Install dependencies

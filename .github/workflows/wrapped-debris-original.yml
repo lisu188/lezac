@@ -26,7 +26,7 @@ jobs:
       SDL_VIDEODRIVER: dummy
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check runner disk reserve
         run: python3 -c "import shutil; d=shutil.disk_usage('.'); assert d.free/d.total > 0.1"
       - name: Install hash-pinned original CPU emulator on the runner

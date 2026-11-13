@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 240
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Frozen render cold-checkout regression
         run: python3 -S -B tools/test_frozen_render_checkout.py --out build/frozen-render-checkout
       - name: Install dependencies
@@ -738,7 +738,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Frozen render cold-checkout regression
         shell: pwsh
         run: python -S -B tools/test_frozen_render_checkout.py --out build/frozen-render-checkout

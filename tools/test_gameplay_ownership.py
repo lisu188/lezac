@@ -58,6 +58,7 @@ class GameplaySourceTests(unittest.TestCase):
 
     def fixture(self, root, app=None, operations=None, mapped=True):
         for path, text in (("src/app/app.cpp", self.APP if app is None else app),
+                           ("src/sound/output.cpp", "void soundOwner() { soundRuntime(); }\n"),
                            ("src/gameplay/gameplay_operations.hpp", "void tick(int frame);\n"),
                            ("src/gameplay/gameplay_operations.cpp", self.OPERATIONS if operations is None else operations)):
             destination = root / path
@@ -67,6 +68,7 @@ class GameplaySourceTests(unittest.TestCase):
         manifest.parent.mkdir(parents=True, exist_ok=True)
         manifest.write_text(json.dumps({"version": 1, "owners": {
             "app": {"runtime": ["src/app/app.cpp"]},
+            "sound": {"runtime": ["src/app/app.cpp", "src/sound/output.cpp"]},
             "gameplay": {"runtime": ["src/gameplay/gameplay_operations.hpp", "src/gameplay/gameplay_operations.cpp"] if mapped else ["src/app/app.cpp"]}}}))
 
     def test_actual_owner_and_diagnostic_bodies_remain_distinct(self):
@@ -82,6 +84,19 @@ class GameplaySourceTests(unittest.TestCase):
             self.assertIn("diagnosticOnly()", source)
             self.fixture(root, operations=self.OPERATIONS.replace("actualRuntime", "mutatedRuntime"))
             self.assertIn("mutatedRuntime(frame)", gameplay_source_text(root))
+
+    def test_shared_app_mapping_preserves_other_owners_and_duplicate_rejection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.fixture(root)
+            source = gameplay_source_text(root, owners=("sound",), headers=True)
+            self.assertEqual(source.count("actualRuntime(frame)"), 1)
+            self.assertEqual(source.count("diagnosticOnly()"), 1)
+            self.assertEqual(source.count("soundRuntime()"), 1)
+            self.assertNotIn("withGameplay", source)
+            (root / "src/sound/output.cpp").write_text("void tick(int frame) { forgedRuntime(); }\n")
+            with self.assertRaisesRegex(RuntimeError, "duplicate function definition"):
+                function_ranges(gameplay_source_text(root, owners=("sound",)), ["tick"])
 
     def test_forged_missing_duplicate_or_unowned_boundaries_reject(self):
         cases = (

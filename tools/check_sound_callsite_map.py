@@ -7,6 +7,7 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path
 
+from gameplay_source import gameplay_source_text
 from source_guardrails import function_ranges, mask_cpp, source_text
 import re
 
@@ -182,7 +183,7 @@ def main() -> int:
     args = parser.parse_args()
 
     root = args.root.resolve()
-    source = source_text(root, ("sound", "gameplay"))
+    source = gameplay_source_text(root, owners=("sound",), headers=True)
     cmake = read_text(root / "CMakeLists.txt")
     readme = read_text(root / "README_RECONSTRUCTION.md")
     ghidra = read_text(root / "docs" / "GHIDRA_NOTES.md")

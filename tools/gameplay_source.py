@@ -29,8 +29,8 @@ def argument_names(parameters: str) -> list[str]:
     return names
 
 
-def gameplay_source_text(root: Path, *, headers: bool = False) -> str:
-    files = source_files(root, ("app", "gameplay"), "runtime")
+def gameplay_source_text(root: Path, *, headers: bool = False, owners: tuple[str, ...] = ()) -> str:
+    files = source_files(root, (*owners, "app", "gameplay"), "runtime")
     operation_path = "src/gameplay/gameplay_operations.cpp"
     operations = [source for source in files if source.relative == operation_path]
     if not operations:

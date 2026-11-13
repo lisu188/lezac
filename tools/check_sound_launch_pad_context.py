@@ -7,6 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
+from gameplay_source import gameplay_source_text
 from source_guardrails import source_text, diagnostic_text
 
 
@@ -236,7 +237,7 @@ def main() -> int:
     total, level6, level7 = check_level_tiles(root)
     check_tile_art(root)
 
-    source = source_text(root, ("core", "sound", "gameplay"))
+    source = gameplay_source_text(root, owners=("core", "sound"), headers=True)
     diagnostic = diagnostic_text(root)
     for snippet in [
         "constexpr uint8_t kLaunchPadTile = 0x27;",

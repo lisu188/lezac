@@ -9,6 +9,7 @@ import unittest
 
 import check_behavior4_runtime_oracle_fixtures as behavior4
 import check_sound_callsite_map as sound_map
+from gameplay_source import gameplay_source_text
 from source_guardrails import source_text
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -91,7 +92,7 @@ class DeathSoundOwnership(unittest.TestCase):
                        'void bossDeathChain() { requestMonsterDeathSound(); }\n')
 
     def test_live_source_and_canonical_notes(self) -> None:
-        sound_map.require_death_sound_ownership(source_text(ROOT, ('sound', 'gameplay')), self.notes)
+        sound_map.require_death_sound_ownership(gameplay_source_text(ROOT, owners=("sound",), headers=True), self.notes)
 
     def test_comments_do_not_request_sound(self) -> None:
         sound_map.require_death_sound_ownership(self.source, self.notes)

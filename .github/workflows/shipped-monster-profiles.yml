@@ -69,7 +69,7 @@ jobs:
           python3 -B tools/check_shipped_monster_profile_fixture.py --capture "$RUNNER_TEMP/shipped-profile-capture"
       - name: Preserve native probe and failures
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: shipped-monster-profile-original
           path: |

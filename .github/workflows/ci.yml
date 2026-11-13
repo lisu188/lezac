@@ -66,7 +66,7 @@ jobs:
         run: python3 -S -B tools/campaign_level4_continuation_scout.py replay --exe build/lezac_cpp --out /dev/shm/lezac-level4-candidate --pattern right_long_medium
       - name: Preserve Level 4 candidate summary
         if: always() && github.event_name == 'pull_request' && startsWith(github.head_ref, 'codex/campaign-level4-continuation-scout-')
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: campaign-level4-candidate
           path: |
@@ -81,7 +81,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(level_rle_tail_(unit|fixture|checker|original|retention)|map_allocation_state_unit|startup_map_(fixture|checker|original|rerun)|clocked_sound_routing_mutations)$'
       - name: Preserve level decoder and startup map diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: map-lifecycle-${{ runner.os }}
           path: |
@@ -96,7 +96,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(timed_seed_isolation|timed_writeback_original|timed_writeback_replay_guard)$'
       - name: Preserve timed-writeback fixture diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: timed-writeback-linux-focused
           path: |
@@ -109,7 +109,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(record_save_original|record_save_repeat|resource_domain_codecs)$'
       - name: Preserve original record-save diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: record-save-linux-focused
           path: |
@@ -127,7 +127,7 @@ jobs:
           ctest --test-dir build --verbose --output-on-failure -R '^(records_name_entry_temp|records_name_entry_cursor|records_name_entry_repeat_temp|record_entry_page_repeat|resource_domain_codecs|ui_components)$'
       - name: Preserve record-entry diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: record-entry-linux-focused
           path: |
@@ -145,7 +145,7 @@ jobs:
           ctest --test-dir build --verbose --output-on-failure -R '^(records_update(_json)?_temp|records_raw_roundtrip|records_return_unit|records_page_repeat|original_asset_load|menu_frame_flow_dummy|ui_components|main_menu_models)$'
       - name: Preserve records-page diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: records-page-linux-focused
           path: |
@@ -161,7 +161,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(end_screen_original|end_screen_repeat)$'
       - name: Preserve Game Over frames
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: end-screen-linux-focused
           path: |
@@ -176,7 +176,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(pattern_fill_unit|pattern_fill_original|pattern_fill_checker)$'
       - name: Preserve pattern background diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pattern-fill-linux-focused
           path: |
@@ -193,7 +193,7 @@ jobs:
           ctest --test-dir build --verbose --output-on-failure -R '^(screen_clear_original|record_adjacent_original|record_adjacent_app|end_run_return_unit|original_end_run_repeat|end_flow_records_temp|end_flow_frame_flow|records_save_failure_temp|record_name_sound|autoplayer_records_flow_dummy)$'
       - name: Preserve original end-run diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: original-end-run-linux-focused
           path: |
@@ -214,7 +214,7 @@ jobs:
           python3 -S -B tools/check_abort_map_memory.py --exe build/lezac_cpp --out build/abort-map-focused
       - name: Preserve natural Escape diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: abort-map-linux-focused
           path: |
@@ -230,7 +230,7 @@ jobs:
           ctest --test-dir build --verbose --output-on-failure -R '^buffered_menu_repeat_live_xvfb$'
       - name: Preserve live keyboard end-run diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: live-keyboard-linux-focused
           path: |
@@ -248,7 +248,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(collapse_rectangle_unit|collapse_(map|removal|physical_seed)_(unit|fixture|checker|original))$'
       - name: Preserve collapse map boundary diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: collapse-map-${{ runner.os }}
           path: |
@@ -264,7 +264,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^wrapped_debris_(fixture|checker|original)$'
       - name: Preserve wrapped debris diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wrapped-debris-${{ runner.os }}
           path: build/wrapped-debris-app/
@@ -276,7 +276,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(monster_tile_damage_original|monster_death_sound)$'
       - name: Preserve focused corpse sound diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: corpse-sound-linux-focused
           path: |
@@ -290,7 +290,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(spawner_construction_(fixture|storage_original)|spawner_storage)$'
       - name: Preserve focused spawner construction diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: spawner-construction-linux-focused
           path: |
@@ -304,7 +304,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^damage_lane_(bytes_(unit|checker|fixture|original)|memory_(unit|initial_data(_checker)?|original)|history_(checker|fixture|original))$'
       - name: Preserve byte-addressed damage lane diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: damage-lane-bytes-linux
           path: |
@@ -319,7 +319,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original|monster_object_seeder_(checker|fixture|original)|retained_record_queue|falling_fragment_seed|seeder_capacity_(checker|fixture|original)|multicell_seeder_(checker|fixture|original)|collapse_retirement_(checker|fixture|original)|fracture_retirement_(checker|fixture|original)|fracture_capacity_(checker|fixture|original)|collapse_contact_pools_(fixture|original)|contact_staging_(checker|fixture|original)|above_contact_staging_(checker|fixture|original)|debris_contact_pools_(checker|fixture|original))$'
       - name: Preserve complete fatal-entry diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fatal-entry-linux-focused
           path: |
@@ -354,7 +354,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^corpse_storage_(helper_original|app_original|helper_protocol|app_protocol|tools_contract)$'
       - name: Preserve complete corpse storage diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: corpse-storage-linux-focused
           path: |
@@ -369,7 +369,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^reward_storage_(helper_original|app_original|helper_protocol|app_protocol|tools_contract)$'
       - name: Preserve complete reward storage diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reward-storage-linux-focused
           path: |
@@ -384,7 +384,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^marker_storage_(helper_original|app_original|tools_contract)$'
       - name: Preserve complete marker storage diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: marker-storage-linux-focused
           path: |
@@ -399,7 +399,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^transient_storage_(helper_original|app_original|tools_contract)$'
       - name: Preserve complete transient storage diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: transient-storage-linux-focused
           path: |
@@ -414,7 +414,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(actor_slots_binding_contract|production_actor_lifecycle_app|actor_descriptor_bank_(old_bank_mutant|tools_contract))$'
       - name: Preserve production actor lifecycle diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: production-actor-lifecycle-linux-focused
           path: |
@@ -430,7 +430,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^(corpse_animation_(original_app|skip_mutant|tools_contract)|monster_animation_(original_helper|original_app|fixture_contract)|gran_usage_guardrail(_selftest)?)$'
       - name: Preserve focused monster animation diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: monster-animation-linux-focused
           path: |
@@ -446,7 +446,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^(jolly_cloud_.*|bonus_rewards|debris_collapse_order)$'
       - name: Preserve focused JollyCloud comparisons
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: jolly-cloud-linux-focused
           path: |
@@ -461,7 +461,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^(shared_actor_order_original|shared_actor_order_fixture_guard|corpse_conversion_identity_mutant|corpse_conversion_identity_checker_contract|corpse_conversion_identity_live_binding)$'
       - name: Preserve corpse conversion diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: corpse-identity-linux
           path: |
@@ -476,7 +476,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^transient_animation_backup_original$'
       - name: Preserve transient animation backup diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: transient-animation-backup-linux
           path: build/Testing/Temporary/LastTest.log
@@ -488,7 +488,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^corpse_reward_animation_(mode_original|rng_mutants|tools_contract)$'
       - name: Preserve focused corpse reward animation diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: corpse-reward-animation-linux-focused
           path: |
@@ -504,7 +504,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^original_debris_update(_contract)?$'
       - name: Preserve complete debris updater diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: debris-updater-linux
           path: build/debris-update-failures/
@@ -521,14 +521,14 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^original_collapse_actors(_contract|_checker)?$'
       - name: Preserve collapse actor diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: collapse-actors-linux
           path: build/collapse-actor-failures/
           if-no-files-found: ignore
       - name: Preserve complete collapse updater diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: collapse-updater-linux
           path: build/collapse-update-failures/
@@ -545,7 +545,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^(actor_constructor_velocity_(original|contract|checker_failures)|bomb_launch_word)$'
       - name: Preserve actor constructor diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: actor-constructor-velocity-linux
           path: |
@@ -560,7 +560,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^collapse_(contacts_(original|contract|failure_retention)|(seed|lane|support)_history_(fixture|checker|original)|(contact_)?continu(ity|ous)_(fixture|checker|original)|history_(ctest|repetition)_contract|support_transport_contract)$'
       - name: Preserve collapse contact diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: collapse-contact-linux
           path: |
@@ -576,7 +576,7 @@ jobs:
           if-no-files-found: ignore
       - name: Preserve multi-record collapse continuity diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: collapse-contact-continuity-linux
           path: |
@@ -590,7 +590,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^physics_dispatch_(fixture|checker|original)$'
       - name: Preserve coupled physics dispatch diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: physics-dispatch-linux
           path: build/physics-dispatch-app/
@@ -612,7 +612,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure --timeout 30 -R '^clocked_sound'
       - name: Preserve clocked sound frames
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: clocked-sound-linux
           path: |
@@ -627,7 +627,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^(pickup_post_init_(original|contract|checker_failures)|transient_actor_limits)$'
       - name: Preserve focused pickup initialization comparisons
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pickup-post-init-linux-focused
           path: build/pickup-post-init-checks/
@@ -639,7 +639,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure --timeout 120
       - name: Preserve final sound diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: clocked-sound-linux-final
           path: |
@@ -649,7 +649,7 @@ jobs:
           if-no-files-found: ignore
       - name: Preserve final actor constructor diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: actor-constructor-velocity-linux-final
           path: |
@@ -659,7 +659,7 @@ jobs:
           if-no-files-found: ignore
       - name: Preserve final recovery diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: recovery-diagnostics-linux-final
           path: |
@@ -686,7 +686,7 @@ jobs:
           if-no-files-found: ignore
       - name: Preserve final pickup initialization comparisons
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pickup-post-init-linux-final
           path: |
@@ -696,35 +696,35 @@ jobs:
           if-no-files-found: ignore
       - name: Preserve startup RNG comparisons
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: startup-rng-linux
           path: build/startup-rng-checks/
           if-no-files-found: ignore
       - name: Preserve behavior-4 player-state frames
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: behavior4-player-state-frames-linux
           path: build/frame_sequence_capture_monster_behavior4_player_states/
           if-no-files-found: ignore
       - name: Preserve live menu comparisons
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: main-menu-live-linux
           path: build/main-menu-live-checks/
           if-no-files-found: ignore
       - name: Preserve buffered menu input comparisons
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: buffered-menu-live-linux
           path: build/buffered-menu-live-checks/
           if-no-files-found: ignore
       - name: Preserve BIOS menu input comparisons
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bios-menu-input-linux
           path: build/bios-menu-input-checks/
@@ -793,7 +793,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(level_rle_tail_(unit|fixture|checker|original|retention)|map_allocation_state_unit|startup_map_(fixture|checker|original|rerun)|clocked_sound_routing_mutations)$'
       - name: Preserve level decoder and startup map diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: map-lifecycle-${{ runner.os }}
           path: |
@@ -808,7 +808,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(timed_seed_isolation|timed_writeback_original|timed_writeback_replay_guard)$'
       - name: Preserve timed-writeback fixture diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: timed-writeback-windows-focused
           path: |
@@ -821,7 +821,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(record_save_original|record_save_repeat|resource_domain_codecs)$'
       - name: Preserve original record-save diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: record-save-windows-focused
           path: |
@@ -839,7 +839,7 @@ jobs:
           ctest --test-dir build --verbose --output-on-failure -R '^(records_name_entry_temp|records_name_entry_cursor|records_name_entry_repeat_temp|record_entry_page_repeat|resource_domain_codecs|ui_components)$'
       - name: Preserve record-entry diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: record-entry-windows-focused
           path: |
@@ -857,7 +857,7 @@ jobs:
           ctest --test-dir build --verbose --output-on-failure -R '^(records_update(_json)?_temp|records_raw_roundtrip|records_return_unit|records_page_repeat|original_asset_load|menu_frame_flow_dummy|ui_components|main_menu_models)$'
       - name: Preserve records-page diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: records-page-windows-focused
           path: |
@@ -873,7 +873,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(end_screen_original|end_screen_repeat)$'
       - name: Preserve Game Over frames
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: end-screen-windows-focused
           path: |
@@ -888,7 +888,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(pattern_fill_unit|pattern_fill_original|pattern_fill_checker)$'
       - name: Preserve pattern background diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pattern-fill-windows-focused
           path: |
@@ -905,7 +905,7 @@ jobs:
           ctest --test-dir build --verbose --output-on-failure -R '^(screen_clear_original|record_adjacent_original|record_adjacent_app|end_run_return_unit|original_end_run_repeat|end_flow_records_temp|end_flow_frame_flow|records_save_failure_temp|record_name_sound|autoplayer_records_flow_dummy)$'
       - name: Preserve original end-run diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: original-end-run-windows-focused
           path: |
@@ -926,7 +926,7 @@ jobs:
           python3 -S -B tools/check_abort_map_memory.py --exe build/lezac_cpp.exe --out build/abort-map-focused
       - name: Preserve natural Escape diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: abort-map-windows-focused
           path: |
@@ -941,7 +941,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(collapse_rectangle_unit|collapse_(map|removal|physical_seed)_(unit|fixture|checker|original))$'
       - name: Preserve collapse map boundary diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: collapse-map-${{ runner.os }}
           path: |
@@ -957,7 +957,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^wrapped_debris_(fixture|checker|original)$'
       - name: Preserve wrapped debris diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wrapped-debris-${{ runner.os }}
           path: build/wrapped-debris-app/
@@ -969,7 +969,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(monster_tile_damage_original|monster_death_sound)$'
       - name: Preserve focused corpse sound diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: corpse-sound-windows-focused
           path: |
@@ -983,7 +983,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(spawner_construction_(fixture|storage_original)|spawner_storage)$'
       - name: Preserve focused spawner construction diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: spawner-construction-windows-focused
           path: |
@@ -997,7 +997,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^damage_lane_(bytes_(unit|checker|fixture|original)|memory_(unit|initial_data(_checker)?|original)|history_(checker|fixture|original))$'
       - name: Preserve byte-addressed damage lane diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: damage-lane-bytes-windows
           path: |
@@ -1012,7 +1012,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(fatal_entry_(checker|fixture|original)|monster_object_(consume|branch)_original|monster_object_seeder_(checker|fixture|original)|retained_record_queue|falling_fragment_seed|seeder_capacity_(checker|fixture|original)|multicell_seeder_(checker|fixture|original)|collapse_retirement_(checker|fixture|original)|fracture_retirement_(checker|fixture|original)|fracture_capacity_(checker|fixture|original)|collapse_contact_pools_(fixture|original)|contact_staging_(checker|fixture|original)|above_contact_staging_(checker|fixture|original)|debris_contact_pools_(checker|fixture|original))$'
       - name: Preserve complete fatal-entry diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fatal-entry-windows-focused
           path: |
@@ -1047,7 +1047,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^corpse_storage_(helper_original|app_original|helper_protocol|app_protocol|tools_contract)$'
       - name: Preserve complete corpse storage diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: corpse-storage-windows-focused
           path: |
@@ -1062,7 +1062,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^reward_storage_(helper_original|app_original|helper_protocol|app_protocol|tools_contract)$'
       - name: Preserve complete reward storage diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reward-storage-windows-focused
           path: |
@@ -1077,7 +1077,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^marker_storage_(helper_original|app_original|tools_contract)$'
       - name: Preserve complete marker storage diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: marker-storage-windows-focused
           path: |
@@ -1092,7 +1092,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^transient_storage_(helper_original|app_original|tools_contract)$'
       - name: Preserve complete transient storage diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: transient-storage-windows-focused
           path: |
@@ -1107,7 +1107,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^(actor_slots_binding_contract|production_actor_lifecycle_app|actor_descriptor_bank_(old_bank_mutant|tools_contract))$'
       - name: Preserve production actor lifecycle diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: production-actor-lifecycle-windows-focused
           path: |
@@ -1123,7 +1123,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^(corpse_animation_(original_app|skip_mutant|tools_contract)|monster_animation_(original_helper|original_app|fixture_contract)|gran_usage_guardrail(_selftest)?)$'
       - name: Preserve focused monster animation diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: monster-animation-windows-focused
           path: |
@@ -1139,7 +1139,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^(jolly_cloud_.*|bonus_rewards|debris_collapse_order)$'
       - name: Preserve focused JollyCloud comparisons
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: jolly-cloud-windows-focused
           path: |
@@ -1154,7 +1154,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^(shared_actor_order_original|shared_actor_order_fixture_guard|corpse_conversion_identity_mutant|corpse_conversion_identity_checker_contract|corpse_conversion_identity_live_binding)$'
       - name: Preserve corpse conversion diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: corpse-identity-windows
           path: |
@@ -1169,7 +1169,7 @@ jobs:
         run: ctest --test-dir build --verbose --output-on-failure -R '^transient_animation_backup_original$'
       - name: Preserve transient animation backup diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: transient-animation-backup-windows
           path: build/Testing/Temporary/LastTest.log
@@ -1181,7 +1181,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^corpse_reward_animation_(mode_original|rng_mutants|tools_contract)$'
       - name: Preserve focused corpse reward animation diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: corpse-reward-animation-windows-focused
           path: |
@@ -1197,7 +1197,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^original_debris_update(_contract)?$'
       - name: Preserve complete debris updater diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: debris-updater-windows
           path: build/debris-update-failures/
@@ -1214,14 +1214,14 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^original_collapse_actors(_contract|_checker)?$'
       - name: Preserve collapse actor diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: collapse-actors-windows
           path: build/collapse-actor-failures/
           if-no-files-found: ignore
       - name: Preserve complete collapse updater diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: collapse-updater-windows
           path: build/collapse-update-failures/
@@ -1238,7 +1238,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^(actor_constructor_velocity_(original|contract|checker_failures)|bomb_launch_word)$'
       - name: Preserve actor constructor diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: actor-constructor-velocity-windows
           path: |
@@ -1253,7 +1253,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^collapse_(contacts_(original|contract|failure_retention)|(seed|lane|support)_history_(fixture|checker|original)|(contact_)?continu(ity|ous)_(fixture|checker|original)|history_(ctest|repetition)_contract|support_transport_contract)$'
       - name: Preserve collapse contact diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: collapse-contact-windows
           path: |
@@ -1269,7 +1269,7 @@ jobs:
           if-no-files-found: ignore
       - name: Preserve multi-record collapse continuity diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: collapse-contact-continuity-windows
           path: |
@@ -1283,7 +1283,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^physics_dispatch_(fixture|checker|original)$'
       - name: Preserve coupled physics dispatch diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: physics-dispatch-windows
           path: build/physics-dispatch-app/
@@ -1305,7 +1305,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure --timeout 30 -R '^clocked_sound'
       - name: Preserve clocked sound frames
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: clocked-sound-windows
           path: |
@@ -1320,7 +1320,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure -R '^(pickup_post_init_(original|contract|checker_failures)|transient_actor_limits)$'
       - name: Preserve focused pickup initialization comparisons
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pickup-post-init-windows-focused
           path: build/pickup-post-init-checks/
@@ -1332,7 +1332,7 @@ jobs:
         run: ctest --test-dir build --output-on-failure --timeout 120
       - name: Preserve final sound diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: clocked-sound-windows-final
           path: |
@@ -1342,7 +1342,7 @@ jobs:
           if-no-files-found: ignore
       - name: Preserve final actor constructor diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: actor-constructor-velocity-windows-final
           path: |
@@ -1352,7 +1352,7 @@ jobs:
           if-no-files-found: ignore
       - name: Preserve final recovery diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: recovery-diagnostics-windows-final
           path: |
@@ -1379,7 +1379,7 @@ jobs:
           if-no-files-found: ignore
       - name: Preserve final pickup initialization comparisons
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pickup-post-init-windows-final
           path: |
@@ -1389,7 +1389,7 @@ jobs:
           if-no-files-found: ignore
       - name: Preserve startup RNG comparisons
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: startup-rng-windows
           path: build/startup-rng-checks/

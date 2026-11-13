@@ -1,6 +1,7 @@
 #include "rendering/game_renderer.hpp"
 #include "rendering/presentation_state.hpp"
 #include "gameplay/map_plane_memory.hpp"
+#include "gameplay/actor_slots.hpp"
 
 #include <algorithm>
 #include <fstream>
@@ -37,11 +38,23 @@ int main(int argc, char** argv) {
         level.tiles.assign(1980,0); level.wordLayer.assign(1980,0);
         gameplay::MapPlaneMemory map;
         map.beginLevel({}, {}, level.tiles.size());
-        gameplay::ActorStorage slots;
-        slots.resetForLevel({16,16,0,0});
+        gameplay::ActorSlots slots;
         gameplay::Player first, second;
         first.x = 104; first.y = 168;
         second.x = 136; second.y = 168; second.spriteIndex = 1;
+        // Match the oracle's live player rows before rendering. The physical
+        // owner supplies these bytes; drawWorldView must never backfill them
+        // from the typed players or the independent camera argument.
+        slots.resetForLevel({16,16,0,0});
+        uint16_t spriteOffset = 0;
+        for (size_t index = 0; index < 2; ++index) {
+            const auto& sprite = assets.sprites().sprites.at(index);
+            slots.setPlayerPosition(index, index == 0 ? 104 : 136, 168);
+            slots.setPlayerDescriptor(index, {static_cast<uint8_t>(sprite.width),
+                static_cast<uint8_t>(sprite.height), static_cast<uint8_t>(spriteOffset),
+                static_cast<uint8_t>(spriteOffset >> 8)});
+            spriteOffset = static_cast<uint16_t>(spriteOffset + sprite.pixels.size());
+        }
         const gameplay::State2VisualCursor cursor;
         const gameplay::State2EffectEntry effect;
         const std::vector<gameplay::Bomb> bombs;

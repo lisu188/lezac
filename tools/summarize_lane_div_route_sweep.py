@@ -305,7 +305,8 @@ def route_state_stats(path: Path | None) -> RouteStateStats:
         queue_score = parse_hex_int(row.get("queue_score"))
         if lane_word is not None:
             max_lane_word_global = max(lane_word, max_lane_word_global or lane_word)
-            if lane_word >= DEBRIS_TAG_BASE:
+            # Raw words need both damage/type bits; 0x4e20 is a selected tag base.
+            if 0xC000 <= lane_word <= 0xFFFF:
                 debris_marker_samples += 1
         if lane_target is not None:
             max_lane_target_offset_global = max(
@@ -1008,8 +1009,8 @@ def main() -> int:
         action="store_true",
         help=(
             "exit nonzero unless route_state_samples.tsv shows at least one "
-            "candidate sampling lane_word_global_value at or above the "
-            "0x4e20 debris-marker base"
+            "candidate sampling a damaged debris lane_word_global_value "
+            "(0xc000..0xffff, not a selected-record tag)"
         ),
     )
     parser.add_argument(

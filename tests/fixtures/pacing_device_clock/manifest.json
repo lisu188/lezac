@@ -1,0 +1,133 @@
+{
+  "schema": "lezac-pacing-device-clock-fixture-v1",
+  "files": [
+    {
+      "name": "r1.csv.gz",
+      "bytes": 1891370,
+      "sha256": "cc4c19a77e8a02d5a95350e4b41597d39fb8ce1486a0111014d46aae604af68d"
+    },
+    {
+      "name": "r1-recipe.json",
+      "bytes": 20890,
+      "sha256": "64833221809e49f64bd97709f8015bb19cff8c60d05d49c935b51ec3f8937080"
+    },
+    {
+      "name": "r2.csv.gz",
+      "bytes": 1508360,
+      "sha256": "9eba45a85cb15056dd3c30f6b4a6fa80c45cb4b97921dd246450290c59ccf288"
+    },
+    {
+      "name": "r2-recipe.json",
+      "bytes": 21128,
+      "sha256": "1c0103a5a40880efa6e36c24d7a9af0d63447eb5e87ed5397f223927ddd19455"
+    }
+  ],
+  "observations": [
+    {
+      "run": "r1",
+      "cpu_sha256": "b45dfbb0cdc67113abe0e83ff07225cd333f44492485014b4391a9c94f93d517",
+      "clock_sha256": "0779e9d5e1b5b2c8db098dafb8d36a6ef6a2b4b4f2cb7a411bcbda6f1c645fc3",
+      "states": 72386,
+      "irq_boundaries": [
+        35738
+      ],
+      "raw_samples_verified": [
+        {
+          "name": "main",
+          "ram_sha256": "e990b9a6164be5c09315d4cac7c209d10890eba63d958d36b93177fb9cd98c11",
+          "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+          "code_bytes_verified": 43552
+        },
+        {
+          "name": "intro",
+          "ram_sha256": "53327e98c4a5c71057147a2cc6d05f9e16d2840e20cc2411af1b54ed39cef741",
+          "png_sha256": "3da2a47ecb1a6293035bddccb49bfac6132d71e0e268af96f678e23eee6bf9cc",
+          "code_bytes_verified": 43552
+        },
+        {
+          "name": "gameplay",
+          "ram_sha256": "db6e8d6ec428908d608b921d9505684446da956b9bf0dae5b01d9f6d4c18c32a",
+          "png_sha256": "87ab9ac2e7d1ca5bd8072a50db6ec318264aed89d1907ef81368382820a53890",
+          "code_bytes_verified": 43552
+        },
+        {
+          "name": "gameplay-middle",
+          "ram_sha256": "90bb10cb1db99310939d6d51c08b7a54784bc296ae513367549706c32c9cc7e3",
+          "png_sha256": "7fa8f8861e65da4596ef651af77642ce80babcc37da16f430f331486b80479ee",
+          "code_bytes_verified": 43552
+        },
+        {
+          "name": "search-end",
+          "ram_sha256": "53a8aac80d5a553cd54646f632ea16d084f9504d324a5521c5acbb6f99059aa5",
+          "png_sha256": "517d6d45b6b8fa9fc9506ca244d29a8db269e57cf50fd84324e946fdc78992b7",
+          "code_bytes_verified": 43552
+        }
+      ]
+    },
+    {
+      "run": "r2",
+      "cpu_sha256": "46e00ceabf48def2ba06c0d3a3ae929758ad997919165c782dc74c66ea8c2728",
+      "clock_sha256": "8cc9eba5aa0f1b33f6f6a078fbbdc610c6fbc7547fc2237cbed0963a14ad4f18",
+      "states": 60408,
+      "irq_boundaries": [
+        18675
+      ],
+      "raw_samples_verified": [
+        {
+          "name": "main",
+          "ram_sha256": "4d3c53ac58abd7db153cd84142888236bb1617d557d18b5e83d99f1a50e42788",
+          "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+          "code_bytes_verified": 43552
+        },
+        {
+          "name": "intro",
+          "ram_sha256": "006c3ef5eaa81cc35941e9bf63ad3f8012b4b06939389e38b36fd254f37cdaa4",
+          "png_sha256": "cef13d6028b9c74a5f488570615cc22353a0a6926ec13bb2a24ac46fc83056d5",
+          "code_bytes_verified": 43552
+        },
+        {
+          "name": "gameplay",
+          "ram_sha256": "2dd36d6198c3315c1f72728b484115b10ef4051d2f492674be3706126485319d",
+          "png_sha256": "1c90748ec7c9045ba7f9f094944a0b09091a0edc30cd2ef1dee5e071e6095bf2",
+          "code_bytes_verified": 43552
+        },
+        {
+          "name": "gameplay-middle",
+          "ram_sha256": "fb6c607d657edd752e75a9df304bde510e9f95df3fab526de2383a29a5e6bb01",
+          "png_sha256": "cceb4bf3eaf9e284f01dd811852ecbf5147da18923c2ab1e1c46f697199037da",
+          "code_bytes_verified": 43552
+        },
+        {
+          "name": "search-end",
+          "ram_sha256": "b99389eb058162327db7dcf8a0ba6cef6338bcc32d2f799247a24ebaf6566393",
+          "png_sha256": "e1a015b14a32f31cd805a5d74cd9b4e49c9bb27a52252d564921ba0f0149a5e7",
+          "code_bytes_verified": 43552
+        }
+      ]
+    }
+  ],
+  "sources": {
+    "tools/original_capture_contract.py": "36e27f3441ae98db6e2a459ca64c561b72c964e1e98de854ca416321c33c33e0",
+    "tools/pacing_clock_probe/build.py": "ba6ffca8e3307b8f8cc3da052697a9b6420c975cd802d92eed7c4c8299cbf525",
+    "tools/pacing_clock_probe/capture.py": "18c60148f548377dc2fd1b1c0262799a0c08f8eb8a98b888051b0417e6942b0b",
+    "tools/pacing_clock_probe/clock_hook.patch": "b61aedfbd911f46766bc3c32eb7c12df920ec9eed16928183aadc4732a260e44",
+    "tools/pacing_clock_probe/dos_time_hook.patch": "7b7b24a70c4a032533eb404d948d27eb36336b5248bb531604d8e4f737c3cd4b",
+    "tools/pacing_clock_probe/input_route.py": "cb1b2008045403cd1144704b5750912c2910e8e0f200357d8bbf422257180b5e",
+    "tools/pacing_clock_probe/keyboard_clock_observation.inc": "7fb32b946df39756cbf4fad59ba15ace6383b070976bdd2d54cebeafff1753e3",
+    "tools/pacing_clock_probe/lezac_clock_observation.h": "5681ec0cda71b73176a4b9119dd572e316e0fe227389af328fd900ab6f36bfc5",
+    "tools/pacing_clock_probe/lezac_work_probe.h": "8f440ab576eecdfcaa4f92805acaace680bc463143ea57dc5cd780d8582c49cb",
+    "tools/pacing_clock_probe/mixer_clock_observation.inc": "b997f6b2a762f047b1cb1caa2d8a893039c405fb66f9abd024dc92035fcf0a58",
+    "tools/pacing_clock_probe/pic_tickers_observation.inc": "0025c8d94219966e73c5d9bca004311de4d0c2335f7f8dfff7b608753486fa72",
+    "tools/pacing_clock_probe/project.py": "de1dd5e42dc6418e319c46af63cb07dadf0f32f87104fdc2e8b5f987c8348fcb",
+    "tools/pacing_clock_probe/render_clock_observation.inc": "0880a7de2304f89afb07c1feaff97473bd054ef5a37604b0efe51a2b0bff258e",
+    "tools/pacing_clock_probe/trace.py": "10f6d9b0bb2ccf9cd342c3da09edc4daff088e1a6797a7ae1cfd66e7fbbfba1c",
+    "tools/pacing_clock_probe/vga_clock_observation.inc": "43f2ce053a4850f23e83111323c1edce8f66a7638758fb57aa48c714f13ec8d3"
+  },
+  "cpu_sha256": "d6e90d082ebf11f514ca6c0b15f15c3269c963ad7788aa40e0b36ce5b04989ff",
+  "clock_sha256": "c557c957dd890cd9672ad68edacac2ac5a10b28915668e4e836815c644bab562",
+  "states": 132794,
+  "raw_memory_published": false,
+  "projection_is_not_execution_proof": true,
+  "whole_game_clock_claim": false,
+  "visual_claim": false
+}

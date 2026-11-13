@@ -1,0 +1,31 @@
+{
+  "status": "failed",
+  "version": "original",
+  "audio": "dummy",
+  "gameplay_seeded": false,
+  "delay_gates": false,
+  "physical_keys": true,
+  "manual_input": false,
+  "events": [],
+  "captures": [],
+  "observer_sha256": "f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598",
+  "probe_keys": [
+    "down:Alt_L",
+    "raw:87",
+    "raw:82",
+    "raw:86",
+    "raw:63",
+    "raw:106",
+    "raw:104",
+    "raw:91",
+    "raw:80",
+    "up:Alt_L"
+  ],
+  "expected_after_input": "english",
+  "stage": "ready",
+  "settled_skip_check": false,
+  "queue_change_allowed": false,
+  "error": "original overlaps resident allocation",
+  "hooks_restored": 0,
+  "child_exit_code": 0
+}

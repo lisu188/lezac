@@ -4,6 +4,15 @@ Last reviewed: 2026-09-19
 Branch: `codex/recover-player-key-ownership`
 Baseline: `origin/main` at PR #234
 
+## Post-Queue Tail CPU Recovery (2026-10-22)
+
+The [independent tail operation](docs/recovery/frame_tail_cpu_2026-10-22.md)
+recovers original shake/palette work, countdown tile insertion and the shared
+tile writer through next-frame or UI/runtime handoffs. Two complete captures
+agree across 2,576 controlled cases; C++ matches 7,728 budgeted replays, ordered
+writes, final RAM and DAC events. This is not App integration, a continuous
+whole frame, natural campaign proof or a change to global fidelity flags.
+
 ## Level 1 Full-Frame Recovery (2026-09-21)
 
 Three fresh controlled-seed original routes now match 575 complete 320x200
@@ -15,6 +24,174 @@ bomb route includes terrain changes and energy loss. Separately allocated
 DOS-resident probes replace unsafe in-segment scratch assumptions. This does
 not establish a natural complete-level victory, all actor bytes, audio timing
 or whole-game fidelity. See [scope, provenance and checks](docs/recovery/level1_fullframe_2026-09-21.md).
+
+## Natural Campaign Regression (2026-10-05)
+
+The [2026-10-07 Level 4 first-objective regression](docs/recovery/natural_level4_first_objective_runtime_2026-10-07.md)
+extends the completed Level 1-3 route through tick 9760, matching 400 full RGB
+frames and 740 mapped boundaries. All 1078 new atomic DS snapshots are coherent.
+It collects the first Level 4 objective at tick 9680 with 42 health and nine
+Medium bombs, ending with one objective and 105 destroyed structures. Level 4
+and later campaign completion remain open; this does not change the three-of-
+seven completed-level metric or any whole-game completion/fidelity flag.
+
+The [2026-10-05 natural campaign regression](docs/recovery/natural_campaign_runtime_2026-10-05.md)
+promotes the retained ordinary Level 1/2 completion and Level 3 entry route to
+a self-contained full production replay. It compares 2,761 native-observed
+RGB presentations and 5,446 mapped boundaries, including all three Level 2
+objectives, its 61-percent empty-collapse completion gate, result reels and
+carried health/reserves/ammunition into Level 3. This differs from the shorter
+zero-objective routes below. Later levels, all actor fields and full campaigns
+remain open; no global completion/fidelity flag or overall percentage changes.
+
+## Natural Level 3 Objective Regression (2026-10-05)
+
+The [original-backed Level 3 regression](docs/recovery/natural_level3_objective_runtime_2026-10-05.md)
+adds 650 ordinary gameplay frames after the unchanged complete Level 1/2 route.
+The full replay checks 3,411 RGB frames and 6,746 mapped boundaries through
+movement/jumps, a weapon chord, a Medium bomb and the first Level 3 objective.
+The endpoint has one objective, 36 destroyed structures, 62 health and one
+reserve. All comparisons retain whole frames and full map planes; the fixture
+does not complete Level 3 or compare every actor field. Guard checks reject
+18 semantic/fixture, ten producer and 291 typed/map/palette mutations. All four
+broad OPEN items and global completion/fidelity flags remain unchanged.
+
+## Natural Level 3 Second Objective Regression (2026-10-05)
+
+The [second-pickup regression](docs/recovery/natural_level3_second_objective_runtime_2026-10-05.md)
+adds 320 ordinary movement/jump frames without another bomb after the unchanged
+first-pickup route. The complete 4758-tick replay compares 3731 full RGB frames
+and 7386 mapped boundaries. The second pickup is at tick 4674; the endpoint
+has two objectives, 36 destroyed structures, 62 health and one reserve. Guards
+reject 20 semantic/fixture, fourteen producer and 291 typed/map/palette mutations. This
+does not complete Level 3 or compare all actor fields; all four broad OPEN
+items and global completion/fidelity flags remain unchanged.
+
+## Natural Level 3 Third Objective Regression (2026-10-05)
+
+The [third-pickup regression](docs/recovery/natural_level3_third_objective_runtime_2026-10-05.md)
+adds 500 ordinary movement/jump frames and one Medium bomb after the unchanged
+second-pickup route. The complete 5258-tick replay compares 4231 full RGB frames
+and 8386 mapped boundaries. The third pickup is at tick 5092; the endpoint
+has three objectives, 36 destroyed structures, 46 health and one reserve.
+Guards reject 22 semantic/fixture, twelve producer and 291 typed/map/palette
+mutations. Level 3 completion, all actor fields and whole-game fidelity remain
+unverified; all four broad OPEN items and global flags remain unchanged.
+
+## Natural Level 2 Tables (2026-10-05)
+
+The [2026-10-05 natural Level 2 regression](docs/recovery/natural_level2_runtime_2026-10-05.md)
+now matches two ordinary-input 500-frame extensions after the pinned Level 1
+completion/handoff. One verifies 1,000 present/post boundaries, 6,050 live
+debris records, 4,151 collapse records and 1,339 naturally spawned monster
+states, including off-screen actors. All displayed pixels match. These are
+partial routes with no objective collection or Level 2 completion; all four
+broad OPEN items and global completion/fidelity flags remain unchanged.
+
+## Monster Tile-damage Recovery (2026-10-04)
+
+Two independent silent original captures agree on 1,312 seeded full behavior-4
+updates across kinds 1..8: all 16 footprint masks, eight glyph boundaries,
+pre/post-motion damage placement and 96 fatal conversions. The full production
+replay first failed 276 impacted kind-5..8 cases. Restoring four missing
+impact-sprite table entries now matches all records, including actual health,
+hotspot, animation and visual descriptors. Earlier compact writeback fields
+labeled HP were actor byte +3, not health +0x24; their diagnostics now use the
+retained native health seed correctly, without changing historical raw bytes.
+Natural constructors, other behaviors and campaign fidelity remain unproven;
+all four OPEN items remain. See [evidence and limits](docs/recovery/monster_tile_damage_runtime_2026-10-04.md).
+
+## Monster Signed-Coordinate Recovery (2026-10-04)
+
+Two independent silent original captures agree on 768 full behavior-4
+writebacks for kinds 1..8 at both signed coordinate-word boundaries. The real
+production replay first failed exactly 240 wrapping cases; signed narrowing
+after common monster integration now matches all 768 positions, velocities,
+fractions, RNG and animation counters. A pinned 24,640-byte fixture, six
+new CTests and complete native/failure archive retain the result. The generic
+32-bit integrator, boss-motion paths and other actor callers remain unchanged.
+These shared seeds do not establish general out-of-map reads, later updates,
+other actor/behavior boundaries or natural campaign fidelity. All four OPEN
+items remain. See [scope and original evidence](docs/recovery/monster_coordinate_word_wrap_runtime_2026-10-04.md).
+
+## Monster Coordinate-Writeback Recovery (2026-10-04)
+
+Two independent silent original captures agree on 256 seeded behavior-4
+writebacks, including the actual actor/visual table stores for kinds 1..8 at
+both map edges. The new production replay first failed exactly the 112 results
+outside its level-bound clamps. Removing those two clamps now matches all 256
+positions, velocities, fractions, RNG and animation counters. A pinned
+8,256-byte fixture, six CTests and complete compact native/failure evidence
+preserve this correction. Next-update out-of-map reads, word overflow, natural
+trajectories and whole-game fidelity remain unproven; all four OPEN items remain.
+See [the full writeback observation and limits](docs/recovery/monster_coordinate_writeback_runtime_2026-10-04.md).
+
+## Behavior-4 Terrain and Motion Recovery (2026-10-04)
+
+Two independent silent original captures agree on 176 seeded motion cases,
+covering terrain classes, floor/ceiling/side combinations, steering and both
+8.8 fractional carries for actor kinds 1..8 under explicit shared profiles.
+The production replay first failed exactly eight signed NEG boundaries;
+word narrowing before division now fixes those without changing the remaining
+motion logic. A pinned 6,400-byte fixture, six CTests, native recapture workflow
+and byte-checked complete capture archive preserve the result and its failure.
+This is bounded motion evidence, not natural spawning, all levels, animation,
+damage, full actor writeback or whole-game parity. All four OPEN items remain.
+See [the capture, correction and limits](docs/recovery/flyer_contact_motion_runtime_2026-10-04.md).
+
+## Active-Player Gravity Word Recovery (2026-10-04)
+
+Two independent silent original captures agree on 32 seeded active airborne
+gravity boundaries each, using the actual kind-0 P1/P2 records and verified
+actor-parameter pointers. The active helper now wraps its signed word addition
+before the terminal-speed comparison. Its landing/posture/rebound remainder is
+unchanged. A pinned 448-byte fixture checks four wraps, full helper calls and
+real P1/P2 frame-update callers, with malformed-input guards and portable native
+recapture. Both complete native captures are retained in a compact archive.
+This does not establish bottom gating, landing, complete motion, natural routes
+or visual/campaign fidelity. All four OPEN items and global flags remain
+unchanged. See [evidence, checks and limits](docs/recovery/active_player_gravity_word_runtime_2026-10-04.md).
+
+## Dying-Player Gravity Word Recovery (2026-10-03)
+
+Two independent silent original captures agree on 64 seeded P1/P2 behavior-2
+gravity boundaries each. Both real player records are kind 0, with their
+`DS:1B88/1BAE` actor pointers and preserved bootstrap roles verified. The
+separate dying-player helper now wraps acceleration to a signed word before
+the `0x07FF` comparison; all other motion behavior is unchanged. A pinned
+866-byte fixture covers four wraps and twenty supported landings, with complete
+helper and real P1/P2 frame-update caller tests plus malformed-input guards.
+These seeded probes do not prove natural death, timer/animation/reentry,
+full player motion or visual/campaign fidelity. All four OPEN items and global
+fidelity/completion flags remain unchanged. See
+[capture, fixture, checks and limits](docs/recovery/dying_player_gravity_word_runtime_2026-10-03.md).
+
+## Timed-Actor Gravity Word Recovery (2026-10-03)
+
+Two independent silent original captures agree on 64 seeded behavior-2
+gravity/landing boundaries each for kind 12 timed actors and kind 13 small
+bombs. Both kinds expose the same wide-addition mismatch previously found for
+ordinary walkers. The shared timed-actor helper now wraps the signed word before
+comparing with `0x07FF`; landing, friction, contact and integration order are
+unchanged. An 866-byte original fixture covers the gravity phase, with separate
+full-helper/caller velocity tests and malformed-input guards. This is not full
+timed-actor motion, natural bomb/corpse spawning or lifecycle parity. The broad
+contact item and all global completeness/fidelity flags remain open. See
+[capture, fixture, checks and limits](docs/recovery/timed_gravity_word_runtime_2026-10-03.md).
+
+## Walker Gravity Word Recovery (2026-10-03)
+
+Two independent silent original captures agree on 32 seeded kind-1,
+behavior-3 gravity/landing boundaries each. They confirm the signed `0x7FF`
+limit and expose two overflow cases where the port added in a wide integer
+instead of wrapping the original 16-bit word before comparison. Production
+now narrows before the clamp, with landing/facing and update order preserved.
+The 486-byte original fixture checks the phase and separately checks all 32
+production `updateMonsters()` velocities; fixture/malformed-input guards and
+a portable recapture helper accompany it. These are seeded boundaries, not a
+natural terminal-speed fall or a full actor/campaign comparison. The original
+contact item and global completeness/fidelity flags remain open. See
+[capture, fixture, checks and limits](docs/recovery/walker_gravity_word_runtime_2026-10-03.md).
 
 ## Two-Player Keyboard Ownership
 
@@ -428,10 +605,11 @@ passing-test percentage measures regression health, not recovered behavior.
   **Scope**: the item stays OPEN -- behaviours 1/2/5/6, other kinds, per-tick
   tile-embedding damage, mode-2 corpse physics, contact multiplicity, the
   bottom-edge `0x4D..0x52` jump-through semantics, the player's own collision
-  box and two-player are all still unevidenced. The `0x7FF` gravity clamp also
-  stays INFERRED: the level-2 fall peaks at `vy = 704`, so no capture has ever
-  exercised the clamp, and the fixture records `gravity_clamp_exercised=0`
-  rather than implying otherwise. Suite 399/399.
+  box and two-player are all still unevidenced. The historical level-2 fall
+  peaks at `vy = 704`, and its fixture still records `gravity_clamp_exercised=0`.
+  The later [walker gravity word capture](docs/recovery/walker_gravity_word_runtime_2026-10-03.md)
+  confirms the limit in seeded level-1 cases without claiming a natural
+  terminal-speed fall or closing the broad contact item. Historical suite 399/399.
 
 - **Recovered the original's behaviour-4 flyer motion and CLOSED the item.**
   `behavior4_motion_runtime_fixture` had no runtime evidence at all. A level-2

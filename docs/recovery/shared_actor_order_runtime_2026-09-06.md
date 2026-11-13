@@ -24,6 +24,71 @@ whole-game rendering result. The renderer still groups sprites by type.
 No sprite-overlap, natural-route, boss-link repair or two-player parity
 claim is made.
 
+### Corpse Conversion Identity Follow-Up (2026-10-08)
+
+The reward branch previously called `spawnBonusDrop`, consuming a fresh
+port birth ID, and then overwrote that ID with the corpse's existing one.
+It now constructs the reward representation directly and preserves the corpse
+ID without an intervening allocation claim. Position, hotspot, velocity,
+fractions, inherited animation, RNG draws and particle allocation are unchanged.
+This prepares the existing in-place conversion for physical storage ownership;
+it does not integrate `ActorStorage` into production or recover opaque fields.
+
+The existing ten-case/410-pass original replay also checks birth-ID conservation.
+In these controlled cases every successfully appended particle remains active
+through its birth pass, so all newly consumed IDs must belong to an active
+entry. This is a port-side identity invariant derived from the original's
+in-place conversion and append rules, not comparison of an original ID field.
+
+`corpse_conversion_identity_mutant` runs a separately compiled `App` variant
+with exactly one extra `claimActorOrder()` in the reward conversion. It must
+fail specifically with `unused birth identity`; another runtime failure,
+timeout or a passing replay is not accepted as mutant rejection. Its generated
+source manifest, binary identity, stdout, stderr and report are retained in CI.
+The production source remains unchanged by mutation generation. The mutant
+target is test-only, and ordinary distribution builds with `BUILD_TESTING=OFF`
+do not include it. The checker has fourteen stdlib contracts.
+
+The checker reads and hashes the original fixture once, retains that expected
+buffer, and executes a separate retained copy of those same bytes. It checks
+the executed copy again after the child exits. Replacing the caller's fixture
+path cannot change the child's input; modifying the executed copy is rejected
+while the expected preimage remains available. These controls fix owner finding
+T72-F1 without changing the original fixture, production code or mutant source.
+The contract tests do not substitute for the separately compiled App mutant:
+fresh exact-head hosted execution and review remain required after this change.
+
+`corpse_conversion_identity_live_binding` adds three real-child checks. It
+replaces the caller's fixture immediately before launching the production App
+and then the compiled mutant. Both must still consume the retained, pinned
+input: the production replay passes and the mutant fails specifically on an
+unused birth identity. A third child runs with a deliberately changed executed
+copy; that tampering must be rejected while the expected preimage is retained.
+Only the file-replacement boundary is controlled. The subprocess result is
+returned unchanged from a real compiled child, never synthesized or mocked.
+The checker itself is compiled from its single-read hashed source buffer.
+
+The live helper copies the ten raw assets and the caller fixture into a private
+workspace, keeps each retained attempt below 8 MiB, creates a unique attempt
+directory without overwriting prior results, and verifies the original inputs
+are unchanged.
+It can run locally with only `--exe`, explicitly reporting two baseline checks
+and `compiled_mutant=0`; hosted CTest always supplies both compiled executables
+and requires all three checks with `compiled_mutant=1`. Reusing an older retained
+baseline executable is not exact-head binary or compiled-mutant validation.
+
+Large local game builds and native captures remain deferred under disk reserves.
+During preparation, asking Ninja for the generated mutant source unexpectedly
+followed an explicit executable dependency and compiled/linked the main game,
+then failed on missing sparse-checkout resource copies. That failed attempt and
+its outputs are retained; it is not a passing bounded build or runtime test.
+The unnecessary executable dependency was removed. Local validation thereafter
+uses direct source generation and syntax-only checks, without Ninja builds.
+Hosted compiled production replay, fixture negatives and actual mutant execution
+are separate validation gates; source checks and mocked checker contracts alone
+do not prove them. No new natural-route, full-record, RGB, sound or whole-game
+fidelity claim is made.
+
 ## Original Rules
 
 - Main CS:3358 (file 0x3ac8) deletes an actor by copying each following

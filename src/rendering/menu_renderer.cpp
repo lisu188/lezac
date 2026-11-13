@@ -1,7 +1,8 @@
 #include "rendering/game_renderer.hpp"
 #include "rendering/color.hpp"
+#include "resources/palette.hpp"
+#include "ui/level_flow.hpp"
 #include <algorithm>
-#include <cmath>
 #include <string>
 
 namespace lezac::rendering {
@@ -21,6 +22,16 @@ public:
         // The SFONLEF.ZBG title image backing the menu. The in-game
         // showBackground_ toggle only affects the gameplay sky (drawGradientSky),
         // so the menu title is always drawn.
+        Palette palette = assets_.backgroundPalette();
+        if (menu_.page == MenuPage::Main && menu_.mainMenuFade < 63) {
+            for (size_t i = 0; i < palette.size(); ++i) {
+                if (i == 10) continue;
+                auto fade = [&](uint8_t value) {
+                    return vga6To8(static_cast<uint8_t>((value >> 2) * menu_.mainMenuFade / 63));
+                };
+                palette[i] = {fade(palette[i].r), fade(palette[i].g), fade(palette[i].b)};
+            }
+        }
         for (int y = 0; y < kScreenH; ++y) {
             for (int x = 0; x < kScreenW; ++x) {
                 int bx = (x + camX / 4) % assets_.background().width;
@@ -28,7 +39,7 @@ public:
                 if (bx < 0) bx += assets_.background().width;
                 if (by < 0) by += assets_.background().height;
                 canvas_.pixel(x, y,
-                      argb(assets_.backgroundPalette(),
+                      argb(palette,
                            assets_.background().pixels[static_cast<size_t>(by) * assets_.background().width + bx]));
             }
         }
@@ -45,24 +56,24 @@ public:
             // port's standard-ASCII font map that means a ':' separator and a
             // '.' terminator -- e.g. "I: INFORMAZIONI." -- and every line ends
             // in that period, which the earlier transcription had dropped.
-            static const char* kItalian[7] = {
-                "PREMI 1 PER UN GIOCATORE.", "PREMI 2 PER DUE GIOCATORI.",
-                "I: INFORMAZIONI.", "Z: ISTRUZIONI.", "R: VEDI RECORDS.",
-                "L: ENGLISH.", "ESC PER USCIRE."};
-            static const char* kEnglish[7] = {
-                "PRESS 1 FOR ONE PLAYER GAME.", "PRESS 2 FOR TWO PLAYERS GAME.",
-                "I: INFOS.", "Z: INSTRUCTIONS.", "R: SHOW RECORDS.",
-                "L: ITALIANO.", "ESC EXITS."};
-            const char* const* lines = menu_.italian ? kItalian : kEnglish;
-            for (int i = 0; i < 7; ++i) {
-                const std::string line = lines[i];
-                const int x = (kScreenW - text_.textWidth(line)) / 2;
-                // The original draws each line as a white glyph with a blue
-                // (0,0,255) shadow, centred, on a 10px pitch (measured against
-                // the original level-select frame: first line at y74, one pixel
-                // below the vertical middle of the title art).
-                text_.text(std::max(0, x), 74 + i * 10, line, 0xffffffffu, false,
-                     0xff0000ffu);
+            const auto& lines = mainMenuLines(menu_.italian);
+            size_t remaining = menu_.mainMenuSteps;
+            for (size_t i = 0; i < lines.size() && remaining != 0; ++i) {
+                const auto line = lines[i];
+                const size_t lineSteps = line.size() + kMainMenuTrailSteps;
+                const size_t iteration = std::min(remaining, lineSteps);
+                const int x = kScreenW / 2 - static_cast<int>(line.size()) * kMainMenuCellAdvance / 2;
+                for (size_t j = 0; j < line.size() && j + 2 <= iteration; ++j) {
+                    const int glyphIndex = text_.fontGlyphIndex(line[j], false);
+                    if (glyphIndex < 0 || glyphIndex >= static_cast<int>(assets_.fontSprites().sprites.size())) continue;
+                    const Sprite& glyph = assets_.fontSprites().sprites[static_cast<size_t>(glyphIndex)];
+                    const int px = x + static_cast<int>(j) * kMainMenuCellAdvance;
+                    const int y = kMainMenuTextY + static_cast<int>(i) * kMainMenuLinePitch;
+                    const auto color = static_cast<uint8_t>(std::min<size_t>(10, 6 + iteration - j - 2));
+                    text_.drawFontSprite(px - 1, y - 1, glyph, argb(assets_.backgroundPalette(), 6), false);
+                    text_.drawFontSprite(px, y, glyph, argb(assets_.backgroundPalette(), color), false);
+                }
+                remaining -= iteration;
             }
             return;
         }
@@ -79,13 +90,10 @@ public:
                 drawInstructionsMenu();
                 break;
             case MenuPage::Records:
-                drawRecordsMenu();
                 break;
             case MenuPage::NameEntry:
-                drawNameEntryMenu();
                 break;
             case MenuPage::GameOver:
-                drawGameOverMenu();
                 break;
             case MenuPage::CompletedGame:
                 drawCompletedGameMenu();
@@ -190,69 +198,6 @@ public:
         }
     }
 
-    void drawRecordsMenu() {
-        // Original records title: "il file dei records" (LEZAC.EXE 1000:16a7).
-        const char* title = menu_.italian ? "IL FILE DEI RECORDS" : "BEST SCORES";
-        const int tx = (kScreenW - static_cast<int>(std::string(title).size()) * 8) / 2;
-        text_.text(std::max(0, tx), 48, title, 0xff90ffb0u, false, 0xff101010u);
-        int y = 70;
-        for (size_t i = 0; i < menu_.records.size(); ++i) {
-            drawRecordLine(i, y);
-            y += 12;
-        }
-        text_.text(38, 166, "ESC: BACK", 0xff90ffb0u, false, 0xff101010u);
-    }
-
-    void drawNameEntryMenu() {
-        // Labels recovered from LEZAC.EXE: "giocatore" (1000:17f3), "punteggio
-        // finale" (1000:b3ab), "inserisci il tuo nome" (1000:1826).
-        const bool it = menu_.italian;
-        text_.text(it ? 82 : 86, 48, it ? "NUOVO RECORD" : "NEW RECORD",
-             0xff90ffb0u, false, 0xff101010u);
-        text_.text(58, 64,
-             (it ? "GIOCATORE " : "PLAYER ") + std::to_string(menu_.pendingPlayer),
-             0xffffffffu, false, 0xff101010u);
-        text_.text(58, 78,
-             (it ? "PUNTEGGIO " : "SCORE ") + std::to_string(menu_.pendingScore),
-             0xffffe060u, false, 0xff101010u);
-        text_.text(58, 94,
-             (it ? "LIVELLO " : "LEVEL ") + std::to_string(menu_.pendingLevel),
-             0xffffffffu, false, 0xff101010u);
-        text_.text(kNameEntryLabelX, kNameEntrySlotY, it ? "NOME " : "NAME ",
-             0xffffffffu, false, 0xff101010u);
-        drawNameEntrySlots();
-        text_.text(30, 148,
-             it ? "INSERISCI IL TUO NOME" : "TYPE LETTERS OR SPACE",
-             0xffffffffu, false, 0xff101010u);
-        text_.text(30, 160,
-             it ? "ENTER SALVA. BACKSPACE CANCELLA" : "ENTER SAVE. BACKSPACE ERASES",
-             0xff90ffb0u, false, 0xff101010u);
-    }
-
-    void drawNameEntrySlots() {
-        int activeSlot = renderer_.nameEntryCursorSlot(menu_.pendingName);
-        for (int slot = 0; slot < kNameEntrySlotCount; ++slot) {
-            int x = renderer_.nameEntrySlotX(slot);
-            bool active = slot == activeSlot;
-            if (active) {
-                canvas_.rect(x - 1, kNameEntrySlotY - 2, kNameEntryCursorBoxW,
-                     kNameEntryCursorBoxH, kNameEntryCursorBackground);
-            }
-            char ch = slot < static_cast<int>(menu_.pendingName.size())
-                          ? menu_.pendingName[static_cast<size_t>(slot)]
-                          : '_';
-            text_.text(x, kNameEntrySlotY, std::string(1, ch),
-                 active ? kNameEntryCursorForeground : 0xffffffffu,
-                 false, active ? 0 : 0xff101010u);
-        }
-    }
-
-    void drawGameOverMenu() {
-        text_.text(111, 72, "GAME OVER", 0xffff5050u, true, 0xff301010u);
-        drawFinalScores(104);
-        text_.text(78, 166, "ENTER: MENU", 0xff90ffb0u, false, 0xff101010u);
-    }
-
     void drawCompletedGameMenu() {
         text_.text(90, 58, "ECCELLENTE>>>", 0xffffe060u, false, 0xff101010u);
         text_.text(54, 76, "HAI COMPLETATO IL GIOCO", 0xffffffffu, false, 0xff101010u);
@@ -288,38 +233,78 @@ private:
 };
 }
 
+void GameRenderer::drawPatternBackground(const LevelIntroPattern& pattern) {
+    beginPatternBackground(pattern);
+    advancePatternBackground(PatternFill::pixelCount);
+}
+
 void GameRenderer::drawMenu(const MenuView& menu) {
+    if (menu.page == MenuPage::GameOver || menu.page == MenuPage::Records ||
+        menu.page == MenuPage::NameEntry) {
+        drawPatternBackground(menu.endScreenPattern);
+        std::vector<OutroLine> lines;
+        if (menu.page == MenuPage::GameOver) {
+            lines = LevelFlow::gameOverLines(menu.italian, menu.scores);
+        } else if (menu.page == MenuPage::NameEntry) {
+            // 1845 scans upward from slot seven, stopping before equal scores.
+            const auto signedScore = [](uint32_t score) {
+                return score < 0x80000000u ? int64_t(score) : int64_t(score) - 0x100000000LL;
+            };
+            size_t rank = std::min<size_t>(7, menu.records.size()) + 1;
+            while (rank > 1 && signedScore(menu.records[rank - 2].score) < signedScore(menu.pendingScore))
+                --rank;
+            lines = {{"GIOCATORE " + std::to_string(menu.pendingPlayer), 11, 31, 25, 10, -1, true},
+                     {"HAI OTTENUTO IL " + std::to_string(rank) + " POSTO", 11, 31, 25, 21, -1, true},
+                     {"NEI RECORDS !!!", 11, 31, 25, 32, -1, true},
+                     {"INSERISCI IL TUO NOME:", 11, 31, 25, 43, -1, true}};
+        } else {
+            // 1000:20AC centers each Pascal name + four spaces + signed score.
+            lines.push_back({"PUNTEGGI MIGLIORI", 9, 10, 6, 10, -1});
+            for (size_t i = 0; i < menu.records.size() && i < 7; ++i) {
+                const Record& record = menu.records[i];
+                std::string name = encodedRecordName(record).substr(0, record.nameLength);
+                constexpr char punctuation[]{'.', ':', ';', ',', '!', '\''};
+                for (char& ch : name) {
+                    if (ch >= ':' && ch <= '?') ch = punctuation[ch - ':'];
+                }
+                const int64_t score = record.score < 0x80000000u ? int64_t(record.score) :
+                                     int64_t(record.score) - 0x100000000LL;
+                lines.push_back({name + "    " + std::to_string(score), 9, 10, 6,
+                                 72 + static_cast<int>(i) * 11, -1});
+            }
+        }
+        std::vector<OutroSegment> segments;
+        uint32_t settledElapsed = 0;
+        for (size_t i = 0; i < lines.size(); ++i) {
+            const uint32_t duration = static_cast<uint32_t>(lines[i].text.size() + kLevelOutroColorSpan) *
+                                      kLevelIntroCharacterDelayMs;
+            segments.push_back({0, duration, static_cast<int>(i), -1, true});
+            settledElapsed = std::max(settledElapsed, duration);
+        }
+        // Settled key-wait presentation only; end-run typing/record ordering remains separate work.
+        drawLevelOutro({true, settledElapsed, lines, segments});
+        if (menu.page == MenuPage::NameEntry) {
+            // 1962 frames a fixed string[8]; 197E uses 9px cells and +1/+1 shadow.
+            canvas_.rect(122, 58, 76, 13, argb(presentation_.palette(), 7));
+            canvas_.rect(123, 59, 74, 11, argb(presentation_.palette(), 8));
+            const std::string name = encodeRecordName(menu.pendingName);
+            for (size_t slot = 0; slot < name.size(); ++slot) {
+                const int index = text_.fontGlyphIndex(name[slot] == ':' ? '.' : name[slot], false);
+                if (index < 0 || index >= static_cast<int>(assets_.fontSprites().sprites.size())) continue;
+                const Sprite& glyph = assets_.fontSprites().sprites[static_cast<size_t>(index)];
+                const int x = kNameEntryLabelX + static_cast<int>(slot) * kNameEntrySlotAdvance;
+                text_.drawFontSprite(x + 1, kNameEntrySlotY + 1, glyph, argb(presentation_.palette(), 55), false);
+                text_.drawFontSprite(x, kNameEntrySlotY, glyph, argb(presentation_.palette(), 77), false);
+            }
+        }
+        return;
+    }
     MenuPainter(canvas_, text_, assets_, presentation_, *this, menu).drawMenu();
 }
 
 void GameRenderer::drawLevelIntro(int levelIndex, const LevelIntroPattern& pattern,
                     size_t visibleCharacters) {
-    canvas_.resetClip();
-    int fraction = 0;
-    int phase = 0;
-    for (int i = 0; i < kScreenW * kScreenH; ++i) {
-        fraction += pattern.horizontalStep;
-        if (fraction > 100) {
-            fraction -= 100;
-            ++phase;
-        }
-        if (i % kScreenW == 0) {
-            const int sineIndex = ((i * 3) / 100) % 128;
-            const int wave = static_cast<int>(
-                std::sin(static_cast<float>(sineIndex) * 6.28f / 128.0f) *
-                8.0f);
-            fraction += pattern.verticalStep + wave;
-            if (fraction > 100) {
-                fraction -= 100;
-                ++phase;
-            }
-        }
-        const Rgb color =
-            pattern.colors[static_cast<size_t>(phase) % pattern.colors.size()];
-        canvas_.pixel(i % kScreenW, i / kScreenW,
-              0xff000000u | (static_cast<uint32_t>(color.r) << 16) |
-                  (static_cast<uint32_t>(color.g) << 8) | color.b);
-    }
+    drawPatternBackground(pattern);
 
     const std::string caption = levelIntroCaption(levelIndex);
     const size_t count = std::min(visibleCharacters, caption.size());
@@ -346,31 +331,35 @@ void GameRenderer::drawLevelOutro(const OutroView& outro) {
     const std::vector<OutroLine> lines = outro.lines;
     const std::vector<OutroSegment> segs = outro.segments;
     for (const OutroSegment& seg : segs) {
-        if (!seg.typing || seg.line < 0 || elapsed <= seg.start) continue;
+        if (!seg.typing || seg.line < 0 || elapsed < seg.start) continue;
         const OutroLine& line = lines[static_cast<size_t>(seg.line)];
-        size_t visible = line.text.size();
-        if (elapsed < seg.end) {
-            visible = std::min(
-                visible, static_cast<size_t>((elapsed - seg.start) /
-                                             kLevelIntroCharacterDelayMs));
-        }
-        // The 11px-cell headline uses the large font face; the 9px-cell
-        // lines use the small face (measured against the original banner).
-        const bool large = line.cell == 11;
-        int x = kScreenW / 2 -
+        const size_t steps = std::min(line.text.size() + kLevelOutroColorSpan,
+            static_cast<size_t>((elapsed - seg.start) / kLevelIntroCharacterDelayMs) + 1);
+        // Name entry spaces the small face at 11px; other 11px headlines use the large face.
+        const bool large = line.cell == 11 && !line.smallFont;
+        const int startX = kScreenW / 2 -
                 static_cast<int>(line.text.size()) * line.cell / 2;
-        for (size_t i = 0; i < visible; ++i, x += line.cell) {
-            const int glyphIndex = text_.fontGlyphIndex(line.text[i], large);
-            if (glyphIndex < 0 ||
-                glyphIndex >= static_cast<int>(assets_.fontSprites().sprites.size())) {
-                continue;
+        // 146A pads both ends, recolors a five-column window, and paints a
+        // shadow only for its newest column. Replay the writes in native order.
+        for (size_t step = 0; step < steps; ++step) {
+            for (size_t column = 0; column < kLevelOutroColorSpan; ++column) {
+                const size_t paddedIndex = step + column;
+                if (paddedIndex < kLevelOutroColorSpan ||
+                    paddedIndex >= kLevelOutroColorSpan + line.text.size()) continue;
+                const size_t i = paddedIndex - kLevelOutroColorSpan;
+                const int x = startX + static_cast<int>(i) * line.cell;
+                const int glyphIndex = text_.fontGlyphIndex(line.text[i], large);
+                if (glyphIndex < 0 ||
+                    glyphIndex >= static_cast<int>(assets_.fontSprites().sprites.size())) {
+                    continue;
+                }
+                const Sprite& glyph = assets_.fontSprites().sprites[static_cast<size_t>(glyphIndex)];
+                if (column + 1 == kLevelOutroColorSpan && line.shadowColor != 0)
+                    text_.drawFontSprite(x - 1, line.y - 1, glyph,
+                        argb(presentation_.palette(), line.shadowColor), large);
+                text_.drawFontSprite(x, line.y, glyph,
+                    argb(presentation_.palette(), static_cast<uint8_t>(line.glyphColor - column)), large);
             }
-            const Sprite& glyph =
-                assets_.fontSprites().sprites[static_cast<size_t>(glyphIndex)];
-            text_.drawFontSprite(x - 1, line.y - 1, glyph,
-                           argb(presentation_.palette(), line.shadowColor), large);
-            text_.drawFontSprite(x, line.y, glyph,
-                           argb(presentation_.palette(), line.glyphColor), large);
         }
     }
 }

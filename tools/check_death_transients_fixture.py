@@ -21,6 +21,8 @@ def main():
     error_name = "monster-damage" if args.monster_damage else "death-effects"
     source = (root / f"tests/fixtures/{name}_original.txt").read_text(encoding="ascii")
     env = dict(os.environ, SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy")
+    # Each corpse replay checks 3,612 rendered samples before returning.
+    timeout = 120 if args.corpse_lifecycle else 30
     before = set(root.glob("*.ppm"))
     with tempfile.TemporaryDirectory(prefix="lezac-death-fixture-") as directory:
         fixture = Path(directory) / "fixture.txt"
@@ -29,7 +31,7 @@ def main():
             fixture.write_bytes(content.encode("ascii"))
             result = subprocess.run(
                 [str(args.exe.resolve()), f"--debug-{name.replace('_', '-')}-original", str(fixture)],
-                cwd=root, env=env, capture_output=True, text=True, timeout=30,
+                cwd=root, env=env, capture_output=True, text=True, timeout=timeout,
             )
             output = result.stdout + result.stderr
             if error is None:

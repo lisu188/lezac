@@ -1,0 +1,234 @@
+{
+  "status": "observed",
+  "version": "original",
+  "audio": "dummy",
+  "gameplay_seeded": false,
+  "delay_gates": false,
+  "physical_keys": true,
+  "manual_input": false,
+  "events": [
+    {
+      "kind": "press",
+      "key": "down:Alt_L",
+      "seconds": 16.08756789099425,
+      "after_input_bytes": {
+        "bios_flags_417": 8,
+        "bios_alt_accumulator_419": 0,
+        "bios_buffer_head_41a": 30,
+        "bios_buffer_tail_41c": 30,
+        "last_menu_character_2058": 48,
+        "player_count_79b8": 0,
+        "language_79cc": 0
+      }
+    },
+    {
+      "kind": "press",
+      "key": "raw:87",
+      "seconds": 16.15186921300483,
+      "after_input_bytes": {
+        "bios_flags_417": 8,
+        "bios_alt_accumulator_419": 1,
+        "bios_buffer_head_41a": 30,
+        "bios_buffer_tail_41c": 30,
+        "last_menu_character_2058": 48,
+        "player_count_79b8": 0,
+        "language_79cc": 0
+      }
+    },
+    {
+      "kind": "press",
+      "key": "raw:38",
+      "seconds": 16.283281561016338,
+      "after_input_bytes": {
+        "bios_flags_417": 8,
+        "bios_alt_accumulator_419": 1,
+        "bios_buffer_head_41a": 32,
+        "bios_buffer_tail_41c": 32,
+        "last_menu_character_2058": 30,
+        "player_count_79b8": 0,
+        "language_79cc": 0
+      }
+    },
+    {
+      "kind": "press",
+      "key": "raw:90",
+      "seconds": 16.414199807011755,
+      "after_input_bytes": {
+        "bios_flags_417": 8,
+        "bios_alt_accumulator_419": 10,
+        "bios_buffer_head_41a": 32,
+        "bios_buffer_tail_41c": 32,
+        "last_menu_character_2058": 30,
+        "player_count_79b8": 0,
+        "language_79cc": 0
+      }
+    },
+    {
+      "kind": "press",
+      "key": "raw:80",
+      "seconds": 16.545107059006114,
+      "after_input_bytes": {
+        "bios_flags_417": 8,
+        "bios_alt_accumulator_419": 108,
+        "bios_buffer_head_41a": 32,
+        "bios_buffer_tail_41c": 32,
+        "last_menu_character_2058": 30,
+        "player_count_79b8": 0,
+        "language_79cc": 0
+      }
+    },
+    {
+      "kind": "press",
+      "key": "up:Alt_L",
+      "seconds": 16.67611401900649,
+      "after_input_bytes": {
+        "bios_flags_417": 0,
+        "bios_alt_accumulator_419": 0,
+        "bios_buffer_head_41a": 34,
+        "bios_buffer_tail_41c": 34,
+        "last_menu_character_2058": 108,
+        "player_count_79b8": 0,
+        "language_79cc": 1
+      }
+    },
+    {
+      "kind": "press",
+      "key": "raw:10",
+      "seconds": 31.061227391997818
+    }
+  ],
+  "captures": [
+    {
+      "name": "menu-ready",
+      "seconds": 15.784084039012669,
+      "full_menu": true,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "after-choice-0.05",
+      "seconds": 16.80276051501278,
+      "full_menu": false,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "385f01ecfe3537d4a641ad844c39f764293ee1ba6622e7086bf26eea9c758175"
+    },
+    {
+      "name": "after-choice-0.2",
+      "seconds": 16.951930431998335,
+      "full_menu": false,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "897dfa32026e8b0367a51012a04ffcbff01962a66a2e673f275682540a3e6fb9"
+    },
+    {
+      "name": "after-choice-0.5",
+      "seconds": 17.262563268013764,
+      "full_menu": false,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "21c785e6f3bd0441951348a71a68cd1fc679aa1fd8e3ebc87a3171c83d7a8dc5"
+    },
+    {
+      "name": "after-choice-1.0",
+      "seconds": 17.763908091001213,
+      "full_menu": false,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "f94a9bd1b963172ea290b0f7bbaa7f982b4f8bd8a4f551d33d2606a4a9d07597"
+    },
+    {
+      "name": "after-choice-2.5",
+      "seconds": 19.262430761998985,
+      "full_menu": false,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "45bf1a031990d6011e7a73ff97c91a99ca59d1bda85772d10b0734c5de3895a6"
+    },
+    {
+      "name": "english-ready-control",
+      "seconds": 30.76080431000446,
+      "full_menu": false,
+      "english_full": true,
+      "intro": false,
+      "pixel_sha256": "1ba172f477005a57a01132e42042e54a5d1454f5b7361ceba9cab8b36a715b58"
+    },
+    {
+      "name": "fresh-one-intro-control",
+      "seconds": 31.24236039101379,
+      "full_menu": false,
+      "english_full": false,
+      "intro": true,
+      "pixel_sha256": "4bdaecf7d4f24c3a9272ea6b9ef9bf1ae21f675889415194064ec399fe05eed7"
+    }
+  ],
+  "observer_sha256": "f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598",
+  "probe_keys": [
+    "down:Alt_L",
+    "raw:87",
+    "raw:38",
+    "raw:90",
+    "raw:80",
+    "up:Alt_L"
+  ],
+  "expected_after_input": "english",
+  "stage": "ready",
+  "settled_skip_check": false,
+  "queue_change_allowed": false,
+  "resident_segment": 402,
+  "resident_mcb": "4d92010001000000524e475741544348",
+  "code_segment": 685,
+  "data_segment": 3407,
+  "temporary_gate_sha256": "33f358eeae0fd697d30d357c9963841763a53106a59e407689e34d24fa6ac02c",
+  "dosbox_sha256": "9213fb131e11cb195bdff40c24513740ce497c5caf1cef1900ad1faad5c5026b",
+  "before_rng": {
+    "phase": "before-menu-choice",
+    "clock_calls": 1,
+    "draws": 0,
+    "rng": 907805447,
+    "clock_cx": 775,
+    "clock_dx": 13852,
+    "initialized_rng": 907805447,
+    "clock_registers": {
+      "cs": 685,
+      "ds": 3407,
+      "ss": 6590,
+      "return_ip": 9654
+    },
+    "phase_registers": [],
+    "first_draws": []
+  },
+  "before_input_bytes": {
+    "bios_flags_417": 0,
+    "bios_alt_accumulator_419": 0,
+    "bios_buffer_head_41a": 30,
+    "bios_buffer_tail_41c": 30,
+    "last_menu_character_2058": 48,
+    "player_count_79b8": 0,
+    "language_79cc": 0
+  },
+  "x_keyboard_before": "Keyboard Control:\n  auto repeat:  on    key click percent:  0    LED mask:  00000000\n  XKB indicators:\n    00: Caps Lock:   off    01: Num Lock:    off    02: Scroll Lock: off\n    03: Compose:     off    04: Kana:        off    05: Sleep:       off\n    06: Suspend:     off    07: Mute:        off    08: Misc:        off\n    09: Mail:        off    10: Charging:    off    11: Shift Lock:  off\n    12: Group 2:     off    13: Mouse Keys:  off\n  auto repeat delay:  660    repeat rate:  25\n  auto repeating keys:  00ffffffdffffbbf\n                        fadfffefffedffff\n                        9fffffffffffffff\n                        fff7ffffffffffff\n  bell percent:  50    bell pitch:  400    bell duration:  100\nPointer Control:\n  acceleration:  2/1    threshold:  4\nScreen Saver:\n  prefer blanking:  yes    allow exposures:  yes\n  timeout:  600    cycle:  600\nColors:\n  default colormap:  0x20    BlackPixel:  0x0    WhitePixel:  0xffffff\nFont Path:\n  /usr/share/fonts/X11/misc,/usr/share/fonts/X11/cyrillic,/usr/share/fonts/X11/Type1,built-ins\nDPMS (Display Power Management Signaling):\n  Server does not have the DPMS Extension\n",
+  "x_keyboard_after": "Keyboard Control:\n  auto repeat:  on    key click percent:  0    LED mask:  00000000\n  XKB indicators:\n    00: Caps Lock:   off    01: Num Lock:    off    02: Scroll Lock: off\n    03: Compose:     off    04: Kana:        off    05: Sleep:       off\n    06: Suspend:     off    07: Mute:        off    08: Misc:        off\n    09: Mail:        off    10: Charging:    off    11: Shift Lock:  off\n    12: Group 2:     off    13: Mouse Keys:  off\n  auto repeat delay:  660    repeat rate:  25\n  auto repeating keys:  00ffffffdffffbbf\n                        fadfffefffedffff\n                        9fffffffffffffff\n                        fff7ffffffffffff\n  bell percent:  50    bell pitch:  400    bell duration:  100\nPointer Control:\n  acceleration:  2/1    threshold:  4\nScreen Saver:\n  prefer blanking:  yes    allow exposures:  yes\n  timeout:  600    cycle:  600\nColors:\n  default colormap:  0x20    BlackPixel:  0x0    WhitePixel:  0xffffff\nFont Path:\n  /usr/share/fonts/X11/misc,/usr/share/fonts/X11/cyrillic,/usr/share/fonts/X11/Type1,built-ins\nDPMS (Display Power Management Signaling):\n  Server does not have the DPMS Extension\n",
+  "after_input_bytes": {
+    "bios_flags_417": 0,
+    "bios_alt_accumulator_419": 0,
+    "bios_buffer_head_41a": 34,
+    "bios_buffer_tail_41c": 34,
+    "last_menu_character_2058": 108,
+    "player_count_79b8": 0,
+    "language_79cc": 1
+  },
+  "positive_selection_control": true,
+  "selection_control_bytes": {
+    "bios_flags_417": 0,
+    "bios_alt_accumulator_419": 0,
+    "bios_buffer_head_41a": 36,
+    "bios_buffer_tail_41c": 36,
+    "last_menu_character_2058": 49,
+    "player_count_79b8": 1,
+    "language_79cc": 1
+  },
+  "hooks_restored": 1,
+  "child_exit_code": 0
+}

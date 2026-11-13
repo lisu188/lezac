@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "fixture": "tests/fixtures/boss_active_combat_original_level7.txt.gz",
+  "fixture_sha256": "73bb51a5ce63d1d18fe98349b32fad681d24347d220a3b30ace63a06126de898",
+  "trace_sha256": "887819b3b5d40c509bf749f6bd69ac98758a23b6b5eff425af26ee645d0ea3a3",
+  "original_exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "producer_sha256": "757ef5395d002cad736c6a221f1559ff1d252ce458f87cf7bd7cf97bb434d579",
+  "images": {
+    "original": "dfe4abc84364fe472addcb66ca41f4721b754d64a004a140b39faf6f7fc6fa5c",
+    "cpp": "dfe4abc84364fe472addcb66ca41f4721b754d64a004a140b39faf6f7fc6fa5c"
+  },
+  "whole_game_parity": false,
+  "natural_campaign": false,
+  "physical_keyboard": false,
+  "sources_lf": {
+    "build-codex-tmp/run_boss_active_combat_20261001.py": "2a2658adff763d334b5be6b0f772f566942c858854d5fcd3080e99090f737674",
+    "tools/capture_original_active_fire.py": "e369efa0aa421441d03f179c3a9658990766248f3d31a334d313727689d919f8",
+    "tools/capture_original_behavior4_lockstep.py": "357f53333a406801be17cbd6e73461ffc85e2f455b854c193b0bc82117c39a86",
+    "tools/capture_original_bomb_fuses.py": "729e8fbe649067fbfee3d9a647b9696d93ddb535570a8eb5664efdc0f7a5dccc",
+    "tools/capture_original_boss_defeat.py": "395e5baa223c8f228d0655de7f800f864173fd8f8708a935db8a3e4a4c8d012d",
+    "tools/capture_original_death_transients.py": "a0fddeb9c3ce6426641739ac7bd558a4e7d253670df28ec1c8aead652b3e0ba9",
+    "tools/capture_original_player_walk.py": "f2018738361457fb5d14d00b4eda966cfa2b61d64219316cfa0aae09544810e1",
+    "tools/capture_original_render_boundary.py": "1f0d7d3786a11fdd3ec5c95ae55263e12189621a162aaeb1d79d5c6d9df04364",
+    "tools/seed_original_level.py": "b2e6a4fc80e6e612718baf10ff4aabc8e2c438524f5d24547b9a97fd483551fe"
+  },
+  "files": {
+    "cpp.json": "e77ccad11835e37a26c228d4e8d767e18b40db5c58c985b94d1ecf7ca84b83a4",
+    "cpp_799.png": "83299c1a70f339f83a047860b9a3229e622931cd64c76cff1fe7f85ba5d9356c",
+    "cpp_799.ppm.gz": "15d5fc5b63d2404c4b88ab5b22037f0aa64213f948a909704550871d03eef935",
+    "cpp_source.cpp.gz": "10ce0728261e286d11904025a66d695303607018e158d67f4738ad9c54b08281",
+    "original.json": "b5367a5b76b6565183a4e7cf8f25d87541bb02e2ac0923b02dbcce940827799f",
+    "original_799.png": "83299c1a70f339f83a047860b9a3229e622931cd64c76cff1fe7f85ba5d9356c",
+    "original_799.ppm.gz": "15d5fc5b63d2404c4b88ab5b22037f0aa64213f948a909704550871d03eef935",
+    "producer.py.gz": "2e1eceb23303277a73d23bd38afe7f787a55d829e6eb6210e8c5bdcf7faf40f7",
+    "source_1f0d7d3786a11fdd3ec5c95ae55263e12189621a162aaeb1d79d5c6d9df04364.py.gz": "4e948d5538891a4e98ca8cd162a81fb4e7ae01870e56ed6263a3e3067645515d",
+    "source_2a2658adff763d334b5be6b0f772f566942c858854d5fcd3080e99090f737674.py.gz": "2c0603641bd1b65732fc92999cb1a9dd79553abfab617cff054335ce24677e9f",
+    "source_357f53333a406801be17cbd6e73461ffc85e2f455b854c193b0bc82117c39a86.py.gz": "d2785411b6a2359bced318f8e1a046118e57daaf4c7dc26911f0158ae275532d",
+    "source_395e5baa223c8f228d0655de7f800f864173fd8f8708a935db8a3e4a4c8d012d.py.gz": "c81c352da52fb7b560476a34f7ec0e5fedf7371fbc0febbab2f7df0c1815f59c",
+    "source_729e8fbe649067fbfee3d9a647b9696d93ddb535570a8eb5664efdc0f7a5dccc.py.gz": "961c51df36e7f3171db0fa82046a4067eef51d63fbc8508bffd2fd6550ad2c18",
+    "source_a0fddeb9c3ce6426641739ac7bd558a4e7d253670df28ec1c8aead652b3e0ba9.py.gz": "ca5969afde06d709b5ead37279f4c69e4f3ec82ce52bb1f3b94cf4b09b7a4a97",
+    "source_b2e6a4fc80e6e612718baf10ff4aabc8e2c438524f5d24547b9a97fd483551fe.py.gz": "7ea649555e8b2be0a3e6919199e76f40d4eeda3d03e44e47ce61eccbc2eaf1bc",
+    "source_e369efa0aa421441d03f179c3a9658990766248f3d31a334d313727689d919f8.py.gz": "85ceac1f2ae190a71776ae71f45639b503b341b6730ff01d32ec5a5ec96c6a31",
+    "source_f2018738361457fb5d14d00b4eda966cfa2b61d64219316cfa0aae09544810e1.py.gz": "6c386c852d21d140d4288a904a493dd1ef11b568f53fd36fad1801b64060cad2"
+  }
+}

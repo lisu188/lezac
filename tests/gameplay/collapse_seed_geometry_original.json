@@ -1,0 +1,156 @@
+{
+  "audio": "dummy",
+  "cases": 1124,
+  "changed_map_natural_reachability_verified": false,
+  "compiled_cpp_comparison": false,
+  "complete_seeder_record_comparison": false,
+  "decoder_sha256": "240cb49cac605ac784fdc7c5b3e6e661b0d0dac84085d537a1bada4d08b7c4d7",
+  "examples": [
+    {
+      "case": "diagonal_0",
+      "four_neighbor_cells": 1,
+      "group": "synthetic",
+      "key": 1,
+      "original_cells": 2,
+      "record_hex": "cc00ee000180000000000000000004",
+      "seed": 102
+    },
+    {
+      "case": "diagonal_1",
+      "four_neighbor_cells": 1,
+      "group": "synthetic",
+      "key": 1,
+      "original_cells": 2,
+      "record_hex": "ca00ec000180000000000000000004",
+      "seed": 102
+    },
+    {
+      "case": "diagonal_2",
+      "four_neighbor_cells": 1,
+      "group": "synthetic",
+      "key": 1,
+      "original_cells": 2,
+      "record_hex": "aa00cc000180000000000000000004",
+      "seed": 102
+    },
+    {
+      "case": "diagonal_3",
+      "four_neighbor_cells": 1,
+      "group": "synthetic",
+      "key": 1,
+      "original_cells": 2,
+      "record_hex": "ac00ce000180000000000000000004",
+      "seed": 102
+    },
+    {
+      "case": "diagonal_chain_0",
+      "four_neighbor_cells": 1,
+      "group": "synthetic",
+      "key": 1,
+      "original_cells": 3,
+      "record_hex": "cc0010010180000000000000000006",
+      "seed": 102
+    },
+    {
+      "case": "diagonal_chain_1",
+      "four_neighbor_cells": 1,
+      "group": "synthetic",
+      "key": 1,
+      "original_cells": 3,
+      "record_hex": "c8000c010180000000000000000006",
+      "seed": 102
+    },
+    {
+      "case": "diagonal_chain_2",
+      "four_neighbor_cells": 1,
+      "group": "synthetic",
+      "key": 1,
+      "original_cells": 3,
+      "record_hex": "8800cc000180000000000000000006",
+      "seed": 102
+    },
+    {
+      "case": "diagonal_chain_3",
+      "four_neighbor_cells": 1,
+      "group": "synthetic",
+      "key": 1,
+      "original_cells": 3,
+      "record_hex": "8c00d0000180000000000000000006",
+      "seed": 102
+    },
+    {
+      "case": "ring_center_0",
+      "four_neighbor_cells": 16,
+      "group": "synthetic",
+      "key": 1,
+      "original_cells": 17,
+      "record_hex": "cc0054010180000000000000000022",
+      "seed": 102
+    },
+    {
+      "case": "ring_center_1",
+      "four_neighbor_cells": 16,
+      "group": "synthetic",
+      "key": 1,
+      "original_cells": 17,
+      "record_hex": "c4004c010180000000000000000022",
+      "seed": 102
+    },
+    {
+      "case": "ring_center_2",
+      "four_neighbor_cells": 16,
+      "group": "synthetic",
+      "key": 1,
+      "original_cells": 17,
+      "record_hex": "4400cc000180000000000000000022",
+      "seed": 102
+    },
+    {
+      "case": "ring_center_3",
+      "four_neighbor_cells": 16,
+      "group": "synthetic",
+      "key": 1,
+      "original_cells": 17,
+      "record_hex": "4c00d4000180000000000000000022",
+      "seed": 102
+    },
+    {
+      "case": "level1_key6_seed559",
+      "four_neighbor_cells": 1,
+      "group": "shipped_controlled_clear",
+      "key": 6,
+      "original_cells": 5,
+      "record_hex": "5a04da04068000000000000000000a",
+      "seed": 559
+    }
+  ],
+  "executor": "Unicorn 2.1.4",
+  "fixture_sha256": "2bf5bb7635ab9963524d11e97c57e0f310dc08b7010818d5ad3a71774a7cc20c",
+  "four_neighbor_differences": {
+    "shipped_controlled_clear": 156,
+    "synthetic": 12
+  },
+  "generator_sha256": "08d48edc8652808a225a07335235c746aee8058b6b9901edaff855f49b9f4d0a",
+  "groups": {
+    "boundary": 4,
+    "shipped_controlled_clear": 540,
+    "shipped_initial": 540,
+    "synthetic": 40
+  },
+  "input_sha256": "df0f877821fd6d569d4e9fc722f9482dce14f8ad8ddcbe285906e2b87fb5ab3a",
+  "instruction_budget": 200000,
+  "instruction_end": 14931,
+  "instruction_sha256": "2104300af3506fabb0911b4ad9c77f267fcd84fd0bfeab502fb4e76fbb8f9934",
+  "instruction_start": 14094,
+  "livels_sha256": "d8b553871014108515d6af05b0853de8ccc22e4d3e44d63533ba1167fdc8c7b2",
+  "maximum_instructions": 4457,
+  "mz_relocations": 468,
+  "natural_gameplay": false,
+  "original_calls_stubbed": false,
+  "original_exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "original_instructions_patched": false,
+  "original_return_boundaries_verified": true,
+  "output_sha256": "9048597044cc260e508b7de8629217793c428535f46447e5aa0c432922d3419b",
+  "schema": "lezac.collapse-seed-geometry-original.v1",
+  "whole_game_complete": false
+}

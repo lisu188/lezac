@@ -177,7 +177,7 @@ def project_cpp(state: dict[str, Any], count: int) -> dict[str, Any]:
     for p in state["players"][:count]:
         players.append({"xy": [p["x"], p["y"]], "velocity": [p["vx8"], p["vy8"]],
                         "fractions": [p["frac_x"], p["frac_y"]], "animation": p["animation"],
-                        "energy": p["health"][0], "reserve": (p["health"][1] - 1) & 255,
+                        "energy": p["health"][0], "reserve": p["health"][1] & 255,
                         "inventory": p["inventory"], "reel": p["hud_score"]})
     return {"frame": state["logic_tick"] & 65535, "rng": state["random_seed"],
             "tiles_hex": state["tiles_hex"], "words_hex": state["words_hex"], "players": players,

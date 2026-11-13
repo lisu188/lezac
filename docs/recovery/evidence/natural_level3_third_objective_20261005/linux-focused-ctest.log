@@ -1,0 +1,30 @@
+Internal ctest changing into directory: /dev/shm/lezac-third-pickup-regression-20261005/linux-build
+Test project /dev/shm/lezac-third-pickup-regression-20261005/linux-build
+    Start 629: natural_campaign_original
+1/8 Test #629: natural_campaign_original ..................   Passed  116.90 sec
+    Start 630: natural_campaign_guard
+2/8 Test #630: natural_campaign_guard .....................   Passed    2.73 sec
+    Start 631: natural_level3_objective_original
+3/8 Test #631: natural_level3_objective_original ..........   Passed  128.19 sec
+    Start 632: natural_level3_objective_guard
+4/8 Test #632: natural_level3_objective_guard .............   Passed    1.49 sec
+    Start 633: natural_level3_second_objective_original
+5/8 Test #633: natural_level3_second_objective_original ...   Passed  136.02 sec
+    Start 634: natural_level3_second_objective_guard
+6/8 Test #634: natural_level3_second_objective_guard ......   Passed    1.06 sec
+    Start 635: natural_level3_third_objective_original
+7/8 Test #635: natural_level3_third_objective_original ....   Passed  156.32 sec
+    Start 636: natural_level3_third_objective_guard
+8/8 Test #636: natural_level3_third_objective_guard .......   Passed    1.47 sec
+
+100% tests passed, 0 tests failed out of 8
+
+Label Time Summary:
+campaign          = 540.15 sec*proc (5 tests)
+evidence-guard    =   6.75 sec*proc (4 tests)
+fullframe         = 537.42 sec*proc (4 tests)
+level3            = 424.54 sec*proc (6 tests)
+natural-route     = 544.17 sec*proc (8 tests)
+original          = 544.17 sec*proc (8 tests)
+
+Total Test time (real) = 544.18 sec

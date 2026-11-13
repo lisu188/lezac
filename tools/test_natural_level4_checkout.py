@@ -1,0 +1,194 @@
+"""Keep native evidence byte-exact under an autocrlf-enabled Git checkout."""
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+import unittest
+from unittest import mock
+
+ROOT = Path(__file__).resolve().parents[1]
+SUPPORT_COLUMN = (
+    'tests/fixtures/natural_level4_support_column',
+    'docs/recovery/evidence/natural_level4_support_column_20261008',
+)
+OUTSIDE_COLUMN = (
+    'tests/fixtures/natural_level4_outside_column',
+    'docs/recovery/evidence/natural_level4_outside_column_20261103',
+)
+BRIDGE_ACCESS = (
+    'tests/fixtures/natural_level4_bridge_access',
+    'docs/recovery/evidence/natural_level4_bridge_access_20261103',
+)
+BRIDGE_ESCAPE = (
+    'tests/fixtures/natural_level4_bridge_escape',
+    'docs/recovery/evidence/natural_level4_bridge_escape_20261103',
+)
+PAIRED_DIRECTORIES = (
+    'tests/fixtures/natural_level4_first_objective',
+    'docs/recovery/evidence/natural_level4_first_objective_20261007',
+    'tests/fixtures/natural_level4_portal',
+    'docs/recovery/evidence/natural_level4_portal_20261007',
+    'tests/fixtures/natural_level4_third_objective',
+    'docs/recovery/evidence/natural_level4_third_objective_20261007',
+    *SUPPORT_COLUMN,
+    *OUTSIDE_COLUMN,
+    *BRIDGE_ACCESS,
+    *BRIDGE_ESCAPE,
+)
+HEALTH_REWARD = 'tests/fixtures/natural_level4_health_reward'
+DIRECTORIES = (*PAIRED_DIRECTORIES, HEALTH_REWARD)
+RULES = {f'{directory}/** -text'.encode() for directory in DIRECTORIES}
+MANIFESTS = tuple(directory + '/manifest.json' for directory in PAIRED_DIRECTORIES[1::2])
+FIXTURES = (*PAIRED_DIRECTORIES[::2], HEALTH_REWARD)
+
+
+class EvidenceCheckoutTests(unittest.TestCase):
+    def setUp(self):
+        self.git = shutil.which('git')
+        self.assertIsNotNone(self.git, 'Git is required to verify checkout transformations')
+        self.files = {path.relative_to(ROOT).as_posix(): path.read_bytes()
+                      for directory in DIRECTORIES
+                      for path in sorted((ROOT / directory).rglob('*')) if path.is_file()}
+        for manifest in MANIFESTS:
+            self.assertIn(manifest, self.files)
+        for directory in FIXTURES:
+            self.assertIn(directory + '/route.txt', self.files)
+            evidence = ('/native.json.gz' if directory == HEALTH_REWARD else
+                        '/guard-inputs.jsonl.gz' if directory in
+                        (OUTSIDE_COLUMN[0], BRIDGE_ACCESS[0], BRIDGE_ESCAPE[0]) else '/guard-input.json')
+            self.assertIn(directory + evidence, self.files)
+
+    def checkout(self, omitted_rules=frozenset()):
+        with tempfile.TemporaryDirectory(prefix='lezac-level4-checkout-') as temporary:
+            repo = Path(temporary)
+            environment = dict(os.environ, GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull,
+                               GIT_ATTR_NOSYSTEM='1')
+
+            def git(*arguments, data=None):
+                try:
+                    return subprocess.check_output(
+                        [self.git, '-c', 'core.autocrlf=true', '-c', 'core.safecrlf=false',
+                         '-c', 'safe.directory=' + repo.as_posix(),
+                         '-c', 'core.attributesFile=' + os.devnull, *arguments],
+                        cwd=repo, env=environment, input=data, stderr=subprocess.PIPE)
+                except subprocess.CalledProcessError as error:
+                    self.fail(error.stderr.decode(errors='replace'))
+
+            git('init', '--quiet')
+            attributes = (ROOT / '.gitattributes').read_bytes()
+            if omitted_rules:
+                attributes = b'\n'.join(line for line in attributes.splitlines() if line not in omitted_rules) + b'\n'
+            (repo / '.gitattributes').write_bytes(attributes)
+            for name, data in self.files.items():
+                path = repo / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+            names = tuple(self.files)
+            # Preserve raw fixture blobs without paying for two Git launches per file.
+            blobs = git('hash-object', '-w', '--no-filters', '--stdin-paths',
+                        data=('\n'.join(names) + '\n').encode('utf-8')).splitlines()
+            self.assertEqual(len(blobs), len(names))
+            git('update-index', '-z', '--index-info',
+                data=b''.join(b'100644 ' + blob + b'\t' + name.encode('utf-8') + b'\0'
+                              for name, blob in zip(names, blobs, strict=True)))
+            output = repo / 'checkout'
+            output.mkdir()
+            git('checkout-index', '--all', '--force', '--prefix=checkout/')
+            return {name: (output / name).read_bytes() for name in self.files}
+
+    def test_all_pinned_files_survive_autocrlf_checkout(self):
+        with mock.patch.object(subprocess, 'check_output', wraps=subprocess.check_output) as commands:
+            checked_out = self.checkout()
+        hashing = [call.args[0] for call in commands.call_args_list if 'hash-object' in call.args[0]]
+        indexing = [call.args[0] for call in commands.call_args_list if 'update-index' in call.args[0]]
+        self.assertEqual(len(hashing), 1)
+        self.assertEqual(hashing[0][-4:], ['hash-object', '-w', '--no-filters', '--stdin-paths'])
+        self.assertEqual(len(indexing), 1)
+        self.assertEqual(indexing[0][-3:], ['update-index', '-z', '--index-info'])
+        for name, expected in self.files.items():
+            with self.subTest(path=name):
+                self.assertEqual(expected, checked_out[name])
+
+    def test_missing_rules_reproduce_manifest_hash_failure(self):
+        checked_out = self.checkout(omitted_rules=RULES)
+        for manifest in MANIFESTS:
+            self.assertNotIn(b'\r\n', self.files[manifest])
+            self.assertIn(b'\r\n', checked_out[manifest])
+            self.assertNotEqual(self.files[manifest], checked_out[manifest])
+        for directory in FIXTURES:
+            route = directory + '/route.txt'
+            self.assertNotEqual(self.files[route], checked_out[route])
+
+    def test_missing_health_reward_rule_changes_only_new_route_bytes(self):
+        checked_out = self.checkout(omitted_rules={f'{HEALTH_REWARD}/** -text'.encode()})
+        route = HEALTH_REWARD + '/route.txt'
+        self.assertNotIn(b'\r\n', self.files[route])
+        self.assertEqual(self.files[route].replace(b'\n', b'\r\n'), checked_out[route])
+        for name, expected in self.files.items():
+            if name != route:
+                with self.subTest(path=name):
+                    self.assertEqual(expected, checked_out[name])
+
+    def test_missing_support_column_rules_change_only_new_text_bytes(self):
+        checked_out = self.checkout(omitted_rules={f'{directory}/** -text'.encode()
+                                                  for directory in SUPPORT_COLUMN})
+        changed = {SUPPORT_COLUMN[0] + '/route.txt', SUPPORT_COLUMN[0] + '/guard-input.json',
+                   SUPPORT_COLUMN[1] + '/manifest.json'}
+        self.assertTrue(changed.issubset(self.files))
+        for name, expected in self.files.items():
+            with self.subTest(path=name):
+                if name in changed:
+                    self.assertNotIn(b'\r\n', expected)
+                    self.assertNotEqual(expected, checked_out[name])
+                    self.assertEqual(expected.replace(b'\n', b'\r\n'), checked_out[name])
+                else:
+                    self.assertEqual(expected, checked_out[name])
+
+    def test_missing_outside_column_rules_change_only_new_text_bytes(self):
+        checked_out = self.checkout(omitted_rules={f'{directory}/** -text'.encode() for directory in OUTSIDE_COLUMN})
+        changed = {OUTSIDE_COLUMN[0] + '/route.txt', OUTSIDE_COLUMN[1] + '/manifest.json',
+                   OUTSIDE_COLUMN[1] + '/repeat-dosbox.conf'}
+        self.assertTrue(changed.issubset(self.files))
+        for name, expected in self.files.items():
+            with self.subTest(path=name):
+                if name in changed:
+                    self.assertNotIn(b'\r\n', expected)
+                    self.assertEqual(expected.replace(b'\n', b'\r\n'), checked_out[name])
+                else:
+                    self.assertEqual(expected, checked_out[name])
+
+    def test_missing_bridge_access_rules_change_only_new_text_bytes(self):
+        checked_out = self.checkout(omitted_rules={f'{directory}/** -text'.encode() for directory in BRIDGE_ACCESS})
+        changed = {BRIDGE_ACCESS[0] + '/route.txt', BRIDGE_ACCESS[1] + '/manifest.json',
+                   BRIDGE_ACCESS[1] + '/dosbox.conf'}
+        self.assertTrue(changed.issubset(self.files))
+        for name, expected in self.files.items():
+            with self.subTest(path=name):
+                if name in changed:
+                    self.assertNotIn(b'\r\n', expected)
+                    self.assertEqual(expected.replace(b'\n', b'\r\n'), checked_out[name])
+                else:
+                    self.assertEqual(expected, checked_out[name])
+
+
+    def test_missing_bridge_escape_rules_change_only_new_text_bytes(self):
+        checked_out = self.checkout(omitted_rules={f'{directory}/** -text'.encode() for directory in BRIDGE_ESCAPE})
+        changed = {BRIDGE_ESCAPE[0] + '/route.txt', BRIDGE_ESCAPE[1] + '/manifest.json',
+                   BRIDGE_ESCAPE[1] + '/dosbox.conf'}
+        self.assertTrue(changed.issubset(self.files))
+        for name, expected in self.files.items():
+            with self.subTest(path=name):
+                if name in changed:
+                    self.assertNotIn(b'\r\n', expected)
+                    self.assertEqual(expected.replace(b'\n', b'\r\n'), checked_out[name])
+                else:
+                    self.assertEqual(expected, checked_out[name])
+
+
+if __name__ == '__main__':
+    result = unittest.TextTestRunner(verbosity=2).run(
+        unittest.defaultTestLoader.loadTestsFromTestCase(EvidenceCheckoutTests))
+    if not result.wasSuccessful():
+        raise SystemExit(1)
+    print('natural_level4_checkout_attributes=ok tests=7 negative_control=6')

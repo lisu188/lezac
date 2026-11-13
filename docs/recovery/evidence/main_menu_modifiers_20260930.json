@@ -1,0 +1,73 @@
+{
+  "status": "observed",
+  "audio": "dummy",
+  "clock_forced": false,
+  "gameplay_seeded": false,
+  "delay_gates": false,
+  "observer_sha256": "60ceebceaedf765491e05b5286b97dae554f7e3d5621dcdb829016cde44d70ec",
+  "events": [
+    {
+      "key": "Shift_L",
+      "phase": "italian-line0-step02"
+    },
+    {
+      "key": "Shift_R",
+      "phase": "italian-line0-step02"
+    },
+    {
+      "key": "Control_L",
+      "phase": "italian-line0-step02"
+    },
+    {
+      "key": "Control_R",
+      "phase": "italian-line0-step02"
+    },
+    {
+      "key": "Alt_L",
+      "phase": "italian-line0-step02"
+    },
+    {
+      "key": "Alt_R",
+      "phase": "italian-line0-step02"
+    },
+    {
+      "key": "Caps_Lock",
+      "phase": "italian-line0-step02"
+    },
+    {
+      "key": "Num_Lock",
+      "phase": "italian-line0-step02"
+    },
+    {
+      "key": "Scroll_Lock",
+      "phase": "italian-line0-step02"
+    }
+  ],
+  "resident_segment": 402,
+  "resident_mcb": "4d92010001000000524e475741544348",
+  "code_segment": 685,
+  "data_segment": 3407,
+  "temporary_gate_sha256": "33f358eeae0fd697d30d357c9963841763a53106a59e407689e34d24fa6ac02c",
+  "dosbox_sha256": "9213fb131e11cb195bdff40c24513740ce497c5caf1cef1900ad1faad5c5026b",
+  "modifier_consumed_as_character": false,
+  "seconds_after_shift_to_full": 12.026171367004281,
+  "rng": {
+    "phase": "italian-full",
+    "clock_calls": 1,
+    "draws": 0,
+    "rng": 505943601,
+    "clock_cx": 5681,
+    "clock_dx": 7720,
+    "initialized_rng": 505943601,
+    "clock_registers": {
+      "cs": 685,
+      "ds": 3407,
+      "ss": 6590,
+      "return_ip": 9654
+    },
+    "phase_registers": [],
+    "first_draws": []
+  },
+  "hooks_restored": 1,
+  "child_exit_code": 0
+}

@@ -1,0 +1,51 @@
+Internal ctest changing into directory: /dev/shm/lezac-level3-lower-objectives-20261005/build
+Test project /dev/shm/lezac-level3-lower-objectives-20261005/build
+      Start   1: main_menu_models
+ 1/19 Test   #1: main_menu_models ....................................................   Passed    0.00 sec
+      Start  16: main_menu_original
+ 2/19 Test  #16: main_menu_original ..................................................   Passed    0.24 sec
+      Start  17: main_menu_capture_self_check
+ 3/19 Test  #17: main_menu_capture_self_check ........................................   Passed    0.18 sec
+      Start  18: main_menu_character_evidence
+ 4/19 Test  #18: main_menu_character_evidence ........................................   Passed    0.16 sec
+      Start  70: launch_marker_level6_original
+ 5/19 Test  #70: launch_marker_level6_original .......................................   Passed    0.39 sec
+      Start  71: launch_marker_level6_capture_contract
+ 6/19 Test  #71: launch_marker_level6_capture_contract ...............................   Passed    0.14 sec
+      Start  72: launch_marker_level6_fixture_guard
+ 7/19 Test  #72: launch_marker_level6_fixture_guard ..................................   Passed   13.36 sec
+      Start  73: launch_marker_level7_original
+ 8/19 Test  #73: launch_marker_level7_original .......................................   Passed    0.39 sec
+      Start  74: launch_marker_level7_capture_contract
+ 9/19 Test  #74: launch_marker_level7_capture_contract ...............................   Passed    0.08 sec
+      Start  75: launch_marker_level7_fixture_guard
+10/19 Test  #75: launch_marker_level7_fixture_guard ..................................   Passed   13.10 sec
+      Start 110: key_ownership_original
+11/19 Test #110: key_ownership_original ..............................................   Passed    0.16 sec
+      Start 111: portal_down_key_banks
+12/19 Test #111: portal_down_key_banks ...............................................   Passed    0.18 sec
+      Start 112: key_ownership_capture_self_check
+13/19 Test #112: key_ownership_capture_self_check ....................................   Passed    0.07 sec
+      Start 113: key_ownership_fixture_guard
+14/19 Test #113: key_ownership_fixture_guard .........................................   Passed    0.94 sec
+      Start 134: autoplayer_portal_weapon_route_dummy
+15/19 Test #134: autoplayer_portal_weapon_route_dummy ................................   Passed    0.16 sec
+      Start 247: sound_callsite_debug_capture_helper_portal_teleport_sound_dry_run
+16/19 Test #247: sound_callsite_debug_capture_helper_portal_teleport_sound_dry_run ...   Passed    0.02 sec
+      Start 562: portal_sound
+17/19 Test #562: portal_sound ........................................................   Passed    0.02 sec
+      Start 563: portal_cooldowns
+18/19 Test #563: portal_cooldowns ....................................................   Passed    0.03 sec
+      Start 639: natural_level3_portal_guard
+19/19 Test #639: natural_level3_portal_guard .........................................   Passed    3.51 sec
+
+100% tests passed, 0 tests failed out of 19
+
+Label Time Summary:
+evidence-guard    =   3.51 sec*proc (1 test)
+level3            =   3.51 sec*proc (1 test)
+natural-route     =   3.51 sec*proc (1 test)
+original          =   3.51 sec*proc (1 test)
+portal            =   3.51 sec*proc (1 test)
+
+Total Test time (real) =  33.18 sec

@@ -926,7 +926,10 @@ gate before promotion.
 The lane-div summary also has a stricter route-state handoff for new route
 families: `--require-route-state-debris-marker` reads candidate
 `route_state_samples.tsv` files and requires a sampled
-`lane_word_global_value >= 0x4e20`. With `--write-forward-debris-route-manifest`
+damaged debris word (`0xc000..0xffff`). Original `1000:3A7E` first tests bit
+`0x8000`, then compares the masked word with `0x4000`; flagged collapse words
+such as `0x8009` are not debris. The `0x4e20` base belongs to selected-record
+tags, not this raw staging word. With `--write-forward-debris-route-manifest`
 it emits `lane_div_forward_debris_route_candidates`, which
 `tools/sweep_original_lane_write_routes.py --route-manifest` accepts for
 focused forward `3D2D` probes by default. This still proves only
@@ -1028,8 +1031,10 @@ searches: new `route_state_samples.tsv` files include
 `route_state_debris_marker_candidates=` plus
 `max_route_state_lane_word_global=`. Use
 `--require-route-state-debris-marker` only as route-state triage before a
-future writeback probe; it proves that a route sampled a `0x4e20`-or-higher
-lane word, not that natural `1000:3D2D` executed.
+future writeback probe; it proves that a route sampled a damaged debris word
+(`0xc000..0xffff`), not that natural `1000:3D2D` executed. The original-byte-bound
+`tools/check_lane_word_classification.py` covers all 65,536 raw words in both
+summarizers and positive/negative CLI handoffs without promoting capture evidence.
 `tools/check_explosion_evidence_map.py` keeps this explosion/playback handoff
 traceable across these address notes, lane-result capture helpers, fixture
 coverage, source output fields, and CTest wiring.
@@ -1259,16 +1264,19 @@ cursors, not offsets into `PROEFS.SON`.
 The priority latch at `1000:165a..167d` implements:
 
 ```text
-if DS:79c4 != 0 and (DS:799e - 1) >= DS:799f:
+if DS:79c4 != 0 and signed8(byte(DS:799e - 1)) >= signed8(DS:799f):
     return
 DS:799e = DS:799f
 DS:78c0 = DS:2074
 DS:79c4 = 1
 ```
 
-So an inactive latch accepts every request. While active, same-or-higher numeric
-priority refreshes/replaces the latched cursor, but one-below-or-lower priority
-is rejected. The C++ port maps this to `latchSoundRequest`, `requestSoundOffset`,
+So an inactive latch accepts every request. The original reject branch is
+signed `JGE` (`7d 11`), after a byte-width `DEC`. For positive priorities 1..127,
+same-or-higher positive priority refreshes/replaces the cursor, but boundary
+bytes must follow the signed comparison. In particular, active priority zero
+accepts positive requests, and current `0x80` rejects every pending byte after
+its decrement becomes signed 127. The C++ port maps this to `latchSoundRequest`, `requestSoundOffset`,
 and `pumpSoundLatch`; explosion sounds now enter through this path.
 `--debug-sound-latch-static-model` validates the shipped bytes at
 `1000:165a..167d`, including the inactive jump to `1000:166c`, the active
@@ -1296,6 +1304,14 @@ the shipped executable bytes. It pins the direct-sweep threshold/subtract
 address calculation, the `0x7530` stop sentinel, two word reads at entry
 offset `+0`, byte reads at `+2` and `+3`, and no checked tail-read pattern for
 offsets `+4..+5`.
+
+The historical "speaker period word" terminology above describes the stored
+word, not its units. The far Sound helper at `084a:02c9` (file
+`0x8ed9..0x8f05`) treats it as a frequency, ignores values at most 18, and
+computes the PIT reload with unsigned `0x1234dd / frequency`. The
+[2026-10-08 pitch correction](recovery/sound_pitch_2026-10-08.md) restores that
+conversion for bank and direct-sweep synthesis; interrupt timing and latch
+lifetime remain open.
 
 The current stop-cursor map from the shipped `PROEFS.SON` payload is:
 `0x0005, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027, 0x002d,
@@ -1347,11 +1363,16 @@ across these address notes, the C++ request sites, and the CTest scenario names.
   then writes `DS:2074 = 0x0008`, `DS:799f = 5`, and calls `1000:165a`.
   The C++ `collectBonusDrop` path mirrors that with
   `requestSoundCursor(kBonusPickupSoundCursor, kBonusPickupSoundPriority)`.
-- The monster death/reward helper around `1000:5bd0..5cad` writes death-state
+- The boss-death chain starting at `1000:5bcc` writes death-state
   actor fields, pushes score value `0x03e8`, then writes
   `DS:2074 = 0x003d`, `DS:799f = 12`, and calls `1000:165a` at
-  `1000:5c9e..5ca9`. The C++ `enterMonsterDeath` path mirrors this with
-  `requestMonsterDeathSound` after spawning the reward and death flash.
+  `1000:5c9e..5ca9`. The C++ `bossDeathChain` path mirrors this with
+  `requestMonsterDeathSound`. This cue belongs to boss death only.
+- The generic tile-damage corpse conversion at `1000:74bb..7517` is silent.
+  The C++ `enterMonsterDeath` path does not request sound. Independent seeded
+  original-instruction executions and the generic/boss production regressions
+  are documented in `docs/recovery/generic_corpse_sound_20261009.md`; they do
+  not establish natural-route or rendered-audio parity.
 - The per-player damage pass around `1000:7f34..804e` calls the actor update
   routine at `1000:6053`, subtracts accumulated damage from the live player
   energy byte, and when the damage counter is nonzero writes

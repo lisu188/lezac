@@ -14,6 +14,9 @@ struct FrameControls {
     bool p2Down = false;
     bool p1Reenter = false;
     bool p2Reenter = false;
+    bool hasPhysicalDownBanks = false;
+    bool physicalCDown = false;
+    bool physicalArrowDown = false;
 };
 
 }

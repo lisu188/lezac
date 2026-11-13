@@ -1,0 +1,861 @@
+{
+  "schema": "lezac-original-render-view-gates-v1",
+  "cases": [
+    {
+      "index": 0,
+      "profile": [
+        1,
+        0,
+        0
+      ],
+      "calls": [],
+      "vga_write_bytes": [
+        0,
+        0
+      ],
+      "unicorn_steps": 4,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "757c6ccf5a8a4e3982ebba88b531003fa77e1496cc2edab06980ea71f6d0262f",
+      "final_vga_sha256": "757c6ccf5a8a4e3982ebba88b531003fa77e1496cc2edab06980ea71f6d0262f"
+    },
+    {
+      "index": 1,
+      "profile": [
+        1,
+        1,
+        0
+      ],
+      "calls": [
+        [
+          0,
+          0,
+          31269
+        ],
+        [
+          0,
+          1,
+          31274
+        ],
+        [
+          0,
+          2,
+          31285
+        ]
+      ],
+      "vga_write_bytes": [
+        23712,
+        23712
+      ],
+      "unicorn_steps": 297887,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "289c9c463fc57393cf22820c3cae2b95d0b5fba1a3d05073eef85274b875a8da",
+      "final_vga_sha256": "684122f31e72f69c48dc77557ec294124ae9dcaa30352eab86f823b022d5cb7e"
+    },
+    {
+      "index": 2,
+      "profile": [
+        1,
+        2,
+        0
+      ],
+      "calls": [
+        [
+          0,
+          0,
+          31269
+        ],
+        [
+          0,
+          1,
+          31274
+        ],
+        [
+          0,
+          2,
+          31285
+        ]
+      ],
+      "vga_write_bytes": [
+        23712,
+        23712
+      ],
+      "unicorn_steps": 297887,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "d20beac24810f74d0e1e0e312ed08c8b8d4addd2d577557612ef600a3296083f",
+      "final_vga_sha256": "c7834232b57cae89985696332037a1881e99bfee712bc2cceb93107295febaa9"
+    },
+    {
+      "index": 3,
+      "profile": [
+        1,
+        255,
+        0
+      ],
+      "calls": [
+        [
+          0,
+          0,
+          31269
+        ],
+        [
+          0,
+          1,
+          31274
+        ],
+        [
+          0,
+          2,
+          31285
+        ]
+      ],
+      "vga_write_bytes": [
+        23712,
+        23712
+      ],
+      "unicorn_steps": 297887,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "1cc81827678ac2517485292b37c8c5c4867f6708fe4ebbdfd0e1a4f7c491274a",
+      "final_vga_sha256": "451763c075225b68149a2bd19a5515dc59be464617c50c48e02c925b24fb58fd"
+    },
+    {
+      "index": 4,
+      "profile": [
+        2,
+        0,
+        0
+      ],
+      "calls": [],
+      "vga_write_bytes": [
+        0,
+        0
+      ],
+      "unicorn_steps": 4,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "d073cc3bb7b87f95713ec79d7760a6c2ebb53c8a6085c731dd11018272c7021d",
+      "final_vga_sha256": "d073cc3bb7b87f95713ec79d7760a6c2ebb53c8a6085c731dd11018272c7021d"
+    },
+    {
+      "index": 5,
+      "profile": [
+        2,
+        0,
+        1
+      ],
+      "calls": [
+        [
+          1,
+          0,
+          31303
+        ],
+        [
+          1,
+          1,
+          31308
+        ],
+        [
+          1,
+          2,
+          31319
+        ]
+      ],
+      "vga_write_bytes": [
+        0,
+        23104
+      ],
+      "unicorn_steps": 149854,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "a8a0ad1d3695d44470894efda7b892c4ea08022e116ae98d0e4f0fdcf513a3e6",
+      "final_vga_sha256": "039ad453397fae75f8a490526a8b4541809a88baaa31c40e43ae810b81d78b56"
+    },
+    {
+      "index": 6,
+      "profile": [
+        2,
+        0,
+        2
+      ],
+      "calls": [
+        [
+          1,
+          0,
+          31303
+        ],
+        [
+          1,
+          1,
+          31308
+        ],
+        [
+          1,
+          2,
+          31319
+        ]
+      ],
+      "vga_write_bytes": [
+        0,
+        23104
+      ],
+      "unicorn_steps": 149854,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "f488488df3859ebba710d62fae08375525ca48c5190fcea4b4e8f964566be3d8",
+      "final_vga_sha256": "dcc3b2a7613f4487329803ca27e2999d553d20534f193136171b7dbe6aceae38"
+    },
+    {
+      "index": 7,
+      "profile": [
+        2,
+        0,
+        255
+      ],
+      "calls": [
+        [
+          1,
+          0,
+          31303
+        ],
+        [
+          1,
+          1,
+          31308
+        ],
+        [
+          1,
+          2,
+          31319
+        ]
+      ],
+      "vga_write_bytes": [
+        0,
+        23104
+      ],
+      "unicorn_steps": 149854,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "ff3827d21f3d2a101d40e9e375c4728f50ee2398b877c229330e89c23b528245",
+      "final_vga_sha256": "982320c422c35655237b3221dddf1b56c6eb5e7d857514f0a791438017607e15"
+    },
+    {
+      "index": 8,
+      "profile": [
+        2,
+        1,
+        0
+      ],
+      "calls": [
+        [
+          0,
+          0,
+          31269
+        ],
+        [
+          0,
+          1,
+          31274
+        ],
+        [
+          0,
+          2,
+          31285
+        ]
+      ],
+      "vga_write_bytes": [
+        23104,
+        0
+      ],
+      "unicorn_steps": 151327,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "cc35f30931a35a82ea06fb930590a1aa31d1d1e6f59f87818732933663ac780c",
+      "final_vga_sha256": "02670b17dc0415b0a9a4a45059d8148e5ae9da26852e0903bbd10756d2c0f8cf"
+    },
+    {
+      "index": 9,
+      "profile": [
+        2,
+        1,
+        1
+      ],
+      "calls": [
+        [
+          0,
+          0,
+          31269
+        ],
+        [
+          0,
+          1,
+          31274
+        ],
+        [
+          0,
+          2,
+          31285
+        ],
+        [
+          1,
+          0,
+          31303
+        ],
+        [
+          1,
+          1,
+          31308
+        ],
+        [
+          1,
+          2,
+          31319
+        ]
+      ],
+      "vga_write_bytes": [
+        23104,
+        23104
+      ],
+      "unicorn_steps": 301177,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "03c513772b1962209e892b2422de5e3f5aa2fd95f80bd0443808f2122c26281e",
+      "final_vga_sha256": "bea5a64a6aac963aabd5629dbd15f57a0765ec03902c4c3ae7fde0b937f90618"
+    },
+    {
+      "index": 10,
+      "profile": [
+        2,
+        1,
+        2
+      ],
+      "calls": [
+        [
+          0,
+          0,
+          31269
+        ],
+        [
+          0,
+          1,
+          31274
+        ],
+        [
+          0,
+          2,
+          31285
+        ],
+        [
+          1,
+          0,
+          31303
+        ],
+        [
+          1,
+          1,
+          31308
+        ],
+        [
+          1,
+          2,
+          31319
+        ]
+      ],
+      "vga_write_bytes": [
+        23104,
+        23104
+      ],
+      "unicorn_steps": 301177,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "cc49ff3575e2b861f46a50a7fbb035a177937d5c4b54ea6382f631eefad562a5",
+      "final_vga_sha256": "c98ef53f4420e3fed187091ed25055c18805089667ecf4c72e8843be5fd2df2c"
+    },
+    {
+      "index": 11,
+      "profile": [
+        2,
+        1,
+        255
+      ],
+      "calls": [
+        [
+          0,
+          0,
+          31269
+        ],
+        [
+          0,
+          1,
+          31274
+        ],
+        [
+          0,
+          2,
+          31285
+        ],
+        [
+          1,
+          0,
+          31303
+        ],
+        [
+          1,
+          1,
+          31308
+        ],
+        [
+          1,
+          2,
+          31319
+        ]
+      ],
+      "vga_write_bytes": [
+        23104,
+        23104
+      ],
+      "unicorn_steps": 301177,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "4c5e4ab6f28cb82ddc29172d60d7169075da4a8705f6f0b943a796eea0596f66",
+      "final_vga_sha256": "ec0edd74caa6f9c3934d990a710a33144a769b4b3559abfeeac6fbd5eae09988"
+    },
+    {
+      "index": 12,
+      "profile": [
+        2,
+        2,
+        0
+      ],
+      "calls": [
+        [
+          0,
+          0,
+          31269
+        ],
+        [
+          0,
+          1,
+          31274
+        ],
+        [
+          0,
+          2,
+          31285
+        ]
+      ],
+      "vga_write_bytes": [
+        23104,
+        0
+      ],
+      "unicorn_steps": 151327,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "02d87d8ee48279bbe4d6bf628aea4e2a2c6b13a39a5e4b86bced1292f86ec249",
+      "final_vga_sha256": "7498760f6c7ddfc729f2e3af04ba46296d78593ec05d9b0cb166848c42d45fc5"
+    },
+    {
+      "index": 13,
+      "profile": [
+        2,
+        2,
+        1
+      ],
+      "calls": [
+        [
+          0,
+          0,
+          31269
+        ],
+        [
+          0,
+          1,
+          31274
+        ],
+        [
+          0,
+          2,
+          31285
+        ],
+        [
+          1,
+          0,
+          31303
+        ],
+        [
+          1,
+          1,
+          31308
+        ],
+        [
+          1,
+          2,
+          31319
+        ]
+      ],
+      "vga_write_bytes": [
+        23104,
+        23104
+      ],
+      "unicorn_steps": 301177,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "01322b6d6ff5d0eadbda408c35a7115de78d36a2e7bef2bb3e59d7535456e9f1",
+      "final_vga_sha256": "80ca77ee10cc3e587237f9b41a79442da9fe18accbd691630a63846dbe84c9ee"
+    },
+    {
+      "index": 14,
+      "profile": [
+        2,
+        2,
+        2
+      ],
+      "calls": [
+        [
+          0,
+          0,
+          31269
+        ],
+        [
+          0,
+          1,
+          31274
+        ],
+        [
+          0,
+          2,
+          31285
+        ],
+        [
+          1,
+          0,
+          31303
+        ],
+        [
+          1,
+          1,
+          31308
+        ],
+        [
+          1,
+          2,
+          31319
+        ]
+      ],
+      "vga_write_bytes": [
+        23104,
+        23104
+      ],
+      "unicorn_steps": 301177,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "e08753f82f09b9e3da21f9a8f96198ff595f66473168dae44460ddb3b5c070ee",
+      "final_vga_sha256": "75d48e071ef871e31c81c0e1b90222c0c45e9f11536a0dab613c62181dd3c94e"
+    },
+    {
+      "index": 15,
+      "profile": [
+        2,
+        2,
+        255
+      ],
+      "calls": [
+        [
+          0,
+          0,
+          31269
+        ],
+        [
+          0,
+          1,
+          31274
+        ],
+        [
+          0,
+          2,
+          31285
+        ],
+        [
+          1,
+          0,
+          31303
+        ],
+        [
+          1,
+          1,
+          31308
+        ],
+        [
+          1,
+          2,
+          31319
+        ]
+      ],
+      "vga_write_bytes": [
+        23104,
+        23104
+      ],
+      "unicorn_steps": 301177,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "a123839abfffe1aab70eef0a4176db1d4f5329e41a6905c5d551e8054c6eafd0",
+      "final_vga_sha256": "28438000d4da3eb685cf72c95ec41082e3c8b45293ddc7b99a1b0b9d4a8d1354"
+    },
+    {
+      "index": 16,
+      "profile": [
+        2,
+        255,
+        0
+      ],
+      "calls": [
+        [
+          0,
+          0,
+          31269
+        ],
+        [
+          0,
+          1,
+          31274
+        ],
+        [
+          0,
+          2,
+          31285
+        ]
+      ],
+      "vga_write_bytes": [
+        23104,
+        0
+      ],
+      "unicorn_steps": 151327,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "8df7a3429db32c0cba167370e6f7fae05c2fa948224859d6d714500d2a3ebf25",
+      "final_vga_sha256": "24d1adae03ad61769308e3129e504725959b5a67a3bec90f2ca25f5210f1c75f"
+    },
+    {
+      "index": 17,
+      "profile": [
+        2,
+        255,
+        1
+      ],
+      "calls": [
+        [
+          0,
+          0,
+          31269
+        ],
+        [
+          0,
+          1,
+          31274
+        ],
+        [
+          0,
+          2,
+          31285
+        ],
+        [
+          1,
+          0,
+          31303
+        ],
+        [
+          1,
+          1,
+          31308
+        ],
+        [
+          1,
+          2,
+          31319
+        ]
+      ],
+      "vga_write_bytes": [
+        23104,
+        23104
+      ],
+      "unicorn_steps": 301177,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "822d305e0768fb13f96269f61d0fbed8dd2ea842d8e77f9aa661c6ce16124e87",
+      "final_vga_sha256": "5ca791c66a55a92093380558c7afc6ca572e17fe0a333f6823082d7f17bc39bd"
+    },
+    {
+      "index": 18,
+      "profile": [
+        2,
+        255,
+        2
+      ],
+      "calls": [
+        [
+          0,
+          0,
+          31269
+        ],
+        [
+          0,
+          1,
+          31274
+        ],
+        [
+          0,
+          2,
+          31285
+        ],
+        [
+          1,
+          0,
+          31303
+        ],
+        [
+          1,
+          1,
+          31308
+        ],
+        [
+          1,
+          2,
+          31319
+        ]
+      ],
+      "vga_write_bytes": [
+        23104,
+        23104
+      ],
+      "unicorn_steps": 301177,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "95e66cc1bf20872d68d8e04e79aee576d93c58f17e2c163f8f364bbba08ee798",
+      "final_vga_sha256": "537170a9775ec8a15c70001394b979272babfb951f44a0cc5171008b9badef0f"
+    },
+    {
+      "index": 19,
+      "profile": [
+        2,
+        255,
+        255
+      ],
+      "calls": [
+        [
+          0,
+          0,
+          31269
+        ],
+        [
+          0,
+          1,
+          31274
+        ],
+        [
+          0,
+          2,
+          31285
+        ],
+        [
+          1,
+          0,
+          31303
+        ],
+        [
+          1,
+          1,
+          31308
+        ],
+        [
+          1,
+          2,
+          31319
+        ]
+      ],
+      "vga_write_bytes": [
+        23104,
+        23104
+      ],
+      "unicorn_steps": 301177,
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "initial_vga_sha256": "dbdc7107a526a18251183c4be4ffecb3927e15dbc2b321384ec5089b3eef197d",
+      "final_vga_sha256": "b4e60fce16bd42dcc8b403668d0f73efa0747b35cf8fcb8f36dfa614f2de78f4"
+    }
+  ],
+  "producer_sha256": "eb78520d858d74a9bf86439ee7270142413eccc11e9316aa2c923c40a76c2413",
+  "origin_sha256": "532d0e248c19a669e5414dd75a4faf05f5d3cd877e380d7ef34212e13f9c5fec",
+  "source_capture_manifest_sha256": "dc3c9625e33cf53c8a18504a3ee465f37b525191af94cd952e9034967fbf2794",
+  "original_executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "source_ram_sha256": "38ad4735735cbc3f7a6a902de25e4602a424635290aaf13ba94f05ffbc1d9485",
+  "source_recipe_sha256": "6a36df22f8fd1e20ff6e5c65f74366d04bd8f5b562b9a34857ec7221a0ef3029",
+  "source_sample": "gameplay-middle",
+  "code_segment": 417,
+  "data_segment": 3139,
+  "projection_sha256": "7f59047942265c02406485ff426662a1997ad99a9e6225c0cf48aa96cae57473",
+  "projection_bytes": 2561856,
+  "compressed_sha256": "a43358c62aad213b772d2961cb5ad77cedf40c05350786b4143ed1f7c7a1b6de",
+  "compressed_bytes": 69699,
+  "original_calls_stubbed": 0,
+  "instruction_patches": 0,
+  "source_code_bytes_verified": 43552,
+  "raw_memory_published": false,
+  "raw_memory_available_to_frozen_checker": false,
+  "controlled_geometry": true,
+  "controlled_state_bytes": true,
+  "controlled_initial_vga": true,
+  "natural_gameplay_claim": false,
+  "whole_frame_parity": false,
+  "work_clock_claim": false,
+  "unicorn": "2.1.4",
+  "initialization_cases": [
+    {
+      "players": 1,
+      "width": 320,
+      "state_bytes": [
+        0,
+        0
+      ],
+      "blocks": [
+        [
+          11386,
+          11401
+        ],
+        [
+          11510,
+          11513
+        ]
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "final_vga_sha256": "97717b98074811f902d41ad1120351fbf4eb695cd1dc9c58db26c5079ef7a8f5"
+    },
+    {
+      "players": 2,
+      "width": 320,
+      "state_bytes": [
+        0,
+        0
+      ],
+      "blocks": [
+        [
+          11386,
+          11401
+        ],
+        [
+          11510,
+          11513
+        ]
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true,
+      "final_vga_sha256": "e53d3ce523dfc54b84347a690a6622ce5f63dbd4dec16e90e8f20ef6909dcfe4"
+    }
+  ],
+  "initialization_sha256": "6c7c4f9bb7b4b256a403fc5e450f73209eda0d8ff53538d1f656e1708b577de0",
+  "initialization_bytes": 128014,
+  "initialization_compressed_sha256": "45e066a9202d8d25a18561ff4b7a10811695b8d19a86cab287478a314842bfb1",
+  "initialization_compressed_bytes": 535
+}

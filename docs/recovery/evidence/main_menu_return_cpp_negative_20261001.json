@@ -1,0 +1,95 @@
+{
+  "status": "failed",
+  "error": "ready menu changed after Return",
+  "captures": [
+    {
+      "name": "natural-italian-line0-step02",
+      "pixel_sha256": "7d1bc09d43fab7db08fcd2e9370ce96840a8a1693075dec7aa424b85c10bde17",
+      "seconds": 1.5829671469982713
+    },
+    {
+      "name": "italian-full",
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914",
+      "seconds": 14.066312606999418
+    },
+    {
+      "name": "italian-unexpected-choice-Return",
+      "pixel_sha256": "7f3bd575cf1d0985c7bf5586a9c84b2fe56902fcebad3f4b6967e96100251a21",
+      "seconds": 14.33399309401284
+    }
+  ],
+  "events": [
+    {
+      "keys": [
+        "Shift_L"
+      ],
+      "seconds": 1.5829704019997735
+    },
+    {
+      "keys": [
+        "Shift_R"
+      ],
+      "seconds": 1.7132012910151388
+    },
+    {
+      "keys": [
+        "Control_L"
+      ],
+      "seconds": 1.844723045011051
+    },
+    {
+      "keys": [
+        "Control_R"
+      ],
+      "seconds": 1.9724789440224413
+    },
+    {
+      "keys": [
+        "Alt_L"
+      ],
+      "seconds": 2.1028217610146385
+    },
+    {
+      "keys": [
+        "Alt_R"
+      ],
+      "seconds": 2.230997921025846
+    },
+    {
+      "keys": [
+        "Super_L"
+      ],
+      "seconds": 2.358408177999081
+    },
+    {
+      "keys": [
+        "Super_R"
+      ],
+      "seconds": 2.4864402470120694
+    },
+    {
+      "keys": [
+        "Caps_Lock"
+      ],
+      "seconds": 2.614350004005246
+    },
+    {
+      "keys": [
+        "Num_Lock"
+      ],
+      "seconds": 2.7420162500056904
+    },
+    {
+      "keys": [
+        "Scroll_Lock"
+      ],
+      "seconds": 2.869628080021357
+    },
+    {
+      "keys": [
+        "Return"
+      ],
+      "seconds": 14.216445963014849
+    }
+  ]
+}

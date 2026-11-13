@@ -138,8 +138,10 @@ and focused death/reentry checks before the full-suite delivery run.
 
 The new capture does not exercise two simultaneously waiting original players,
 a naturally latched key held before death, an entire 65536-update wait, or
-arbitrary reads beyond the allocated map plane. The C++ out-of-plane scan
-currently returns zero rather than emulating adjacent DOS memory. Per-probe
+arbitrary reads beyond the allocated map plane. The later
+[physical waiting-map correction](waiting_map_20261018.md) covers controlled
+simultaneous waiting, retained bytes, word-plane aliases and the shared cursor.
+Arbitrary adjacent DOS allocations remain unproven. Per-probe
 original render-boundary images, especially the 1x1 descriptor, remain a
 separate visual verification task. Natural full-health boss victory, complete
 campaign progression, broader original input semantics and full VGA/HUD

@@ -1,0 +1,313 @@
+{
+  "actual_library_mapping_verified": true,
+  "app_bytes": 17720,
+  "app_cases": 1040,
+  "app_sha256": "feae964a3b797282fa12757daa5e10cfe11e8c9c7f97936f44c8366af4fc24ed",
+  "calls_stubbed": 0,
+  "cases": 1043,
+  "complete_memory_observer_control": true,
+  "compressed_bytes": 46726,
+  "compressed_sha256": "e3e2f64a4f367b6c976c24c7ea5c2c5dbd62f750caf2e2487ab3567878bd7452",
+  "controlled_initial_memory": true,
+  "endpoint_all_flags_compared": true,
+  "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "executed_instructions": [
+    [
+      4096,
+      1387
+    ],
+    [
+      4096,
+      1388
+    ],
+    [
+      4096,
+      1390
+    ],
+    [
+      4096,
+      1393
+    ],
+    [
+      4096,
+      1398
+    ],
+    [
+      4096,
+      1401
+    ],
+    [
+      4096,
+      1406
+    ],
+    [
+      4096,
+      1410
+    ],
+    [
+      4096,
+      1413
+    ],
+    [
+      4096,
+      1418
+    ],
+    [
+      4096,
+      1421
+    ],
+    [
+      4096,
+      1423
+    ],
+    [
+      4096,
+      1426
+    ],
+    [
+      4096,
+      1428
+    ],
+    [
+      4096,
+      1432
+    ],
+    [
+      4096,
+      1434
+    ],
+    [
+      4096,
+      1438
+    ],
+    [
+      4096,
+      1442
+    ],
+    [
+      4096,
+      1445
+    ],
+    [
+      4096,
+      1448
+    ],
+    [
+      4096,
+      1451
+    ],
+    [
+      4096,
+      1455
+    ],
+    [
+      4096,
+      1458
+    ],
+    [
+      4096,
+      1460
+    ],
+    [
+      4096,
+      1462
+    ],
+    [
+      4096,
+      1465
+    ],
+    [
+      4096,
+      1469
+    ],
+    [
+      4096,
+      1471
+    ],
+    [
+      4096,
+      1473
+    ],
+    [
+      4096,
+      1476
+    ],
+    [
+      4096,
+      1480
+    ],
+    [
+      4096,
+      1483
+    ],
+    [
+      4096,
+      1486
+    ],
+    [
+      4096,
+      1489
+    ],
+    [
+      4096,
+      1493
+    ],
+    [
+      4096,
+      1496
+    ],
+    [
+      4096,
+      1499
+    ],
+    [
+      4096,
+      1502
+    ],
+    [
+      4096,
+      1506
+    ],
+    [
+      4096,
+      1509
+    ],
+    [
+      4096,
+      1513
+    ],
+    [
+      4096,
+      1517
+    ],
+    [
+      4096,
+      1520
+    ],
+    [
+      4096,
+      1522
+    ],
+    [
+      4096,
+      1526
+    ],
+    [
+      4096,
+      1528
+    ],
+    [
+      4096,
+      1531
+    ],
+    [
+      4096,
+      1535
+    ],
+    [
+      4096,
+      1537
+    ],
+    [
+      4096,
+      1539
+    ],
+    [
+      4096,
+      1542
+    ],
+    [
+      4096,
+      1546
+    ],
+    [
+      4096,
+      1549
+    ],
+    [
+      4096,
+      1552
+    ],
+    [
+      4096,
+      1555
+    ],
+    [
+      4096,
+      1560
+    ],
+    [
+      4096,
+      1563
+    ],
+    [
+      4096,
+      1569
+    ],
+    [
+      4096,
+      1570
+    ],
+    [
+      6432,
+      1247
+    ],
+    [
+      6432,
+      1250
+    ],
+    [
+      6432,
+      1252
+    ],
+    [
+      6432,
+      1254
+    ],
+    [
+      6432,
+      1256
+    ],
+    [
+      6432,
+      1258
+    ],
+    [
+      6432,
+      1262
+    ],
+    [
+      6432,
+      1264
+    ],
+    [
+      6432,
+      1265
+    ],
+    [
+      6432,
+      1268
+    ]
+  ],
+  "full_frame_claim": false,
+  "hardware_io": 0,
+  "instruction_patches": 0,
+  "interrupts_delivered": 0,
+  "natural_capture": false,
+  "ordered_writes_reconstruct_full_memory": true,
+  "original_code_bytes_verified": 43552,
+  "producer_sha256": "149eb4e0280c8a5d1ccccb5f591023c465f18ac2c2ad701074864066327ade6b",
+  "production_app_comparison": false,
+  "projection_bytes": 1985162,
+  "projection_sha256": "d7c5f53dc2c17de126f3ce918c9be5a85eb66a9ac1ae4eb663aea6f709dad35a",
+  "raw_memory_published": false,
+  "register_states": 59867,
+  "runtime_errors": 3,
+  "schema": "lezac-controlled-player-start-v1",
+  "shared_oracle_sha256": "7f277672f407c3d8054ef954e2b16958a139d827d9f3b2da0c7a36ed717d90b9",
+  "trace_arithmetic_flags_compared": false,
+  "unicorn_library_sha256": "ddb196ec82b52e502c18e4a34478bf7b9f61c83c2ebaa95c74d8ded45a95da9c",
+  "unicorn_version": "2.1.4",
+  "whole_game_parity": false,
+  "writes": 14053
+}

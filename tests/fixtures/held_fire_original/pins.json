@@ -1,0 +1,10 @@
+{
+  "schema": "held_fire_irq_v3_observations",
+  "scope": "physical_input_and_natural_lifecycle_only",
+  "frame_alignment": false,
+  "whole_game_parity": false,
+  "captures": {
+    "hold_through.txt": "68b663810727d37f1e86390cc13bb7c8bc0ba15358bda462e2c5ce02506a04df",
+    "release_repress.txt": "d52c1641f72c91cc634ee4997ba78d62bf5ac282d4005c56b31e93ced470ffb9"
+  }
+}

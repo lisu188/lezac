@@ -1,0 +1,10 @@
+{
+  "source_sha256": "880ef5796c968db80b7e0d23f2d5f68e86fd3d065b40f141bd77642ad2d89416",
+  "original_function_sha256": "e35dc85ccd1a0dda305fa09a94938f4eecdff8b0248d7aa004060f15a4b922d7",
+  "driver_sha256": "b347402184f379351235601ae438a036d8da00bfc44dbe39905aaf0b8189f35a",
+  "inputs": 65536,
+  "projection_sha256": "1f946ad4784ca712e3f20cb43ab6327c86c2d929db68139aa43a48f58c47dc37",
+  "bytes": 196608,
+  "original_function_unchanged": true,
+  "whole_bios_handler_execution_claim": false
+}

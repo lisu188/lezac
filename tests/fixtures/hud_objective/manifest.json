@@ -1,0 +1,276 @@
+{
+  "schema": "lezac-original-hud-objective-boundaries-v1",
+  "cases": [
+    {
+      "index": 0,
+      "profile": [
+        0,
+        65535,
+        65534,
+        50,
+        0,
+        1,
+        0,
+        0
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 1,
+      "profile": [
+        32767,
+        65535,
+        65534,
+        50,
+        0,
+        1,
+        0,
+        0
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 2,
+      "profile": [
+        32768,
+        1,
+        0,
+        50,
+        0,
+        1,
+        0,
+        0
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 3,
+      "profile": [
+        65535,
+        32768,
+        32767,
+        50,
+        0,
+        1,
+        0,
+        0
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 4,
+      "profile": [
+        100,
+        0,
+        1,
+        100,
+        0,
+        1,
+        0,
+        0
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 5,
+      "profile": [
+        100,
+        1,
+        0,
+        101,
+        0,
+        1,
+        0,
+        0
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 6,
+      "profile": [
+        65535,
+        0,
+        1,
+        255,
+        0,
+        1,
+        0,
+        0
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 7,
+      "profile": [
+        10,
+        0,
+        1,
+        50,
+        0,
+        1,
+        1,
+        1
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 8,
+      "profile": [
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 9,
+      "profile": [
+        32767,
+        32768,
+        32767,
+        255,
+        255,
+        254,
+        0,
+        0
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 10,
+      "profile": [
+        65535,
+        65535,
+        65534,
+        100,
+        99,
+        98,
+        0,
+        0
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 11,
+      "profile": [
+        1,
+        65535,
+        65534,
+        255,
+        254,
+        253,
+        0,
+        0
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 12,
+      "profile": [
+        32768,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 13,
+      "profile": [
+        10,
+        0,
+        0,
+        50,
+        0,
+        0,
+        1,
+        1
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 14,
+      "profile": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 15,
+      "profile": [
+        10,
+        0,
+        0,
+        50,
+        0,
+        1,
+        1,
+        0
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 16,
+      "profile": [
+        10,
+        0,
+        1,
+        50,
+        0,
+        0,
+        0,
+        1
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    }
+  ],
+  "producer_sha256": "d719831f8bc369a0d46d3345d4077756ed996081cfb5de6ad4fa9509faa607ce",
+  "shared_producer_sha256": "a67d0e679b96698ad73963e9e150d7a630938f4d8f0cda7157ddc7941664b956",
+  "font_checker_sha256": "61ebc79522a4af92b41838b5162d742b44e49875bd79cf7feebe5f13aef92557",
+  "original_executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "font_sha256": "3d9405837becfd6ad6c111e5af106fd44d2280dbaf615d10ad717e39e5787925",
+  "projection_sha256": "11a90f1fd2c2673849c5f628d0b4e2202e675af85c7747778500efdb40c39330",
+  "projection_bytes": 28453,
+  "compressed_sha256": "750abdcbc99dfa5a09f9ebaf2e6b759470767ddd6d0c90ab35f2871e16fb7b7d",
+  "compressed_bytes": 2276,
+  "original_calls_stubbed": 0,
+  "instruction_patches": 0,
+  "source_code_bytes_verified": 43552,
+  "raw_memory_published": false,
+  "natural_gameplay_claim": false,
+  "whole_frame_claim": false,
+  "unicorn": "2.1.4"
+}

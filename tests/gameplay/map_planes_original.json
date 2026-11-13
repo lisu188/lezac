@@ -1,0 +1,364 @@
+{
+  "passed": true,
+  "recorded_utc": "2026-10-09T21:51:03.741181+00:00",
+  "cases": [
+    {
+      "name": "logical-bottom",
+      "layout": 0,
+      "object_segment": 16384,
+      "word_segment": 20480,
+      "first_cell": 1953,
+      "first_expected_destination": 2013,
+      "input_planes_sha256": "f1e43c31f496c2c0bcbba5f142b4cf5572c881041f1327f2f2d55704362c69e6",
+      "observations": [
+        {
+          "step": 0,
+          "tile": 2013,
+          "state_sha256": "85c56e08d91e052847c525cc61dc841b134717549dc626f4940afcc936292c74",
+          "full_memory_sha256": "8496d88f4a20970ec153390590774533ad992e6f1bc643e8274ad0b346ceb6f6"
+        },
+        {
+          "step": 1,
+          "tile": 2074,
+          "state_sha256": "01a23ff26df57151dd1844b4f8a3c11a18e32458f4876991d1a1da38ffe43284",
+          "full_memory_sha256": "ef25738e98dfeb29f575aa6e8065b9778360b805781fbbbf441be10c7c94c9b6"
+        }
+      ],
+      "events": 16,
+      "reads": 8,
+      "writes": 8,
+      "final_planes_sha256": "317eb889dc217577f2b3f1baf7eaad32084fd6b866fcc6feb6e54cfd7100296f"
+    },
+    {
+      "name": "retained-tail",
+      "layout": 0,
+      "object_segment": 16384,
+      "word_segment": 20480,
+      "first_cell": 2013,
+      "first_expected_destination": 2074,
+      "input_planes_sha256": "cc5e65f5812c10c87f6c383eaca33c256f1285e6f7ae26518b0be2088bd067b2",
+      "observations": [
+        {
+          "step": 0,
+          "tile": 2074,
+          "state_sha256": "01a23ff26df57151dd1844b4f8a3c11a18e32458f4876991d1a1da38ffe43284",
+          "full_memory_sha256": "fa9c16ecfb6ab0de533de5fbd062bf09893dd147094ccc35ed9db8ddb89e29c9"
+        },
+        {
+          "step": 1,
+          "tile": 2135,
+          "state_sha256": "2f6c0a6da2050d75fcd5e1a6b1301e3fcdce5d7b5fbfa0c693dd70153d70e08e",
+          "full_memory_sha256": "abcc9e7837c110e9161e136a10a1e21dfb0283226b54f432777042a1cd33a8cb"
+        }
+      ],
+      "events": 16,
+      "reads": 8,
+      "writes": 8,
+      "final_planes_sha256": "3448cf307ccd1d4c13ea33b1ba7199bf0d4eb425012884e27be5fe877e5c9337"
+    },
+    {
+      "name": "object-underflow",
+      "layout": 0,
+      "object_segment": 16384,
+      "word_segment": 20480,
+      "first_cell": 0,
+      "first_expected_destination": 65535,
+      "input_planes_sha256": "c412a086764490420c6dae391d2539f4c58f3f1befb23f5d66bc5cbf51c61731",
+      "observations": [
+        {
+          "step": 0,
+          "tile": 65535,
+          "state_sha256": "7ab4ac31692846fac9d68708747ba1bc22e912adb2a99ead266daf0490281963",
+          "full_memory_sha256": "1cf419055c2c5d2b0bd678528e8fc3c2442c29001026d2878068c4d257f9720b"
+        },
+        {
+          "step": 1,
+          "tile": 65534,
+          "state_sha256": "5a6eb97c023c485881175b5b84ae58370befa1a7525837cde2185bc9c77fe217",
+          "full_memory_sha256": "9207ec94498446137ac4a3891bd55c93f3fad762f0338814b6b2694eb019be89"
+        }
+      ],
+      "events": 16,
+      "reads": 8,
+      "writes": 8,
+      "final_planes_sha256": "52a39e44caf2b46ad26d01ed991ba12138ab5996441cff802525cf4b5ad28239"
+    },
+    {
+      "name": "object-overflow",
+      "layout": 0,
+      "object_segment": 16384,
+      "word_segment": 20480,
+      "first_cell": 65535,
+      "first_expected_destination": 0,
+      "input_planes_sha256": "a7d06f71ca2003fc1bcc8a8406f1ca383ed50829fe126b8de10e73c429b5cdff",
+      "observations": [
+        {
+          "step": 0,
+          "tile": 0,
+          "state_sha256": "ae2af657f3ee9a6301c1e554e7421ee10001f667554a367ebfe24cc7bcd09887",
+          "full_memory_sha256": "5acd74b3cff28ce06debc9b5a25b1e369606860816aca185d1489f3e2ac33ca0"
+        },
+        {
+          "step": 1,
+          "tile": 1,
+          "state_sha256": "930b4bff59d80e310fa6b0fc0f470dff70666587052a3ded529c70b842838a76",
+          "full_memory_sha256": "2488b2269fb05fab1a0b5733c024230e5f688a7cfe7b1fc283037ea2cb464dab"
+        }
+      ],
+      "events": 16,
+      "reads": 8,
+      "writes": 8,
+      "final_planes_sha256": "bd3ee3df7b3e50773198c490aace89b9c4d9cde060d53b12fbb43fa94ea17d13"
+    },
+    {
+      "name": "word-forward-alias",
+      "layout": 0,
+      "object_segment": 16384,
+      "word_segment": 20480,
+      "first_cell": 32767,
+      "first_expected_destination": 32768,
+      "input_planes_sha256": "6c4f9ac5e3cc873f3c3c30c15d9695f7cd2a07720cfae70bd04ed80703f2790d",
+      "observations": [
+        {
+          "step": 0,
+          "tile": 32768,
+          "state_sha256": "7349e0c849b478996a01c19f41fb0a195f95b6e6cf1bfdaa2397bc590e29d0e0",
+          "full_memory_sha256": "709bf9b34ffaf8651aed4a5e5a27e48efdff8844d9e9c057f79de3b0b66ca94f"
+        },
+        {
+          "step": 1,
+          "tile": 32769,
+          "state_sha256": "52a62f8f9328303f52466ea787943c97f5261766046e73e9874c5d8ec3b80d2a",
+          "full_memory_sha256": "ead113e946338f9ddd80136e64c4a1c7e6ef9d3be60d55b987506cd7725842db"
+        }
+      ],
+      "events": 16,
+      "reads": 8,
+      "writes": 8,
+      "final_planes_sha256": "32d6af0a4e07c21cd181fa8511e63c0bcd7db8cfc38b7ab8a085994a028d5e9a"
+    },
+    {
+      "name": "word-backward-alias",
+      "layout": 0,
+      "object_segment": 16384,
+      "word_segment": 20480,
+      "first_cell": 32768,
+      "first_expected_destination": 32767,
+      "input_planes_sha256": "8232f319cc0c0168b33735857ece22be5312dcfbd4b47242c8f15499bb428bdf",
+      "observations": [
+        {
+          "step": 0,
+          "tile": 32767,
+          "state_sha256": "ccebdd5aeaf53534417ab8ffe112feb11da967f83c4943238d2701eb09528d27",
+          "full_memory_sha256": "f0dbcde28f80565498d8377c11cdfd9f92d00f419ff9f69e706158ab5b1dfe7a"
+        },
+        {
+          "step": 1,
+          "tile": 32766,
+          "state_sha256": "7fef9a63879aea615fc504dd358296034f8fc633d934d3bb223f567d0844b8db",
+          "full_memory_sha256": "107cafe798e99318f8de652ea7dd854f0e42469004237fae545ef9cddd444920"
+        }
+      ],
+      "events": 16,
+      "reads": 8,
+      "writes": 8,
+      "final_planes_sha256": "a9143851b534cf03e61a7f3bb3071b44dd29523f9fff4c7fb5920dd721633181"
+    },
+    {
+      "name": "word-upper-alias",
+      "layout": 0,
+      "object_segment": 16384,
+      "word_segment": 20480,
+      "first_cell": 32768,
+      "first_expected_destination": 32769,
+      "input_planes_sha256": "8232f319cc0c0168b33735857ece22be5312dcfbd4b47242c8f15499bb428bdf",
+      "observations": [
+        {
+          "step": 0,
+          "tile": 32769,
+          "state_sha256": "181865a593ab1df5e504a5c3eb2cf4388fe2d129014b2574a976d24cf6ce4bb0",
+          "full_memory_sha256": "531c4cef1234ceb4781c7111c9679e71b6c9edceab99bc3321fbd7729a26e90e"
+        },
+        {
+          "step": 1,
+          "tile": 32770,
+          "state_sha256": "499c3d54fca55f60fcfa2b598112d53d52438e1e468fea92bb7c0fbc55da6da2",
+          "full_memory_sha256": "dea2dd6c744f94097cc9a04bd6ec79fd02c237a964d606ca5960b6c6d8290d59"
+        }
+      ],
+      "events": 16,
+      "reads": 8,
+      "writes": 8,
+      "final_planes_sha256": "96b6830325015aa186c4741aa3d7c8ddc13fdb1c39ecba3d6e2202ad47d05504"
+    },
+    {
+      "name": "vertical-overflow",
+      "layout": 0,
+      "object_segment": 16384,
+      "word_segment": 20480,
+      "first_cell": 65500,
+      "first_expected_destination": 24,
+      "input_planes_sha256": "8603f83d922d13d0d357b3fd8e0d255f9c013e196e643582aa507f8fc258a2c7",
+      "observations": [
+        {
+          "step": 0,
+          "tile": 24,
+          "state_sha256": "67667aa4154e2a01053d8cbbea361f223e76cd1da9d01f0d5a9ff839b7d425d5",
+          "full_memory_sha256": "8cb3b0be76d542091107cbc560b49bd68274acb777805a14417d2f3cc2a0b149"
+        },
+        {
+          "step": 1,
+          "tile": 84,
+          "state_sha256": "dd714481c9b32214b3f5bf447bfeb99e0c5f05e937700f30500b16c1df649add",
+          "full_memory_sha256": "ffe47d6b6aaaeb7a9a832352b682e6306967a9528e2b099595e848477f84ea23"
+        }
+      ],
+      "events": 16,
+      "reads": 8,
+      "writes": 8,
+      "final_planes_sha256": "c05064681af3e413835580f4008ad92db8027aa9ae7031f48ac258f74b9a8dba"
+    },
+    {
+      "name": "vertical-underflow",
+      "layout": 0,
+      "object_segment": 16384,
+      "word_segment": 20480,
+      "first_cell": 40,
+      "first_expected_destination": 65516,
+      "input_planes_sha256": "2999635bced4b5a63ade9cf129578a2835a250840b5f1ddc84ff8f5d552ff722",
+      "observations": [
+        {
+          "step": 0,
+          "tile": 65516,
+          "state_sha256": "fb266d39fd6f21be784b6820c4877f6f9469f4160c97e45cba5ac28fd42fe6e7",
+          "full_memory_sha256": "2391b2794af828dc10366829119be16daad9a6db2a33bfeee0d18fd02b6da25e"
+        },
+        {
+          "step": 1,
+          "tile": 65456,
+          "state_sha256": "eb6cfd21b9378cc856d3e31c50bb4dfb15de374f9d20d25bd2cd3b4cc6d4c80a",
+          "full_memory_sha256": "15f4ff15e769499bc78e4e75f0e777c369517ddb040f0b7d05dec07b86697a70"
+        }
+      ],
+      "events": 14,
+      "reads": 6,
+      "writes": 8,
+      "final_planes_sha256": "7dcf509ff3b84fd52321f1ea2b4a010fb79dd0e877e78911c5c917452658281e"
+    },
+    {
+      "name": "stationary-tail",
+      "layout": 0,
+      "object_segment": 16384,
+      "word_segment": 20480,
+      "first_cell": 2013,
+      "first_expected_destination": 2013,
+      "input_planes_sha256": "cc5e65f5812c10c87f6c383eaca33c256f1285e6f7ae26518b0be2088bd067b2",
+      "observations": [
+        {
+          "step": 0,
+          "tile": 2013,
+          "state_sha256": "19ca2ca48cc06fcf5cb2f83c6babcbebf36677d37bf112aba29f21df7477f1d3",
+          "full_memory_sha256": "8646c8be5ca0347914074463d1a61a73d903a7e60abb41d63e7829e39e3b00cb"
+        },
+        {
+          "step": 1,
+          "tile": 2013,
+          "state_sha256": "2a6f4ea529a30665ab77a3e7b89ebf098e575bc7fb609f26556d61f0a5616039",
+          "full_memory_sha256": "f568f415143dce650c3029d1ac96c6ed57fbb8af1959c46a9fe4e6f65a3f4350"
+        }
+      ],
+      "events": 4,
+      "reads": 4,
+      "writes": 0,
+      "final_planes_sha256": "cc5e65f5812c10c87f6c383eaca33c256f1285e6f7ae26518b0be2088bd067b2"
+    },
+    {
+      "name": "shared-tail-write-alias",
+      "layout": 1,
+      "object_segment": 16384,
+      "word_segment": 16509,
+      "first_cell": 1953,
+      "first_expected_destination": 2013,
+      "input_planes_sha256": "da20d3ef5b6698392443faefe68b472c400a93077b07d5240105097ce0be34d1",
+      "observations": [
+        {
+          "step": 0,
+          "tile": 2013,
+          "state_sha256": "9ab84b3da9f2196a624864d38a34ab6c6aecfb012ba53c7bf3bcec852ee034ea",
+          "full_memory_sha256": "823189c7962327a750f170ddc0c284009b072953c2fea77f1c5fc88e49cb3b88"
+        },
+        {
+          "step": 1,
+          "tile": 2074,
+          "state_sha256": "67db6ca2e0ef2ab4870efed9879e24d0e21bbcfedaf64d3369a031ce76ac1541",
+          "full_memory_sha256": "640e883b0b777ae58f69e1441772506fb8886dd8602ab06b4b8526d6f0d5a68c"
+        }
+      ],
+      "events": 16,
+      "reads": 8,
+      "writes": 8,
+      "final_planes_sha256": "809122babc8c58dfb78bd1b55f455202b7dd6803a46b0dd9c71b6243031feeab"
+    },
+    {
+      "name": "shared-live-word-alias",
+      "layout": 1,
+      "object_segment": 16384,
+      "word_segment": 16509,
+      "first_cell": 1953,
+      "first_expected_destination": 1953,
+      "input_planes_sha256": "2ee87f22e2fc80a28cc36155462bb630a81726a6d80184a82977d74983fc8f36",
+      "observations": [
+        {
+          "step": 0,
+          "tile": 1953,
+          "state_sha256": "0991c51620f949b9b787cecc91f4ac8dec2585926fe57210a0673319e03277b4",
+          "full_memory_sha256": "58953125426749504531cfa562e136e8a748464d0265c410e24d3d59f7722c64"
+        },
+        {
+          "step": 1,
+          "tile": 1953,
+          "state_sha256": "e7535720fe5bb2957941ae268572990a4138506da1b7d0a8fd7a7e8c7054fd06",
+          "full_memory_sha256": "7140e80dc60f7637181fcf741e2a8c48a80a0fa897dd88ce8922672379d48b20"
+        }
+      ],
+      "events": 6,
+      "reads": 6,
+      "writes": 0,
+      "final_planes_sha256": "2ee87f22e2fc80a28cc36155462bb630a81726a6d80184a82977d74983fc8f36"
+    }
+  ],
+  "generator_sha256": "334737a1711801152cea9f2d5f9305273181fc05e623734d05d0fb60163906d5",
+  "dependency_sha256": {
+    "capture_original_contact_staging": "f703d8bd4cd3e646c8b78ae98a78b85d15fb42d58a11f271ad06d9696c01c9d1",
+    "original_bomb_cpu": "fd3066a8b28edc5872221692a88f24d4758c8e7961cb7b91a03d9b94c16fe41c",
+    "capture_original_fracture_retirement": "50cd6bc4d44a9d805b2598d89b7c626a34c0eb5339b8350b8f8125ffa6c74c73",
+    "capture_original_physics_dispatch": "927dce949bafdf712cc953a778599a52357df6a2451eff90f93857601ff563ef"
+  },
+  "original_exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "prior_fixture_sha256": "e6552d851b95d4b30d931887eee00d75beafede7a173dabf3add77504c83b1cf",
+  "original_instructions_patched": false,
+  "original_calls_stubbed": false,
+  "hardware_io_permitted": false,
+  "seeded": true,
+  "natural_route": false,
+  "natural_heap_initialization_proven": false,
+  "production_app": false,
+  "actual_cpp_comparison": false,
+  "whole_game_complete": false,
+  "all_execution_silent": true,
+  "observer_neutrality_memory_bytes": 1048576,
+  "observer_neutrality_registers": 14,
+  "scenes": 12,
+  "updates_per_scene": 2,
+  "boundaries": 24,
+  "input_bytes": 1574028,
+  "input_sha256": "9b76799c38820e1ca5f6cfc3d9f695d72cfe59d3fdb79f0842850be236edfc11",
+  "fixture_sha256": "1944cf6468deee41d58862aa44b012e3bc1f2ea0b563ccaf4d160be6c19cfc2d",
+  "expected_bytes": 1573100,
+  "expected_sha256": "287e9168a3a5860d7e1fa78f2431fec07d714f9827c609708654965b43208c2a",
+  "expected_fixture_sha256": "b5af3d7e6bda9981f39134923b6bc33c61f532ffb66c7a934bf0c051c0b22551",
+  "events": 168,
+  "reads": 88,
+  "writes": 80,
+  "full_memory_neutrality_hash_chain": "f78563e509b762a5fc9cea059bb53b4943e04e5930eb7d45bb591a6ac347ab4c"
+}

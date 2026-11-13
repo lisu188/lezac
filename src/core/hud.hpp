@@ -1,10 +1,39 @@
 #pragma once
 
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
 
 namespace lezac::core {
+
+inline int hudBonusRemaining(uint16_t required, uint16_t collected) {
+    // 31CF..31DA store the low subtraction word, then test it as signed.
+    const auto remaining = std::bit_cast<int16_t>(static_cast<uint16_t>(required - collected));
+    return remaining > 0 ? remaining : 0;
+}
+
+inline int hudDestructionRemaining(uint8_t required, uint8_t current) {
+    // 3218..3240 zero-extend both bytes before the signed word comparison.
+    return current < required ? required - current : 0;
+}
+
+struct HudEnergyBar {
+    uint8_t cached = 255;
+    uint8_t fill = 0;
+    bool painted = false;
+
+    void observe(uint16_t value) {
+        // 7FAF compares the whole scratch word to the cached byte. 568A
+        // skips painting values above 100, even after the cache changed.
+        if (cached == value) return;
+        cached = static_cast<uint8_t>(value);
+        if (value > 100) return;
+        fill = static_cast<uint8_t>(value);
+        painted = true;
+    }
+};
 
 struct HudScoreReel {
     uint32_t value = 0;
@@ -19,17 +48,28 @@ struct HudScoreReel {
         }
     }
 
+    void prepareTargets() {
+        uint32_t remaining = value;
+        std::size_t digit = 0;
+        do {
+            target[digit++] = static_cast<uint16_t>((remaining % 10) * 64);
+            remaining /= 10;
+        } while (remaining != 0 && digit < 8);
+        phase = 1;
+    }
+
+    uint32_t stepsUntilSettled() const {
+        HudScoreReel next = *this;
+        for (uint32_t steps = 0; steps <= 81; ++steps) {
+            if (next.phase >= 2) return steps;
+            next.advance();
+        }
+        throw std::runtime_error("HUD score reel cannot settle within its native cycle");
+    }
+
     void advance() {
         if (phase >= 2) return;
-        if (phase == 0) {
-            uint32_t remaining = value;
-            std::size_t digit = 0;
-            do {
-                target[digit++] = static_cast<uint16_t>((remaining % 10) * 64);
-                remaining /= 10;
-            } while (remaining != 0 && digit < 8);
-            phase = 1;
-        }
+        if (phase == 0) prepareTargets();
         bool changed = false;
         for (std::size_t digit = 0; digit < current.size(); ++digit) {
             if (current[digit] == target[digit]) continue;

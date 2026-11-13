@@ -1,0 +1,24 @@
+{
+  "schema": "lezac-timer-irq-frozen-v1",
+  "files": [
+    {
+      "name": "original.json.gz",
+      "bytes": 191422,
+      "sha256": "95b02e91c25d14508314a103334895e4ee17b3bc816ef7b526d4900ec7252a90"
+    },
+    {
+      "name": "no-read-hooks.json.gz",
+      "bytes": 177107,
+      "sha256": "07c1d15120d04c3a7f48277abf41f2be656e6f6c04f12dcc8ab39c41ce605e4a"
+    }
+  ],
+  "cases": 164,
+  "snapshots": 10545,
+  "instructions": 98,
+  "seeded_inputs": true,
+  "original_calls_stubbed": false,
+  "stack_reads_hooked": false,
+  "read_hook_and_no_hook_cpu_results_identical": true,
+  "natural_timing": false,
+  "whole_game_parity": false
+}

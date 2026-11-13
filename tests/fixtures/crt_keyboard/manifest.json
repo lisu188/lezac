@@ -1,0 +1,131 @@
+{
+  "schema": "lezac-frozen-crt-keyboard-v1",
+  "files": [
+    {
+      "name": "natural.csv.gz",
+      "bytes": 6824,
+      "sha256": "b500ca3889a77a6cd17eda7b40d483fc604e5f9b9b0d609230f4baf18d5f499c"
+    },
+    {
+      "name": "natural-recipe.json",
+      "bytes": 23009,
+      "sha256": "07862091c145f78de07523a623b858746495bdc3d3af7ce0a3263f5aeba8065c"
+    },
+    {
+      "name": "classification.bin.gz",
+      "bytes": 139707,
+      "sha256": "f2b34467ff21284bb8c32597df93b898bf6da73be3747c253cbaa564d1d4e361"
+    },
+    {
+      "name": "classification-origin.json",
+      "bytes": 490,
+      "sha256": "412945dd0906d687770f4f116af32d91c6ce3fe5e555120109e5f473f728fa1f"
+    },
+    {
+      "name": "pending.bin.gz",
+      "bytes": 7467,
+      "sha256": "be646311e2ba64b471e7572ef5bb331b1722d7b57740623141205b0764cb6d04"
+    },
+    {
+      "name": "pending-origin.json",
+      "bytes": 705,
+      "sha256": "5fb5c266c7690112b5f16d70cefc97156fd0fe570eca8b6f042d931d41715c28"
+    }
+  ],
+  "sources": {
+    "tools/crt_keyboard_probe/build.py": "47b36fcfae5c85d7add93d3f20949bd398c561e4610833415fc9304564428500",
+    "tools/crt_keyboard_probe/build_classifier.py": "2ba9f8adce6f4ccf1fb8425f5216b8274d101ae8a7e21cf9b8878be51e522bfc",
+    "tools/crt_keyboard_probe/capture.py": "ae35948da958cb32a36d83e10ccee9368ac387f17524490117b205ab832a149e",
+    "tools/crt_keyboard_probe/clock_hook.patch": "b61aedfbd911f46766bc3c32eb7c12df920ec9eed16928183aadc4732a260e44",
+    "tools/crt_keyboard_probe/dos_time_hook.patch": "7b7b24a70c4a032533eb404d948d27eb36336b5248bb531604d8e4f737c3cd4b",
+    "tools/crt_keyboard_probe/input_route.py": "cb1b2008045403cd1144704b5750912c2910e8e0f200357d8bbf422257180b5e",
+    "tools/crt_keyboard_probe/keyboard_clock_observation.inc": "7fb32b946df39756cbf4fad59ba15ace6383b070976bdd2d54cebeafff1753e3",
+    "tools/crt_keyboard_probe/lezac_clock_observation.h": "5681ec0cda71b73176a4b9119dd572e316e0fe227389af328fd900ab6f36bfc5",
+    "tools/crt_keyboard_probe/lezac_work_probe.h": "32606baf8ddb2cf795224e5b53fbec4375392075d1e02446d4ccadd4f30886d0",
+    "tools/crt_keyboard_probe/mixer_clock_observation.inc": "b997f6b2a762f047b1cb1caa2d8a893039c405fb66f9abd024dc92035fcf0a58",
+    "tools/crt_keyboard_probe/pic_tickers_observation.inc": "0025c8d94219966e73c5d9bca004311de4d0c2335f7f8dfff7b608753486fa72",
+    "tools/crt_keyboard_probe/project.py": "e379d19a3c3a053cabef971d847adb07e7d879e6b1fdcd8d3de6a671e05d35d9",
+    "tools/crt_keyboard_probe/render_clock_observation.inc": "0880a7de2304f89afb07c1feaff97473bd054ef5a37604b0efe51a2b0bff258e",
+    "tools/crt_keyboard_probe/trace.py": "55f5b8f65eaf06651aa6334e705b457a447e57a4b84ee0adc5be2ffe369c56a8",
+    "tools/crt_keyboard_probe/vga_clock_observation.inc": "43f2ce053a4850f23e83111323c1edce8f66a7638758fb57aa48c714f13ec8d3",
+    "tools/original_capture_contract.py": "36e27f3441ae98db6e2a459ca64c561b72c964e1e98de854ca416321c33c33e0",
+    "tools/crt_keyboard_probe/pending_oracle.py": "9ca5e89759f47ab5e8e8e613a72fef4dda852e5d7c13646a58f8e9d3163903cd"
+  },
+  "states": 75,
+  "cases": [
+    {
+      "category": 0,
+      "entry_ip": 765,
+      "states": 11,
+      "irq_boundaries": []
+    },
+    {
+      "category": 2,
+      "entry_ip": 765,
+      "states": 12,
+      "irq_boundaries": []
+    },
+    {
+      "category": 3,
+      "entry_ip": 783,
+      "states": 17,
+      "irq_boundaries": []
+    },
+    {
+      "category": 5,
+      "entry_ip": 783,
+      "states": 20,
+      "irq_boundaries": []
+    },
+    {
+      "category": 1,
+      "entry_ip": 765,
+      "states": 5,
+      "irq_boundaries": []
+    },
+    {
+      "category": 4,
+      "entry_ip": 783,
+      "states": 10,
+      "irq_boundaries": []
+    }
+  ],
+  "cpu_sha256": "93370aee4a8292d33dfb528e98c9c29b4d0aa093dd354ad998ef4902c487fa58",
+  "raw_sample_proofs": [
+    {
+      "name": "main",
+      "ram_sha256": "49ed01493452c600716c06f10f87039e0ffb150e5e6a232f62a72d4823f7e9a4",
+      "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "intro",
+      "ram_sha256": "4b92676b4eabf175902502fb6687b96d2721ab0d58526cdc4ebc70900f8ed4dc",
+      "png_sha256": "f54e34ed6f4cbf7b23e7784cfdfcb60ba180c9d421c5781b9f680128e523bc22",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "gameplay",
+      "ram_sha256": "2c3fed8a5172ae99c71bdffbec48aa4ffcfab2bf6394b87e07fbf359751ec3cb",
+      "png_sha256": "701789a1e171e791cbe0d3136e9a9522ae07225b2cd78536347f596ad1f1d3bf",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "gameplay-middle",
+      "ram_sha256": "d443fd1a63fe20156a64512f4a9941736530eb3e6350fa8832d5d1750117fdab",
+      "png_sha256": "8452ac22ab8c9e2a2ebe64bdaec5dc93a1c463e308f812a5af71d3b3818a4086",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "search-end",
+      "ram_sha256": "ef635e419a9b4ee6393785817c508c8135581999caf6f299db412bd588f5b985",
+      "png_sha256": "aea45746de3b094a843593a68ee32d6bda36146318ba7c5b1d42a0a156e687b0",
+      "code_bytes_verified": 43552
+    }
+  ],
+  "raw_memory_published": false,
+  "raw_memory_available_to_frozen_checker": false,
+  "irq_eligibility_claim": false,
+  "whole_game_parity": false,
+  "pending_oracle_projection_sha256": "bee3faf3b021dd807e27c49e23449a7106ba0619c8cd7b4613108308c4514195"
+}

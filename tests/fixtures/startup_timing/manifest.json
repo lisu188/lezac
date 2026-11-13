@@ -1,0 +1,559 @@
+{
+  "schema": 1,
+  "original_executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "unicorn": "2.1.4",
+  "producer_sha256": "d655eebceec7e4c71e1121d2b080576857d7ad723ee62cf793450c4469386aab",
+  "relocated_image_sha256": "3ce03c5434d54490e663ef405457fc665dbf87cdf956056eac823733f95d5102",
+  "code_bytes_verified": 43552,
+  "entry_ip": 9343,
+  "arithmetic_entry_ip": 9464,
+  "retry_ip": 9365,
+  "function_end_exclusive": 9605,
+  "function_sha256": "b7855833fe06eaa5c0f79d8bc11fbf8ed4c9c454892aa8c7341aa1c6832d3ca4",
+  "complete_function_executed": true,
+  "original_calls_stubbed": false,
+  "instruction_patches": 0,
+  "scripted_dos_time_service": true,
+  "crt_calibration_word_seeded": 544,
+  "com1_base_byte_seeded": 248,
+  "natural_startup_claim": false,
+  "frame_timing_claim": false,
+  "whole_game_parity": false,
+  "elapsed_inputs": 65536,
+  "accepted_inputs": 299,
+  "full_records_sha256": "6d0377dff5751bfee4284270b1d69771282a955437bbdabdc4b8d5d4db6a8bc1",
+  "gate_bits_sha256": "f8f08bb4e30fac392aef7858ea9acac15b0c3d36b46c40bec73466414907ea2b",
+  "accepted_words_sha256": "5b0219a2f7787988fb313178312e41b4e65a81dd9296a5e2c9889ac5ec229f2e",
+  "cases": [
+    {
+      "name": "captured99",
+      "samples": [
+        {
+          "minute": 22,
+          "second": 43,
+          "hundredth": 41
+        },
+        {
+          "minute": 22,
+          "second": 44,
+          "hundredth": 40
+        }
+      ],
+      "events": [
+        {
+          "kind": "crt_delay",
+          "argument": 500
+        },
+        {
+          "kind": "dos_time",
+          "minute": 22,
+          "second": 43,
+          "hundredth": 41
+        },
+        {
+          "kind": "crt_delay",
+          "argument": 1000
+        },
+        {
+          "kind": "dos_time",
+          "minute": 22,
+          "second": 44,
+          "hundredth": 40
+        }
+      ],
+      "character_delay": 81,
+      "auxiliary_delay": 16,
+      "minimum_word": 2
+    },
+    {
+      "name": "captured98",
+      "samples": [
+        {
+          "minute": 23,
+          "second": 56,
+          "hundredth": 41
+        },
+        {
+          "minute": 23,
+          "second": 57,
+          "hundredth": 39
+        }
+      ],
+      "events": [
+        {
+          "kind": "crt_delay",
+          "argument": 500
+        },
+        {
+          "kind": "dos_time",
+          "minute": 23,
+          "second": 56,
+          "hundredth": 41
+        },
+        {
+          "kind": "crt_delay",
+          "argument": 1000
+        },
+        {
+          "kind": "dos_time",
+          "minute": 23,
+          "second": 57,
+          "hundredth": 39
+        }
+      ],
+      "character_delay": 82,
+      "auxiliary_delay": 16,
+      "minimum_word": 2
+    },
+    {
+      "name": "zero_retry",
+      "samples": [
+        {
+          "minute": 1,
+          "second": 2,
+          "hundredth": 3
+        },
+        {
+          "minute": 1,
+          "second": 2,
+          "hundredth": 3
+        },
+        {
+          "minute": 22,
+          "second": 43,
+          "hundredth": 41
+        },
+        {
+          "minute": 22,
+          "second": 44,
+          "hundredth": 40
+        }
+      ],
+      "events": [
+        {
+          "kind": "crt_delay",
+          "argument": 500
+        },
+        {
+          "kind": "dos_time",
+          "minute": 1,
+          "second": 2,
+          "hundredth": 3
+        },
+        {
+          "kind": "crt_delay",
+          "argument": 1000
+        },
+        {
+          "kind": "dos_time",
+          "minute": 1,
+          "second": 2,
+          "hundredth": 3
+        },
+        {
+          "kind": "dos_time",
+          "minute": 22,
+          "second": 43,
+          "hundredth": 41
+        },
+        {
+          "kind": "crt_delay",
+          "argument": 1000
+        },
+        {
+          "kind": "dos_time",
+          "minute": 22,
+          "second": 44,
+          "hundredth": 40
+        }
+      ],
+      "character_delay": 81,
+      "auxiliary_delay": 16,
+      "minimum_word": 2
+    },
+    {
+      "name": "hour_retry",
+      "samples": [
+        {
+          "minute": 59,
+          "second": 59,
+          "hundredth": 98
+        },
+        {
+          "minute": 0,
+          "second": 0,
+          "hundredth": 97
+        },
+        {
+          "minute": 23,
+          "second": 56,
+          "hundredth": 41
+        },
+        {
+          "minute": 23,
+          "second": 57,
+          "hundredth": 39
+        }
+      ],
+      "events": [
+        {
+          "kind": "crt_delay",
+          "argument": 500
+        },
+        {
+          "kind": "dos_time",
+          "minute": 59,
+          "second": 59,
+          "hundredth": 98
+        },
+        {
+          "kind": "crt_delay",
+          "argument": 1000
+        },
+        {
+          "kind": "dos_time",
+          "minute": 0,
+          "second": 0,
+          "hundredth": 97
+        },
+        {
+          "kind": "dos_time",
+          "minute": 23,
+          "second": 56,
+          "hundredth": 41
+        },
+        {
+          "kind": "crt_delay",
+          "argument": 1000
+        },
+        {
+          "kind": "dos_time",
+          "minute": 23,
+          "second": 57,
+          "hundredth": 39
+        }
+      ],
+      "character_delay": 82,
+      "auxiliary_delay": 16,
+      "minimum_word": 2
+    },
+    {
+      "name": "upper_retry",
+      "samples": [
+        {
+          "minute": 1,
+          "second": 2,
+          "hundredth": 3
+        },
+        {
+          "minute": 1,
+          "second": 5,
+          "hundredth": 3
+        },
+        {
+          "minute": 22,
+          "second": 43,
+          "hundredth": 41
+        },
+        {
+          "minute": 22,
+          "second": 44,
+          "hundredth": 40
+        }
+      ],
+      "events": [
+        {
+          "kind": "crt_delay",
+          "argument": 500
+        },
+        {
+          "kind": "dos_time",
+          "minute": 1,
+          "second": 2,
+          "hundredth": 3
+        },
+        {
+          "kind": "crt_delay",
+          "argument": 1000
+        },
+        {
+          "kind": "dos_time",
+          "minute": 1,
+          "second": 5,
+          "hundredth": 3
+        },
+        {
+          "kind": "dos_time",
+          "minute": 22,
+          "second": 43,
+          "hundredth": 41
+        },
+        {
+          "kind": "crt_delay",
+          "argument": 1000
+        },
+        {
+          "kind": "dos_time",
+          "minute": 22,
+          "second": 44,
+          "hundredth": 40
+        }
+      ],
+      "character_delay": 81,
+      "auxiliary_delay": 16,
+      "minimum_word": 2
+    },
+    {
+      "name": "tie128",
+      "samples": [
+        {
+          "minute": 1,
+          "second": 2,
+          "hundredth": 0
+        },
+        {
+          "minute": 1,
+          "second": 3,
+          "hundredth": 28
+        }
+      ],
+      "events": [
+        {
+          "kind": "crt_delay",
+          "argument": 500
+        },
+        {
+          "kind": "dos_time",
+          "minute": 1,
+          "second": 2,
+          "hundredth": 0
+        },
+        {
+          "kind": "crt_delay",
+          "argument": 1000
+        },
+        {
+          "kind": "dos_time",
+          "minute": 1,
+          "second": 3,
+          "hundredth": 28
+        }
+      ],
+      "character_delay": 63,
+      "auxiliary_delay": 13,
+      "minimum_word": 2
+    },
+    {
+      "name": "maximum299",
+      "samples": [
+        {
+          "minute": 1,
+          "second": 2,
+          "hundredth": 0
+        },
+        {
+          "minute": 1,
+          "second": 4,
+          "hundredth": 99
+        }
+      ],
+      "events": [
+        {
+          "kind": "crt_delay",
+          "argument": 500
+        },
+        {
+          "kind": "dos_time",
+          "minute": 1,
+          "second": 2,
+          "hundredth": 0
+        },
+        {
+          "kind": "crt_delay",
+          "argument": 1000
+        },
+        {
+          "kind": "dos_time",
+          "minute": 1,
+          "second": 4,
+          "hundredth": 99
+        }
+      ],
+      "character_delay": 27,
+      "auxiliary_delay": 5,
+      "minimum_word": 2
+    },
+    {
+      "name": "negative_retry",
+      "samples": [
+        {
+          "minute": 1,
+          "second": 2,
+          "hundredth": 0
+        },
+        {
+          "minute": 1,
+          "second": 1,
+          "hundredth": 0
+        },
+        {
+          "minute": 22,
+          "second": 43,
+          "hundredth": 41
+        },
+        {
+          "minute": 22,
+          "second": 44,
+          "hundredth": 40
+        }
+      ],
+      "events": [
+        {
+          "kind": "crt_delay",
+          "argument": 500
+        },
+        {
+          "kind": "dos_time",
+          "minute": 1,
+          "second": 2,
+          "hundredth": 0
+        },
+        {
+          "kind": "crt_delay",
+          "argument": 1000
+        },
+        {
+          "kind": "dos_time",
+          "minute": 1,
+          "second": 1,
+          "hundredth": 0
+        },
+        {
+          "kind": "dos_time",
+          "minute": 22,
+          "second": 43,
+          "hundredth": 41
+        },
+        {
+          "kind": "crt_delay",
+          "argument": 1000
+        },
+        {
+          "kind": "dos_time",
+          "minute": 22,
+          "second": 44,
+          "hundredth": 40
+        }
+      ],
+      "character_delay": 81,
+      "auxiliary_delay": 16,
+      "minimum_word": 2
+    },
+    {
+      "name": "word_wrap_accepted",
+      "samples": [
+        {
+          "minute": 0,
+          "second": 0,
+          "hundredth": 0
+        },
+        {
+          "minute": 10,
+          "second": 55,
+          "hundredth": 37
+        }
+      ],
+      "events": [
+        {
+          "kind": "crt_delay",
+          "argument": 500
+        },
+        {
+          "kind": "dos_time",
+          "minute": 0,
+          "second": 0,
+          "hundredth": 0
+        },
+        {
+          "kind": "crt_delay",
+          "argument": 1000
+        },
+        {
+          "kind": "dos_time",
+          "minute": 10,
+          "second": 55,
+          "hundredth": 37
+        }
+      ],
+      "character_delay": 8000,
+      "auxiliary_delay": 1600,
+      "minimum_word": 200
+    },
+    {
+      "name": "word_wrap_zero_retry",
+      "samples": [
+        {
+          "minute": 0,
+          "second": 0,
+          "hundredth": 0
+        },
+        {
+          "minute": 10,
+          "second": 55,
+          "hundredth": 36
+        },
+        {
+          "minute": 22,
+          "second": 43,
+          "hundredth": 41
+        },
+        {
+          "minute": 22,
+          "second": 44,
+          "hundredth": 40
+        }
+      ],
+      "events": [
+        {
+          "kind": "crt_delay",
+          "argument": 500
+        },
+        {
+          "kind": "dos_time",
+          "minute": 0,
+          "second": 0,
+          "hundredth": 0
+        },
+        {
+          "kind": "crt_delay",
+          "argument": 1000
+        },
+        {
+          "kind": "dos_time",
+          "minute": 10,
+          "second": 55,
+          "hundredth": 36
+        },
+        {
+          "kind": "dos_time",
+          "minute": 22,
+          "second": 43,
+          "hundredth": 41
+        },
+        {
+          "kind": "crt_delay",
+          "argument": 1000
+        },
+        {
+          "kind": "dos_time",
+          "minute": 22,
+          "second": 44,
+          "hundredth": 40
+        }
+      ],
+      "character_delay": 81,
+      "auxiliary_delay": 16,
+      "minimum_word": 2
+    }
+  ]
+}

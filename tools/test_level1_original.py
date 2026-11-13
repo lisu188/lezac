@@ -21,6 +21,9 @@ EXPECTED = {
     "walk": (41, "191010fa2371444334cfa67f208db50aeb15a5d07a721884fa1447b9dd651fcd"),
     "bomb": (297, "976f37c43b608d770d183d811893daa7ba12415b9382e7f89ecf24bedfdc3ca6"),
     "objective": (237, "57c305f8c8277e72419b473b62e2db3c4d2e90040e24e049241f0d876e6fec77"),
+    "held_fire": (497, "29fc2da3226326443e8990f85be601bbdb4acf693fc5bef09d8e50737484252f"),
+    "rapid_fire": (297, "28d7f1ba6f8164d417cf85cce910d3abbd9108469e241aeb63e40bbe7408b6f8"),
+    "completion_gate": (305, "18c029dcc107cf95b088a914cf60aa05fd30fbaf26501e3b2367ee91cd96ace8"),
 }
 EXE: Path | None = None
 
@@ -37,6 +40,20 @@ def pinned_fixture(name: str, path: Path | None = None) -> None:
     fidelity.require(header["source_sha256"] == expected["source_sha256"], "capture source provenance changed")
     fidelity.require(header["settings"]["ticks"] - original.PREFIX_TICKS == EXPECTED[name][0], "original route length changed")
     fidelity.require(original.fingerprint(path) == expected["canonical_sha256"] == EXPECTED[name][1], "original observations differ from pinned independent capture")
+
+
+def completion_gate_timing(rows: list[dict]) -> None:
+    observations = [row for row in rows if row.get("phase") in ("present", "post_update") and row["tick"] >= 4]
+    fidelity.require(len(observations) == 610, "incomplete completion-gate observations")
+    for row in observations:
+        expected = row["tick"] == 308 and row["phase"] == "post_update"
+        state = row["state"]
+        fidelity.require(bool(state["flow"][4]) == expected, "results started outside the original completion gate")
+        fidelity.require(state["logic_tick"] == row["tick"] - 3, "completion route gameplay clock changed")
+        if expected:
+            fidelity.require(not state["collapse"] and len(state["debris"]) == 37,
+                             "completion did not use the empty-collapse/live-debris boundary")
+    fidelity.require(rows[-1]["level1_route_complete"] is False, "gate-only route unexpectedly claims a level handoff")
 
 
 class OriginalTests(unittest.TestCase):
@@ -81,6 +98,157 @@ class OriginalTests(unittest.TestCase):
 
     def test_pinned_original_walk(self):
         pinned_fixture("walk")
+
+    def test_reserves_are_raw_bytes_not_total_lives(self):
+        image = original.check_executable(ROOT / "LEZAC.EXE")
+        self.assertEqual(image[0x2F5F:0x2F69].hex(), "c606ea7902c606eb7902")
+        for name in EXPECTED:
+            initial = (FIXTURES / name / "initial-ds.bin").read_bytes()
+            self.assertEqual(initial[0x79EA:0x79EC], b"\x02\x02")
+        player = dict(x=104, y=168, vx8=0, vy8=0, frac_x=0, frac_y=0,
+                      animation=[], health=[100, 2], inventory=[], hud_score=[])
+        state = dict(players=[player], logic_tick=0, random_seed=0,
+                     tiles_hex="", words_hex="", progress=[0, 0], hud=[])
+        for reserve in (2, 1, 0, -1):
+            player["health"][1] = reserve
+            self.assertEqual(original.project_cpp(state, 1)["players"][0]["reserve"], reserve & 255)
+
+    def test_original_death_hud_cache(self):
+        image = original.check_executable(ROOT / "LEZAC.EXE")
+        for offset, instructions in {
+            0x7F40: "8b3e822080bde57901",  # global state 1 gate
+            0x7F97: "8a85861b30e4a37420",  # actor energy to scratch word
+            0x30D9: "89167420",  # death helper leaves objective count
+            0x3134: "26c6452464",  # actor energy reset, independently of HUD
+            0x7FB3: "8a85eb7930e43b067420741c",  # byte cache vs whole word
+            0x7FC6: "8885eb79",  # cache low byte
+            0x568A: "8b0e742083f9647722",  # unsigned >100 skips painting
+        }.items():
+            with self.subTest(offset=hex(offset)):
+                self.assertEqual(image[offset:offset + len(instructions) // 2].hex(), instructions)
+        pinned_fixture("held_fire")
+        samples = {r["cpp_tick"]: r for r in original.reference_rows(FIXTURES / "held_fire")
+                   if r["kind"] == "sample"}
+        expected = [(4, "rendered", 0, 100, 255, 0, 2),
+                    (274, "post", 2, 100, 1, 60, 2),
+                    (275, "rendered", 2, 100, 1, 60, 2),
+                    (275, "post", 2, 100, 100, 59, 2),
+                    (334, "post", 0, 96, 96, 0, 1),
+                    (359, "post", 2, 100, 1, 60, 1),
+                    (419, "post", 0, 96, 96, 0, 0),
+                    (444, "post", 2, 100, 1, 60, 0),
+                    (500, "post", 2, 100, 100, 4, 0)]
+        for tick, phase, behavior, energy, cached, countdown, reserve in expected:
+            with self.subTest(tick=tick, phase=phase):
+                state = samples[tick][phase]
+                raw = bytes.fromhex(state["players"][0]["raw"])
+                globals_ = bytes.fromhex(state["globals"])
+                self.assertEqual((raw[21], raw[36], globals_[0x4C], original.word(raw, 16), globals_[0x4A]),
+                                 (behavior, energy, cached, countdown, reserve))
+        dying = 0
+        for tick, sample in samples.items():
+            raw = bytes.fromhex(sample["rendered"]["players"][0]["raw"])
+            cached = bytes.fromhex(sample["rendered"]["globals"])[0x4C]
+            rgb = sample["rgb"]
+            start = (165 * 320 + 1) * 3
+            bar = [rgb[i:i + 3] for i in range(start, start + 300, 3)]
+            fill = 0 if cached == 255 else cached
+            with self.subTest(tick=tick):
+                self.assertLessEqual(fill, 100)
+                self.assertEqual(bar[:fill], [b"\xff\xff\x55"] * fill)
+                self.assertEqual(sum(pixel == b"\xff\xff\x55" for pixel in bar), fill)
+                background = b"\xb6\xb6\xb6" if cached == 255 else b"\x00\x00\xaa"
+                self.assertEqual(bar[fill:], [background] * (100 - fill))
+                if raw[21] == 2:
+                    dying += 1
+                    self.assertIn(cached, (1, 100))
+                    self.assertGreaterEqual(raw[22], 0x4A)
+                    self.assertLessEqual(raw[22], 0x4F)
+        self.assertEqual((len(samples), dying), (497, 176))
+
+    def test_original_ammunition_panel_precedes_player_fire(self):
+        image = original.check_executable(ROOT / "LEZAC.EXE")
+        for offset, instructions in {
+            0x7C49: "8b3e822080bd751b007623",  # inventory dirty gate
+            0x7C54: "8b3e822080bde579017518",  # global state 1 gate
+            0x7C74: "e8f7b5",  # call 326E before reentry and player actors
+            0x3283: "8a85731b",  # selected weapon
+            0x329D: "8a85671b",  # selected inventory byte
+            0x3327: "c685751b00",  # clear inventory dirty flag
+            0x332C: "807efe637604c646fe63",  # unsigned count clamped to 99
+        }.items():
+            with self.subTest(offset=hex(offset)):
+                self.assertEqual(image[offset:offset + len(instructions) // 2].hex(), instructions)
+        pinned_fixture("rapid_fire")
+        samples = {r["cpp_tick"]: r for r in original.reference_rows(FIXTURES / "rapid_fire")
+                   if r["kind"] == "sample"}
+        for tick, before, after in ((270, 101, 100), (271, 100, 99), (272, 99, 98), (273, 98, 97)):
+            self.assertEqual(bytes.fromhex(samples[tick]["rendered"]["inventory"])[0], before)
+            self.assertEqual(bytes.fromhex(samples[tick]["post"]["inventory"])[0], after)
+
+        def panel(tick):
+            rgb = samples[tick]["rgb"]
+            return b"".join(rgb[(y * 320 + 119) * 3:(y * 320 + 139) * 3] for y in range(181, 190))
+
+        # The stored inventory is 98 at tick 273, but the already-painted panel
+        # still has the 99 sampled before tick 272's player fire.
+        self.assertEqual(panel(272), panel(273))
+        self.assertNotEqual(panel(273), panel(274))
+
+    def test_original_completion_flags_and_collapse_gate(self):
+        image = original.check_executable(ROOT / "LEZAC.EXE")
+        for offset, instructions in {
+            0x79E8: "a0b5793a06b6797509a188203b068a207406680fcbe884b7",
+            0x2BA9: "c7067e20c700",  # inclusive debris index starts at 199
+            0x31D6: "837efe007f0a31c08946fec606c57901",
+            0x323B: "31c08946fec606c67901",
+            0x324D: "803ec579007416803ec67900740f6ae0bfb21a1e57bfae1a1e57e82bd2",
+            0x8283: "803ec579007425803ec67900741e833e8020007517",
+        }.items():
+            with self.subTest(offset=hex(offset)):
+                self.assertEqual(image[offset:offset + len(instructions) // 2].hex(), instructions)
+        pinned_fixture("completion_gate")
+        samples = {row["cpp_tick"]: row for row in original.reference_rows(FIXTURES / "completion_gate")
+                   if row["kind"] == "sample"}
+        eligible = []
+        previous = [0, 0]
+        for tick, sample in samples.items():
+            raw = bytes.fromhex(sample["post"]["globals"])
+            flags = list(raw[0x25:0x27])
+            progress = bytes.fromhex(sample["post"]["progress"])
+            self.assertTrue(all(current >= before for current, before in zip(flags, previous)))
+            previous = flags
+            if flags == [1, 1] and original.word(progress, 10) == 0:
+                eligible.append(tick)
+        self.assertEqual(eligible, [308])
+        for tick, flags, percent, collapse in ((273, [1, 0], 40, 3), (303, [1, 1], 51, 3),
+                                               (307, [1, 1], 51, 2), (308, [1, 1], 51, 0)):
+            raw = samples[tick]["post"]
+            globals_ = bytes.fromhex(raw["globals"])
+            progress = bytes.fromhex(raw["progress"])
+            self.assertEqual((list(globals_[0x25:0x27]), globals_[0x15], original.word(progress, 10)),
+                             (flags, percent, collapse))
+            self.assertEqual(original.word(progress, 8), 236)
+            self.assertEqual(original.word(bytes.fromhex(raw["destruction"]), 2), 34)
+
+    def test_completion_timing_rejects_early_late_and_live_collapse(self):
+        if EXE is None:
+            self.skipTest("--exe required")
+        candidate = self.root / "gate-cpp"
+        fidelity.record(EXE, ROOT, FIXTURES / "completion_gate/route.txt", candidate, original_intro_wait=True)
+        report = original.compare(FIXTURES / "completion_gate", candidate)
+        self.assertEqual((report["status"], report["frames"], report["states"], report["differing_pixels"]),
+                         ("match", 305, 610, 0))
+        rows = list(fidelity.trace_rows(candidate))
+        completion_gate_timing(rows)
+        for tick, active, live_collapse in ((273, 1, False), (308, 0, False), (308, 1, True)):
+            changed = copy.deepcopy(rows)
+            row = next(row for row in changed if row.get("phase") == "post_update" and row["tick"] == tick)
+            row["state"]["flow"][4] = active
+            if live_collapse:
+                row["state"]["collapse"].append([0] * 15)
+            with self.subTest(tick=tick, active=active, live_collapse=live_collapse), self.assertRaises(ValueError):
+                completion_gate_timing(changed)
 
     def test_capture_rejects_inconsistent_evidence(self):
         mutations = []
@@ -141,9 +309,20 @@ class OriginalTests(unittest.TestCase):
         if EXE is None:
             self.skipTest("--exe required")
         candidate = self.root / "cpp"
-        fidelity.record(EXE, ROOT, self.source / "route.txt", candidate)
+        fidelity.record(EXE, ROOT, self.source / "route.txt", candidate, original_intro_wait=True)
         report = original.compare(self.source, candidate)
         self.assertEqual((report["status"], report["frames"], report["states"], report["differing_pixels"]), ("match", 41, 82, 0))
+        cpp_rows = list(fidelity.trace_rows(candidate))
+        self.assertEqual(cpp_rows[0]["input_model"], "sdl-events-original-intro-wait-v1")
+        self.assertEqual((candidate / "route.txt").read_bytes(), (self.source / "route.txt").read_bytes())
+        post = {row["tick"]: row for row in cpp_rows if row.get("phase") == "post_update"}
+        self.assertEqual([post[tick]["time_ms"] for tick in (1, 2, 3, 4)], [0, 40, 81, 122])
+        gameplay = next(row for row in cpp_rows if row.get("phase") == "post_update" and row["tick"] == 4)
+        self.assertEqual([p["health"][1] for p in gameplay["state"]["players"]], [2, 2])
+        projection = original.project_cpp(gameplay["state"], 1)
+        extra_life = copy.deepcopy(gameplay["state"])
+        extra_life["players"][0]["health"][1] += 1
+        self.assertNotEqual(projection, original.project_cpp(extra_life, 1))
         target = self.clone()
         rows = copy.deepcopy(self.rows)
         pixels = list(original.reference_rows(self.source))[1]["rgb"]
@@ -178,15 +357,17 @@ def main() -> int:
         pinned_fixture(args.case)
         with tempfile.TemporaryDirectory(prefix="lezac-level1-parity-") as directory:
             output = Path(directory) / "cpp"
-            fidelity.record(EXE, ROOT, FIXTURES / args.case / "route.txt", output)
+            fidelity.record(EXE, ROOT, FIXTURES / args.case / "route.txt", output, original_intro_wait=True)
             report = original.compare(FIXTURES / args.case, output)
+            if args.case == "completion_gate":
+                completion_gate_timing(list(fidelity.trace_rows(output)))
             print(json.dumps(report, sort_keys=True))
             fidelity.require(report["status"] == "match", "original Level 1 divergence")
             print(f"level1_original=ok case={args.case} frames={report['frames']} pixels={report['pixels']} differing_pixels=0")
         return 0
     result = unittest.TextTestRunner(verbosity=2).run(unittest.defaultTestLoader.loadTestsFromTestCase(OriginalTests))
     if result.wasSuccessful() and not result.skipped:
-        print(f"level1_original_guard=ok tests={result.testsRun} mutations=16 fullframe=1 late_validation=1")
+        print(f"level1_original_guard=ok tests={result.testsRun} mutations=19 fullframe=1 late_validation=1 completion_gate=1")
         return 0
     return 1
 

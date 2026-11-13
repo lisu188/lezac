@@ -1,0 +1,4358 @@
+{
+  "admissions": 240,
+  "bomb_animation_implicit_static": true,
+  "boundary_registers_verified": true,
+  "cases": 480,
+  "cases_in_order": [
+    {
+      "category": 0,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 0,
+      "output_bytes": 13,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 1,
+      "output_bytes": 20,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 29,
+      "output_bytes": 209,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 0,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 13,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 0,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 1,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 2,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 3,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 0,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 1,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 305419896,
+      "sprite": 90
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 80
+    },
+    {
+      "category": 4,
+      "count": 30,
+      "output_bytes": 216,
+      "pattern": 2,
+      "pickups": 14,
+      "seed": 4294967295,
+      "sprite": 90
+    }
+  ],
+  "categories": [
+    "effect",
+    "marker",
+    "monster",
+    "reward",
+    "static_bomb"
+  ],
+  "complete_random_constructor_and_animation_helpers": true,
+  "compressed_sha256": "7439d7b682f0b7927d0eb2c4914b8f537b0d4634c155f7b806d566a0c76fa3e2",
+  "entry_anchor": "1000:6D81",
+  "entry_bytes_sha256": "361243c87d22b18dcde990025dc20068ef1ab40e4f297f2264835f6ee2649892",
+  "executor": "Unicorn 2.1.4",
+  "exit_anchor": "1000:6E01",
+  "full_actor_fields_compared": false,
+  "full_pool_attempts": 120,
+  "generator_sha256": "3e3aa504e8cdca8aa08b0351beb897c5ab5c80f29a469e0c491e7a9ab3077075",
+  "hardware_io_permitted": false,
+  "native_descriptor_fixture_sha256": "8604621c87c91e23bbe02f66cedfb312fd95b2c5a5cc429b0eca37872345f55e",
+  "natural_full_pool_pickup_reachability_proven": false,
+  "original_calls_stubbed": false,
+  "original_exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "original_instructions_patched": false,
+  "output_bytes": 79320,
+  "outputs_sha256": "a6e62f1397c08c90a4b1f88d45a66add2e883f5b8bc6ce8856c73cc5a55e09d1",
+  "pickup_cap_skips": 120,
+  "record_format": "count BYTE, pickup-count BYTE, RNG DWORD, seven animation BYTEs per live actor in pool order",
+  "schema": "lezac.original-pickup-post-init.v1",
+  "sound_parity_claim": false,
+  "visual_parity_claim": false,
+  "whole_game_complete": false
+}

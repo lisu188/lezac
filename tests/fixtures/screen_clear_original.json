@@ -1,0 +1,127 @@
+{
+  "schema": "lezac-original-interrupted-screen-clear-v1",
+  "passed": true,
+  "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "dosbox_sha256": "9213fb131e11cb195bdff40c24513740ce497c5caf1cef1900ad1faad5c5026b",
+  "regrader_sha256": "e29540261c7198339c4ac10820132eecf39a64cbc4c76c4a02e76198184aac30",
+  "source": "CS:07c5..07f7, interrupted REP STOSB at CS:07ec; keyboard far return CS:114c",
+  "masks": 0,
+  "inference_is_not_rng_alignment": true,
+  "original_port_runtime_parity": false,
+  "interrupt_schedule_proven": false,
+  "complete_frame_sequence_claim": false,
+  "cases": [
+    {
+      "name": "rank8-r2",
+      "rgb_file": "screen_clear_rank8_r2.rgb",
+      "rgb_sha256": "ec6141f83ac7cab9bc86bd7f8e1deb1db32c54499b74bd8c144ed9272bfbe2a9",
+      "observation_pauses": 0,
+      "source_report_sha256": "d54fd3a7a032a8779b2e5f8418d1da8d4e29fc25fa35fdecbc588861ec651f51",
+      "archive_sha256": "4045c1b321310a2c1164b877aa7a6f4080137ebc69b91e98ea96b683a4ab1e9c",
+      "horizontal_step": 24,
+      "vertical_step": 5,
+      "colors": [
+        {
+          "r": 8,
+          "g": 56,
+          "b": 32
+        },
+        {
+          "r": 8,
+          "g": 56,
+          "b": 44
+        },
+        {
+          "r": 12,
+          "g": 60,
+          "b": 60
+        },
+        {
+          "r": 16,
+          "g": 65,
+          "b": 77
+        },
+        {
+          "r": 16,
+          "g": 65,
+          "b": 93
+        },
+        {
+          "r": 20,
+          "g": 69,
+          "b": 109
+        },
+        {
+          "r": 24,
+          "g": 73,
+          "b": 125
+        }
+      ],
+      "destination_offset": 33705,
+      "columns_remaining": 215,
+      "row_start": 33600,
+      "rows_remaining": 95,
+      "interrupted_ip": 2028,
+      "keyboard_return_ip": 4428,
+      "fault_cs": 2048,
+      "fault_ip": 63129,
+      "fault_bytes": "ffff"
+    },
+    {
+      "name": "rank8-r3",
+      "rgb_file": "screen_clear_rank8_r3.rgb",
+      "rgb_sha256": "206807a2f2404076b7328ee27ce82060f34944ee2d4a7af5b3d0d0eb1af5b8dd",
+      "observation_pauses": 1,
+      "source_report_sha256": "411ca7d85d429deb5e09eb02a2be626ce81cdb4f9ea25ab13bbcd1f6084c89fa",
+      "archive_sha256": "9ce8b02421326293712da0b40391ea2d0bd79150a4e0aab56fb53a8230850244",
+      "horizontal_step": 72,
+      "vertical_step": 63,
+      "colors": [
+        {
+          "r": 44,
+          "g": 20,
+          "b": 48
+        },
+        {
+          "r": 52,
+          "g": 32,
+          "b": 56
+        },
+        {
+          "r": 65,
+          "g": 44,
+          "b": 65
+        },
+        {
+          "r": 77,
+          "g": 56,
+          "b": 73
+        },
+        {
+          "r": 85,
+          "g": 73,
+          "b": 85
+        },
+        {
+          "r": 97,
+          "g": 85,
+          "b": 93
+        },
+        {
+          "r": 109,
+          "g": 97,
+          "b": 101
+        }
+      ],
+      "destination_offset": 33705,
+      "columns_remaining": 215,
+      "row_start": 33600,
+      "rows_remaining": 95,
+      "interrupted_ip": 2028,
+      "keyboard_return_ip": 4428,
+      "fault_cs": 2048,
+      "fault_ip": 63129,
+      "fault_bytes": "ffff"
+    }
+  ]
+}

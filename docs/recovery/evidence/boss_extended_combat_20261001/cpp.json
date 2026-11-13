@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "exit_code": 0,
+  "stdout": "boss_extended_combat_original=ok cases=1 samples=3200 actor_states=12615 link_states=10284 effect_states=9465 views=15 compared_pixels=711360 different_pixels=0 seeded_case_boundary=1 per_tick_actor_seed=0 whole_game_parity=0 player_dying_states=600 player_waiting_states=140 shared_counter_steps=140 restarts=0 zero_reserve=0 input_reentry=1 key_events=266 bomb_states=3721 shots=96 reentries=10 head_health_modified=0 seeded_bomb=0 physical_keyboard=0 defeat_sample=1714 cleanup_sample=1833\n",
+  "stderr": "",
+  "source_sha256": "d07c7060ea9791a632f6186667fb49a277608f79d542d5bb8cb9c7261229d48d",
+  "source_lf_sha256": "d61797a55493431814023e65cbb2d9cb1d10a620c07f553e5636695c69c095a2",
+  "executable_sha256": "e211c5d46a1cdfb61c561d42d38c6e9d188952dcccbdc808202ecb4c43ae011c",
+  "trace_sha256": "1e5425c095ac833b577647d63b6aebd3a8803fbc6eef348ac7903f951ee27ce9",
+  "audio": "dummy",
+  "video": "dummy",
+  "production_replay": true,
+  "natural_campaign": false,
+  "physical_keyboard": false,
+  "whole_game_parity": false
+}

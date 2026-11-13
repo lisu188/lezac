@@ -19,6 +19,18 @@ int main() {
     using lezac::core::kBackgroundW;
     using lezac::core::kTileSize;
 
+    static_assert(lezac::core::dosTimeRandomSeed(0, 0, 0, 0) == 0);
+    static_assert(lezac::core::dosTimeRandomSeed(23, 59, 59, 99) == 0x3b63173bu);
+    static_assert(lezac::core::dosTimeRandomSeed(13, 30, 18, 23) == 0x12170d1eu);
+    for (uint8_t hour = 0; hour < 24; ++hour)
+        for (uint8_t minute = 0; minute < 60; ++minute)
+            if (lezac::core::dosTimeRandomSeed(hour, minute, 0, 0) !=
+                (uint32_t(hour) << 8 | minute)) return 1;
+    for (uint8_t second = 0; second < 60; ++second)
+        for (uint8_t hundredth = 0; hundredth < 100; ++hundredth)
+            if (lezac::core::dosTimeRandomSeed(0, 0, second, hundredth) !=
+                (uint32_t(second) << 24 | uint32_t(hundredth) << 16)) return 1;
+
     if (kTileSize != 8 || kBackgroundW != 320 || kBackgroundH != 200) return 1;
 
     if (countsForDestructionProgress(0, 108) ||
@@ -54,11 +66,19 @@ int main() {
     Fixed8_8Axis wholeNegative;
     for (int i = 0; i < 4; ++i) integrateFixed8_8(wholeNegative, -256);
 
+    // Native actor adapters narrow words; the generic core position stays 32-bit.
+    Fixed8_8Axis upperWordBoundary{32760, 165};
+    integrateFixed8_8(upperWordBoundary, 32767);
+    Fixed8_8Axis lowerWordBoundary{-32760, 165};
+    integrateFixed8_8(lowerWordBoundary, -32768);
+
     if (positive.position != 1 || positive.fraction != 0 ||
         negativeOnce.position != -1 || negativeOnce.fraction != 192 ||
         negativeFour.position != -1 || negativeFour.fraction != 0 ||
         wholePositive.position != 4 || wholePositive.fraction != 0 ||
-        wholeNegative.position != -4 || wholeNegative.fraction != 0) {
+        wholeNegative.position != -4 || wholeNegative.fraction != 0 ||
+        upperWordBoundary.position != 32888 || upperWordBoundary.fraction != 164 ||
+        lowerWordBoundary.position != -32888 || lowerWordBoundary.fraction != 165) {
         return 1;
     }
 

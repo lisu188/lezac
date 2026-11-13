@@ -1,0 +1,69 @@
+{
+  "status": "observed",
+  "version": "cpp",
+  "audio": "dummy",
+  "gameplay_seeded": false,
+  "delay_gates": false,
+  "physical_keys": true,
+  "manual_input": false,
+  "events": [
+    {
+      "kind": "press",
+      "key": "Return",
+      "seconds": 14.319158541999059
+    },
+    {
+      "kind": "press",
+      "key": "1",
+      "seconds": 16.863011936016846
+    }
+  ],
+  "captures": [
+    {
+      "name": "menu-ready",
+      "seconds": 14.018855936010368,
+      "full_menu": true,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "after-return-0.05",
+      "seconds": 14.410986194008728,
+      "full_menu": true,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "after-return-0.2",
+      "seconds": 14.560896714014234,
+      "full_menu": true,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "after-return-0.5",
+      "seconds": 14.861419257998932,
+      "full_menu": true,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "after-return-1.0",
+      "seconds": 15.362937964004232,
+      "full_menu": true,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "after-return-2.5",
+      "seconds": 16.862621064006817,
+      "full_menu": true,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "fresh-one-intro-control",
+      "seconds": 16.904462828009855,
+      "full_menu": false,
+      "pixel_sha256": "f622828a2a9488070d9521953a47f12e2d13bc273de9e5a331f12402632c92fe"
+    }
+  ],
+  "observer_sha256": "0ce460582d38c1cbdd5332db4c8340c3425b1c23fc19700939a8fc1a44d08b16",
+  "exe_sha256": "57da6e289bb8f02b3944b25910ac7ef3edc215b18a37569cb5fef6d7edad2a7a",
+  "positive_selection_control": true,
+  "child_exit_code": 0
+}

@@ -1,0 +1,66 @@
+--- a/src/hardware/pic.cpp
++++ b/src/hardware/pic.cpp
+@@ -28,5 +28,6 @@
+ #include "timer.h"
+ #include "setup.h"
++#include "../cpu/lezac_clock_observation.h"
+ 
+ #define PIC_QUEUESIZE 512
+ 
+@@ -72,6 +73,29 @@
+ 	PICEntry * next_entry;
+ } pic_queue;
+ 
++void LezacReadPicClock(LezacClockObservation& result) {
++	result.pending = PIC_IRQCheck;
++	result.active = PIC_IRQActive;
++	result.active_lines = result.masked_lines = result.inservice_lines = 0;
++	for (unsigned i = 0; i < 16; ++i) {
++		if (irqs[i].active) result.active_lines |= Bitu(1) << i;
++		if (irqs[i].masked) result.masked_lines |= Bitu(1) << i;
++		if (irqs[i].inservice) result.inservice_lines |= Bitu(1) << i;
++	}
++	result.special = PIC_Special_Mode;
++	result.auto_eoi = pics[0].auto_eoi;
++	result.irq0_vector = irqs[0].vector;
++	result.queue_count = 0;
++	result.queue_overflow = false;
++	for (PICEntry* entry = pic_queue.next_entry; entry; entry = entry->next) {
++		if (result.queue_count == 64) { result.queue_overflow = true; break; }
++		auto& item = result.queue[result.queue_count++];
++		std::memcpy(&item.index_bits, &entry->index, sizeof(item.index_bits));
++		item.kind = LezacClockIsPit0(entry->pic_event) ? 1 : LezacClockVgaKind(entry->pic_event);
++		item.value = entry->value;
++	}
++}
++
+ static void write_command(Bitu port,Bitu val,Bitu iolen) {
+ 	PIC_Controller * pic=&pics[port==0x20 ? 0 : 1];
+ 	Bitu irq_base=port==0x20 ? 0 : 8;
+--- a/src/hardware/timer.cpp
++++ b/src/hardware/timer.cpp
+@@ -27,5 +27,6 @@
+ #include "timer.h"
+ #include "setup.h"
++#include "../cpu/lezac_clock_observation.h"
+ 
+ static INLINE void BIN2BCD(Bit16u& val) {
+ 	Bit16u temp=val%10 + (((val/10)%10)<<4)+ (((val/100)%10)<<8) + (((val/1000)%10)<<12);
+@@ -79,6 +80,17 @@
+ 	}
+ }
+ 
++bool LezacClockIsPit0(PIC_EventHandler handler) {
++	return handler == PIT0_Event;
++}
++void LezacReadPit0(LezacClockObservation& result) {
++	result.pit_count = pit[0].cntr;
++	result.pit_mode = pit[0].mode;
++	result.pit_update = pit[0].update_count;
++	std::memcpy(&result.pit_delay_bits, &pit[0].delay, sizeof(result.pit_delay_bits));
++	std::memcpy(&result.pit_start_bits, &pit[0].start, sizeof(result.pit_start_bits));
++}
++
+ static bool counter_output(Bitu counter) {
+ 	PIT_Block * p=&pit[counter];
+ 	double index=PIC_FullIndex()-p->start;

@@ -1,0 +1,133 @@
+{
+  "status": "failed",
+  "version": "cpp",
+  "audio": "dummy",
+  "gameplay_seeded": false,
+  "delay_gates": false,
+  "physical_keys": true,
+  "manual_input": false,
+  "events": [
+    {
+      "kind": "press",
+      "key": "down:Alt_L",
+      "seconds": 13.956335914990632
+    },
+    {
+      "kind": "press",
+      "key": "raw:87",
+      "seconds": 14.021699705976062
+    },
+    {
+      "kind": "press",
+      "key": "raw:82",
+      "seconds": 14.153348157997243
+    },
+    {
+      "kind": "press",
+      "key": "raw:86",
+      "seconds": 14.284491742000682
+    },
+    {
+      "kind": "press",
+      "key": "raw:63",
+      "seconds": 14.41558245397755
+    },
+    {
+      "kind": "press",
+      "key": "raw:106",
+      "seconds": 14.546621486981167
+    },
+    {
+      "kind": "press",
+      "key": "raw:104",
+      "seconds": 14.677698410989251
+    },
+    {
+      "kind": "press",
+      "key": "raw:91",
+      "seconds": 14.809359312988818
+    },
+    {
+      "kind": "press",
+      "key": "raw:80",
+      "seconds": 14.940435217984486
+    },
+    {
+      "kind": "press",
+      "key": "up:Alt_L",
+      "seconds": 15.071519851975609
+    }
+  ],
+  "captures": [
+    {
+      "name": "menu-ready",
+      "seconds": 13.65204731997801,
+      "full_menu": true,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "after-choice-0.05",
+      "seconds": 15.21416610199958,
+      "full_menu": true,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "after-choice-0.2",
+      "seconds": 15.366492640983779,
+      "full_menu": true,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "after-choice-0.5",
+      "seconds": 15.663863253983436,
+      "full_menu": true,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "after-choice-1.0",
+      "seconds": 16.16466090999893,
+      "full_menu": true,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "after-choice-2.5",
+      "seconds": 17.664427737996448,
+      "full_menu": true,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    }
+  ],
+  "observer_sha256": "f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598",
+  "probe_keys": [
+    "down:Alt_L",
+    "raw:87",
+    "raw:82",
+    "raw:86",
+    "raw:63",
+    "raw:106",
+    "raw:104",
+    "raw:91",
+    "raw:80",
+    "up:Alt_L"
+  ],
+  "expected_after_input": "english",
+  "stage": "ready",
+  "settled_skip_check": false,
+  "queue_change_allowed": false,
+  "exe_sha256": "7e83d43c39db5d06c9888361a7ba8d0f825e57253a87569ff5f6a0e8a7a746ac",
+  "x_keyboard_before": "Keyboard Control:\n  auto repeat:  on    key click percent:  0    LED mask:  00000000\n  XKB indicators:\n    00: Caps Lock:   off    01: Num Lock:    off    02: Scroll Lock: off\n    03: Compose:     off    04: Kana:        off    05: Sleep:       off\n    06: Suspend:     off    07: Mute:        off    08: Misc:        off\n    09: Mail:        off    10: Charging:    off    11: Shift Lock:  off\n    12: Group 2:     off    13: Mouse Keys:  off\n  auto repeat delay:  660    repeat rate:  25\n  auto repeating keys:  00ffffffdffffbbf\n                        fadfffefffedffff\n                        9fffffffffffffff\n                        fff7ffffffffffff\n  bell percent:  50    bell pitch:  400    bell duration:  100\nPointer Control:\n  acceleration:  2/1    threshold:  4\nScreen Saver:\n  prefer blanking:  yes    allow exposures:  yes\n  timeout:  600    cycle:  600\nColors:\n  default colormap:  0x20    BlackPixel:  0x0    WhitePixel:  0xffffff\nFont Path:\n  /usr/share/fonts/X11/misc,/usr/share/fonts/X11/cyrillic,/usr/share/fonts/X11/Type1,built-ins\nDPMS (Display Power Management Signaling):\n  Server does not have the DPMS Extension\n",
+  "x_keyboard_after": "Keyboard Control:\n  auto repeat:  on    key click percent:  0    LED mask:  00000000\n  XKB indicators:\n    00: Caps Lock:   off    01: Num Lock:    off    02: Scroll Lock: off\n    03: Compose:     off    04: Kana:        off    05: Sleep:       off\n    06: Suspend:     off    07: Mute:        off    08: Misc:        off\n    09: Mail:        off    10: Charging:    off    11: Shift Lock:  off\n    12: Group 2:     off    13: Mouse Keys:  off\n  auto repeat delay:  660    repeat rate:  25\n  auto repeating keys:  00ffffffdffffbbf\n                        fadfffefffedffff\n                        9fffffffffffffff\n                        fff7ffffffffffff\n  bell percent:  50    bell pitch:  400    bell duration:  100\nPointer Control:\n  acceleration:  2/1    threshold:  4\nScreen Saver:\n  prefer blanking:  yes    allow exposures:  yes\n  timeout:  600    cycle:  600\nColors:\n  default colormap:  0x20    BlackPixel:  0x0    WhitePixel:  0xffffff\nFont Path:\n  /usr/share/fonts/X11/misc,/usr/share/fonts/X11/cyrillic,/usr/share/fonts/X11/Type1,built-ins\nDPMS (Display Power Management Signaling):\n  Server does not have the DPMS Extension\n",
+  "error": "probe keys did not reach the completed English menu",
+  "child_exit_code": 0
+}

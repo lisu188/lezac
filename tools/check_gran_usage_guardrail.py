@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 import tempfile
 
-from source_guardrails import source_files, mask_cpp, DEFINITION, function_ranges as cpp_function_ranges
+from source_guardrails import source_files, mask_cpp, function_ranges as cpp_function_ranges
 
 
 DEBUG_FUNCTIONS = (
@@ -69,65 +69,32 @@ def direct_class_lines(text: str, class_name: str) -> set[int]:
     return lines
 
 
-def session_initializer_lines(text: str) -> set[int]:
-    """Only the borrowed bank initializer in the actual GameSession constructor."""
-    masked = mask_cpp(text)
-    constructors = list(re.finditer(
-        r"(?m)^GameSession::GameSession\(const AssetCatalog& assets,\s*"
-        r"sound::SoundEngine& sound,\s*core::TurboRandom& random\)\s*:\s*"
-        r"(?P<initializers>[^;{}]*)\{", masked))
-    if len(constructors) != 1:
-        raise RuntimeError("expected one GameSession asset constructor")
-    constructor = constructors[0]
-    initializers = constructor.group("initializers")
-    aliases = list(re.finditer(r"\bgran_\(assets\.gran\(\)\)", initializers))
-    if len(aliases) != 1:
-        raise RuntimeError("expected one GameSession GRAN catalog initializer")
-    alias = aliases[0]
-    start = constructor.start("initializers") + alias.start()
-    number = masked.count("\n", 0, start) + 1
-    line = masked.splitlines()[number - 1]
-    remainder = line.replace(alias.group(), "", 1)
-    if "gran_" in remainder or re.search(r"(?:\.|->|::)\s*gran\b", remainder):
-        raise RuntimeError("unexpected GameSession GRAN constructor reference")
-    return {number}
-
-
-def live_consumer_ranges(source, composed: bool) -> dict[str, tuple[int, int]]:
-    if "runtime" not in source.roles:
-        return {}
-    ranges = cpp_function_ranges(source.text, LIVE_FUNCTIONS)
-    if not composed or not ranges:
-        return ranges
-    definitions = [match for match in DEFINITION.finditer(mask_cpp(source.text))
-                   if match.group("name").rsplit("::", 1)[-1] in LIVE_FUNCTIONS]
-    if (source.relative == "src/gameplay/game_session_boss.cpp"
-            and len(definitions) == 1
-            and definitions[0].group("name") == "GameSession::spawnLevel7Boss"):
-        return ranges
-    # This transitional diagnostic adapter forwards to the owning session. It
-    # grants no permission to read GRAN here or to add another implementation.
-    if source.relative == "src/app/app.cpp" and "diagnostics" in source.roles:
-        start, end = ranges["spawnLevel7Boss"]
-        body = "\n".join(source.text.splitlines()[start - 1:end]).strip()
-        if body == "void spawnLevel7Boss() { gameplayReplay_.spawnLevel7Boss(); }":
-            return {}
-    raise RuntimeError(f"{source.relative}: unexpected live GRAN consumer owner")
-
-
-def check_source(root: Path) -> tuple[int, int, int, int, int, int, int, int, int]:
+def check_source(root: Path) -> tuple[int, int, int, int, int, int, int]:
     sources = source_files(root, roles=("runtime", "diagnostics", "dispatch"))
-    composed = any(source.relative == "src/gameplay/game_session.hpp" for source in sources)
-    session_member_refs = session_init_refs = 0
+    composed = any(source.relative == "src/gameplay/gameplay_operations.cpp" for source in sources)
     found_debug = set()
     found_live = set()
     source_refs = load_refs = debug_refs = member_refs = live_consumer_refs = 0
     accessor_refs = alias_refs = json_load_refs = original_load_refs = 0
     live_refs: list[str] = []
+    operation_members = operation_aliases = 0
     for source in sources:
         lines = source.text.splitlines()
         ranges = function_ranges(lines) if "diagnostics" in source.roles else {}
-        live_ranges = live_consumer_ranges(source, composed)
+        live_ranges = function_ranges(lines, LIVE_FUNCTIONS) if "runtime" in source.roles else {}
+        if composed and live_ranges:
+            if source.relative == "src/app/app.cpp":
+                start, end = live_ranges["spawnLevel7Boss"]
+                forwarding = "\n".join(lines[start - 1:end]).strip()
+                if forwarding != "void spawnLevel7Boss() { return gameplayReplay_.spawnLevel7Boss(); }":
+                    raise RuntimeError("unexpected App GRAN adapter implementation")
+                live_ranges = {}
+            elif source.relative == "src/gameplay/gameplay_operations.cpp":
+                masked = mask_cpp(source.text)
+                if len(re.findall(r"(?m)^void GameplayOperations::spawnLevel7Boss\(\)\s*\{", masked)) != 1:
+                    raise RuntimeError("unexpected composed GRAN consumer owner")
+            else:
+                raise RuntimeError("unexpected composed GRAN consumer source")
         if found_debug.intersection(ranges) or found_live.intersection(live_ranges):
             raise RuntimeError(f"{source.relative}: duplicate GRAN consumer definition")
         found_debug.update(ranges)
@@ -135,14 +102,16 @@ def check_source(root: Path) -> tuple[int, int, int, int, int, int, int, int, in
         runtime = "runtime" in source.roles
         catalog_header = runtime and source.relative == "src/resources/asset_catalog.hpp"
         app_source = runtime and source.relative == "src/app/app.cpp"
-        session_header = composed and runtime and source.relative == "src/gameplay/game_session.hpp"
-        members = direct_class_lines(source.text, "AssetCatalog" if catalog_header else "GameSession" if session_header else "App")
-        initializers = session_initializer_lines(source.text) if composed and runtime and source.relative == "src/gameplay/game_session.cpp" else set()
+        members = direct_class_lines(source.text, "AssetCatalog" if catalog_header else "App")
+        operation_header = composed and runtime and source.relative == "src/gameplay/gameplay_operations.hpp"
+        operation_lines = direct_class_lines(source.text, "GameplayOperations") if operation_header else set()
         catalog_load = {}
         if runtime and source.relative == "src/resources/asset_catalog.cpp":
             require(source.text, "AssetCatalog AssetCatalog::load(AssetFormat format)", "catalog:loader")
             catalog_load = cpp_function_ranges(source.text, ("load",))
         for line_number, line in enumerate(lines, start=1):
+            if re.fullmatch(r'\s*#\s*include\s*[<"][^>"]+[>"]\s*', line):
+                continue
             if "gran_" not in line and not re.search(r"(?:\.|->|::)\s*gran\b", line):
                 continue
             source_refs += 1
@@ -159,10 +128,14 @@ def check_source(root: Path) -> tuple[int, int, int, int, int, int, int, int, in
                 accessor_refs += 1
             elif app_source and line_number in members and declaration == "const GranBank& gran_ = assets_.gran();":
                 alias_refs += 1
-            elif session_header and line_number in members and declaration == "const GranBank& gran_;":
-                session_member_refs += 1
-            elif line_number in initializers:
-                session_init_refs += 1
+            elif operation_header and line_number in operation_lines and declaration == "const GranBank& gran_;":
+                operation_members += 1
+            elif (composed and runtime and source.relative == "src/gameplay/gameplay_operations.cpp"
+                  and declaration == "gran_(assets_.gran()),"):
+                constructors = list(re.finditer(r"(?m)^GameplayOperations::GameplayOperations\(GameplayServices services\)\s*:\s*([^{};]*)\{", mask_cpp(source.text)))
+                if len(constructors) != 1 or not (constructors[0].start() <= source.text.index(line) < constructors[0].end()):
+                    raise RuntimeError("unexpected composed GRAN constructor alias")
+                operation_aliases += 1
             elif in_range(line_number, ranges):
                 debug_refs += 1
             elif in_range(line_number, live_ranges):
@@ -185,10 +158,35 @@ def check_source(root: Path) -> tuple[int, int, int, int, int, int, int, int, in
             f"original_load={original_load_refs} member={member_refs} "
             f"accessor={accessor_refs} alias={alias_refs}"
         )
-    expected_session = (1, 1) if composed else (0, 0)
-    if (session_member_refs, session_init_refs) != expected_session:
-        raise RuntimeError(f"unexpected GameSession GRAN ownership counts: member={session_member_refs} initializer={session_init_refs}")
-    return source_refs, load_refs, debug_refs, member_refs, live_consumer_refs, accessor_refs, alias_refs, session_member_refs, session_init_refs
+    if composed:
+        if (operation_members, operation_aliases) != (1, 1):
+            raise RuntimeError("unexpected composed GRAN ownership counts")
+        check_session_ownership(root)
+    return source_refs, load_refs, debug_refs, member_refs, live_consumer_refs, accessor_refs, alias_refs
+
+
+def check_session_ownership(root: Path) -> None:
+    session = mask_cpp((root / "src/gameplay/game_session.hpp").read_text())
+    replay = mask_cpp((root / "src/diagnostics/gameplay/gameplay_replay.hpp").read_text())
+    operations = mask_cpp((root / "src/gameplay/gameplay_operations.hpp").read_text())
+    if not re.search(r"class GameSession final\s*:\s*private detail::GameplayOperations\s*\{", session):
+        raise RuntimeError("live session must privately own its operation base")
+    if not re.search(r"class GameplayReplay final\s*:\s*private gameplay::detail::GameplayOperations\s*\{", replay):
+        raise RuntimeError("diagnostic replay must privately own a separate operation base")
+    if "GameplayReplay" in session or re.search(r"\bfriend\b", session + operations):
+        raise RuntimeError("diagnostic access cannot expose live session storage")
+    if "GameplayFixture& fixture()" in session:
+        raise RuntimeError("live session cannot return mutable fixture storage")
+    for signature in (
+        "GameplayOperations(const GameplayOperations&) = delete;",
+        "GameplayOperations& operator=(const GameplayOperations&) = delete;",
+        "GameplayOperations(GameplayOperations&&) = delete;",
+        "GameplayOperations& operator=(GameplayOperations&&) = delete;",
+    ):
+        require(operations, signature, "owned operation aliases")
+    protected = re.search(r"class GameplayOperations\s*\{\s*protected:", operations)
+    if not protected or "public:" in operations[protected.end():]:
+        raise RuntimeError("operation storage and mutable helpers must remain protected")
 
 
 def check_cmake(root: Path) -> int:
@@ -335,34 +333,12 @@ def write_source(root: Path, live_line: str = "", include_debug: bool = True) ->
     )))
 
 
-def write_composed_source(root: Path) -> None:
-    write_source(root)
-    app = root / "src/app/app.cpp"
-    app.write_text(app.read_text().replace(
-        "    void spawnLevel7Boss() {\n        auto records = gran_.records;\n    }",
-        "    void spawnLevel7Boss() { gameplayReplay_.spawnLevel7Boss(); }"))
-    manifest = root / "tools/source_ownership.json"
-    data = json.loads(manifest.read_text())
-    data["owners"]["gameplay"] = {"runtime": [
-        "src/gameplay/game_session.hpp", "src/gameplay/game_session.cpp",
-        "src/gameplay/game_session_boss.cpp", "src/gameplay/extra.cpp"]}
-    manifest.write_text(json.dumps(data))
-    write_text(root / "src/gameplay/game_session.hpp",
-               "class GameSession {\n    const GranBank& gran_;\n};\n")
-    write_text(root / "src/gameplay/game_session.cpp",
-               "GameSession::GameSession(const AssetCatalog& assets, sound::SoundEngine& sound, core::TurboRandom& random)\n"
-               "    : gran_(assets.gran()) {}\n")
-    write_text(root / "src/gameplay/game_session_boss.cpp",
-               "void GameSession::spawnLevel7Boss() {\n    auto records = gran_.records;\n}\n")
-    write_text(root / "src/gameplay/extra.cpp", "")
-
-
 def self_test() -> int:
     with tempfile.TemporaryDirectory(prefix="lezac-gran-guardrail-") as tmp:
         root = Path(tmp)
         write_contract_files(root)
         write_source(root)
-        source_refs, load_refs, debug_refs, member_refs, live_consumer_refs, accessor_refs, alias_refs, session_member_refs, session_init_refs = \
+        source_refs, load_refs, debug_refs, member_refs, live_consumer_refs, accessor_refs, alias_refs = \
             check_source(root)
         if (source_refs, load_refs, debug_refs, member_refs,
                 live_consumer_refs, accessor_refs, alias_refs) != (15, 2, 9, 1, 1, 1, 1):
@@ -398,32 +374,9 @@ def self_test() -> int:
         else:
             raise RuntimeError("selftest missing docs guardrail reference was not rejected")
 
-        write_composed_source(root)
-        result = check_source(root)
-        if result != (17, 2, 9, 1, 1, 1, 1, 1, 1):
-            raise RuntimeError(f"selftest composed source counts mismatch: {result}")
-        mutations = (
-            ("src/gameplay/extra.cpp", "void extra() { auto n = assets.gran().records.size(); }\n"),
-            ("src/gameplay/extra.cpp", "void extra() { const GranBank& gran_ = assets_.gran(); }\n"),
-            ("src/gameplay/extra.cpp", "void GameSession::spawnLevel7Boss() { auto n = gran_.records.size(); }\n"),
-            ("src/gameplay/game_session_boss.cpp", "void ForgedSession::spawnLevel7Boss() { auto records = gran_.records; }\n"),
-            ("src/gameplay/game_session.hpp", "class GameSession {\n    void extra() { const GranBank& gran_; }\n};\n"),
-            ("src/gameplay/game_session.cpp", "GameSession::GameSession(const AssetCatalog& assets, sound::SoundEngine& sound, core::TurboRandom& random)\n"
-             "    : gran_(assets.gran()) {}\nvoid extra() { gran_(assets.gran()); }\n"),
-        )
-        for relative, mutation in mutations:
-            write_composed_source(root)
-            write_text(root / relative, mutation)
-            try:
-                check_source(root)
-            except RuntimeError:
-                pass
-            else:
-                raise RuntimeError(f"selftest composed GRAN mutation was not rejected: {relative}")
-
     print(
         "gran_usage_guardrail_selftest=ok "
-        "positive=1 live_ref=1 missing_debug=1 docs=1 composed=1 composed_mutations=6"
+        "positive=1 live_ref=1 missing_debug=1 docs=1"
     )
     return 0
 
@@ -444,7 +397,7 @@ def main() -> int:
         return self_test()
 
     root = args.root.resolve()
-    source_refs, load_refs, debug_refs, member_refs, live_consumer_refs, accessor_refs, alias_refs, session_member_refs, session_init_refs = \
+    source_refs, load_refs, debug_refs, member_refs, live_consumer_refs, accessor_refs, alias_refs = \
         check_source(root)
     ctest = check_cmake(root)
     docs = check_docs(root)
@@ -454,8 +407,7 @@ def main() -> int:
         f"debug_refs={debug_refs} member_refs={member_refs} "
         f"live_consumer_refs={live_consumer_refs} "
         f"live_refs=0 ctest={ctest} docs={docs} "
-        f"accessor_refs={accessor_refs} alias_refs={alias_refs} "
-        f"session_member_refs={session_member_refs} session_init_refs={session_init_refs}"
+        f"accessor_refs={accessor_refs} alias_refs={alias_refs}"
     )
     return 0
 

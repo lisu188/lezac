@@ -1,0 +1,39 @@
+{
+  "status": "failed",
+  "version": "original",
+  "audio": "dummy",
+  "gameplay_seeded": false,
+  "delay_gates": false,
+  "physical_keys": true,
+  "manual_input": false,
+  "events": [],
+  "captures": [
+    {
+      "name": "typing-checkpoint",
+      "seconds": 3.629215705994284,
+      "full_menu": false,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "262a264357582a0f87f81e27e2751990890d1c24f36fea2fe018a2198e05a621"
+    }
+  ],
+  "observer_sha256": "f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598",
+  "probe_keys": [
+    "down:Control_L",
+    "raw:104",
+    "up:Control_L"
+  ],
+  "expected_after_input": "skip",
+  "stage": "typing",
+  "settled_skip_check": true,
+  "queue_change_allowed": false,
+  "resident_segment": 402,
+  "resident_mcb": "4d92010001000000524e475741544348",
+  "code_segment": 685,
+  "data_segment": 3407,
+  "temporary_gate_sha256": "33f358eeae0fd697d30d357c9963841763a53106a59e407689e34d24fa6ac02c",
+  "dosbox_sha256": "9213fb131e11cb195bdff40c24513740ce497c5caf1cef1900ad1faad5c5026b",
+  "error": "unexpected original clock boundary",
+  "hooks_restored": 1,
+  "child_exit_code": 0
+}

@@ -12,7 +12,10 @@ The executable SHA-256 is
 
 - `6C25..6C5B` passes the player's cached integer pixels to constructor
   `2F9F`. Launch velocity is signed `vx * 3 / 2` (truncate toward zero),
-  `vy - 500`; the constructor clamps both to `+/-0x07FF` and clears fractions.
+  `vy - 500`. The multiply and subtraction wrap as WORDs before the constructor;
+  its signed WORD absolute-value clamp preserves `-32768` but limits other
+  out-of-range values to `+/-0x07FF`, and it clears fractions. The later
+  [word-boundary correction](bomb_launch_word_2026-10-08.md) records these details.
 - The constructor uses sprite descriptor `weapon + 57`, corresponding to
   zero-based `BOMOMIMK.SPR` indices 57, 58, 59, 60. Their dimensions are
   8x8, 13x13, 16x16, 16x16. The former medium/large indices 59/60 were wrong.

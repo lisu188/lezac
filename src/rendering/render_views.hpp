@@ -1,13 +1,18 @@
 #pragma once
 
 #include "gameplay/actor_models.hpp"
+#include "gameplay/actor_storage.hpp"
 #include "core/hud.hpp"
+#include "rendering/hud_ammo.hpp"
+#include "rendering/viewport_layout.hpp"
 #include "resources/levels.hpp"
 #include "resources/records.hpp"
 #include "ui/models.hpp"
 #include <array>
 #include <string>
 #include <vector>
+
+namespace lezac::gameplay { class MapPlaneMemory; }
 
 namespace lezac::rendering {
 
@@ -17,6 +22,7 @@ struct PlayerRenderView {
     int lives;
     const gameplay::State2VisualCursor& state2Cursor;
     const gameplay::State2EffectEntry& state2Effect;
+    uint8_t globalState = 1; // The original viewport gate; zero retains its VGA view.
 };
 
 // Read-only world data needed for painting. Visual order is prepared by the
@@ -38,14 +44,17 @@ struct WorldRenderView {
     uint16_t cameraShakeOffset;
     bool state2CursorPreview;
     bool state2RowPreview;
+    const ViewportLayout* viewportLayout = nullptr;
+    const gameplay::MapPlaneMemory* mapMemory = nullptr;
+    const gameplay::ActorStorage::State* physicalVisuals = nullptr;
+    bool seededDiagnostic = false;
 };
 
 struct PlayerHudView {
-    int energy;
+    core::HudEnergyBar energy;
     uint32_t score;
     int lives;
-    bool dead;
-    const gameplay::BombInventory& inventory;
+    const HudAmmoPanel& ammo;
 };
 
 struct HudView {
@@ -60,6 +69,7 @@ struct HudView {
     bool outroActive;
     std::array<core::HudScoreReel, 2> scoreReels{};
     std::array<bool, 2> columnReady{};
+    uint8_t spriteInk = 0;  // Original shared DS:661E, owned by App damage-lane memory.
 };
 
 struct MenuView {
@@ -72,6 +82,9 @@ struct MenuView {
     const std::string& pendingName;
     int playerCount;
     std::array<uint32_t, 2> scores;
+    uint8_t mainMenuFade = 63;
+    size_t mainMenuSteps = static_cast<size_t>(-1);
+    ui::LevelIntroPattern endScreenPattern{};
 };
 
 struct OutroView {

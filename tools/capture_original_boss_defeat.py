@@ -13,6 +13,7 @@ import sys
 import time
 
 import capture_original_behavior4_lockstep as environment
+import capture_original_active_fire as active_fire
 import capture_original_death_transients as actors
 from capture_original_bomb_fuses import jump
 import capture_original_player_walk as player
@@ -56,14 +57,20 @@ SAMPLES = 180
 VIEWS = (0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179)
 REENTRY_VIEWS = VIEWS + (199, 239, 259, 279, 319, 379, 419)
 FIRE_REENTRY_VIEWS = (0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 100, 101, 102, 119, 139)
+COMBAT_VIEWS = (0, 1, 15, 16, 20, 39, 59, 99, 199, 399, 599, 799)
+
+
+def combat_fire(sample):
+    return sample >= 16 and (sample - 16) % 24 == 0
 
 
 def capture(pid, base, output, image, near_encounter=False, nonfatal=False, massive=False,
-            reentry_wait=False, run_dir=None, zero_reserve=False, fire_reentry=False):
+            reentry_wait=False, run_dir=None, zero_reserve=False, fire_reentry=False,
+            active_combat=False):
     hooks = REENTRY_HOOKS if reentry_wait else HOOKS
     actors.HOOKS = hooks
     actors.SCRATCH = 0xF800 if reentry_wait else 0xF600
-    massive = massive or reentry_wait
+    massive = massive or (reentry_wait and not active_combat)
     nonfatal = nonfatal or massive
     weapon = 3 if massive else 0
     cases = MASS_CASES[:1] if reentry_wait else MASS_CASES if massive else (IMPACT_CASES if nonfatal else CASES)
@@ -73,9 +80,12 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
         cases = (("zero_reserve_even", 100),)
     if fire_reentry:
         cases, samples, views = (("fire_reentry_even", 100),), 140, FIRE_REENTRY_VIEWS
-    prefix = "boss_mass" if massive else ("boss_impact" if nonfatal else "boss_defeat")
+    if active_combat:
+        cases, samples, views = (("latched_fire_even", 100),), 800, COMBAT_VIEWS
+    prefix = "boss_active_combat" if active_combat else "boss_mass" if massive else ("boss_impact" if nonfatal else "boss_defeat")
     windows = WINDOWS | (IMPACT_WINDOWS if nonfatal else {}) | (MASS_WINDOWS if massive else {})
     windows |= REENTRY_WINDOWS if reentry_wait else {}
+    windows |= active_fire.WINDOWS if active_combat else {}
     cs, ds = base + (actors.CS << 4), base + (seeder.RUNTIME_DS << 4)
     with open(f"/proc/{pid}/mem", "r+b", buffering=0) as mem:
         def read(at, size):
@@ -235,12 +245,16 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
         initial_links = read(ds + 0x79FA, 6 * 16)
         initial_player = read(ds + 0x1B88, 38)
         initial_visuals = read(ds + 0xC21E, 9 * 8)
+        provenance = ("capture=boss_active_combat_original_v1 level=7 temp_copy=1 seeded_case_boundary=1"
+                      " head_health_modified=0 seeded_bomb=0 latched_input=1 physical_keyboard=0"
+                      " per_tick_actor_seed=0 natural_campaign=0" if active_combat else
+                      f"capture={prefix}_probe_v1 level=7 temp_copy=1 seeded_case_boundary=1 seeded_head_hp=0 seeded_head_lives={int(nonfatal)} seeded_bomb=1"
+                      + (f" seeded_weapon={weapon}" if massive else "") + " per_tick_actor_seed=0 natural_campaign=0")
         lines = ["# Original continuous gameplay; observed entry state restored only at case boundaries.",
                  f"# natural_idle_warmup_updates={warmup} near_encounter={int(near_encounter)} forced_boss_position=0",
                  "# register_order=cs,ds,es,ss,saved-sp,bp little_endian_words=1",
                  "# executable_sha256=" + hashlib.sha256((ROOT / "LEZAC.EXE").read_bytes()).hexdigest(),
-                 f"capture={prefix}_probe_v1 level=7 temp_copy=1 seeded_case_boundary=1 seeded_head_hp=0 seeded_head_lives={int(nonfatal)} seeded_bomb=1"
-                 + (f" seeded_weapon={weapon}" if massive else "") + " per_tick_actor_seed=0 natural_campaign=0",
+                 provenance,
                  f"map width={width} height={height} bytes={tiles.hex()} words={map_words.hex()}",
                  f"backdrop bytes={render.rle(background)}",
                  f"sprites descriptors={descriptors.hex()}"]
@@ -266,7 +280,10 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
                     f" player_state={read(ds + 0x79E6, 1)[0]} energy={read(ds + 0x79EC, 1)[0]} lives={read(ds + 0x79EA, 1)[0]}"
                     f" actors={','.join(rows) or '-'} flames={flames} globals={read(ds + 0x79C0, 58).hex()}"
                     + (f" fallback={read(ds + 0x79B9, 1)[0]} resets={resets}" if reentry_wait else "")
-                    + (f" active_players={read(ds + 0x79B8, 1)[0]}" if zero_reserve or fire_reentry else ""))
+                    + (f" active_players={read(ds + 0x79B8, 1)[0]}" if zero_reserve or fire_reentry or active_combat else "")
+                    + (f" ammo={read(ds + 0x1B6C, 8).hex()} weapons={read(ds + 0x1B74, 2).hex()}"
+                       f" latches={read(ds + 0x1B7B, 1).hex()}{read(ds + 0x1B80, 1).hex()}"
+                       f" normalized={read(ds + 0x1B82, 5).hex()}" if active_combat else ""))
 
         for name, frame in cases:
             write(objects, tiles)
@@ -289,16 +306,21 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
             write(ds + 0xC49C, b"\x01")
             write(ds + 0x1AFE, struct.pack("<I", 0x12345678))
             write(ds + 0x78C2, struct.pack("<H", frame))
-            write(ds + 0x1BD4 + 2, bytes([int(nonfatal)]))
-            write(ds + 0x1BD4 + 36, bytes(1))
-            head_visual = initial_actors[1]
-            head_x, head_y = struct.unpack_from("<HH", initial_visuals, head_visual * 8)
-            bomb = bytearray(38)
-            bomb[0], bomb[1], bomb[20], bomb[21] = 13 + weapon, 9, 8, 2
-            write(ds + 0x1BAE + 8 * 38, bomb)
-            write(ds + 0xC21E + 9 * 8, struct.pack("<HH", head_x + 16, head_y + 8) + descriptors[(58 + weapon) * 4:(59 + weapon) * 4])
-            write(ds + 0x208D, b"\x08")
-            write(ds + 0xC496, b"\x0a")
+            if active_combat:
+                write(ds + 0x1B7B, b"\x00")
+                write(ds + 0x1B80, b"\x00")
+            else:
+                write(ds + 0x1BD4 + 2, bytes([int(nonfatal)]))
+                write(ds + 0x1BD4 + 36, bytes(1))
+                head_visual = initial_actors[1]
+                head_x, head_y = struct.unpack_from("<HH", initial_visuals, head_visual * 8)
+                bomb = bytearray(38)
+                bomb[0], bomb[1], bomb[20], bomb[21] = 13 + weapon, 9, 8, 2
+                write(ds + 0x1BAE + 8 * 38, bomb)
+                write(ds + 0xC21E + 9 * 8, struct.pack("<HH", head_x + 16, head_y + 8) + descriptors[(58 + weapon) * 4:(59 + weapon) * 4])
+                write(ds + 0x208D, b"\x08")
+                write(ds + 0xC496, b"\x0a")
+            held_fire = False
             lines.append(f"case name={name} frame={frame} regs={struct.pack('<6H', *regs).hex()} " + state())
             output.write_text("\n".join(lines) + "\n", encoding="ascii")
             for sample in range(samples):
@@ -311,7 +333,11 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
                 before = wait(2, allow_view=True)
                 control = "idle"
                 if stopped_stage == 2:
-                    write(ds + 0x1B82, bytes(player.CONTROLS[control]))
+                    normalized = bytearray(player.CONTROLS[control])
+                    if active_combat:
+                        normalized[3] = read(ds + 0x1B85, 1)[0]
+                        control = "fire" if normalized[3] else "idle"
+                    write(ds + 0x1B82, normalized)
                     input_regs = struct.pack('<6H', *before).hex()
                     release(2)
                     view = wait(3)
@@ -333,11 +359,19 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
                     lines.append(f"view sample={sample}" + "".join(f" {key}={value}" for key, value in values.items())
                                  + f" indexed_sha256={hashlib.sha256(pixels).hexdigest()} pixels={render.rle(pixels)}")
                     render.write_preview(output.with_name(f"{output.stem}_{name}_{sample:03d}.ppm"), pixels, 312, 152, (ROOT / "BOMPAL.PAL").read_bytes())
+                if active_combat:
+                    next_fire = combat_fire(sample + 1)
+                    if next_fire != held_fire:
+                        previous = read(ds + 0x1B7B, 1).hex()
+                        write(ds + 0x1B7B, bytes([next_fire]))
+                        lines.append(f"key sample={sample} next_sample={sample + 1} address=1b7b"
+                                     f" before={previous} value={int(next_fire):02x} after_render=1")
+                        held_fire = next_fire
                 release(3)
                 regs = wait(1)
                 if sample % 20 == 19:
                     output.write_text("\n".join(lines) + "\n", encoding="ascii")
-            if reentry_wait and not fire_reentry and (boundary_counts != {4: 230, 5: 1, 6: 1, 7: 1, 8: 1} or resets != 1):
+            if reentry_wait and not (fire_reentry or active_combat) and (boundary_counts != {4: 230, 5: 1, 6: 1, 7: 1, 8: 1} or resets != 1):
                 raise RuntimeError(f"incomplete reentry boundary coverage: {boundary_counts}")
             if fire_reentry and (resets or boundary_counts[4] == 0 or read(ds + 0x79E6, 1) != b"\x01"):
                 raise RuntimeError("input reentry did not resume the player")
@@ -363,16 +397,18 @@ def main():
     mode.add_argument("--reentry-wait", action="store_true", help="one near largest-bomb case through the shared fallback, intro acknowledgement, and 420 rendered frames")
     mode.add_argument("--zero-reserve", action="store_true", help="shared fallback from one reserve life to zero, without eliminating the player")
     mode.add_argument("--fire-reentry", action="store_true", help="seed the fire latch after sample 100's state prepass and capture 140 frames")
+    mode.add_argument("--active-combat", action="store_true", help="800 updates with unchanged boss health and scheduled fire-latch make/break writes; no planted bomb")
     parser.add_argument("--approve-procmem", action="store_true")
     parser.add_argument("--approve-runtime-instrumentation", action="store_true")
     args = parser.parse_args()
-    args.reentry_wait = args.reentry_wait or args.zero_reserve or args.fire_reentry
+    args.reentry_wait = args.reentry_wait or args.zero_reserve or args.fire_reentry or args.active_combat
     if args.reentry_wait:
-        args.mass = True
+        args.mass = not args.active_combat
         args.near_encounter = True
-    prefix = "boss_mass" if args.mass else ("boss_impact" if args.nonfatal else "boss_defeat")
+    prefix = "boss_active_combat" if args.active_combat else "boss_mass" if args.mass else ("boss_impact" if args.nonfatal else "boss_defeat")
     windows = WINDOWS | (IMPACT_WINDOWS if args.nonfatal or args.mass else {}) | (MASS_WINDOWS if args.mass else {})
     windows |= REENTRY_WINDOWS | {0x2C72: INTRO_CALL} if args.reentry_wait else {}
+    windows |= active_fire.WINDOWS if args.active_combat else {}
     exe = (ROOT / "LEZAC.EXE").read_bytes()
     if hashlib.sha256(exe).hexdigest() != "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec":
         raise RuntimeError("original executable hash mismatch")
@@ -389,7 +425,7 @@ def main():
             raise RuntimeError(f"boss instruction mismatch at {at:04x}")
     for stage in range(1, len(actors.HOOKS) + 1):
         actors.trampoline(stage, image)
-    print(f"{prefix}_capture_self_check=ok windows={len(windows)} cases={1 if args.reentry_wait else len(CASES)} samples={140 if args.fire_reentry else 420 if args.reentry_wait else SAMPLES} live=0", flush=True)
+    print(f"{prefix}_capture_self_check=ok windows={len(windows)} cases={1 if args.reentry_wait else len(CASES)} samples={800 if args.active_combat else 140 if args.fire_reentry else 420 if args.reentry_wait else SAMPLES} live=0", flush=True)
     if args.self_check:
         return 0
     if not (args.run_dir and args.out and args.approve_procmem and args.approve_runtime_instrumentation):
@@ -408,7 +444,7 @@ def main():
     def hook(run_dir, pid, base, state, phase):
         if phase == "pre_capture":
             capture(pid, base, args.out, image, args.near_encounter, args.nonfatal, args.mass, args.reentry_wait, run_dir,
-                    args.zero_reserve, args.fire_reentry)
+                    args.zero_reserve, args.fire_reentry, args.active_combat)
         return original(run_dir, pid, base, state, phase)
 
     seeder.write_runtime_state_snapshot = hook

@@ -1,0 +1,493 @@
+Start testing: Oct 01 02:04 CEST
+----------------------------------------------------------
+1/554 Testing: main_menu_models
+1/554 Test: main_menu_models
+Command: "/dev/shm/lezac-main-menu-test-build-20260930/lezac_main_menu_test"
+Directory: /dev/shm/lezac-main-menu-test-build-20260930
+"main_menu_models" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+main_menu=ok cells=9 first_y=77 trail=5 languages=2 timing=1 consumed_keys=1 rollover=1 buffered_keys=1 ignored_choices=33 readiness_modes=3 consumed_enter=1 fresh_choices=2 accepted_choices=7 character_translation=1 case_cancel=1 keypad_locks=1 legacy_aliases=3 physical_controls_unchanged=1
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[main_menu=ok cells=9 first_y=77 trail=5 languages=2 timing=1 consumed_keys=1 rollover=1 buffered_keys=1 ignored_choices=33 readiness_modes=3 consumed_enter=1 fresh_choices=2 accepted_choices=7 character_translation=1 case_cancel=1 keypad_locks=1 legacy_aliases=3 physical_controls_unchanged=1]
+"main_menu_models" end time: Oct 01 02:04 CEST
+"main_menu_models" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/554 Testing: ui_components
+2/554 Test: ui_components
+Command: "/dev/shm/lezac-main-menu-test-build-20260930/lezac_ui_components_test"
+Directory: /dev/shm/lezac-main-menu-test-build-20260930
+"ui_components" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+ui_components=ok input=1 records=1 timing=1 callback_order=1 rng_order=1
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[^ui_components=ok input=1 records=1 timing=1 callback_order=1 rng_order=1]
+"ui_components" end time: Oct 01 02:04 CEST
+"ui_components" time elapsed: 00:00:00
+----------------------------------------------------------
+
+15/554 Testing: main_menu_original
+15/554 Test: main_menu_original
+Command: "/usr/bin/python3" "-B" "/mnt/c/Users/andrz/git/LEZAC/tools/check_main_menu_fixture.py" "--exe" "/dev/shm/lezac-main-menu-test-build-20260930/lezac_main_menu_test"
+Directory: /dev/shm/lezac-main-menu-test-build-20260930
+"main_menu_original" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+main_menu=ok cells=9 first_y=77 trail=5 languages=2 timing=1 consumed_keys=1 rollover=1 buffered_keys=1 ignored_choices=33 readiness_modes=3 consumed_enter=1 fresh_choices=2 accepted_choices=7 character_translation=1 case_cancel=1 keypad_locks=1 legacy_aliases=3 physical_controls_unchanged=1
+main_menu_original=ok frames=16 pixels=1024000 text_steps=313 fade_steps=128 mutations=15 whole_game_parity=0
+<end of output>
+Test time =   0.17 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[main_menu_original=ok frames=16 pixels=1024000 text_steps=313 fade_steps=128 mutations=15 whole_game_parity=0]
+"main_menu_original" end time: Oct 01 02:04 CEST
+"main_menu_original" time elapsed: 00:00:00
+----------------------------------------------------------
+
+16/554 Testing: main_menu_capture_self_check
+16/554 Test: main_menu_capture_self_check
+Command: "/usr/bin/python3" "-B" "/mnt/c/Users/andrz/git/LEZAC/tools/capture_original_main_menu.py" "--self-check"
+Directory: /dev/shm/lezac-main-menu-test-build-20260930
+"main_menu_capture_self_check" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+main_menu_capture_self_check=ok windows=2 arena=4096 fade_zero=1 live=0
+<end of output>
+Test time =   0.12 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[main_menu_capture_self_check=ok windows=2 arena=4096 fade_zero=1 live=0]
+"main_menu_capture_self_check" end time: Oct 01 02:04 CEST
+"main_menu_capture_self_check" time elapsed: 00:00:00
+----------------------------------------------------------
+
+17/554 Testing: source_guardrails_selftest
+17/554 Test: source_guardrails_selftest
+Command: "/usr/bin/python3" "/mnt/c/Users/andrz/git/LEZAC/tools/check_source_guardrails.py"
+Directory: /dev/shm/lezac-main-menu-test-build-20260930
+"source_guardrails_selftest" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+source_guardrails_selftest=ok cases=19 mapped_sources=76
+<end of output>
+Test time =   2.96 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[^source_guardrails_selftest=ok]
+"source_guardrails_selftest" end time: Oct 01 02:04 CEST
+"source_guardrails_selftest" time elapsed: 00:00:02
+----------------------------------------------------------
+
+25/554 Testing: port_completion_status
+25/554 Test: port_completion_status
+Command: "/dev/shm/lezac-main-menu-test-build-20260930/lezac_cpp" "--debug-port-completion-status"
+Directory: /mnt/c/Users/andrz/git/LEZAC
+"port_completion_status" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+subsystem=resource_loading implemented=1 validation=--validate
+subsystem=shipped_file_manifest implemented=1 validation=--debug-shipped-file-manifest
+subsystem=sprites implemented=1 validation=--debug-sprite-raw-roundtrip
+subsystem=background implemented=1 validation=--export-background
+subsystem=palette_fonts implemented=1 validation=--debug-core-resource-raw-roundtrip
+subsystem=levels implemented=1 validation=--debug-level-raw-roundtrip
+subsystem=gran_mst_preservation implemented=1 validation=--debug-gran-raw-roundtrip
+subsystem=sound_playback implemented=1 validation=--debug-sound-render
+subsystem=sound_priority_latch implemented=1 validation=--debug-sound-priority-latch
+subsystem=menu_ui implemented=1 validation=--debug-menu-frame-flow
+subsystem=records implemented=1 validation=--debug-records-raw-roundtrip
+subsystem=record_name_entry implemented=1 validation=--debug-record-name-entry-cursor
+subsystem=player_input implemented=1 validation=--debug-input-fire-key-model
+subsystem=bombs_explosions implemented=1 validation=--debug-autoplayer level1_bomb_route
+subsystem=collapse_playback implemented=1 validation=--debug-autoplayer collapse_playback_route
+subsystem=passable_objects_portals implemented=1 validation=--debug-autoplayer portal_weapon_route
+subsystem=monsters_behaviors implemented=1 validation=--debug-autoplayer monster_behavior4_chase
+subsystem=monster_spawners implemented=1 validation=--debug-autoplayer monster_spawner_cycle
+subsystem=level7_boss implemented=1 validation=--debug-autoplayer boss_level7
+subsystem=player_death_state2 implemented=1 validation=--debug-autoplayer death_reentry
+subsystem=two_player implemented=1 validation=--debug-autoplayer two_player_progression
+subsystem=pause_end_flow implemented=1 validation=--debug-autoplayer pause_flow
+subsystem=autoplayer_frame_harness implemented=1 validation=--capture-frame-sequence
+open_original_evidence_item=natural_forward_debris_writeback_3d2d class=fidelity_verification visual_claim=0
+open_original_evidence_item=exact_explosion_sprite_playback class=fidelity_verification visual_claim=0
+open_original_evidence_item=actor_update_original_contact_semantics class=fidelity_verification visual_claim=0
+open_original_evidence_item=behavior4_motion_runtime_fixture class=fidelity_verification visual_claim=0
+port_completion_status=ok subsystems=23 implemented=23 open_original_evidence_items=4 port_functionally_complete=0 original_fidelity_claim=0
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[port_completion_status=ok subsystems=23 implemented=23 open_original_evidence_items=4 port_functionally_complete=0 original_fidelity_claim=0]
+"port_completion_status" end time: Oct 01 02:04 CEST
+"port_completion_status" time elapsed: 00:00:00
+----------------------------------------------------------
+
+33/554 Testing: ui_controls_dummy
+33/554 Test: ui_controls_dummy
+Command: "/usr/bin/cmake" "-E" "env" "SDL_VIDEODRIVER=dummy" "SDL_AUDIODRIVER=dummy" "/dev/shm/lezac-main-menu-test-build-20260930/lezac_cpp" "--smoke-controls"
+Directory: /mnt/c/Users/andrz/git/LEZAC
+"ui_controls_dummy" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+control_smoke=ok manual_controls=s,e,r fire_keys=n,kp0,insert background_toggle=1 view_width=320->288->320 two_player_width_locked=1 frame_inspection=1 reentry_key_release=1 shared_fire_consumption=1
+<end of output>
+Test time =   0.16 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[^control_smoke=ok manual_controls=s,e,r fire_keys=n,kp0,insert background_toggle=1 view_width=320->288->320 two_player_width_locked=1 frame_inspection=1 reentry_key_release=1 shared_fire_consumption=1]
+"ui_controls_dummy" end time: Oct 01 02:04 CEST
+"ui_controls_dummy" time elapsed: 00:00:00
+----------------------------------------------------------
+
+34/554 Testing: ui_controls_json_dummy
+34/554 Test: ui_controls_json_dummy
+Command: "/usr/bin/cmake" "-E" "env" "SDL_VIDEODRIVER=dummy" "SDL_AUDIODRIVER=dummy" "LEZAC_LOAD_JSON_ASSETS=1" "/dev/shm/lezac-main-menu-test-build-20260930/lezac_cpp" "--smoke-controls"
+Directory: /mnt/c/Users/andrz/git/LEZAC/src
+"ui_controls_json_dummy" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+control_smoke=ok manual_controls=s,e,r fire_keys=n,kp0,insert background_toggle=1 view_width=320->288->320 two_player_width_locked=1 frame_inspection=1 reentry_key_release=1 shared_fire_consumption=1
+<end of output>
+Test time =   0.22 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[^control_smoke=ok .*reentry_key_release=1 shared_fire_consumption=1]
+"ui_controls_json_dummy" end time: Oct 01 02:04 CEST
+"ui_controls_json_dummy" time elapsed: 00:00:00
+----------------------------------------------------------
+
+35/554 Testing: menu_frame_flow_dummy
+35/554 Test: menu_frame_flow_dummy
+Command: "/usr/bin/cmake" "-E" "env" "SDL_VIDEODRIVER=dummy" "SDL_AUDIODRIVER=dummy" "/dev/shm/lezac-main-menu-test-build-20260930/lezac_cpp" "--debug-menu-frame-flow"
+Directory: /mnt/c/Users/andrz/git/LEZAC
+"menu_frame_flow_dummy" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+menu_frame_flow=ok pages=main,info,instructions,records unique_frames=6 gameplay_background_toggle=1 records_sound_cursor=0x0024 records_sound_priority=2 start_game=1 escape_exit=1 frame_inspection=1
+<end of output>
+Test time =   0.16 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[^menu_frame_flow=ok pages=main,info,instructions,records unique_frames=[0-9]+ gameplay_background_toggle=1 records_sound_cursor=0x0024 records_sound_priority=2 start_game=1 escape_exit=1 frame_inspection=1]
+"menu_frame_flow_dummy" end time: Oct 01 02:04 CEST
+"menu_frame_flow_dummy" time elapsed: 00:00:00
+----------------------------------------------------------
+
+36/554 Testing: buffered_menu_repeat_dummy
+36/554 Test: buffered_menu_repeat_dummy
+Command: "/usr/bin/cmake" "-E" "env" "SDL_VIDEODRIVER=dummy" "SDL_AUDIODRIVER=dummy" "/dev/shm/lezac-main-menu-test-build-20260930/lezac_cpp" "--debug-buffered-menu-repeat"
+Directory: /mnt/c/Users/andrz/git/LEZAC
+"buffered_menu_repeat_dummy" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+buffered_menu_repeat=ok players=2 consumed_menu_skip=1 consumed_intro_skip=1 later_repeat_ack=1 modifiers_ignored=1 gameplay_commands_unchanged=1 escape_repeat=1 frame_inspection=1
+<end of output>
+Test time =   0.16 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[^buffered_menu_repeat=ok players=2 consumed_menu_skip=1 consumed_intro_skip=1 later_repeat_ack=1 modifiers_ignored=1 gameplay_commands_unchanged=1 escape_repeat=1 frame_inspection=1]
+"buffered_menu_repeat_dummy" end time: Oct 01 02:04 CEST
+"buffered_menu_repeat_dummy" time elapsed: 00:00:00
+----------------------------------------------------------
+
+101/554 Testing: key_ownership_original
+101/554 Test: key_ownership_original
+Command: "/usr/bin/cmake" "-E" "env" "SDL_VIDEODRIVER=dummy" "SDL_AUDIODRIVER=dummy" "/dev/shm/lezac-main-menu-test-build-20260930/lezac_cpp" "--debug-key-ownership-original" "/mnt/c/Users/andrz/git/LEZAC/tests/fixtures/key_ownership_original_level1.txt"
+Directory: /mnt/c/Users/andrz/git/LEZAC
+"key_ownership_original" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+key_ownership_original=ok cases=21 samples=84 players=2 adapter=1 event_fire=1 single_player_aliases=4 whole_game_parity=0 frame_hash=cb7d13bde661537
+<end of output>
+Test time =   0.16 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[^key_ownership_original=ok cases=21 samples=84 players=2 adapter=1 event_fire=1 single_player_aliases=4 whole_game_parity=0]
+"key_ownership_original" end time: Oct 01 02:04 CEST
+"key_ownership_original" time elapsed: 00:00:00
+----------------------------------------------------------
+
+138/554 Testing: silent_launcher_policy
+138/554 Test: silent_launcher_policy
+Command: "/usr/bin/python3" "/mnt/c/Users/andrz/git/LEZAC/tools/check_silent_launchers.py"
+Directory: /mnt/c/Users/andrz/git/LEZAC
+"silent_launcher_policy" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+silent_launchers=ok shell_policies=13 native_policy=1 child_cases=16 grandchildren=16 games_started=0
+<end of output>
+Test time =   0.63 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[^silent_launchers=ok shell_policies=13 native_policy=1 child_cases=16 grandchildren=16 games_started=0]
+"silent_launcher_policy" end time: Oct 01 02:04 CEST
+"silent_launcher_policy" time elapsed: 00:00:00
+----------------------------------------------------------
+
+288/554 Testing: port_completion_status_checker
+288/554 Test: port_completion_status_checker
+Command: "/usr/bin/python3" "/mnt/c/Users/andrz/git/LEZAC/tools/check_port_completion_status.py" "/mnt/c/Users/andrz/git/LEZAC"
+Directory: /mnt/c/Users/andrz/git/LEZAC
+"port_completion_status_checker" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+port_completion_status_checker=ok subsystems=23 open_items=4 ctest=3 docs=3
+<end of output>
+Test time =   0.40 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[^port_completion_status_checker=ok subsystems=23 open_items=4 ctest=3 docs=3]
+"port_completion_status_checker" end time: Oct 01 02:04 CEST
+"port_completion_status_checker" time elapsed: 00:00:00
+----------------------------------------------------------
+
+292/554 Testing: port_completion_status_checker_selftest
+292/554 Test: port_completion_status_checker_selftest
+Command: "/usr/bin/python3" "/mnt/c/Users/andrz/git/LEZAC/tools/check_port_completion_status.py" "--self-test"
+Directory: /mnt/c/Users/andrz/git/LEZAC
+"port_completion_status_checker_selftest" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+port_completion_status_checker_selftest=ok positive=1 size_mismatch=1 missing_doc_item=1 missing_cmake=1
+<end of output>
+Test time =   0.06 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[^port_completion_status_checker_selftest=ok positive=1 size_mismatch=1 missing_doc_item=1 missing_cmake=1]
+"port_completion_status_checker_selftest" end time: Oct 01 02:04 CEST
+"port_completion_status_checker_selftest" time elapsed: 00:00:00
+----------------------------------------------------------
+
+352/554 Testing: record_name_sound
+352/554 Test: record_name_sound
+Command: "/dev/shm/lezac-main-menu-test-build-20260930/lezac_cpp" "--debug-record-name-sound" "/dev/shm/lezac-main-menu-test-build-20260930/records_name_sound_test.dat"
+Directory: /mnt/c/Users/andrz/git/LEZAC
+"record_name_sound" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+record_name_sound=ok prompt_cursor=0x0078 prompt_priority=11 commit_cursor=0x0008 commit_priority=11 direct_sweep=0 ghidra_prompt=1000:1857 ghidra_commit=1000:1a44 latch=1000:165a
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[^record_name_sound=ok prompt_cursor=0x0078 prompt_priority=11 commit_cursor=0x0008 commit_priority=11 direct_sweep=0 ghidra_prompt=1000:1857 ghidra_commit=1000:1a44 latch=1000:165a]
+"record_name_sound" end time: Oct 01 02:04 CEST
+"record_name_sound" time elapsed: 00:00:00
+----------------------------------------------------------
+
+353/554 Testing: records_page_sound
+353/554 Test: records_page_sound
+Command: "/dev/shm/lezac-main-menu-test-build-20260930/lezac_cpp" "--debug-records-page-sound"
+Directory: /mnt/c/Users/andrz/git/LEZAC
+"records_page_sound" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+records_page_sound=ok cursor=0x0024 priority=2 direct_sweep=0 ghidra=1000:2083 latch=1000:165a string=punteggi_migliori
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[^records_page_sound=ok cursor=0x0024 priority=2 direct_sweep=0 ghidra=1000:2083 latch=1000:165a string=punteggi_migliori]
+"records_page_sound" end time: Oct 01 02:04 CEST
+"records_page_sound" time elapsed: 00:00:00
+----------------------------------------------------------
+
+500/554 Testing: level_intro
+500/554 Test: level_intro
+Command: "/usr/bin/cmake" "-E" "env" "SDL_VIDEODRIVER=dummy" "SDL_AUDIODRIVER=dummy" "/dev/shm/lezac-main-menu-test-build-20260930/lezac_cpp" "--debug-level-intro"
+Directory: /mnt/c/Users/andrz/git/LEZAC
+"level_intro" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+level_intro=ok stripes=7 palette=176-182 exact_hash=0x85e10db60f7e89f9 exact_pixels=55025 caption_pixels=980 delay_ms=81 level_varies=1 live_flow=1 input_skip=1 escape_ack=1 blocking_wait=1 frame_inspection=1
+<end of output>
+Test time =   0.16 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[^level_intro=ok stripes=7 palette=176-182 exact_hash=0x85e10db60f7e89f9 exact_pixels=55025 caption_pixels=980 delay_ms=81 level_varies=1 live_flow=1 input_skip=1 escape_ack=1 blocking_wait=1 frame_inspection=1]
+"level_intro" end time: Oct 01 02:04 CEST
+"level_intro" time elapsed: 00:00:00
+----------------------------------------------------------
+
+544/554 Testing: level1_original_walk
+544/554 Test: level1_original_walk
+Command: "/usr/bin/cmake" "-E" "env" "SDL_VIDEODRIVER=dummy" "SDL_AUDIODRIVER=dummy" "/usr/bin/python3" "/mnt/c/Users/andrz/git/LEZAC/tools/test_level1_original.py" "--exe" "/dev/shm/lezac-main-menu-test-build-20260930/lezac_cpp" "--case" "walk"
+Directory: /mnt/c/Users/andrz/git/LEZAC
+"level1_original_walk" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+{"differing_pixels": 0, "first_divergence": null, "frames": 41, "limits": ["one-controlled-rng-seed-before-level-initialization", "normalized-control-bank-event-injection", "main-routine-paused-while-interrupts-continue", "not-host-typematic-timing", "no-audio-waveform-comparison", "actor-pool-bytes-retained-but-not-all-fields-compared"], "original_fidelity_claim": false, "pixels": 2624000, "projection": "active-player-motion-animation-health-inventory-score,hud-reels-palette-queue,map-planes,progress,rng-v1", "states": 82, "status": "match"}
+level1_original=ok case=walk frames=41 pixels=2624000 differing_pixels=0
+<end of output>
+Test time =   4.65 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[level1_original=ok case=walk frames=[0-9]+ pixels=[0-9]+ differing_pixels=0]
+"level1_original_walk" end time: Oct 01 02:04 CEST
+"level1_original_walk" time elapsed: 00:00:04
+----------------------------------------------------------
+
+545/554 Testing: level1_original_bomb
+545/554 Test: level1_original_bomb
+Command: "/usr/bin/cmake" "-E" "env" "SDL_VIDEODRIVER=dummy" "SDL_AUDIODRIVER=dummy" "/usr/bin/python3" "/mnt/c/Users/andrz/git/LEZAC/tools/test_level1_original.py" "--exe" "/dev/shm/lezac-main-menu-test-build-20260930/lezac_cpp" "--case" "bomb"
+Directory: /mnt/c/Users/andrz/git/LEZAC
+"level1_original_bomb" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+{"differing_pixels": 0, "first_divergence": null, "frames": 297, "limits": ["one-controlled-rng-seed-before-level-initialization", "normalized-control-bank-event-injection", "main-routine-paused-while-interrupts-continue", "not-host-typematic-timing", "no-audio-waveform-comparison", "actor-pool-bytes-retained-but-not-all-fields-compared"], "original_fidelity_claim": false, "pixels": 19008000, "projection": "active-player-motion-animation-health-inventory-score,hud-reels-palette-queue,map-planes,progress,rng-v1", "states": 594, "status": "match"}
+level1_original=ok case=bomb frames=297 pixels=19008000 differing_pixels=0
+<end of output>
+Test time =  14.64 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[level1_original=ok case=bomb frames=[0-9]+ pixels=[0-9]+ differing_pixels=0]
+"level1_original_bomb" end time: Oct 01 02:04 CEST
+"level1_original_bomb" time elapsed: 00:00:14
+----------------------------------------------------------
+
+546/554 Testing: level1_original_objective
+546/554 Test: level1_original_objective
+Command: "/usr/bin/cmake" "-E" "env" "SDL_VIDEODRIVER=dummy" "SDL_AUDIODRIVER=dummy" "/usr/bin/python3" "/mnt/c/Users/andrz/git/LEZAC/tools/test_level1_original.py" "--exe" "/dev/shm/lezac-main-menu-test-build-20260930/lezac_cpp" "--case" "objective"
+Directory: /mnt/c/Users/andrz/git/LEZAC
+"level1_original_objective" start time: Oct 01 02:04 CEST
+Output:
+----------------------------------------------------------
+{"differing_pixels": 0, "first_divergence": null, "frames": 237, "limits": ["one-controlled-rng-seed-before-level-initialization", "normalized-control-bank-event-injection", "main-routine-paused-while-interrupts-continue", "not-host-typematic-timing", "no-audio-waveform-comparison", "actor-pool-bytes-retained-but-not-all-fields-compared"], "original_fidelity_claim": false, "pixels": 15168000, "projection": "active-player-motion-animation-health-inventory-score,hud-reels-palette-queue,map-planes,progress,rng-v1", "states": 474, "status": "match"}
+level1_original=ok case=objective frames=237 pixels=15168000 differing_pixels=0
+<end of output>
+Test time =  12.85 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[level1_original=ok case=objective frames=[0-9]+ pixels=[0-9]+ differing_pixels=0]
+"level1_original_objective" end time: Oct 01 02:05 CEST
+"level1_original_objective" time elapsed: 00:00:12
+----------------------------------------------------------
+
+547/554 Testing: level1_original_held_fire
+547/554 Test: level1_original_held_fire
+Command: "/usr/bin/cmake" "-E" "env" "SDL_VIDEODRIVER=dummy" "SDL_AUDIODRIVER=dummy" "/usr/bin/python3" "/mnt/c/Users/andrz/git/LEZAC/tools/test_level1_original.py" "--exe" "/dev/shm/lezac-main-menu-test-build-20260930/lezac_cpp" "--case" "held_fire"
+Directory: /mnt/c/Users/andrz/git/LEZAC
+"level1_original_held_fire" start time: Oct 01 02:05 CEST
+Output:
+----------------------------------------------------------
+{"differing_pixels": 0, "first_divergence": null, "frames": 497, "limits": ["one-controlled-rng-seed-before-level-initialization", "normalized-control-bank-event-injection", "main-routine-paused-while-interrupts-continue", "not-host-typematic-timing", "no-audio-waveform-comparison", "actor-pool-bytes-retained-but-not-all-fields-compared"], "original_fidelity_claim": false, "pixels": 31808000, "projection": "active-player-motion-animation-health-inventory-score,hud-reels-palette-queue,map-planes,progress,rng-v1", "states": 994, "status": "match"}
+level1_original=ok case=held_fire frames=497 pixels=31808000 differing_pixels=0
+<end of output>
+Test time =  23.65 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[level1_original=ok case=held_fire frames=[0-9]+ pixels=[0-9]+ differing_pixels=0]
+"level1_original_held_fire" end time: Oct 01 02:05 CEST
+"level1_original_held_fire" time elapsed: 00:00:23
+----------------------------------------------------------
+
+548/554 Testing: level1_original_rapid_fire
+548/554 Test: level1_original_rapid_fire
+Command: "/usr/bin/cmake" "-E" "env" "SDL_VIDEODRIVER=dummy" "SDL_AUDIODRIVER=dummy" "/usr/bin/python3" "/mnt/c/Users/andrz/git/LEZAC/tools/test_level1_original.py" "--exe" "/dev/shm/lezac-main-menu-test-build-20260930/lezac_cpp" "--case" "rapid_fire"
+Directory: /mnt/c/Users/andrz/git/LEZAC
+"level1_original_rapid_fire" start time: Oct 01 02:05 CEST
+Output:
+----------------------------------------------------------
+{"differing_pixels": 0, "first_divergence": null, "frames": 297, "limits": ["one-controlled-rng-seed-before-level-initialization", "normalized-control-bank-event-injection", "main-routine-paused-while-interrupts-continue", "not-host-typematic-timing", "no-audio-waveform-comparison", "actor-pool-bytes-retained-but-not-all-fields-compared"], "original_fidelity_claim": false, "pixels": 19008000, "projection": "active-player-motion-animation-health-inventory-score,hud-reels-palette-queue,map-planes,progress,rng-v1", "states": 594, "status": "match"}
+level1_original=ok case=rapid_fire frames=297 pixels=19008000 differing_pixels=0
+<end of output>
+Test time =  15.99 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[level1_original=ok case=rapid_fire frames=[0-9]+ pixels=[0-9]+ differing_pixels=0]
+"level1_original_rapid_fire" end time: Oct 01 02:05 CEST
+"level1_original_rapid_fire" time elapsed: 00:00:15
+----------------------------------------------------------
+
+549/554 Testing: level1_original_guard
+549/554 Test: level1_original_guard
+Command: "/usr/bin/cmake" "-E" "env" "SDL_VIDEODRIVER=dummy" "SDL_AUDIODRIVER=dummy" "/usr/bin/python3" "/mnt/c/Users/andrz/git/LEZAC/tools/test_level1_original.py" "--exe" "/dev/shm/lezac-main-menu-test-build-20260930/lezac_cpp"
+Directory: /mnt/c/Users/andrz/git/LEZAC
+"level1_original_guard" start time: Oct 01 02:05 CEST
+Output:
+----------------------------------------------------------
+test_capture_rejects_inconsistent_evidence (__main__.OriginalTests.test_capture_rejects_inconsistent_evidence) ... ok
+test_comparator_detects_uncropped_pixels_and_late_corruption (__main__.OriginalTests.test_comparator_detects_uncropped_pixels_and_late_corruption) ... ok
+test_frame_delta_bounds (__main__.OriginalTests.test_frame_delta_bounds) ... ok
+test_original_ammunition_panel_precedes_player_fire (__main__.OriginalTests.test_original_ammunition_panel_precedes_player_fire) ... ok
+test_original_death_hud_cache (__main__.OriginalTests.test_original_death_hud_cache) ... ok
+test_owned_instrumentation (__main__.OriginalTests.test_owned_instrumentation) ... ok
+test_pin_rejects_rehashed_provenance (__main__.OriginalTests.test_pin_rejects_rehashed_provenance) ... ok
+test_pinned_original_walk (__main__.OriginalTests.test_pinned_original_walk) ... ok
+test_reserves_are_raw_bytes_not_total_lives (__main__.OriginalTests.test_reserves_are_raw_bytes_not_total_lives) ... ok
+test_route_rejects_unimplemented_ui_events (__main__.OriginalTests.test_route_rejects_unimplemented_ui_events) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 19.654s
+
+OK
+level1_original_guard=ok tests=10 mutations=16 fullframe=1 late_validation=1
+<end of output>
+Test time =  19.80 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[level1_original_guard=ok tests=10 mutations=16 fullframe=1 late_validation=1]
+"level1_original_guard" end time: Oct 01 02:06 CEST
+"level1_original_guard" time elapsed: 00:00:19
+----------------------------------------------------------
+
+550/554 Testing: level1_replay
+550/554 Test: level1_replay
+Command: "/usr/bin/cmake" "-E" "env" "SDL_VIDEODRIVER=dummy" "SDL_AUDIODRIVER=dummy" "/usr/bin/python3" "/mnt/c/Users/andrz/git/LEZAC/tools/test_level1_replay.py" "--exe" "/dev/shm/lezac-main-menu-test-build-20260930/lezac_cpp" "--root" "/mnt/c/Users/andrz/git/LEZAC"
+Directory: /mnt/c/Users/andrz/git/LEZAC
+"level1_replay" start time: Oct 01 02:06 CEST
+Output:
+----------------------------------------------------------
+test_digest_and_missing_frame_guards (__main__.ReplayTests.test_digest_and_missing_frame_guards) ... ok
+test_first_state_divergence (__main__.ReplayTests.test_first_state_divergence) ... ok
+test_full_frame_pixel_divergence_and_images (__main__.ReplayTests.test_full_frame_pixel_divergence_and_images) ... ok
+test_independent_full_frame_determinism (__main__.ReplayTests.test_independent_full_frame_determinism) ... ok
+test_manifest_provenance_guards (__main__.ReplayTests.test_manifest_provenance_guards) ... ok
+test_optional_phase_divergence_is_not_parse_failure (__main__.ReplayTests.test_optional_phase_divergence_is_not_parse_failure) ... ok
+test_original_intro_wait_rejects_a_different_prelude (__main__.ReplayTests.test_original_intro_wait_rejects_a_different_prelude) ... ok
+test_original_motion_streams_through_event_adapter (__main__.ReplayTests.test_original_motion_streams_through_event_adapter) ... ok
+test_production_input_fire_pause_and_clock (__main__.ReplayTests.test_production_input_fire_pause_and_clock) ... ok
+test_rejects_unsupported_input_adapter (__main__.ReplayTests.test_rejects_unsupported_input_adapter) ... ok
+test_trace_guard_mutations (__main__.ReplayTests.test_trace_guard_mutations) ... ok
+test_two_player_event_ownership_and_tap (__main__.ReplayTests.test_two_player_event_ownership_and_tap) ... ok
+test_duplicate_json_and_nonfinite_numbers (__main__.RouteTests.test_duplicate_json_and_nonfinite_numbers) ... ok
+test_fingerprint_and_first_difference (__main__.RouteTests.test_fingerprint_and_first_difference) ... ok
+test_original_intro_prelude_guards (__main__.RouteTests.test_original_intro_prelude_guards) ... ok
+test_strict_route_parsing (__main__.RouteTests.test_strict_route_parsing) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 64.480s
+
+OK
+level1_replay_tests=ok tests=16 integration=1 original_fidelity_claim=0
+<end of output>
+Test time =  64.61 sec
+----------------------------------------------------------
+Test Pass Reason:
+Required regular expression found. Regex=[level1_replay_tests=ok tests=16 integration=1 original_fidelity_claim=0]
+"level1_replay" end time: Oct 01 02:07 CEST
+"level1_replay" time elapsed: 00:01:04
+----------------------------------------------------------
+
+End testing: Oct 01 02:07 CEST
+
+evidence-guard =  19.80 sec*proc
+
+fidelity-infrastructure =  64.61 sec*proc
+
+fullframe =  71.76 sec*proc
+
+level1 = 156.17 sec*proc
+
+original =  91.56 sec*proc
+
+replay =  64.61 sec*proc
+

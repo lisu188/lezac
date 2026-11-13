@@ -1,0 +1,156 @@
+{
+  "schema": "lezac-controlled-full-pacing-v1",
+  "original_executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "producer_sha256": "904664bdf2e3003b26ebe6261629d997fec137f72a2d7d5dfc7a926ce4ca163e",
+  "mask_provider_sha256": "0d88d0619292953d12829869b52bc7787fe9cd8e54aba527e9bebd901601ae5d",
+  "unicorn": "2.1.4",
+  "cases": [
+    {
+      "name": "skip_zero",
+      "original_dispatches": 16,
+      "translated_dispatches": 16,
+      "snapshots": 11,
+      "scripted_dos_calls": 0
+    },
+    {
+      "name": "skip_one",
+      "original_dispatches": 36,
+      "translated_dispatches": 36,
+      "snapshots": 13,
+      "scripted_dos_calls": 0
+    },
+    {
+      "name": "skip_two",
+      "original_dispatches": 74,
+      "translated_dispatches": 74,
+      "snapshots": 13,
+      "scripted_dos_calls": 0
+    },
+    {
+      "name": "skip_natural16",
+      "original_dispatches": 95844,
+      "translated_dispatches": 95844,
+      "snapshots": 34,
+      "scripted_dos_calls": 0
+    },
+    {
+      "name": "skip_maximum",
+      "original_dispatches": 1048580,
+      "translated_dispatches": 1048580,
+      "snapshots": 224,
+      "scripted_dos_calls": 0
+    },
+    {
+      "name": "calibration_wrap",
+      "original_dispatches": 720921,
+      "translated_dispatches": 720921,
+      "snapshots": 159,
+      "scripted_dos_calls": 0
+    },
+    {
+      "name": "slow_natural",
+      "original_dispatches": 84001,
+      "translated_dispatches": 84327,
+      "snapshots": 31,
+      "scripted_dos_calls": 1
+    },
+    {
+      "name": "slow_saturate",
+      "original_dispatches": 150,
+      "translated_dispatches": 476,
+      "snapshots": 14,
+      "scripted_dos_calls": 1
+    },
+    {
+      "name": "fast_119",
+      "original_dispatches": 796,
+      "translated_dispatches": 1122,
+      "snapshots": 14,
+      "scripted_dos_calls": 1
+    },
+    {
+      "name": "deadband120",
+      "original_dispatches": 143,
+      "translated_dispatches": 469,
+      "snapshots": 14,
+      "scripted_dos_calls": 1
+    },
+    {
+      "name": "deadband125",
+      "original_dispatches": 143,
+      "translated_dispatches": 469,
+      "snapshots": 14,
+      "scripted_dos_calls": 1
+    },
+    {
+      "name": "fast_wrap",
+      "original_dispatches": 165,
+      "translated_dispatches": 491,
+      "snapshots": 14,
+      "scripted_dos_calls": 1
+    },
+    {
+      "name": "counter_wrap",
+      "original_dispatches": 711,
+      "translated_dispatches": 1037,
+      "snapshots": 14,
+      "scripted_dos_calls": 1
+    },
+    {
+      "name": "negative_elapsed",
+      "original_dispatches": 150,
+      "translated_dispatches": 476,
+      "snapshots": 14,
+      "scripted_dos_calls": 1
+    },
+    {
+      "name": "real48_error",
+      "original_dispatches": 114,
+      "translated_dispatches": 440,
+      "snapshots": 14,
+      "scripted_dos_calls": 1
+    }
+  ],
+  "gate_inputs": 65536,
+  "feedback_inputs": 327680,
+  "files": [
+    {
+      "name": "full.bin.gz",
+      "bytes": 7330,
+      "sha256": "b79a7ba0889c513f4bec5b498e597b29426072bf8c64ac82901902caebd5522c",
+      "projection_bytes": 126519,
+      "projection_sha256": "e326f5f23db96ba891089a5de52080159c63506146b6e9b3e8f25a5119d8b5a0"
+    },
+    {
+      "name": "gate.bin.gz",
+      "bytes": 298824,
+      "sha256": "e649b5b5e4cab21e20b11559993347a2895a0b5b2b81ee87844f7ef25bcbd92e",
+      "projection_bytes": 2490380,
+      "projection_sha256": "9760d146b79947bbb815223231dac5660de6f27b6bf96edf189fa0b9daccfb16"
+    },
+    {
+      "name": "feedback.bin.gz",
+      "bytes": 1685790,
+      "sha256": "48c06604e43463bf2bffec56d0584ed19be9fd4e5fe359e4acb0eafdac15d6b2",
+      "projection_bytes": 16384012,
+      "projection_sha256": "fce5182bbf830883aae7aa371f1e00484a8cceecc5cef4624d643059060edff9"
+    }
+  ],
+  "original_game_and_crt_calls_stubbed": false,
+  "scripted_dos_service": true,
+  "scripted_dos_control_stack_and_psp": true,
+  "scripted_dos_time": [
+    0,
+    0,
+    5,
+    49
+  ],
+  "kernel_dispatches_supplied_by_cpp_profile": 326,
+  "initial_bios_ticks": 100,
+  "instruction_patches": 0,
+  "code_bytes_unchanged": 43552,
+  "read_hooks": false,
+  "observed_control_endpoints_identical": true,
+  "natural_gameplay_claim": false,
+  "whole_game_parity": false
+}

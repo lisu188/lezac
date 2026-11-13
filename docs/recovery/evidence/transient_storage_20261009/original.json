@@ -1,0 +1,385 @@
+{
+  "actor_passes": 192,
+  "actor_write_offsets": {
+    "0": 592,
+    "1": 632,
+    "2": 2264,
+    "3": 592,
+    "4": 592,
+    "5": 592,
+    "6": 2196,
+    "7": 2196,
+    "8": 2196,
+    "9": 2196,
+    "10": 2196,
+    "11": 2196,
+    "12": 2196,
+    "13": 2196,
+    "14": 592,
+    "15": 592,
+    "16": 592,
+    "17": 592,
+    "18": 592,
+    "19": 592,
+    "20": 592,
+    "21": 592,
+    "22": 1741,
+    "23": 629,
+    "24": 629,
+    "25": 2906,
+    "26": 629,
+    "27": 629,
+    "28": 1125,
+    "29": 592,
+    "30": 592,
+    "31": 592,
+    "32": 592,
+    "33": 592,
+    "34": 592,
+    "35": 592,
+    "36": 592,
+    "37": 592
+  },
+  "cases": [
+    {
+      "first_operation": 0,
+      "index": 0,
+      "initial_count": 1,
+      "initial_timer": 64,
+      "mode": 0,
+      "operations": 16,
+      "reverse_visuals": false,
+      "vx": 0,
+      "vy": 0
+    },
+    {
+      "first_operation": 16,
+      "index": 1,
+      "initial_count": 3,
+      "initial_timer": 1,
+      "mode": 0,
+      "operations": 16,
+      "reverse_visuals": true,
+      "vx": 2047,
+      "vy": -2047
+    },
+    {
+      "first_operation": 32,
+      "index": 2,
+      "initial_count": 3,
+      "initial_timer": 0,
+      "mode": 0,
+      "operations": 16,
+      "reverse_visuals": false,
+      "vx": -32768,
+      "vy": 32767
+    },
+    {
+      "first_operation": 48,
+      "index": 3,
+      "initial_count": 30,
+      "initial_timer": 2,
+      "mode": 0,
+      "operations": 16,
+      "reverse_visuals": true,
+      "vx": -2047,
+      "vy": 2047
+    },
+    {
+      "first_operation": 64,
+      "index": 4,
+      "initial_count": 1,
+      "initial_timer": 64,
+      "mode": 1,
+      "operations": 16,
+      "reverse_visuals": false,
+      "vx": 0,
+      "vy": 0
+    },
+    {
+      "first_operation": 80,
+      "index": 5,
+      "initial_count": 3,
+      "initial_timer": 1,
+      "mode": 1,
+      "operations": 16,
+      "reverse_visuals": true,
+      "vx": 2047,
+      "vy": -2047
+    },
+    {
+      "first_operation": 96,
+      "index": 6,
+      "initial_count": 3,
+      "initial_timer": 0,
+      "mode": 1,
+      "operations": 16,
+      "reverse_visuals": false,
+      "vx": -32768,
+      "vy": 32767
+    },
+    {
+      "first_operation": 112,
+      "index": 7,
+      "initial_count": 30,
+      "initial_timer": 2,
+      "mode": 1,
+      "operations": 16,
+      "reverse_visuals": true,
+      "vx": -2047,
+      "vy": 2047
+    },
+    {
+      "first_operation": 128,
+      "index": 8,
+      "initial_count": 1,
+      "initial_timer": 64,
+      "mode": 2,
+      "operations": 16,
+      "reverse_visuals": false,
+      "vx": 0,
+      "vy": 0
+    },
+    {
+      "first_operation": 144,
+      "index": 9,
+      "initial_count": 3,
+      "initial_timer": 1,
+      "mode": 2,
+      "operations": 16,
+      "reverse_visuals": true,
+      "vx": 2047,
+      "vy": -2047
+    },
+    {
+      "first_operation": 160,
+      "index": 10,
+      "initial_count": 3,
+      "initial_timer": 0,
+      "mode": 2,
+      "operations": 16,
+      "reverse_visuals": false,
+      "vx": -32768,
+      "vy": 32767
+    },
+    {
+      "first_operation": 176,
+      "index": 11,
+      "initial_count": 30,
+      "initial_timer": 2,
+      "mode": 2,
+      "operations": 16,
+      "reverse_visuals": true,
+      "vx": -2047,
+      "vy": 2047
+    },
+    {
+      "first_operation": 192,
+      "index": 12,
+      "initial_count": 1,
+      "initial_timer": 64,
+      "mode": 3,
+      "operations": 16,
+      "reverse_visuals": false,
+      "vx": 0,
+      "vy": 0
+    },
+    {
+      "first_operation": 208,
+      "index": 13,
+      "initial_count": 3,
+      "initial_timer": 1,
+      "mode": 3,
+      "operations": 16,
+      "reverse_visuals": true,
+      "vx": 2047,
+      "vy": -2047
+    },
+    {
+      "first_operation": 224,
+      "index": 14,
+      "initial_count": 3,
+      "initial_timer": 0,
+      "mode": 3,
+      "operations": 16,
+      "reverse_visuals": false,
+      "vx": -32768,
+      "vy": 32767
+    },
+    {
+      "first_operation": 240,
+      "index": 15,
+      "initial_count": 30,
+      "initial_timer": 2,
+      "mode": 3,
+      "operations": 16,
+      "reverse_visuals": true,
+      "vx": -2047,
+      "vy": 2047
+    }
+  ],
+  "compared_table_bytes": 403200,
+  "compiled_cpp_comparison": false,
+  "constructor_animation_is_explicit_seed": true,
+  "expected": {
+    "bytes": 31615,
+    "path": "/tmp/lezac-transient-storage-original-20261009-t88-v3/expected.bin.gz",
+    "raw_bytes": 403212,
+    "raw_sha256": "e20420f8878ec3888f3035debc24b036aee8e0bbff76c9dd8fc1b002aa4d7071",
+    "sha256": "f0bcc9827d3cb5f1996284a65145c3f03ee8a710230a34e50cd33187ef24df7f"
+  },
+  "hardware_io_permitted": false,
+  "helper_sha256": "fd3066a8b28edc5872221692a88f24d4758c8e7961cb7b91a03d9b94c16fe41c",
+  "native_fixture_sha256": "765b724713778f7fa86e7df8fe7812de9e40b029cf85b46bc6e25ed9ecdd6e4e",
+  "native_reader_sha256": "e5aa6ec103090468f47d588d073453d87179b8d598319a481b41a7380a73fe81",
+  "natural_route": false,
+  "observer_neutrality_memory_bytes": 1048576,
+  "observer_neutrality_registers": 14,
+  "observer_neutrality_returns": 256,
+  "operations": 256,
+  "original_calls_stubbed": false,
+  "original_exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "original_instructions_patched": false,
+  "passed": true,
+  "producer_sha256": "bd60e4800e8aee1421a48bd8c98bb8e99e5401744e548156d4fde540714e2c8e",
+  "recorded_utc": "2026-10-09T02:08:34.716351+00:00",
+  "rendered_pixels_claim": false,
+  "requests": {
+    "bytes": 5575,
+    "path": "/tmp/lezac-transient-storage-original-20261009-t88-v3/requests.bin.gz",
+    "raw_bytes": 27324,
+    "raw_sha256": "ba01b9d8c3cecdd3bba753f3d3aa31400329b268951a40618e40392e54e34825",
+    "sha256": "4ba0dc26af45ededa21709ac4d350eb87b5faf72c4bdce56b5880df80b019d9d"
+  },
+  "seeded": true,
+  "site_offsets": {
+    "1000:3400:actor": {
+      "1": 40
+    },
+    "1000:6088:actor": {
+      "25": 1300
+    },
+    "1000:60a2:actor": {
+      "25": 977
+    },
+    "1000:60be:actor": {
+      "22": 977
+    },
+    "1000:60e4:actor": {
+      "22": 135
+    },
+    "1000:6137:actor": {
+      "28": 496
+    },
+    "1000:6156:visual": {
+      "6": 977,
+      "7": 977
+    },
+    "1000:65b1:actor": {
+      "2": 1672
+    },
+    "1000:754a:visual": {
+      "0": 1604,
+      "1": 1604
+    },
+    "1000:7553:visual": {
+      "2": 1604,
+      "3": 1604
+    },
+    "1000:7568:actor": {
+      "10": 1604,
+      "11": 1604
+    },
+    "1000:7574:actor": {
+      "12": 1604,
+      "13": 1604
+    },
+    "1000:757e:actor": {
+      "6": 1604,
+      "7": 1604
+    },
+    "1000:7588:actor": {
+      "8": 1604,
+      "9": 1604
+    },
+    "18ac:05d2:visual": {
+      "0": 40,
+      "1": 40,
+      "2": 40,
+      "3": 40,
+      "4": 40,
+      "5": 40,
+      "6": 40,
+      "7": 40
+    },
+    "1920:091f:actor": {
+      "0": 592,
+      "1": 592,
+      "2": 592,
+      "3": 592,
+      "4": 592,
+      "5": 592,
+      "6": 592,
+      "7": 592,
+      "8": 592,
+      "9": 592,
+      "10": 592,
+      "11": 592,
+      "12": 592,
+      "13": 592,
+      "14": 592,
+      "15": 592,
+      "16": 592,
+      "17": 592,
+      "18": 592,
+      "19": 592,
+      "20": 592,
+      "21": 592,
+      "22": 629,
+      "23": 629,
+      "24": 629,
+      "25": 629,
+      "26": 629,
+      "27": 629,
+      "28": 629,
+      "29": 592,
+      "30": 592,
+      "31": 592,
+      "32": 592,
+      "33": 592,
+      "34": 592,
+      "35": 592,
+      "36": 592,
+      "37": 592
+    }
+  },
+  "visual_write_offsets": {
+    "0": 1644,
+    "1": 1644,
+    "2": 1644,
+    "3": 1644,
+    "4": 40,
+    "5": 40,
+    "6": 1017,
+    "7": 1017
+  },
+  "whole_game_claim": false,
+  "write_sites": {
+    "1000:3400:actor": 40,
+    "1000:6088:actor": 1300,
+    "1000:60a2:actor": 977,
+    "1000:60be:actor": 977,
+    "1000:60e4:actor": 135,
+    "1000:6137:actor": 496,
+    "1000:6156:visual": 1954,
+    "1000:65b1:actor": 1672,
+    "1000:754a:visual": 3208,
+    "1000:7553:visual": 3208,
+    "1000:7568:actor": 3208,
+    "1000:7574:actor": 3208,
+    "1000:757e:actor": 3208,
+    "1000:7588:actor": 3208,
+    "18ac:05d2:visual": 320,
+    "1920:091f:actor": 22755
+  }
+}

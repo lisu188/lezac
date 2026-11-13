@@ -1,0 +1,282 @@
+{
+  "status": "observed",
+  "run": "r2",
+  "producer_sha256": "fdff60392e3de4bbab54f543f0f063f1f8c1199b0522fecff6eae52678d328c0",
+  "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "dosbox_sha256": "4d8eaba9db5e3f733b49c35f191eff98f1f5730035f7374c5c703693a080c8ac",
+  "events": [
+    {
+      "key": "1",
+      "observed_utc": "2026-10-16T07:01:04.090741+00:00",
+      "monotonic_before": 20.94189006599936,
+      "monotonic_after": 20.963407089999237
+    },
+    {
+      "key": "Return",
+      "observed_utc": "2026-10-16T07:01:08.134537+00:00",
+      "monotonic_before": 24.990842600999713,
+      "monotonic_after": 25.00720744499995
+    },
+    {
+      "key": "Escape",
+      "observed_utc": "2026-10-16T07:01:09.185653+00:00",
+      "monotonic_before": 26.041198072000043,
+      "monotonic_after": 26.05831486199986
+    },
+    {
+      "key": "1",
+      "observed_utc": "2026-10-16T07:01:14.239444+00:00",
+      "monotonic_before": 31.094824210999832,
+      "monotonic_after": 31.112106974999733
+    },
+    {
+      "key": "q",
+      "observed_utc": "2026-10-16T07:01:29.303265+00:00",
+      "monotonic_before": 46.157927919999565,
+      "monotonic_after": 46.17592814099953
+    },
+    {
+      "key": "Return",
+      "observed_utc": "2026-10-16T07:01:29.557290+00:00",
+      "monotonic_before": 46.413393238000026,
+      "monotonic_after": 46.42995258399969
+    }
+  ],
+  "fixture_scores": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    -1
+  ],
+  "samples": [
+    {
+      "name": "main",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 0,
+      "frame_counter": 0,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "365fcf9e48c6bd9c1a041e3c95076c90583a6e5ec0bf3377cce1833630e67b33",
+      "ram_gzip_sha256": "eefe27b64efe0bade9760ffd8716228e63c886518429d9d6e5116d6849c1cfbc",
+      "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+      "pixels_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 20.90082481799982,
+      "monotonic_after": 20.94166656499965,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "intro",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 0,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "0e3d7c6e08f615e1287b613034319304f77aafe3cfc7954a324e3a8cd75c66eb",
+      "ram_gzip_sha256": "e4b550eff759e5d735a688affcec7d9d90192ec9a71bd01c0b0e8c785ffa9773",
+      "png_sha256": "2c2d5741b48d00bbb710c219ccccdfe94aacd3429d1a37bfd79d2ecdcaf340fa",
+      "pixels_sha256": "72977b89db6b1e3d899a6b45c8552bdcb176e610c3eb35888f30c424a2c240b7",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 24.96346516199992,
+      "monotonic_after": 24.990629217999413,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "gameplay",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 14,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "0f1a487e13c07eef1274147fdc4c3abb50c19afa649dff116b0e9b52cad6d09b",
+      "ram_gzip_sha256": "92a1124c1c07fd46d8c9d274892a743c4a188086eeaf6f306a5eeda9a8ddae3d",
+      "png_sha256": "7a5e67eb69c4e41115292df42a408ff545dc723361378aa43123e1a79210b607",
+      "pixels_sha256": "8d75cdeffe013f3f0ff36986167e1bac576f7e89266fd23f2299c1cf07c1f834",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 26.00727864700002,
+      "monotonic_after": 26.04096656099955,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "game-over",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 15,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "93f9b43bace73b7441b1d8229dfb68cbce537a9e946c4ce4ceca701507098376",
+      "ram_gzip_sha256": "5e727dbd9f973e67f55da68487088e7cf34299dcda223638345b0cfa8ba30a8e",
+      "png_sha256": "64c86aace13a539a6bee0d27ecda3625bfc00b502bb5ffc61afe4a6d48dabe4f",
+      "pixels_sha256": "69b5f1149d720b3224d91c022a868687d762fb03a956ad67253c8339504b5e88",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 31.05842741199922,
+      "monotonic_after": 31.09444027599966,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "record-prompt",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 15,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "c37d4681f6ece39b7da190e43752359752db8006c4aa26c0108188919888acab",
+      "ram_gzip_sha256": "594e4604ba79957c672c352e9094b2b079f504729d6132832f7db6fe81ea62d7",
+      "png_sha256": "2aeaea318b6754a4f7fd48f520785bfbc746500e6f5670a10721decc44782c40",
+      "pixels_sha256": "bae6667b2ad734286c9faee41573b1227fced8786831429b6e17838c8ede686b",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 46.11215894099951,
+      "monotonic_after": 46.157611093000014,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "player1-q",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 15,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "72f6cf85e16f4041073f935bec64c4af51107e85856759abd7005e0bce0d5eb2",
+      "ram_gzip_sha256": "f197f125fbe0c29bc533fd22a55b5a3208bd4a2f4131d65ffe71cb2222174ef4",
+      "png_sha256": "b3a719df1504dc60df8c43d94776b784bb42274985bbcb7a65788cc7177a0598",
+      "pixels_sha256": "aa368deddde36465bf5f780077abbc1c1c5eda394eb0993b2902995f11577e2b",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 46.375993820000076,
+      "monotonic_after": 46.413047076999646,
+      "ram_rgb_cpu_atomic": false
+    },
+    {
+      "name": "after-commit",
+      "scores": [
+        0,
+        0
+      ],
+      "level": 1,
+      "frame_counter": 15,
+      "record_bytes": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a0000000008713a3a3a3a3a3a3a",
+      "slot8_bytes": "0087e900f0601200f000000000",
+      "ram_sha256": "07a76fd1ee8228193355aabb9237806d3268a986c5514f6b5919457565b3decd",
+      "ram_gzip_sha256": "33dd4c7e23e8e3d80699a844789377b2f0c81d69301aa4a6a79ef2ecd0321d12",
+      "png_sha256": "cac12c158bdcf28530f0cdc3c8a22fbf8374e91b0301ed6d29cac1f5d0f7dd0e",
+      "pixels_sha256": "ea81bd064e400f66e09f36f82f4aa2bacf89eae08578d867ce438243b50749bb",
+      "code_bytes_verified": 43552,
+      "code_differences": 0,
+      "monotonic_before": 49.43024080699979,
+      "monotonic_after": 49.4720038359992,
+      "ram_rgb_cpu_atomic": false
+    }
+  ],
+  "assets": {
+    "BOMOMIMK.SPR": {
+      "bytes": 20168,
+      "sha256": "08dfd0e59ba191c52af2529bdfa140fd15a57829f0c6c13bbb78e156769ac0d1"
+    },
+    "BOMPAL.PAL": {
+      "bytes": 768,
+      "sha256": "f2559164074ca529ba6c275a9831b11c6da9e6317f09b3d9228c299d6f8f8319"
+    },
+    "CARO.CAR": {
+      "bytes": 8450,
+      "sha256": "949cce4db6071d6675a291c978d725c6e4ee1730b2c7a428bc1c8a8185cbd8d8"
+    },
+    "ENGLISH.DOC": {
+      "bytes": 3522,
+      "sha256": "e2fd2f2521b0277f2fca0c8f2a265408412542932bb6e977bf1ab3d0aabdfed9"
+    },
+    "FONTS.SPR": {
+      "bytes": 5425,
+      "sha256": "f65aa9bbba2a66ee69f1b279a32c448e36012feb53441fbbb8e64e31bee87a0e"
+    },
+    "GRAN.MST": {
+      "bytes": 399,
+      "sha256": "3f0cf17706d557ca863d6e39bfa6641fba777a88815ba3f0a22e5ac89e0e39e2"
+    },
+    "ITALIANO.DOC": {
+      "bytes": 4392,
+      "sha256": "5ea7481d3179e60b6f1229aa114dc4b47c95f7c1200c7888ad5c259f161317c1"
+    },
+    "LEZAC.EXE": {
+      "bytes": 52384,
+      "sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
+    },
+    "LIVELS.SCH": {
+      "bytes": 41047,
+      "sha256": "d8b553871014108515d6af05b0853de8ccc22e4d3e44d63533ba1167fdc8c7b2"
+    },
+    "PROEFS.SON": {
+      "bytes": 782,
+      "sha256": "b5bc702a27ac85554cc76a62fced07567921b07d5c16f2027a62fbc956df701d"
+    },
+    "PROVA.SPR": {
+      "bytes": 21250,
+      "sha256": "d6d6b634f8613251f6e82e9a15c5c68e2be437892bfa25c53eb4bcd9094188b7"
+    },
+    "RECS.DAT": {
+      "bytes": 92,
+      "sha256": "27197ebb56fb339e4d41baf6ad5282cd79bb66b642c81ae406e607a263c80eb8"
+    },
+    "SETUP.LOG": {
+      "bytes": 566,
+      "sha256": "4c86cd7436be442663b10b1425bbcd7a179b7955b67c23632bf20a8180144a14"
+    },
+    "SFONLEF.ZBG": {
+      "bytes": 34292,
+      "sha256": "b1b7cc03122510318c1a3670f151712406e9e3fa60aabd8fb558320766c3835c"
+    }
+  },
+  "record_file_fixture_seeded": true,
+  "gameplay_state_seeded": false,
+  "clock_rng_or_heap_seeded": false,
+  "process_memory_writes": 0,
+  "process_pauses": 0,
+  "canonical_assets_unchanged": true,
+  "child_exit_code": 0,
+  "audio": "dummy",
+  "trace_bytes": 2163915,
+  "trace_sha256": "1cb241f02b2bbc793995de476d6b7cec2e98ebeb8679748ff7807702e6a548d0",
+  "record_fixture_hex": "0700000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+  "dosbox_config": "[sdl]\nfullscreen=false\noutput=surface\n[render]\nframeskip=0\naspect=false\nscaler=none\n[cpu]\ncore=normal\ncycles=fixed 6000\n[mixer]\nnosound=true\n[speaker]\npcspeaker=false\n[sblaster]\nsbtype=none\n[midi]\nmpu401=none\nmididevice=none\n",
+  "environment_is_complete": false,
+  "inherited_environment_was_not_recorded": true,
+  "dosbox_argv": [
+    "/dev/shm/lezac-work-oracle-t190/dosbox-0.74-3/src/dosbox",
+    "-conf",
+    "/dev/shm/lezac-work-clock-t190-r2/dosbox.conf",
+    "-c",
+    "mount c /dev/shm/lezac-work-clock-t190-r2/run",
+    "-c",
+    "c:",
+    "-c",
+    "LEZAC.EXE"
+  ],
+  "dosbox_cwd": "/dev/shm/lezac-work-clock-t190-r2",
+  "input_injection_failures": [],
+  "input_injection_status": "All historical checked key calls returned normally; complete command audit was not recorded"
+}

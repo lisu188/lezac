@@ -1,0 +1,17 @@
+{
+  "audio": "dummy",
+  "exe_sha256": "3c7e48ae6d0fb2aa0fe7cde54c42ab7923cfb59242415890ab1e791329951026",
+  "focused_tests_passed": 19,
+  "full_route_replay_pending": true,
+  "original_fidelity_claim": false,
+  "parent_head": "71bbd893ec42b5531c4dcb7709dd8d03a49d6c34",
+  "source_sha256": {
+    "CMakeLists.txt": "5d64d4a9da7ea55e80d82f2630aabe14b478a8ca4919dd4875caf96e836c2ac9",
+    "src/app/app.cpp": "70e40a2714356677dc96850b36e625544c16367bb612083f65f1dca0cbbc6935",
+    "src/app/input_mapper.cpp": "abef77ec304329b8b71a9233a9f96f272c4d9ab2a3c92a38af7dc2c84e8114c6",
+    "src/gameplay/actor_models.hpp": "b93207bed30cdde88b1e7cebb4dd0cd9ca91ddcdac195c481735e6912f83763b",
+    "src/gameplay/frame_controls.hpp": "dc4a250041a8a032824af7c4a161091d0e668efc9aaaafbba5373baea13814ed"
+  },
+  "status": "built_review_repair",
+  "uncommitted_source_patch": true
+}

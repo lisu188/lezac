@@ -21,22 +21,31 @@ MenuPage UiController::endMenuPage(EndReason reason) {
 bool UiController::startNextPendingRecord(RecordStore& records, const UiActions& actions) {
     if (!records.startNextPendingRecord()) return false;
     state_.page = MenuPage::NameEntry;
+    if (actions.prepareNameEntryPage) actions.prepareNameEntryPage();
     actions.recordPromptSound();
     return true;
 }
+void UiController::enterRecordsPage(const UiActions& actions, bool playSound) {
+    state_.page = MenuPage::Records;
+    if (playSound) actions.recordsPageSound();
+    if (actions.prepareRecordsPage) actions.prepareRecordsPage();
+}
 void UiController::finalizePendingRecord(RecordStore& records, const UiActions& actions) {
     const auto result = records.finalizePendingRecord();
-    if (result == RecordStore::CommitResult::NoPending) { state_.page = MenuPage::Records; return; }
+    if (result == RecordStore::CommitResult::NoPending) { finishEndRun(actions); return; }
     if (result == RecordStore::CommitResult::SaveFailed) { state_.page = MenuPage::NameEntry; return; }
     if (startNextPendingRecord(records, actions)) return;
-    actions.clearScores();
-    state_.page = MenuPage::Records;
+    finishEndRun(actions);
 }
 void UiController::cancelPendingRecord(RecordStore& records, const UiActions& actions) {
     records.clearPendingRecord();
     if (startNextPendingRecord(records, actions)) return;
+    finishEndRun(actions);
+}
+void UiController::finishEndRun(const UiActions& actions) {
     actions.clearScores();
-    state_.page = MenuPage::Records;
+    state_.page = MenuPage::Main;
+    state_.mainMenu = {true, state_.mainMenu.startedAt, 0, true};
 }
 void UiController::handleNameEntryKey(Key key, RecordStore& records, const UiActions& actions) {
     if (key == Key::Return || key == Key::KeypadEnter) {
@@ -45,7 +54,6 @@ void UiController::handleNameEntryKey(Key key, RecordStore& records, const UiAct
         return;
     }
     if (key == Key::Backspace) { records.eraseNameCharacter(); return; }
-    if (key == Key::Escape) { cancelPendingRecord(records, actions); return; }
     records.appendNameCharacter(recordCharForKey(key));
 }
 void UiController::beginEndRun(EndReason reason, int levelIndex, int playerCount,
@@ -54,19 +62,44 @@ void UiController::beginEndRun(EndReason reason, int levelIndex, int playerCount
     records.beginEndRun(reason, levelIndex, playerCount, score, score2);
     state_.menu = true;
     state_.lastEndReason = reason;
+    state_.page = endMenuPage(reason);
     actions.resetAfterEndRun();
-    if (!startNextPendingRecord(records, actions)) state_.page = endMenuPage(reason);
 }
 void UiController::onKey(Key key, bool& running, int levelIndex, int playerCount,
-                         RecordStore& records, const UiActions& actions) {
+                         RecordStore& records, const UiActions& actions, uint32_t now) {
+    const bool wasMenu = state_.menu;
+    const MenuPage wasPage = state_.page;
+    const bool wasItalian = state_.italian;
+    if (state_.menu && state_.page == MenuPage::Main && !mainMenuProgress(now).waitingForKey) {
+        const uint32_t elapsed = now - state_.mainMenu.startedAt;
+        if (elapsed < state_.mainMenu.fadeEnd) {
+            // The title fade first consumes a queued key after palette step 2.
+            if (state_.mainMenu.fadeEnd == kMainMenuFadeDurationMs)
+                state_.mainMenu.fadeEnd = (elapsed < 3 * kMainMenuFadeStepMs ? 3 * kMainMenuFadeStepMs : elapsed) +
+                                         kMainMenuFadeStepMs;
+        } else {
+            state_.mainMenu.textSkipped = true;
+        }
+        return;
+    }
+    if (state_.menu && state_.page == MenuPage::Main) {
+        // 1000:23d5 dispatches only these characters after draining queued keys.
+        switch (key) {
+            case Key::One: case Key::Two: case Key::I: case Key::Z:
+            case Key::R: case Key::L: case Key::Escape: break;
+            default: return;
+        }
+    }
     if (state_.menu) {
         if (state_.page == MenuPage::NameEntry) {
             handleNameEntryKey(key, records, actions);
+        } else if (state_.page == MenuPage::Records) {
+            // 1000:2160 consumes one ReadKey and returns to the settled title.
+            state_.page = MenuPage::Main;
+            state_.mainMenu = {true, now, 0, true};
+            return;
         } else if (state_.page == MenuPage::GameOver || state_.page == MenuPage::CompletedGame) {
-            if (key == Key::Escape || key == Key::Return || key == Key::KeypadEnter || key == Key::Space) {
-                actions.clearScores(); records.clearQueue(); records.clearPendingRecord();
-                state_.page = MenuPage::Main;
-            }
+            if (!startNextPendingRecord(records, actions)) finishEndRun(actions);
         } else if (key == Key::Escape) {
             if (state_.page == MenuPage::Main) running = false;
             else state_.page = MenuPage::Main;
@@ -77,11 +110,11 @@ void UiController::onKey(Key key, bool& running, int levelIndex, int playerCount
             state_.menu = false; state_.page = MenuPage::Main;
         } else if (key == Key::I) state_.page = MenuPage::Info;
         else if (key == Key::Z) state_.page = MenuPage::Instructions;
-        else if (key == Key::R) { state_.page = MenuPage::Records; actions.recordsPageSound(); }
+        else if (key == Key::R) enterRecordsPage(actions, true);
         else if (key == Key::S) state_.showBackground = !state_.showBackground;
         else if (key == Key::L) state_.italian = !state_.italian;
     } else if (key == Key::P) state_.paused = !state_.paused;
-    else if (key == Key::Escape) { state_.paused = false; state_.menu = true; state_.page = MenuPage::Main; }
+    else if (key == Key::Escape) { state_.paused = false; actions.abortRun(); }
     else if (key == Key::F5) { state_.paused = false; actions.beginLevel(levelIndex); }
     else if (key == Key::PageUp) { state_.paused = false; actions.beginLevel(levelIndex + 1); }
     else if (key == Key::PageDown) { state_.paused = false; actions.beginLevel(levelIndex - 1); }
@@ -89,7 +122,16 @@ void UiController::onKey(Key key, bool& running, int levelIndex, int playerCount
     else if (isPlayer1FireKey(key)) actions.firePlayer(1);
     else if (playerCount > 1 && isPlayer2FireKey(key)) actions.firePlayer(2);
     else if (key == Key::S) state_.showBackground = !state_.showBackground;
-    else if (key == Key::R && playerCount == 1) actions.adjustViewWidth(-32);
-    else if (key == Key::E && playerCount == 1) actions.adjustViewWidth(32);
+    else if ((key == Key::E || key == Key::R) &&
+             (actions.canAdjustViewWidth ? actions.canAdjustViewWidth() : playerCount == 1))
+        actions.adjustViewWidth(key == Key::E ? -8 : 8);
+    if (state_.menu && state_.page == MenuPage::Main &&
+        (wasPage == MenuPage::NameEntry || wasPage == MenuPage::GameOver || wasPage == MenuPage::CompletedGame)) {
+        return;
+    }
+    if (state_.mainMenu.active && state_.menu && state_.page == MenuPage::Main &&
+        (!wasMenu || wasPage != MenuPage::Main || wasItalian != state_.italian)) {
+        beginMainMenu(now);
+    }
 }
 }

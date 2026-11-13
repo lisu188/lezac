@@ -1,8 +1,10 @@
 #include "rendering/game_renderer.hpp"
 #include "rendering/color.hpp"
+#include "rendering/world_camera.hpp"
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <stdexcept>
 
 namespace lezac::rendering {
 using namespace gameplay;
@@ -10,6 +12,12 @@ using namespace resources;
 using namespace ui;
 
 namespace {
+void fillViewFrame(Canvas& canvas, const Palette& palette, int left, int width,
+                   uint8_t outline, uint8_t inner) {
+    canvas.indexedRect(left, 0, width, 160, outline, argb(palette, outline));
+    canvas.indexedRect(left + 1, 1, width - 2, 158, inner, argb(palette, inner));
+}
+
 class WorldPainter {
 public:
     WorldPainter(Canvas& canvas, TextRenderer& text, const AssetCatalog& assets,
@@ -22,7 +30,7 @@ public:
         if (!world_.showBackground) {
             for (int y = 0; y < viewH; ++y) {
                 for (int x = 0; x < viewW; ++x) {
-                    canvas_.pixel(viewX + x, viewY + y, argb(presentation_.palette(), 0));
+                    canvas_.indexedPixel(viewX + x, viewY + y, 0, argb(presentation_.palette(), 0));
                 }
             }
             return;
@@ -32,75 +40,47 @@ public:
             const size_t n0 = static_cast<size_t>(camY / 8 + y) * presentation_.backdropPitch() +
                             camX / 4;
             for (int x = 0; x < viewW; ++x) {
-                canvas_.pixel(viewX + x, viewY + y, presentation_.backdropColor(presentation_.backdropByte(n0 + x, world_.level.tiles)));
+                const uint8_t index = presentation_.backdropByte(n0 + x, world_.level.tiles);
+                if (index >= 176 && index <= 214)
+                    canvas_.pixel(viewX + x, viewY + y, presentation_.backdropColor(index));
+                else
+                    canvas_.indexedPixel(viewX + x, viewY + y, index, presentation_.backdropColor(index));
             }
         }
     }
 
-    // The original frames every gameplay viewport: a 1px outline (row y0, row
-    // y159 and the outer columns) around a 3px inner border, with the world
-    // rendered inside. Single-player uses a white outline with a grey border;
-    // in two-player the left view keeps white/grey and the right view uses a
-    // dark-red outline with a light-red border (all measured from original
-    // captures).
-    void drawViewFrame(int x0, int w, uint32_t outline, uint32_t inner) {
-        canvas_.rect(x0 + 1, 1, w - 2, 3, inner);
-        canvas_.rect(x0 + 1, 156, w - 2, 3, inner);
-        canvas_.rect(x0 + 1, 1, 3, 158, inner);
-        canvas_.rect(x0 + w - 4, 1, 3, 158, inner);
-        canvas_.rect(x0, 0, w, 1, outline);
-        canvas_.rect(x0, 159, w, 1, outline);
-        canvas_.rect(x0, 0, 1, 160, outline);
-        canvas_.rect(x0 + w - 1, 0, 1, 160, outline);
+    void drawGame() {
+        canvas_.resetClip();
+        // Original frames are painted only by setup/resize, not by each view copy.
+        refreshRetainedViewColors(0, kScreenW);
+        const auto initialLayout = ViewportLayout::initialize(world_.playerCount, world_.viewWidth);
+        const auto& layout = world_.viewportLayout ? *world_.viewportLayout : initialLayout;
+        for (int player = 0; player < world_.playerCount; ++player) {
+            if (world_.players[static_cast<size_t>(player)].globalState == 0) continue;
+            drawWorldView(world_.players[static_cast<size_t>(player)].player,
+                          layout.left[static_cast<size_t>(player)] + 4, 4, layout.pitch - 8, 152);
+        }
+        canvas_.resetClip();
     }
 
-    void drawGame() {
-        std::fill(canvas_.pixels().begin(), canvas_.pixels().end(), argb(presentation_.palette(), 0));
-        if (world_.playerCount > 1) {
-            // The original two-player mode is a side-by-side split: each view
-            // is a 152x152 viewport inside its own 160px-wide frame.
-            drawWorldView(world_.players[0].player, 4, 4, 152, 152);
-            drawWorldView(world_.players[1].player, 164, 4, 152, 152);
-            canvas_.resetClip();
-            drawViewFrame(0, 160, 0xffffffffu, 0xffb6b6b6u);
-            drawViewFrame(160, 160, 0xffaa0000u, 0xffff5555u);
-        } else {
-            // Single-player: one 312x152 viewport (x4..315, y4..155) inside
-            // the white/grey frame. The E/R width adjustment narrows the
-            // world view inside the frame.
-            int viewW = std::clamp(world_.viewWidth, 160, 312);
-            int viewX = 4 + (312 - viewW) / 2;
-            drawWorldView(world_.players[0].player, viewX, 4, viewW, 152);
-            canvas_.resetClip();
-            if (viewW < 312) {
-                canvas_.rect(viewX - 1, 16, 1, 140, 0xfff0d060u);
-                canvas_.rect(viewX + viewW, 16, 1, 140, 0xfff0d060u);
-            }
-            drawViewFrame(0, kScreenW, 0xffffffffu, 0xffb6b6b6u);
+    void refreshRetainedViewColors(int left, int width) {
+        // VGA keeps the old indices, but DAC changes still affect their RGB.
+        const auto& indices = canvas_.paletteIndices();
+        const auto& indexed = canvas_.indexedPixels();
+        auto& pixels = canvas_.pixels();
+        for (int y = 0; y < 160; ++y) for (int x = left; x < left + width; ++x) {
+            const size_t at = static_cast<size_t>(y * kScreenW + x);
+            if (indexed[at]) pixels[at] = argb(presentation_.palette(), indices[at]);
         }
     }
 
     void drawWorldView(const Player& cameraPlayer, int viewX, int viewY, int viewW, int viewH) {
-        int worldW = world_.level.width * 8;
-        int worldH = world_.level.height * 8;
         canvas_.setClip(viewX, viewY, viewX + viewW, viewY + viewH);
-        // Camera fully decoded from the original scroll routine (file 0x3cf7,
-        // fed the player visual entry DS:0xC21E by the main loop): the
-        // routine splits the scroll into a tile-aligned coarse part
-        // (DS:0xC216/0xC218 = (x - 0x78BC) & ~7 / (y - 80) & ~7 with 0x78BC
-        // = viewW/2 - 4) and a fine part (DS:0xC20A/0xC20C = x%8 / y%8)
-        // that recombine to a CONTINUOUS, instantly-applied camera
-        // camX = x - (viewW/2 - 4), camY = y - 80. On the max clamps
-        // (coarse > DS:2094 = (Wt-40)*8 / DS:2096 = (Ht-21)*8) the fine
-        // part is forced to 7, so the effective displayed limits are
-        // worldW-313 and worldH-161 -- verified against the level-6 spawn
-        // (cam 1127/351 for clamps 1120/344) and every walk/jump capture.
-        int camX = std::clamp(static_cast<int>(cameraPlayer.x) - (viewW / 2 - 4),
-                              0, std::max(0, worldW - (viewW + 8) + 7));
-        int camY = std::clamp(static_cast<int>(cameraPlayer.y) - (viewH / 2 + 4),
-                              0, std::max(0, worldH - (viewH + 16) + 7));
-        const int fineX = (camX & 7) + world_.cameraShakeOffset;
-        camX += world_.cameraShakeOffset;  // 1000:36F6 adds to the fine X scroll.
+        const auto camera = cameraForViewport(static_cast<int>(cameraPlayer.x),
+            static_cast<int>(cameraPlayer.y), world_.level.width, world_.level.height,
+            viewW + 8, world_.cameraShakeOffset);
+        const int camX = camera.pixelX(), camY = camera.pixelY();
+        const int fineX = camera.fineX;
         int drawCamX = camX - viewX;
         int drawCamY = camY - viewY;
         drawGradientSky(viewX, viewY, viewW, viewH, camX, camY);
@@ -173,7 +153,7 @@ public:
                 for (int y = 0; y < 8; ++y) {
                     for (int x = 0; x < 8; ++x) {
                         uint8_t c = tile[y * 8 + x];
-                        if (c != 0) canvas_.pixel(px + x, py + y, argb(presentation_.palette(), c));
+                        if (c != 0) canvas_.indexedPixel(px + x, py + y, c, argb(presentation_.palette(), c));
                     }
                 }
             }
@@ -220,7 +200,7 @@ public:
             // write-back).
             text_.drawSprite(bank.sprites[static_cast<size_t>(index)],
                        static_cast<int>(monster.x) - camX,
-                       static_cast<int>(monster.y) + monster.hotspotY - camY);
+                       renderer_.monsterVisualY(monster) - camY);
         }
     }
 
@@ -248,7 +228,7 @@ public:
             const auto& sprite = bank.sprites[static_cast<size_t>(index)];
             if (player.singlePixelSprite) {
                 if (!sprite.pixels.empty() && sprite.pixels.front()) {
-                    canvas_.pixel(x0, y0, argb(presentation_.palette(), sprite.pixels.front()));
+                    canvas_.indexedPixel(x0, y0, sprite.pixels.front(), argb(presentation_.palette(), sprite.pixels.front()));
                 }
             } else {
                 text_.drawSprite(sprite, x0, y0);
@@ -310,14 +290,55 @@ private:
 }
 
 void GameRenderer::drawGame(const WorldRenderView& world, const HudView& hud) {
-    WorldPainter(canvas_, text_, assets_, presentation_, *this, world).drawGame();
+    WorldPainter preview(canvas_, text_, assets_, presentation_, *this, world);
+    if (world.state2CursorPreview || world.state2RowPreview) preview.drawGame();
+    else {
+        canvas_.resetClip();
+        preview.refreshRetainedViewColors(0, kScreenW);
+        worldRaster_.drawGame(world, presentation_, canvas_);
+        canvas_.resetClip();
+    }
     drawHud(hud);
+}
+
+void GameRenderer::initializePlayfield(int playerCount, int viewWidth) {
+    // 2C7A clears VGA after the intro; 2959 paints the configured frames even
+    // for an already-out player. Per-frame view gates must not inherit intro pixels.
+    canvas_.resetClip();
+    canvas_.indexedRect(0, 0, kScreenW, kScreenH, 0, argb(presentation_.palette(), 0));
+    if (playerCount == 2) {
+        fillViewFrame(canvas_, presentation_.palette(), 0, 160, 15, 28);
+        fillViewFrame(canvas_, presentation_.palette(), 160, 160, 4, 12);
+    } else if (playerCount == 1) {
+        const int width = std::clamp(viewWidth, 168, kScreenW);
+        fillViewFrame(canvas_, presentation_.palette(), (kScreenW - width) / 2, width, 15, 28);
+    }
+}
+
+void GameRenderer::resizePlayfield(int viewWidth) {
+    // 820F..8283 clear only the playfield, preserving the existing HUD.
+    canvas_.resetClip();
+    canvas_.indexedRect(0, 0, kScreenW, 160, 0, argb(presentation_.palette(), 0));
+    const int width = std::clamp(viewWidth, 168, kScreenW);
+    fillViewFrame(canvas_, presentation_.palette(), (kScreenW - width) / 2, width, 15, 28);
+}
+
+void GameRenderer::clearEliminatedViewport(int playerIndex) {
+    if (playerIndex < 0 || playerIndex > 1) throw std::invalid_argument("Eliminated viewport index differs");
+    // 7CD3..7CE9 clears this physical half only when another player remains.
+    canvas_.resetClip();
+    canvas_.indexedRect(playerIndex * 160, 0, 160, 160, 0, argb(presentation_.palette(), 0));
 }
 
 void GameRenderer::drawWorldView(const WorldRenderView& world, const Player& cameraPlayer,
                                  int viewX, int viewY, int viewW, int viewH) {
-    WorldPainter(canvas_, text_, assets_, presentation_, *this, world)
-        .drawWorldView(cameraPlayer, viewX, viewY, viewW, viewH);
+    if (world.state2CursorPreview || world.state2RowPreview)
+        WorldPainter(canvas_, text_, assets_, presentation_, *this, world)
+            .drawWorldView(cameraPlayer, viewX, viewY, viewW, viewH);
+    else {
+        canvas_.setClip(viewX, viewY, viewX + viewW, viewY + viewH);
+        worldRaster_.drawView(world, cameraPlayer, viewX, viewY, viewW, viewH, presentation_, canvas_);
+    }
 }
 
 bool GameRenderer::isBossActor(const ActiveMonster& monster) const {
@@ -326,6 +347,10 @@ bool GameRenderer::isBossActor(const ActiveMonster& monster) const {
 
 const SpriteBank& GameRenderer::monsterSpriteBank(const ActiveMonster& monster) const {
     return isBossActor(monster) ? assets_.altSprites() : assets_.sprites();
+}
+
+int GameRenderer::monsterVisualY(const ActiveMonster& monster) const {
+    return static_cast<int16_t>(static_cast<int>(monster.y) + monster.hotspotY);
 }
 
 int GameRenderer::monsterSpriteIndex(const ActiveMonster& monster) const {
@@ -360,7 +385,6 @@ int GameRenderer::nameEntryCursorSlot(const std::string& name) const {
 }
 
 int GameRenderer::nameEntrySlotX(int slot) const {
-    return kNameEntryLabelX + text_.textWidth("NAME ") +
-           slot * kNameEntrySlotAdvance;
+    return kNameEntryLabelX + slot * kNameEntrySlotAdvance;
 }
 }

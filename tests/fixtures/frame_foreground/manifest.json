@@ -1,0 +1,108 @@
+{
+  "schema": "lezac-frozen-frame-foreground-v1",
+  "sources": {
+    "tools/frame_foreground_probe/README.md": "6717eb95534781fc0017dc0b2fe1bd3ae6a248c8564b5e072df3ed6c175d25af",
+    "tools/frame_foreground_probe/build.py": "dcafda4d27bb584a0ebde7a3d76b9753518eaba7ba5f91e3a40f9e83d37308ef",
+    "tools/frame_foreground_probe/build_palette_oracle.py": "bb75bbb1131f11f9c3ad99d972786842a0d873083d9b0d8f3c939d157f6fb26d",
+    "tools/frame_foreground_probe/capture.py": "658379524ef8000b7e6ab7e110780a95c3a32f5a472abc28939eb5920ab01ef2",
+    "tools/frame_foreground_probe/check_sdl_runtime.py": "0fda694c22f456efcc4fac15ed1736b6a1ed72f4c11ba507e315b6d2e3c4acdd",
+    "tools/frame_foreground_probe/clock_hook.patch": "b61aedfbd911f46766bc3c32eb7c12df920ec9eed16928183aadc4732a260e44",
+    "tools/frame_foreground_probe/dos_time_hook.patch": "7b7b24a70c4a032533eb404d948d27eb36336b5248bb531604d8e4f737c3cd4b",
+    "tools/frame_foreground_probe/gfx_clock_observation.inc": "c7e3007fee0a62b4fe485e94c46a6de2807bc8b636ab745491f2111e1af8178d",
+    "tools/frame_foreground_probe/input_route.py": "cb1b2008045403cd1144704b5750912c2910e8e0f200357d8bbf422257180b5e",
+    "tools/frame_foreground_probe/keyboard_clock_observation.inc": "7fb32b946df39756cbf4fad59ba15ace6383b070976bdd2d54cebeafff1753e3",
+    "tools/frame_foreground_probe/lezac_clock_observation.h": "749b34dbe8e94689601159893c360b9779a7c52014e6d989b6d6e51d25c28936",
+    "tools/frame_foreground_probe/lezac_work_probe.h": "c6128c9f297ee0b639b331adaa65b71515521bebfbe6c15a1c55053af272ebaa",
+    "tools/frame_foreground_probe/mixer_clock_observation.inc": "b997f6b2a762f047b1cb1caa2d8a893039c405fb66f9abd024dc92035fcf0a58",
+    "tools/frame_foreground_probe/palette_oracle_driver.cpp": "6738bbe22f2aada3451dc8ba6e17c8f054af871dd9ceab303258c37369610ed6",
+    "tools/frame_foreground_probe/pic_tickers_observation.inc": "0025c8d94219966e73c5d9bca004311de4d0c2335f7f8dfff7b608753486fa72",
+    "tools/frame_foreground_probe/project.py": "07d3d338185dcfeecce256b69ec992bc7506c2d5e7047716a1243085134907dd",
+    "tools/frame_foreground_probe/rebuild.py": "ef578582a8fb1628ed1dbba7c982a88a2dda8a9adb58051edeecf920b23fe6e8",
+    "tools/frame_foreground_probe/render_clock_observation.inc": "9b5f82d789472d01d3179106b7bb3f3a278c3133025e326770c51ecd9e984471",
+    "tools/frame_foreground_probe/sdl_provenance.py": "d86ebe4c38496caa5beebebd9d2719016145dca28c19e9f89c6e7952a14da370",
+    "tools/frame_foreground_probe/trace.py": "1cb498791c85b1b535495174ca9976aa2708bdae22a986ff3522a90e0950d47d",
+    "tools/frame_foreground_probe/vga_clock_observation.inc": "3dbee71ba4ff04fead3e3417c6a0ed2d9e28dbe0dcd3ba630f3e35d251f9c6e9",
+    "tools/original_capture_contract.py": "36e27f3441ae98db6e2a459ca64c561b72c964e1e98de854ca416321c33c33e0"
+  },
+  "files": [
+    {
+      "name": "host-rebuild.py",
+      "bytes": 1364,
+      "sha256": "bd5b4d6bb01aee9b303e002a66bf11ead68696938523c8dccbdd259e7a42d78b"
+    },
+    {
+      "name": "natural-recipe.json",
+      "bytes": 24595,
+      "sha256": "965de0ac7fa1d3fec4ffea360e53e0783b687dc4240e89791f031d88db3488aa"
+    },
+    {
+      "name": "natural.csv.gz",
+      "bytes": 5632647,
+      "sha256": "6fd322d91f84d5090c3698c65ee2eb88379fe0a8f6b38403e805c5a871ff320a"
+    },
+    {
+      "name": "palette-origin.json",
+      "bytes": 2559,
+      "sha256": "e68bbe23c0e7bdd8c54c6bdbd7e1f2f35e1c39277d32fabbfd07eddb721199a8"
+    },
+    {
+      "name": "palette.bin.gz",
+      "bytes": 17976,
+      "sha256": "6a827206b1e5bc3cd27095fc8942bc2adb2cb1e7bfc865a92fd62a7dd44e6986"
+    }
+  ],
+  "states": 108343,
+  "cases": [
+    {
+      "category": 0,
+      "entry_ip": 30979,
+      "states": 95864,
+      "irq_boundaries": []
+    },
+    {
+      "category": 1,
+      "entry_ip": 30979,
+      "states": 12479,
+      "irq_boundaries": []
+    }
+  ],
+  "cpu_sha256": "34378d5e28009c4ae1a8050078edf29e24bd67c14b1151567d263a23f4711e9d",
+  "clock_sha256": "582a300265c3e875137599537442e7a5490de1de7928a2c11cae8def9bf44861",
+  "palette_bytes": 451596,
+  "raw_sample_proofs": [
+    {
+      "name": "main",
+      "ram_sha256": "1d5be069d6fc88c449db4e58e9ae27851a02eb09646db823e467a5ce83e558e8",
+      "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "intro",
+      "ram_sha256": "9f1c67ced9cb4f89f2d73717aa3a29b47470a70826c40d4c55d5063b28682f89",
+      "png_sha256": "4ece4eabf3a497c9df3d9d83627ae04ebb60acf7e0cd4720208b192fc287a102",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "gameplay",
+      "ram_sha256": "c82b994147c6c892b13bcfecebfae7cdaeecf139c5adfff51a615924c1fa8266",
+      "png_sha256": "600d6d25b881da8de5040abe5152bf3cdb86b437223f3caecb14a8d2e685d520",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "gameplay-middle",
+      "ram_sha256": "bd78af5bb566863b073b2e0b2b564fa6353ab37f43d5ccc8a27f8292e906971f",
+      "png_sha256": "deeef9e379798dbf1a206a5755f431029c73bad2e6e70c2a3e0165533de39778",
+      "code_bytes_verified": 43552
+    },
+    {
+      "name": "search-end",
+      "ram_sha256": "9df255b446891317cc188b71f83222f5f620695444079d228e5b621cedd3855e",
+      "png_sha256": "51088a9ce473edd75fdb660b94982a9a33c7b09c3a6659d90319646d449160ae",
+      "code_bytes_verified": 43552
+    }
+  ],
+  "raw_memory_published": false,
+  "raw_memory_available_to_frozen_checker": false,
+  "whole_game_parity": false,
+  "full_frame_claim": false
+}

@@ -11,6 +11,7 @@ using namespace resources;
 using namespace ui;
 
 namespace {
+constexpr int kHudScoreY = kScreenH - 24;
 // CARO.CAR tile index used by the reconstructed bottom HUD: the fixed
 // destruction-target star (verified from the original HUD icon renderer, which
 // blits 8x8 CARO tiles, not BOMOMIMK sprites, for the objective icons).
@@ -57,7 +58,7 @@ public:
         for (int ty = 0; ty < 8; ++ty) {
             for (int tx = 0; tx < 8; ++tx) {
                 uint8_t c = tile[ty * 8 + tx];
-                if (c != 0) canvas_.pixel(dx + tx, dy + ty, argb(presentation_.palette(), c));
+                if (c != 0) canvas_.indexedPixel(dx + tx, dy + ty, c, argb(presentation_.palette(), c));
             }
         }
         return true;
@@ -73,6 +74,23 @@ public:
         }
     }
 
+    void drawHudObjectiveNumber(int x, int y, int value) {
+        // 313D paints exactly two low decimal positions, right to left;
+        // 1156 copies every glyph byte, including palette index zero.
+        for (int digit = 1; digit >= 0; --digit) {
+            const auto* tile = assets_.tiles().tile(121 + value % 10);
+            if (!tile) throw std::runtime_error("HUD objective digit atlas overread");
+            value /= 10;
+            for (int row = 0; row < 8; ++row) {
+                for (int column = 0; column < 8; ++column) {
+                    const uint8_t index = tile[row * 8 + column];
+                    canvas_.indexedPixel(x + digit * 9 + column, y + row, index,
+                                         argb(presentation_.palette(), index));
+                }
+            }
+        }
+    }
+
     void drawHudScore(int x, int y, const lezac::core::HudScoreReel& score) {
         bool leading = true;
         for (int digit = 8; digit >= 0; --digit) {
@@ -83,21 +101,22 @@ public:
             if (source + 64 > assets_.tiles().pixels.size()) throw std::runtime_error("HUD score atlas overread");
             for (int row = 0; row < 8; ++row) {
                 for (int column = 0; column < 8; ++column) {
-                    canvas_.pixel(x + (8 - digit) * 9 + column, y + row, argb(presentation_.palette(), assets_.tiles().pixels[source + row * 8 + column]));
+                    const uint8_t index = assets_.tiles().pixels[source + row * 8 + column];
+                    canvas_.indexedPixel(x + (8 - digit) * 9 + column, y + row, index, argb(presentation_.palette(), index));
                 }
             }
         }
     }
 
-    void drawOriginalHudFigure(int x, int y, uint32_t color) {
-        // Player-life marker: the original blits CARO.CAR tile 115 (a green
-        // walking figure); fall back to a small stick glyph if unavailable.
-        if (drawHudTile8(x, y - 1, kHudLifeMarkerTile)) return;
-        static const char* kGlyph[7] = {
-            " X ", " X ", "XXX", " X ", " X ", "X X", "X X"};
-        for (int gy = 0; gy < 7; ++gy) {
-            for (int gx = 0; gx < 3; ++gx) {
-                if (kGlyph[gy][gx] == 'X') canvas_.pixel(x + gx, y + gy, color);
+    void drawReserveSlots(int x, int y, int lives) {
+        // Original 29DB paints three opaque slots via 1156, including tile zero.
+        const auto reserve = static_cast<uint8_t>(lives);
+        for (int slot = 0; slot < 3; ++slot) {
+            const auto* tile = assets_.tiles().tile(slot < reserve ? kHudLifeMarkerTile : 0);
+            if (!tile) throw std::runtime_error("HUD reserve atlas overread");
+            for (int row = 0; row < 8; ++row) for (int column = 0; column < 8; ++column) {
+                const uint8_t index = tile[row * 8 + column];
+                canvas_.indexedPixel(x + slot * 9 + column, y + row, index, argb(presentation_.palette(), index));
             }
         }
     }
@@ -108,26 +127,25 @@ public:
     // drawn twice -- player 2's copy at xoff 180 (energy track x180..281,
     // score panel x180..267, bomb box x299..318, lives at x180..196), all
     // measured from an original two-player capture.
-    void drawPlayerHudColumn(int xoff, int energy, uint32_t score, int lives,
-                             bool dead, const BombInventory& inventory) {
+    void drawPlayerHudColumn(int xoff, const core::HudEnergyBar& energy, uint32_t score, int lives,
+                             const HudAmmoPanel& ammo) {
         constexpr uint32_t kGrey = 0xffb6b6b6u;
         constexpr uint32_t kYellow = 0xffffff55u;
         constexpr uint32_t kBlue = 0xff0018dbu;
         constexpr uint32_t kCyan = 0xff00aaaau;
-        constexpr uint32_t kGreen = 0xff00f300u;
         constexpr uint32_t kBoxGrey = 0xffa2a2a2u;
         const int y0 = kScreenH - 46;
 
         // Energy bar: a 102x3 grey-framed track (x0..101, spanning y0+10..y0+12)
         // with a 1px-tall yellow fill on the middle row, its width proportional
-        // to the player's energy -- full energy fills the inner 100px (x1..100).
+        // to the cached painted value, not necessarily the actor's energy.
         // Measured pixel-for-pixel from the original level-1 frame: the grey
         // frame (182,182,182) surrounds the yellow (255,255,85) on all sides.
         canvas_.rect(xoff, y0 + 10, 102, 3, kGrey);
-        const bool ready = hud_.columnReady[xoff == 0 ? 0 : 1];
-        int energyFill = ready ? std::clamp(dead ? 0 : energy, 0, 100) : 0;
-        if (ready) canvas_.rect(xoff + 1, y0 + 11, 100, 1, argb(presentation_.palette(), 1));
-        canvas_.rect(xoff + 1, y0 + 11, energyFill, 1, kYellow);
+        if (energy.painted) {
+            canvas_.indexedRect(xoff + 1, y0 + 11, 100, 1, 1, argb(presentation_.palette(), 1));
+            canvas_.rect(xoff + 1, y0 + 11, energy.fill, 1, kYellow);
+        }
 
         // Score panel: an 88x17 cyan-framed box (x0..87, y0+18..y0+34) with a
         // blue interior and a right-aligned green score value. The original
@@ -136,17 +154,14 @@ public:
         canvas_.rect(xoff, y0 + 18, 88, 17, kCyan);
         canvas_.rect(xoff + 1, y0 + 19, 86, 15, kBlue);
         (void)score;
-        drawHudScore(xoff, y0 + 22, hud_.scoreReels[xoff == 0 ? 0 : 1]);
+        drawHudScore(xoff, kHudScoreY, hud_.scoreReels[xoff == 0 ? 0 : 1]);
 
-        // Player-life figures: the original HUD shows SPARE lives (the life in
-        // play is not counted), so a fresh 3-life start draws two markers --
-        // matching every captured original level-start frame.
-        for (int i = 0; i < std::clamp(lives - 1, 0, 6); ++i) {
-            drawOriginalHudFigure(xoff + i * 9, y0 + 39, kGreen);
-        }
+        // The stored count is already the original reserve byte: two at a
+        // fresh start, zero on the last playable life, and -1 when out.
+        drawReserveSlots(xoff, y0 + 38, lives);
 
-        // Bomb selector box showing the selected bomb's actual sprite (from the
-        // BOMOMIMK bank, the same sprite the world bomb uses) and its count.
+        // The painted icon and count are retained independently by the HUD
+        // dirty-byte helper; a reentry refill need not repaint either one.
         // Measured against the original: a 20x20 beveled grey box at (119, y0+7)
         // -- a light 1px outer ring (162), a darker 1px inner ring (130), then a
         // 16x16 near-black well (the pixel counts 76/68 match the two rings).
@@ -157,25 +172,24 @@ public:
             canvas_.rect(bx0, y0 + 27, 20, 9, kBlue);
             return;
         }
-        canvas_.rect(bx0 + 2, y0 + 9, 16, 16, 0xff202020u);
+        canvas_.indexedRect(bx0 + 2, y0 + 9, 16, 16, 18, argb(presentation_.palette(), 18));
         const int bombSprite =
-            static_cast<int>(bombProfile(inventory.selected).spriteBase);
+            static_cast<int>(bombProfile(ammo.icon).spriteBase);
         if (bombSprite >= 0 &&
             bombSprite < static_cast<int>(assets_.sprites().sprites.size())) {
             const Sprite& sprite = assets_.sprites().sprites[static_cast<size_t>(bombSprite)];
             const int bx = bx0 + 2 + (16 - sprite.width) / 2;
             const int by = y0 + 9 + (16 - sprite.height) / 2;
             canvas_.setClip(bx0 + 2, y0 + 9, bx0 + 2 + 16, y0 + 9 + 16);
-            text_.drawSprite(sprite, bx, by);
+            text_.drawSprite(sprite, bx, by, 18, hud_.spriteInk);
             canvas_.resetClip();
         } else {
-            canvas_.rect(bx0 + 2, y0 + 9, 16, 16, renderer_.bombColor(inventory.selected));
+            canvas_.rect(bx0 + 2, y0 + 9, 16, 16, renderer_.bombColor(ammo.icon));
         }
-        int selCount = inventory.counts[static_cast<size_t>(inventory.selected)];
         // Blue count panel beneath the bomb box (x119-138, matching the box
         // width), with the ammo count drawn on it.
         canvas_.rect(bx0, y0 + 27, 20, 9, kBlue);
-        drawHudNumber(bx0 + 1, y0 + 28, std::clamp(selCount, 0, 99), 2);
+        drawHudObjectiveNumber(bx0 + 1, y0 + 28, ammo.count);
     }
 
     void drawSinglePlayerHud() {
@@ -187,21 +201,20 @@ public:
         // frames (VGA palette). The grey/white rule above the band is the view
         // frame's bottom border, drawn by drawViewFrame.
         canvas_.rect(0, 160, kScreenW, 40, 0xff000000u);
-        drawPlayerHudColumn(0, hud_.players[0].energy, hud_.players[0].score, hud_.players[0].lives, hud_.players[0].dead,
-                            hud_.players[0].inventory);
+        drawPlayerHudColumn(0, hud_.players[0].energy, hud_.players[0].score, hud_.players[0].lives,
+                            hud_.players[0].ammo);
         drawHudObjectivePanel();
     }
 
     void drawHudObjectivePanel() {
         constexpr uint32_t kBlack = 0xff000000u;
         constexpr uint32_t kYellow = 0xffffff55u;
-        constexpr uint32_t kBlue = 0xff0018dbu;
         constexpr uint32_t kCyan = 0xff00aaaau;
         const int y0 = kScreenH - 46;
         // Centre panel: bomb-count and objective (destruction target) tallies.
         // The original panel spans y0+6..y0+44 (measured 160-198 on level 1),
         // taller than the earlier 34px box.
-        canvas_.rect(141, y0 + 6, 37, 39, argb(presentation_.palette(), 224));
+        canvas_.indexedRect(141, y0 + 6, 37, 39, 224, argb(presentation_.palette(), 224));
         canvas_.rect(141, y0 + 6, 37, 1, kCyan);
         canvas_.rect(141, y0 + 44, 37, 1, kCyan);
         canvas_.rect(141, y0 + 6, 1, 39, kCyan);
@@ -220,25 +233,25 @@ public:
         // (measured against the original level-1 frame).
         // Each icon sits in an 8x8 black well framed by a 1px darker-blue border
         // (4,4,166) against the panel blue (measured: 36px frame per box).
-        canvas_.rect(143, y0 + 11, 10, 10, argb(presentation_.palette(), 245));
+        canvas_.indexedRect(143, y0 + 11, 10, 10, 245, argb(presentation_.palette(), 245));
         canvas_.rect(144, y0 + 12, 8, 8, kBlack);
-        canvas_.rect(143, y0 + 27, 10, 10, argb(presentation_.palette(), 246));
+        canvas_.indexedRect(143, y0 + 27, 10, 10, 246, argb(presentation_.palette(), 246));
         canvas_.rect(144, y0 + 28, 8, 8, kBlack);
         if (!drawHudTile8(144, y0 + 12, hud_.objectiveTile)) {
             canvas_.rect(144, y0 + 12, 8, 8, kYellow);
         }
         // The original displays the REMAINING objective (required - current),
         // counting down to zero as bonuses are collected / tiles destroyed.
-        int bonusRemaining =
-            std::max(0, static_cast<int>(hud_.requiredBonus) - hud_.collected);
-        drawHudNumber(159, y0 + 12, std::min(99, bonusRemaining), 2);
+        const int bonusRemaining = core::hudBonusRemaining(
+            hud_.requiredBonus, static_cast<uint16_t>(hud_.collected));
+        drawHudObjectiveNumber(159, y0 + 12, bonusRemaining);
         // Bottom icon: the fixed destruction-target star, CARO.CAR tile 117.
         if (!drawHudTile8(144, y0 + 28, kHudDestructionStarTile)) {
             canvas_.rect(144, y0 + 28, 8, 8, kYellow);
         }
-        int destRemaining = std::max(
-            0, static_cast<int>(hud_.requiredDestruction) - hud_.destructionPercent);
-        drawHudNumber(159, y0 + 28, std::min(99, destRemaining), 2);
+        const int destRemaining = core::hudDestructionRemaining(
+            hud_.requiredDestruction, static_cast<uint8_t>(hud_.destructionPercent));
+        drawHudObjectiveNumber(159, y0 + 28, destRemaining);
     }
 
     void drawHud() {
@@ -250,10 +263,10 @@ public:
             drawSinglePlayerHud();
         } else {
             canvas_.rect(0, 160, kScreenW, 40, 0xff000000u);
-            drawPlayerHudColumn(0, hud_.players[0].energy, hud_.players[0].score, hud_.players[0].lives, hud_.players[0].dead,
-                                hud_.players[0].inventory);
-            drawPlayerHudColumn(180, hud_.players[1].energy, hud_.players[1].score, hud_.players[1].lives, hud_.players[1].dead,
-                                hud_.players[1].inventory);
+            drawPlayerHudColumn(0, hud_.players[0].energy, hud_.players[0].score, hud_.players[0].lives,
+                                hud_.players[0].ammo);
+            drawPlayerHudColumn(180, hud_.players[1].energy, hud_.players[1].score, hud_.players[1].lives,
+                                hud_.players[1].ammo);
             drawHudObjectivePanel();
         }
         if (hud_.complete && !hud_.outroActive) {
@@ -273,6 +286,14 @@ private:
 
 void GameRenderer::drawHud(const HudView& hud) {
     HudPainter(canvas_, text_, assets_, presentation_, *this, hud).drawHud();
+}
+
+void GameRenderer::drawResultScores(const HudView& hud, const std::array<bool, 2>& awarded) {
+    HudPainter painter(canvas_, text_, assets_, presentation_, *this, hud);
+    for (int player = 0; player < hud.playerCount; ++player) {
+        if (awarded[static_cast<size_t>(player)])
+            painter.drawHudScore(player == 0 ? 0 : 180, kHudScoreY, hud.scoreReels[static_cast<size_t>(player)]);
+    }
 }
 
 }

@@ -1,0 +1,94 @@
+{
+  "status": "failed",
+  "version": "cpp",
+  "audio": "dummy",
+  "gameplay_seeded": false,
+  "delay_gates": false,
+  "physical_keys": true,
+  "manual_input": false,
+  "events": [
+    {
+      "kind": "press",
+      "key": "Num_Lock",
+      "seconds": 14.365750852011843
+    },
+    {
+      "kind": "press",
+      "key": "down:Shift_L",
+      "seconds": 14.418574017996434
+    },
+    {
+      "kind": "press",
+      "key": "raw:87",
+      "seconds": 14.486403318005614
+    },
+    {
+      "kind": "press",
+      "key": "up:Shift_L",
+      "seconds": 14.617825227003777
+    }
+  ],
+  "captures": [
+    {
+      "name": "menu-ready",
+      "seconds": 14.062779701984255,
+      "full_menu": true,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "after-choice-0.05",
+      "seconds": 14.76046232698718,
+      "full_menu": true,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "after-choice-0.2",
+      "seconds": 14.91224279499147,
+      "full_menu": true,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "after-choice-0.5",
+      "seconds": 15.211130249983398,
+      "full_menu": true,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "after-choice-1.0",
+      "seconds": 15.713900153001305,
+      "full_menu": true,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "after-choice-2.5",
+      "seconds": 17.2110515399836,
+      "full_menu": true,
+      "english_full": false,
+      "intro": false,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    }
+  ],
+  "observer_sha256": "faa9e99ed4da78e0515b65bb1a3853a962c00debef0551cf17da91e8f274e91d",
+  "probe_keys": [
+    "Num_Lock",
+    "down:Shift_L",
+    "raw:87",
+    "up:Shift_L"
+  ],
+  "expected_after_input": "intro",
+  "exe_sha256": "9a37e3a064f6e9dc947c18ce2a085132551f1f1438e95f325b4f528ec4caf92d",
+  "x_keyboard_before": "Keyboard Control:\n  auto repeat:  on    key click percent:  0    LED mask:  00000000\n  XKB indicators:\n    00: Caps Lock:   off    01: Num Lock:    off    02: Scroll Lock: off\n    03: Compose:     off    04: Kana:        off    05: Sleep:       off\n    06: Suspend:     off    07: Mute:        off    08: Misc:        off\n    09: Mail:        off    10: Charging:    off    11: Shift Lock:  off\n    12: Group 2:     off    13: Mouse Keys:  off\n  auto repeat delay:  660    repeat rate:  25\n  auto repeating keys:  00ffffffdffffbbf\n                        fadfffefffedffff\n                        9fffffffffffffff\n                        fff7ffffffffffff\n  bell percent:  50    bell pitch:  400    bell duration:  100\nPointer Control:\n  acceleration:  2/1    threshold:  4\nScreen Saver:\n  prefer blanking:  yes    allow exposures:  yes\n  timeout:  600    cycle:  600\nColors:\n  default colormap:  0x20    BlackPixel:  0x0    WhitePixel:  0xffffff\nFont Path:\n  /usr/share/fonts/X11/misc,/usr/share/fonts/X11/cyrillic,/usr/share/fonts/X11/Type1,built-ins\nDPMS (Display Power Management Signaling):\n  Server does not have the DPMS Extension\n",
+  "x_keyboard_after": "Keyboard Control:\n  auto repeat:  on    key click percent:  0    LED mask:  00000002\n  XKB indicators:\n    00: Caps Lock:   off    01: Num Lock:    on     02: Scroll Lock: off\n    03: Compose:     off    04: Kana:        off    05: Sleep:       off\n    06: Suspend:     off    07: Mute:        off    08: Misc:        off\n    09: Mail:        off    10: Charging:    off    11: Shift Lock:  off\n    12: Group 2:     off    13: Mouse Keys:  off\n  auto repeat delay:  660    repeat rate:  25\n  auto repeating keys:  00ffffffdffffbbf\n                        fadfffefffedffff\n                        9fffffffffffffff\n                        fff7ffffffffffff\n  bell percent:  50    bell pitch:  400    bell duration:  100\nPointer Control:\n  acceleration:  2/1    threshold:  4\nScreen Saver:\n  prefer blanking:  yes    allow exposures:  yes\n  timeout:  600    cycle:  600\nColors:\n  default colormap:  0x20    BlackPixel:  0x0    WhitePixel:  0xffffff\nFont Path:\n  /usr/share/fonts/X11/misc,/usr/share/fonts/X11/cyrillic,/usr/share/fonts/X11/Type1,built-ins\nDPMS (Display Power Management Signaling):\n  Server does not have the DPMS Extension\n",
+  "error": "keypad selection did not reach the intro",
+  "child_exit_code": 0
+}

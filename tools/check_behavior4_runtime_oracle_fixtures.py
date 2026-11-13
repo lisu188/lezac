@@ -8,6 +8,7 @@ from pathlib import Path
 
 from source_guardrails import diagnostic_source_text
 import re
+from typing import Callable
 
 
 REQUIRED_OFFSETS = [0x7A6B, 0x7C2C, 0x70D7, 0x714F, 0x73E5, 0x741B]
@@ -60,17 +61,23 @@ def parse_record(line: str) -> tuple[str, dict[str, str]]:
         key, separator, value = token.partition("=")
         if not separator or not key or not value:
             raise RuntimeError(f"bad record field token={token}")
+        if key in fields:
+            raise RuntimeError(f"duplicate field record={record} field={key}")
         fields[key] = value
     return record, fields
 
 
 def require_field(fields: dict[str, str], name: str, record: str) -> int:
     if name not in fields:
-        return -999999
+        raise RuntimeError(f"missing field record={record} field={name}")
     return parse_int(fields[name], f"{record}.{name}")
 
 
 def parse_fixture(path: Path) -> tuple[dict[str, str], dict[str, dict[str, str]], list[tuple[int, int, int, int]], int]:
+    return parse_fixture_text(path.read_text(encoding="utf-8"))
+
+
+def parse_fixture_text(text: str) -> tuple[dict[str, str], dict[str, dict[str, str]], list[tuple[int, int, int, int]], int]:
     values: dict[str, str] = {}
     records: dict[str, dict[str, str]] = {}
     breaks: list[tuple[int, int, int, int]] = []
@@ -81,7 +88,7 @@ def parse_fixture(path: Path) -> tuple[dict[str, str], dict[str, dict[str, str]]
         r"runtime=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\s+label=([^\s]+).*$"
     )
     row_re = re.compile(r"^([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\s+(.+)$")
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
+    for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
@@ -102,6 +109,8 @@ def parse_fixture(path: Path) -> tuple[dict[str, str], dict[str, dict[str, str]]
             continue
         if line.startswith(("spawner ", "actor_before ", "actor_after ", "players ")):
             record, fields = parse_record(line)
+            if record in records:
+                raise RuntimeError(f"duplicate record record={record}")
             records[record] = fields
             continue
         match = row_re.match(line)
@@ -190,6 +199,79 @@ def infer_outcome(
     if dump_bytes < 0:
         return "dump_segment_mismatch"
     return "ok"
+
+
+def check_parser_rejection_guards(path: Path) -> int:
+    values, records, breaks, dump_bytes = parse_fixture(path)
+    if infer_outcome(values, records, breaks, dump_bytes) != "ok":
+        raise RuntimeError("parser rejection guards require the valid synthetic baseline")
+    required = {
+        "spawner": ("behavior",),
+        "actor_before": ("behavior", "slot", "target"),
+        "actor_after": ("behavior", "slot", "target"),
+        "players": ("target_before", "target_after"),
+    }
+
+    def require_rejection(operation: Callable[[], object], expected: str) -> None:
+        try:
+            operation()
+        except RuntimeError as error:
+            if str(error) != expected:
+                raise RuntimeError(
+                    f"parser rejection guard expected {expected!r}, got {str(error)!r}"
+                ) from error
+        else:
+            raise RuntimeError(f"parser accepted invalid evidence: {expected}")
+
+    guards = 0
+    for record, names in required.items():
+        for name in names:
+            candidate = {tag: dict(fields) for tag, fields in records.items()}
+            candidate[record].pop(name)
+            require_rejection(
+                lambda: infer_outcome(values, candidate, breaks, dump_bytes),
+                f"missing field record={record} field={name}",
+            )
+            guards += 1
+            for duplicate in ("-999999", records[record][name]):
+                body = " ".join(f"{key}={value}" for key, value in records[record].items())
+                require_rejection(
+                    lambda: parse_record(f"{record} {name}={duplicate} {body}"),
+                    f"duplicate field record={record} field={name}",
+                )
+                guards += 1
+
+    # Equal missing sentinels previously hid absent fields on both sides.
+    for omissions in (
+        (("actor_before", "slot"), ("actor_after", "slot")),
+        (("actor_before", "target"), ("actor_after", "target"),
+         ("players", "target_before"), ("players", "target_after")),
+    ):
+        candidate = {tag: dict(fields) for tag, fields in records.items()}
+        for record, name in omissions:
+            candidate[record].pop(name)
+        record, name = omissions[0]
+        require_rejection(
+            lambda: infer_outcome(values, candidate, breaks, dump_bytes),
+            f"missing field record={record} field={name}",
+        )
+        guards += 1
+    baseline_lines = path.read_text(encoding="utf-8").splitlines()
+    for record in required:
+        index = next(i for i, line in enumerate(baseline_lines) if line.startswith(record + " "))
+        invalid_fields = dict(records[record])
+        invalid_fields[next(iter(invalid_fields))] = "999999"
+        invalid_line = record + " " + " ".join(f"{key}={value}" for key, value in invalid_fields.items())
+        for duplicate in (baseline_lines[index], invalid_line):
+            for insertion in (index, index + 1):
+                candidate = list(baseline_lines)
+                candidate.insert(insertion, duplicate)
+                require_rejection(
+                    lambda: parse_fixture_text("\n".join(candidate)),
+                    f"duplicate record record={record}",
+                )
+                guards += 1
+    return guards
 
 
 def check_cmake_coverage(cmake_path: Path, fixture_names: set[str]) -> int:
@@ -308,6 +390,9 @@ def main() -> int:
         else:
             malformed_count += 1
 
+    parser_guards = check_parser_rejection_guards(
+        fixture_dir / "behavior4_runtime_oracle_synthetic.txt"
+    )
     cmake_count = 0
     if str(args.cmake) != "":
         cmake_count = check_cmake_coverage(args.cmake.resolve(), names)
@@ -320,7 +405,7 @@ def main() -> int:
         "behavior4_runtime_oracle_fixtures=ok "
         f"files={len(paths)} valid={ok_count} malformed={malformed_count} "
         f"original={original_count} cmake_tests={cmake_count} "
-        f"source_command={source_command}"
+        f"source_command={source_command} parser_rejection_guards={parser_guards}"
     )
     return 0
 

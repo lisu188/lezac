@@ -1,0 +1,235 @@
+{
+  "cases": {
+    "cpp_alt_fixed": {
+      "raw_directory": "/dev/shm/lezac-cpp-alt-keypad-operators-fixed-20261001",
+      "record": "cpp_alt_fixed.json",
+      "source": "source_98ffa451336d6b79f9b9c7dfa1b7b16ae7ef2c64e806ed6bf867804c9e3524ec.py.gz",
+      "status": "observed"
+    },
+    "cpp_alt_negative": {
+      "raw_directory": "/dev/shm/lezac-cpp-alt-keypad-operators-negative-20261001",
+      "record": "cpp_alt_negative.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "failed"
+    },
+    "cpp_decimal_fixed": {
+      "raw_directory": "/dev/shm/lezac-cpp-alt-keypad-decimal-fixed-20261001",
+      "record": "cpp_decimal_fixed.json",
+      "source": "source_98ffa451336d6b79f9b9c7dfa1b7b16ae7ef2c64e806ed6bf867804c9e3524ec.py.gz",
+      "status": "observed"
+    },
+    "cpp_decimal_negative": {
+      "raw_directory": "/dev/shm/lezac-pr254-alt-keypad-decimal-negative-20261001",
+      "record": "cpp_decimal_negative.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "failed"
+    },
+    "cpp_initial_composition": {
+      "raw_directory": "/dev/shm/lezac-legacy-keypad-physical-20261001/lezac-bios-menu-qyewe8u0/composition",
+      "record": "cpp_initial_composition.json",
+      "source": "source_bb1ae66c7aa5efef1dcc3da08793c8dd60790be173e05a59a8dce458d22daf88.py.gz",
+      "status": "failed"
+    },
+    "cpp_initial_intro": {
+      "raw_directory": "/dev/shm/lezac-legacy-keypad-physical-20261001/lezac-bios-menu-qyewe8u0/intro",
+      "record": "cpp_initial_intro.json",
+      "source": "source_bb1ae66c7aa5efef1dcc3da08793c8dd60790be173e05a59a8dce458d22daf88.py.gz",
+      "status": "observed"
+    },
+    "cpp_initial_noncharacters": {
+      "raw_directory": "/dev/shm/lezac-legacy-keypad-physical-20261001/lezac-bios-menu-qyewe8u0/noncharacters",
+      "record": "cpp_initial_noncharacters.json",
+      "source": "source_bb1ae66c7aa5efef1dcc3da08793c8dd60790be173e05a59a8dce458d22daf88.py.gz",
+      "status": "observed"
+    },
+    "cpp_live_composition": {
+      "raw_directory": "/dev/shm/lezac-legacy-keypad-physical-20261001/lezac-bios-menu-nydg2q1q/composition",
+      "record": "cpp_live_composition.json",
+      "source": "source_d34e6329a5dd8b0f795018811598c2d64854b155a0960da4d967640be744ab58.py.gz",
+      "status": "observed"
+    },
+    "cpp_live_intro": {
+      "raw_directory": "/dev/shm/lezac-legacy-keypad-physical-20261001/lezac-bios-menu-nydg2q1q/intro",
+      "record": "cpp_live_intro.json",
+      "source": "source_d34e6329a5dd8b0f795018811598c2d64854b155a0960da4d967640be744ab58.py.gz",
+      "status": "observed"
+    },
+    "cpp_live_keypad": {
+      "raw_directory": "/dev/shm/lezac-legacy-keypad-physical-20261001/lezac-bios-menu-nydg2q1q/keypad",
+      "record": "cpp_live_keypad.json",
+      "source": "source_d34e6329a5dd8b0f795018811598c2d64854b155a0960da4d967640be744ab58.py.gz",
+      "status": "observed"
+    },
+    "cpp_live_noncharacters": {
+      "raw_directory": "/dev/shm/lezac-legacy-keypad-physical-20261001/lezac-bios-menu-nydg2q1q/noncharacters",
+      "record": "cpp_live_noncharacters.json",
+      "source": "source_d34e6329a5dd8b0f795018811598c2d64854b155a0960da4d967640be744ab58.py.gz",
+      "status": "observed"
+    },
+    "original_allocation_failure": {
+      "raw_directory": "/dev/shm/lezac-original-alt-keypad-decimal-language-20261001",
+      "record": "original_allocation_failure.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "failed"
+    },
+    "original_alt_four": {
+      "raw_directory": "/dev/shm/lezac-original-alt-keypad-operators-confirmed-20261001",
+      "record": "original_alt_four.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "observed"
+    },
+    "original_alt_six": {
+      "raw_directory": "/dev/shm/lezac-original-alt-keypad-six-typing-20261001",
+      "record": "original_alt_six.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "observed"
+    },
+    "original_clock_boundary_failure": {
+      "raw_directory": "/dev/shm/lezac-original-control-keypad-enter-typing-20261001",
+      "record": "original_clock_boundary_failure.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "failed"
+    },
+    "original_control_alt_decimal": {
+      "raw_directory": "/dev/shm/lezac-original-alt-control-keypad-decimal-confirmed-20261001",
+      "record": "original_control_alt_decimal.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "observed"
+    },
+    "original_control_alt_priority": {
+      "raw_directory": "/dev/shm/lezac-original-control-alt-priority-typing-20261001",
+      "record": "original_control_alt_priority.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "observed"
+    },
+    "original_control_enter": {
+      "raw_directory": "/dev/shm/lezac-original-control-keypad-enter-confirmed-20261001",
+      "record": "original_control_enter.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "observed"
+    },
+    "original_control_five": {
+      "raw_directory": "/dev/shm/lezac-original-control-keypad-five-typing-20261001",
+      "record": "original_control_five.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "observed"
+    },
+    "original_decimal": {
+      "raw_directory": "/dev/shm/lezac-original-alt-keypad-decimal-language-confirmed-20261001",
+      "record": "original_decimal.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "observed"
+    },
+    "original_decimal_expectation_failure": {
+      "raw_directory": "/dev/shm/lezac-original-alt-keypad-interruption-language-20261001",
+      "record": "original_decimal_expectation_failure.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "failed"
+    },
+    "original_queue_guard_failure": {
+      "raw_directory": "/dev/shm/lezac-original-alt-keypad-operators-typing-20261001",
+      "record": "original_queue_guard_failure.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "failed"
+    },
+    "original_unmodified_plus": {
+      "raw_directory": "/dev/shm/lezac-original-unmodified-keypad-plus-typing-20261001",
+      "record": "original_unmodified_plus.json",
+      "source": "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz",
+      "status": "observed"
+    }
+  },
+  "files": {
+    "cpp_alt_fixed.json": "012fe159e995abf2a4df3e10e2ca913a8fa2e038fc34abafc7a6db568b7b8275",
+    "cpp_alt_negative.json": "05c943b9c5de27806dd35d1f3ca27cc228c0e069156c2d200963b538757aa0c2",
+    "cpp_decimal.png": "fa9ffb0c37712fd63d627876a5fbf32063654fda17027a9329cd7116e32350d8",
+    "cpp_decimal_fixed.json": "f9a1eecb24252747b5bd01af737facd176570879e0187255ffe48a692b084a39",
+    "cpp_decimal_negative.json": "dbaaa12f78da60e22c614592bcf790f5a1063534cd421f78088faeceb7dcc67e",
+    "cpp_fixed.png": "795083be16ddfd78444de500faa2e8bc0d5161ce31344eb58b75e68e12e4bc5e",
+    "cpp_gameplay.png": "899e45437a0725023c72f72e99fe979548b4eabe860e2e7f63322284ae6f4745",
+    "cpp_initial_composition.json": "e0da7bc9160af6018cd1bf79bf5ce8d2af32a77a253b80e13957306d413570e0",
+    "cpp_initial_intro.json": "7e09c992987e1b3eda0e16fe7dd9c098f5facaad6b8bb3b35bcbf0ebb0ce7801",
+    "cpp_initial_noncharacters.json": "e5e264dc83f6a106ada28fbf1f5e89243b78189a7045bde9b5ab50f1a92bfc90",
+    "cpp_intro_control_enter.png": "41d13f38b9870ab8b438ee5876f6f1e28f7ee26d7ba3a8bfaec2aff26cc70757",
+    "cpp_live_composition.json": "4a53c77cce16bf175e05ac4085473a3253c4fc2c1a0fe59c9d5a669bf5619e0a",
+    "cpp_live_intro.json": "4533de393abdb1fd2d689a6741f47ea36ac130d68743b955e79c3d1259382194",
+    "cpp_live_keypad.json": "8a70e7a1f678fd3bc2fa8aec822317f8c239d2fbd143c4e07f5c4136c9a6151a",
+    "cpp_live_noncharacters.json": "b8588fa009cb03d7996c2156cd74359e10073ad4f885051b21b6184446a8a23c",
+    "cpp_negative.png": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+    "original_allocation_failure.json": "ce6daf3b9aac43a702dade4248b10da126bc9d3ec86ed66409bed2a88dc89256",
+    "original_alt_four.json": "88c13ea1428541c828bb618b77b6946fc72698d1630db028ce0f24b1ada6c017",
+    "original_alt_six.json": "22700903d802b1c1dd95ae6bafbe4454f3b7ab179b443afd8115782cdbc035b5",
+    "original_clock_boundary_failure.json": "ee61c586c2c1225bff027dd3a681a3b787507db772000e98889026da0b4676eb",
+    "original_control_alt_decimal.json": "770944932ee88a7c5fba8f4646a71a7be1d48273ce73e01fb44fb8d795a18109",
+    "original_control_alt_priority.json": "bccf402a76b5001d5aa7f62611436e1e372f1e257e2d074106f5c01b40fbb0e1",
+    "original_control_enter.json": "fb014c9457e1bff24cfb999e68fe73282365a28b03bb537b1cf3768a2b3b0272",
+    "original_control_enter.png": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+    "original_control_five.json": "ef6bf62361ea2242f655da36a2b428ede2945569563f99aad705d4eef9e38914",
+    "original_decimal.json": "5efde3ac0cd845bacd2e477cfb351403abad0de7ce80a649507fae455eecdf9f",
+    "original_decimal.png": "fa9ffb0c37712fd63d627876a5fbf32063654fda17027a9329cd7116e32350d8",
+    "original_decimal_expectation_failure.json": "aace3d84c1d4b08c8c06baafb95a6e75d041c8be7ef92d89854e6aa892b55eee",
+    "original_filtered.png": "795083be16ddfd78444de500faa2e8bc0d5161ce31344eb58b75e68e12e4bc5e",
+    "original_queue_guard_failure.json": "21657d837322e910aca2b496aedb85ef85e341a5441ffda39ab699df0f46f475",
+    "original_unmodified_plus.json": "a78039e58ee39275e00d8813b05e68d8e49dccd7d20af1e6b98a9fd653f0fd6b",
+    "producer.py.gz": "af0d52fa98cac8ed593e6cb73d9d4e282971a01d93ec878d23c90cb47abe57d4",
+    "source_98ffa451336d6b79f9b9c7dfa1b7b16ae7ef2c64e806ed6bf867804c9e3524ec.py.gz": "2c6d0395e76650e02588ec93f2641a66b635f0c1b1f947459765d16fa1a1fd21",
+    "source_bb1ae66c7aa5efef1dcc3da08793c8dd60790be173e05a59a8dce458d22daf88.py.gz": "dcf6a3ed3f6cf37c16b073804b0777e100d8f15c7bc2a8c92bb306f07dfa0ff9",
+    "source_d34e6329a5dd8b0f795018811598c2d64854b155a0960da4d967640be744ab58.py.gz": "08d1bf04edd1328adb62ce41d8f6765463ce429ff67bacd38d0437e42066ff48",
+    "source_f9793d76c6fd20a269700cb49a39c0e6d44ee04a404c1b97ab3e9f90c5624598.py.gz": "3be05fe115d41232c18114f8ad9f56518ea56518f8ae8a0a29d78a17faafb738"
+  },
+  "images": {
+    "cpp_decimal": {
+      "capture": "english-ready-control",
+      "case": "cpp_decimal_fixed",
+      "file": "cpp_decimal.png",
+      "pixel_sha256": "1ba172f477005a57a01132e42042e54a5d1454f5b7361ceba9cab8b36a715b58"
+    },
+    "cpp_fixed": {
+      "capture": "after-choice-0.2",
+      "case": "cpp_alt_fixed",
+      "file": "cpp_fixed.png",
+      "pixel_sha256": "28da798555783e3fcec84b94722db73f49258416a6364797b6d55258a88514c1"
+    },
+    "cpp_gameplay": {
+      "capture": "fresh-control-keypad-enter-gameplay",
+      "case": "cpp_live_keypad",
+      "file": "cpp_gameplay.png",
+      "pixel_sha256": "943c56f242a26dbf054bf9880a64b27128fc9dd27e78fb6d4740f71f681c101c"
+    },
+    "cpp_intro_control_enter": {
+      "capture": "control-keypad-enter-consumed-skip",
+      "case": "cpp_live_keypad",
+      "file": "cpp_intro_control_enter.png",
+      "pixel_sha256": "c87d02a2c58bc5a4129b83d9a84a75fa5e0ac2dd72935a6e8e22341223545b1e"
+    },
+    "cpp_negative": {
+      "capture": "after-choice-0.2",
+      "case": "cpp_alt_negative",
+      "file": "cpp_negative.png",
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    "original_control_enter": {
+      "capture": "after-choice-0.2",
+      "case": "original_control_enter",
+      "file": "original_control_enter.png",
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    "original_decimal": {
+      "capture": "english-ready-control",
+      "case": "original_decimal",
+      "file": "original_decimal.png",
+      "pixel_sha256": "1ba172f477005a57a01132e42042e54a5d1454f5b7361ceba9cab8b36a715b58"
+    },
+    "original_filtered": {
+      "capture": "after-choice-0.2",
+      "case": "original_alt_four",
+      "file": "original_filtered.png",
+      "pixel_sha256": "28da798555783e3fcec84b94722db73f49258416a6364797b6d55258a88514c1"
+    }
+  },
+  "manual_input": false,
+  "original_exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "producer_sha256": "d1c308de2575e325c208853c20e56496c36b7b49fc9bfc724b8df451f9cdd1ba",
+  "schema": 1,
+  "whole_game_parity": false
+}

@@ -1,0 +1,27 @@
+{
+  "schema": "lezac-frozen-frame-clock-v1",
+  "files": [
+    {
+      "name": "r3.csv.gz",
+      "bytes": 83751,
+      "sha256": "0f43ae085dc0d401d7ee541183b8345d6043647bb0a51520dff16218892616b4"
+    },
+    {
+      "name": "r3-recipe.json",
+      "bytes": 93387,
+      "sha256": "1dd2f94149028e87c3da77387495d5336238ec7c7833b061844f773ecd947433"
+    }
+  ],
+  "trace_bytes": 2336779,
+  "trace_sha256": "817faba32460f6fa06ebfbf9aa5f083224239a840fb3d0d14a5eb81be6bb92f8",
+  "cases": 2,
+  "states": 746,
+  "natural_irq_boundaries": 1,
+  "observed_irq_stage": "inside DOS call 308 at state 167",
+  "foreground_instructions": 29,
+  "post_dos_natural_irq_claim": false,
+  "raw_ram_published": false,
+  "raw_png_published": false,
+  "full_frame_scheduler_claim": false,
+  "live_app_clock_integration_claim": false
+}

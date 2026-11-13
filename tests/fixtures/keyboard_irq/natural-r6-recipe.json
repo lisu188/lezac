@@ -1,0 +1,1207 @@
+{
+  "schema": "lezac-original-keyboard-irq-v1",
+  "status": "observed",
+  "passed": true,
+  "assets": {
+    "BOMOMIMK.SPR": {
+      "bytes": 20168,
+      "sha256": "08dfd0e59ba191c52af2529bdfa140fd15a57829f0c6c13bbb78e156769ac0d1"
+    },
+    "BOMPAL.PAL": {
+      "bytes": 768,
+      "sha256": "f2559164074ca529ba6c275a9831b11c6da9e6317f09b3d9228c299d6f8f8319"
+    },
+    "CARO.CAR": {
+      "bytes": 8450,
+      "sha256": "949cce4db6071d6675a291c978d725c6e4ee1730b2c7a428bc1c8a8185cbd8d8"
+    },
+    "ENGLISH.DOC": {
+      "bytes": 3522,
+      "sha256": "e2fd2f2521b0277f2fca0c8f2a265408412542932bb6e977bf1ab3d0aabdfed9"
+    },
+    "FONTS.SPR": {
+      "bytes": 5425,
+      "sha256": "f65aa9bbba2a66ee69f1b279a32c448e36012feb53441fbbb8e64e31bee87a0e"
+    },
+    "GRAN.MST": {
+      "bytes": 399,
+      "sha256": "3f0cf17706d557ca863d6e39bfa6641fba777a88815ba3f0a22e5ac89e0e39e2"
+    },
+    "ITALIANO.DOC": {
+      "bytes": 4392,
+      "sha256": "5ea7481d3179e60b6f1229aa114dc4b47c95f7c1200c7888ad5c259f161317c1"
+    },
+    "LEZAC.EXE": {
+      "bytes": 52384,
+      "sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
+    },
+    "LIVELS.SCH": {
+      "bytes": 41047,
+      "sha256": "d8b553871014108515d6af05b0853de8ccc22e4d3e44d63533ba1167fdc8c7b2"
+    },
+    "PROEFS.SON": {
+      "bytes": 782,
+      "sha256": "b5bc702a27ac85554cc76a62fced07567921b07d5c16f2027a62fbc956df701d"
+    },
+    "PROVA.SPR": {
+      "bytes": 21250,
+      "sha256": "d6d6b634f8613251f6e82e9a15c5c68e2be437892bfa25c53eb4bcd9094188b7"
+    },
+    "RECS.DAT": {
+      "bytes": 92,
+      "sha256": "27197ebb56fb339e4d41baf6ad5282cd79bb66b642c81ae406e607a263c80eb8"
+    },
+    "SETUP.LOG": {
+      "bytes": 566,
+      "sha256": "4c86cd7436be442663b10b1425bbcd7a179b7955b67c23632bf20a8180144a14"
+    },
+    "SFONLEF.ZBG": {
+      "bytes": 34292,
+      "sha256": "b1b7cc03122510318c1a3670f151712406e9e3fa60aabd8fb558320766c3835c"
+    }
+  },
+  "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "dosbox_sha256": "f74c3a0c885d687cc6205dcfc004f1edc49811721eafde30e32473ea63fac108",
+  "host_build": {
+    "base_host_sha256": "4d8eaba9db5e3f733b49c35f191eff98f1f5730035f7374c5c703693a080c8ac",
+    "source_hashes": {
+      "src/dosbox": "4d8eaba9db5e3f733b49c35f191eff98f1f5730035f7374c5c703693a080c8ac",
+      "src/dos/dos.cpp": "c563c5c0df429350ccba90019252abc0d6bcca2264fa36a3971b512ecd6ac002",
+      "src/cpu/core_normal.cpp": "4aa44efa8c6d8788f23d6bcc29d24beb4a4123d3e442b51f03a03bdbdf8c6516",
+      "src/cpu/callback.cpp": "945f1b696b2f031f6f5e4ffc00aecd77103eaf5be4a9cf7051814517ce6e74bf",
+      "src/cpu/cpu.cpp": "0e897027875de7eea33a35b9eeefcd5a7cd15facb4a409172e3e712766b08098",
+      "include/dos_inc.h": "c044eedc836ddcd1f18c0f16ad8f62861078fe065cf858094513ffdea9589e3a",
+      "config.h": "01aca5c63f5c70af786ea29d8a769b9a475edfcb9a36e2d762af00bbc204f786",
+      "src/hardware/pic.cpp": "f1a6d6b330a24a72440c7f1581ac804530e534714c7f79109f47afce100ae12a",
+      "src/hardware/timer.cpp": "6adc0ea61440ff684275172385edc0cc4a1b43f1f32e75a702aaf1c86380793a",
+      "include/pic.h": "9b8c4449d68e1619e9620a19a98585354412d0a3c61bd10dbfe9f5f2a6e1a052",
+      "src/dosbox.cpp": "e77e0cbc5c14158984fa77a33a19495640280d2a8f3ec6528bb5619f4e41941b",
+      "src/cpu/core_normal/prefix_none.h": "28bc5ff795eaab25672fe46068b0655bda169171e04df710fa6a423baceb9b1c",
+      "src/ints/bios.cpp": "b07734c610138cefb7383782aafdbf49d19dcc95c8b0113555261fcfdd71baa5",
+      "src/hardware/iohandler.cpp": "d7ef9acf52269924d8331b1b46140e5b5f621cc386a7bf733c95b6985d313393",
+      "src/hardware/vga_draw.cpp": "1526c501a3d523a68677092b9d75f01eb53eb544d2c557d7150118860050df1e",
+      "src/gui/render.cpp": "3bce9f5aded634ec34497a0ee8875e89e0b90cdb7de6e72bbbb81482c09dc7fc",
+      "src/hardware/keyboard.cpp": "37a37ca16f09370bdd103aa82348f52526a7d82cb430157c781208acecef804c",
+      "src/hardware/mixer.cpp": "f8a6ff503cd6730dc078688e2a92ce68e93fbcb42b12032e3f815d365320e475",
+      "src/ints/bios_keyboard.cpp": "880ef5796c968db80b7e0d23f2d5f68e86fd3d065b40f141bd77642ad2d89416",
+      "src/gui/sdlmain.cpp": "59e78cf3f7c3423e17a27adde5993c8c4156bdef0e2a03927e88fa6b7bf85c6b"
+    },
+    "probe_sha256": "dec6c49b91cf6dcf8e0b2d615e759f109a979ee84394184bfa6a848618e2a839",
+    "patch_sha256": "7b7b24a70c4a032533eb404d948d27eb36336b5248bb531604d8e4f737c3cd4b",
+    "clock_patch_sha256": "b61aedfbd911f46766bc3c32eb7c12df920ec9eed16928183aadc4732a260e44",
+    "clock_api_sha256": "749b34dbe8e94689601159893c360b9779a7c52014e6d989b6d6e51d25c28936",
+    "copied_build_products": true,
+    "host_instrumented": true,
+    "guest_instruction_patches": 0,
+    "source_filesystem": "tmpfs",
+    "output_filesystem": "tmpfs",
+    "device_fragment_hashes": {
+      "pic_tickers_observation.inc": "0025c8d94219966e73c5d9bca004311de4d0c2335f7f8dfff7b608753486fa72",
+      "vga_clock_observation.inc": "3dbee71ba4ff04fead3e3417c6a0ed2d9e28dbe0dcd3ba630f3e35d251f9c6e9",
+      "render_clock_observation.inc": "9b5f82d789472d01d3179106b7bb3f3a278c3133025e326770c51ecd9e984471",
+      "keyboard_clock_observation.inc": "7fb32b946df39756cbf4fad59ba15ace6383b070976bdd2d54cebeafff1753e3",
+      "mixer_clock_observation.inc": "b997f6b2a762f047b1cb1caa2d8a893039c405fb66f9abd024dc92035fcf0a58",
+      "gfx_clock_observation.inc": "c7e3007fee0a62b4fe485e94c46a6de2807bc8b636ab745491f2111e1af8178d"
+    },
+    "device_patch_sha256": "03af532ff5e169a561256ca4c6c6a2d9794a678811d221ec7243c37b51bca38c",
+    "callback_identity": "direct original function pointer equality",
+    "build_exit": 0,
+    "host_sha256": "f74c3a0c885d687cc6205dcfc004f1edc49811721eafde30e32473ea63fac108",
+    "patched_dos_sha256": "77790a3b5ab163cdf9a0e9cfc26cb5bfc25588898a575e758943097b2a448674",
+    "patched_pic_sha256": "5b78080dbae398003c43d1eef3ba1a462b2597618c79f4672fae3d28243d9da7",
+    "patched_timer_sha256": "cf86e1b81e523784a3688dc7ae10b77fc7a4a2132d22f87164e52e77a6560e48",
+    "cpu_source_unchanged": true,
+    "patched_device_sources": {
+      "src/hardware/pic.cpp": "5b78080dbae398003c43d1eef3ba1a462b2597618c79f4672fae3d28243d9da7",
+      "src/hardware/vga_draw.cpp": "89ea0a7c2bcdfb60bed8bde9efeee5fcd56d37e8d01c762b11ab56c4cb075f46",
+      "src/gui/render.cpp": "3d1fc6a63ae757d513197a7b1d55ee09504ef7c900792f432018a7d4f2e2bff5",
+      "src/hardware/keyboard.cpp": "d3ee2544a1cef6c4006e634ceb0729d550f755a6c1fe5aff20020f6e196d5afd",
+      "src/hardware/mixer.cpp": "fc7168bcae5a11c71ad4f0c53327e97d79864f08657bab33489d5e8b9d5125be",
+      "src/gui/sdlmain.cpp": "ed6eb0a6671b3aeb109f50dd64875b19d426308843d65797166e2ff0b0ce9b49"
+    },
+    "status": "built",
+    "reused_task_owned_host": true,
+    "previous_host_retained": "/dev/shm/lezac-clock-frontier-t215/retained-r1-host",
+    "rebuild_producer_sha256": "9c5d9acf1a2bddae032a6f3b3ed285abe98e43df55a761b80f88facb15f15a9c",
+    "gfx_patch_sha256": "bec1cdfc6e662fbed4be47edee91e6bd41e0ee93393c268e0b86babfed238f09",
+    "repair_producer_sha256": "5bf31da0876c160d877bc25e960e06ccc416388ffb3416f1141a2902bc0ac2a4",
+    "build_environment": {
+      "PATH": "/usr/bin:/bin",
+      "TMPDIR": "/dev/shm/lezac-clock-frontier-t215/retained-r1-host",
+      "LANG": "C.UTF-8",
+      "LC_ALL": "C.UTF-8"
+    },
+    "build_environment_is_complete": true,
+    "keyboard_irq_sources": {
+      "keyboard_irq_api.h": "ca6369153dffe0ea4310559367aee4eaeb003faad3ac7a30856430236e314247",
+      "keyboard_irq_observation.inc": "555c409dbdfa6176b1bb36566746bab5f5abd1fdfb1e73e5792004cc57fadb86"
+    },
+    "keyboard_base_source_sha256": "3558650ca364a3cab4b28e4cb6d1093be1c0c9e1a6aa23c13b18a8453218b05c",
+    "keyboard_append_only": true,
+    "keyboard_getter_patch_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "sources": {
+    "tools/keyboard_irq_probe/capture.py": "d9dfc5fa853040d5ad8f3f3116bcf0ea6083f058cf4b1d3d439c18699dffe07f",
+    "tools/keyboard_irq_probe/trace.py": "5ef3098a59276524890cfd7e70591369b3b86ae28cd7c9c4ae11f351b03e5393",
+    "tools/keyboard_irq_probe/rebuild.py": "9c5d9acf1a2bddae032a6f3b3ed285abe98e43df55a761b80f88facb15f15a9c",
+    "tools/keyboard_irq_probe/contract.py": "9c27a6e39e6ec5170909a6a8f84944f364a4d3f81ada81ad53b5a964694b7c81",
+    "tools/keyboard_irq_probe/lezac_work_probe.h": "dec6c49b91cf6dcf8e0b2d615e759f109a979ee84394184bfa6a848618e2a839",
+    "tools/keyboard_irq_probe/keyboard_irq_api.h": "ca6369153dffe0ea4310559367aee4eaeb003faad3ac7a30856430236e314247",
+    "tools/keyboard_irq_probe/keyboard_irq_observation.inc": "555c409dbdfa6176b1bb36566746bab5f5abd1fdfb1e73e5792004cc57fadb86",
+    "tools/original_capture_contract.py": "36e27f3441ae98db6e2a459ca64c561b72c964e1e98de854ca416321c33c33e0",
+    "tools/seed_original_level.py": "b2e6a4fc80e6e612718baf10ff4aabc8e2c438524f5d24547b9a97fd483551fe"
+  },
+  "process_memory_writes": 0,
+  "process_memory_opened_read_only": true,
+  "process_pauses": 0,
+  "guest_instruction_patches": 0,
+  "calls_stubbed": 0,
+  "gameplay_state_seeded": false,
+  "input_bytes_seeded": false,
+  "host_probe_guest_register_writes": 0,
+  "host_probe_guest_memory_writes": 0,
+  "audio": "dummy",
+  "original_executable_changed": false,
+  "arithmetic_flags_claim": false,
+  "cpu_ram_rgb_atomic": false,
+  "whole_game_claim": false,
+  "keyboard_layout": "none",
+  "bios_observation_bytes": 152,
+  "events": [
+    {
+      "key": "1",
+      "hold_seconds": null,
+      "before": 21.03914661500312,
+      "after": 21.059222284995485,
+      "utc": "2026-10-17T05:24:07.678189+00:00"
+    },
+    {
+      "key": "Return",
+      "hold_seconds": null,
+      "before": 25.090738268001587,
+      "after": 25.108579919993645,
+      "utc": "2026-10-17T05:24:11.727545+00:00"
+    },
+    {
+      "key": "z",
+      "hold_seconds": 1.3,
+      "before": 26.144139655996696,
+      "after": 27.47721404499316,
+      "utc": "2026-10-17T05:24:14.096179+00:00"
+    },
+    {
+      "key": "x",
+      "hold_seconds": null,
+      "before": 27.57745537099254,
+      "after": 27.59638968500076,
+      "utc": "2026-10-17T05:24:14.215355+00:00"
+    },
+    {
+      "key": "m",
+      "hold_seconds": null,
+      "before": 27.69662148099451,
+      "after": 27.71645446200273,
+      "utc": "2026-10-17T05:24:14.335420+00:00"
+    },
+    {
+      "key": "n",
+      "hold_seconds": null,
+      "before": 27.816766008996638,
+      "after": 27.834266336998553,
+      "utc": "2026-10-17T05:24:14.453232+00:00"
+    },
+    {
+      "key": "c",
+      "hold_seconds": null,
+      "before": 27.93451633999939,
+      "after": 27.95223734699539,
+      "utc": "2026-10-17T05:24:14.571202+00:00"
+    },
+    {
+      "key": "Left",
+      "hold_seconds": null,
+      "before": 28.05253011699824,
+      "after": 28.07117637900228,
+      "utc": "2026-10-17T05:24:14.690142+00:00"
+    },
+    {
+      "key": "Right",
+      "hold_seconds": null,
+      "before": 28.17141111800447,
+      "after": 28.191564969994943,
+      "utc": "2026-10-17T05:24:14.810530+00:00"
+    },
+    {
+      "key": "Insert",
+      "hold_seconds": null,
+      "before": 28.291851150992443,
+      "after": 28.310387553996406,
+      "utc": "2026-10-17T05:24:14.929352+00:00"
+    },
+    {
+      "key": "Up",
+      "hold_seconds": null,
+      "before": 28.410676384999533,
+      "after": 28.43037332399399,
+      "utc": "2026-10-17T05:24:15.049339+00:00"
+    },
+    {
+      "key": "Down",
+      "hold_seconds": null,
+      "before": 28.530667658997118,
+      "after": 28.548034816994914,
+      "utc": "2026-10-17T05:24:15.167001+00:00"
+    },
+    {
+      "key": "e",
+      "hold_seconds": null,
+      "before": 28.648315247992286,
+      "after": 28.66786853899248,
+      "utc": "2026-10-17T05:24:15.286834+00:00"
+    },
+    {
+      "key": "r",
+      "hold_seconds": null,
+      "before": 28.76825542000006,
+      "after": 28.7866160160047,
+      "utc": "2026-10-17T05:24:15.405582+00:00"
+    },
+    {
+      "key": "a",
+      "hold_seconds": null,
+      "before": 28.88698939999449,
+      "after": 28.90489980300481,
+      "utc": "2026-10-17T05:24:15.523865+00:00"
+    }
+  ],
+  "host_commands": [
+    {
+      "command": [
+        "xdotool",
+        "search",
+        "--pid",
+        "1040437",
+        "--name",
+        "DOSBox"
+      ],
+      "exit": 0,
+      "stdout": "6291464\n",
+      "stderr": "",
+      "elapsed": 0.9980577539972728
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 1.0000522929913132
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "elapsed": 21.01559238799382
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 21.041580695993616
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "1"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 21.05901051699766
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "elapsed": 25.075212547002593
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 25.09369920300378
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "Return"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 25.10838377100299
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "elapsed": 26.13050092299818
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 26.14632840300328
+    },
+    {
+      "command": [
+        "xdotool",
+        "keydown",
+        "--clearmodifiers",
+        "z"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 26.161574753990863
+    },
+    {
+      "command": [
+        "xdotool",
+        "keyup",
+        "z"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 27.476962692002417
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 27.580308025993872
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "x"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 27.596105161996093
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 27.69920118499431
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "m"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 27.716204084994388
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 27.819227489002515
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "n"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 27.83398992900038
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 27.937146700991434
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "c"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 27.95193049000227
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 28.055310611991445
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "Left"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 28.070896003002417
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 28.17437841699575
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "Right"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 28.191260031991987
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 28.294774730995414
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "Insert"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 28.310091405990534
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 28.41459064099763
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "Up"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 28.43004957899393
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 28.532785846997285
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "Down"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 28.547708507991047
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 28.651309900000342
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "e"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 28.667429637003806
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 28.770848519998253
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "r"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 28.786202649003826
+    },
+    {
+      "command": [
+        "xdotool",
+        "windowfocus",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 28.889414322999073
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "a"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 28.904500802993425
+    },
+    {
+      "command": [
+        "xdotool",
+        "getwindowgeometry",
+        "--shell",
+        "6291464"
+      ],
+      "exit": 0,
+      "stdout": "WINDOW=6291464\nX=192\nY=184\nWIDTH=320\nHEIGHT=200\nSCREEN=0\n",
+      "stderr": "",
+      "elapsed": 29.02360889800184
+    },
+    {
+      "command": [
+        "xdotool",
+        "key",
+        "--clearmodifiers",
+        "ctrl+F9"
+      ],
+      "exit": 0,
+      "stdout": "",
+      "stderr": "",
+      "elapsed": 29.069277571994462
+    }
+  ],
+  "samples": [
+    {
+      "name": "main",
+      "ram_sha256": "e002580198bd6af19182e121085c1859e58f1773e0622cab27f1143ea067d079",
+      "ram_gzip_sha256": "6bbdee6103a48bceaaa39c6f942308311942ec1eee0effbe5347e5a043493150",
+      "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+      "pixels_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914",
+      "frame": 0,
+      "level": 0,
+      "code_bytes_verified": 43552,
+      "elapsed": 21.038941388003877
+    },
+    {
+      "name": "intro",
+      "ram_sha256": "0f4ff6d597bacc158aa01816ab4d3c9d542bb5a6b9792647e7ac5b2e10ee8a8b",
+      "ram_gzip_sha256": "5cff3ba6e580898da9244f940d33a9dac40bf65c0183b7dae0941689707e963e",
+      "png_sha256": "392ef4e5a3de1ea98fea0756741b2dcadcdfc182eb97480c12abe06bcb2491bf",
+      "pixels_sha256": "f4dc752016ffa3ca0bd3fb46e5cc74ab016085b0aa1d715c2a9c17da98f92f57",
+      "frame": 0,
+      "level": 1,
+      "code_bytes_verified": 43552,
+      "elapsed": 25.0905008839909
+    },
+    {
+      "name": "gameplay",
+      "ram_sha256": "8108f17543a37dc6e414387a61f6329a5bab366c98542a9ba9b31c7132355aa9",
+      "ram_gzip_sha256": "5934b731362a39e968af1de35cc23cec1c88b09a6b1a0a7f883fb7eb30fc445d",
+      "png_sha256": "4846ff2c7759b438cfe6705fdc053843edcb307fc70c20642c476a0ab3d759ef",
+      "pixels_sha256": "5ed2ca4041e5cc31fb7889d6fdcc14fb0fc390e0dc118322e8e2fa3a0a30a987",
+      "frame": 13,
+      "level": 1,
+      "code_bytes_verified": 43552,
+      "elapsed": 26.143861941993237
+    },
+    {
+      "name": "after-input",
+      "ram_sha256": "5821c775141209462f3214954c499a8cc02620664e10bd87ee251ae06c8cefe7",
+      "ram_gzip_sha256": "45da758a3363a094b38d7499330124260a27cd2fc3fb6edece001a1cc29bbc0d",
+      "png_sha256": "ae9c0c58b5636cb91827d4be4abb5ecda7cc87dbba3e2683b790e95e1c899774",
+      "pixels_sha256": "9cb77714cee0d3ecb0e5a511720d1587e17a63d70b502f9a6aabf8a658f87891",
+      "frame": 58,
+      "level": 1,
+      "code_bytes_verified": 43552,
+      "elapsed": 29.037122184992768
+    }
+  ],
+  "dosbox_argv": [
+    "/dev/shm/lezac-frame-hud-host-t208/dosbox-0.74-3/src/dosbox",
+    "-conf",
+    "/dev/shm/lezac-clock-frontier-t215/original-final-r6/dosbox.conf",
+    "-c",
+    "mount c /dev/shm/lezac-clock-frontier-t215/original-final-r6/run",
+    "-c",
+    "c:",
+    "-c",
+    "LEZAC.EXE"
+  ],
+  "dosbox_environment": {
+    "PATH": "/usr/bin:/bin",
+    "HOME": "/dev/shm/lezac-clock-frontier-t215/original-final-r6/home",
+    "TMPDIR": "/dev/shm/lezac-clock-frontier-t215/original-final-r6/tmp",
+    "LANG": "C.UTF-8",
+    "LC_ALL": "C.UTF-8",
+    "DISPLAY": ":99",
+    "XAUTHORITY": "/dev/shm/xvfb-run.BWVztk/Xauthority",
+    "SDL_VIDEODRIVER": "x11",
+    "SDL_AUDIODRIVER": "dummy",
+    "LEZAC_KEYBOARD_IRQ_TRACE": "/dev/shm/lezac-clock-frontier-t215/original-final-r6/irq.csv.gz",
+    "LEZAC_KEYBOARD_IRQ_ARMED": "/dev/shm/lezac-clock-frontier-t215/original-final-r6/armed.txt",
+    "LEZAC_KEYBOARD_IRQ_TARGET": "/dev/shm/lezac-clock-frontier-t215/original-final-r6/target-complete.txt"
+  },
+  "environment_is_complete": true,
+  "dosbox_config": "[sdl]\nfullscreen=false\noutput=surface\n[render]\nframeskip=0\naspect=false\nscaler=none\n[cpu]\ncore=normal\ncycles=fixed 6000\n[mixer]\nnosound=true\n[speaker]\npcspeaker=false\n[sblaster]\nsbtype=none\n[midi]\nmpu401=none\nmididevice=none\n[dos]\nkeyboardlayout=none\n",
+  "dosbox_cwd": "/dev/shm/lezac-clock-frontier-t215/original-final-r6",
+  "child_pid": 1040437,
+  "code_segment": 417,
+  "data_segment": 3139,
+  "ram_base": 130170555985936,
+  "private_xvfb_autorepeat_disabled": true,
+  "trace_end_marker": true,
+  "trace_uncompressed_bytes": 3231139,
+  "trace_uncompressed_sha256": "19f1c56ed66c8f64db63481f5802da2cfa0029951c98177b42ac4b8b736d7386",
+  "irq_windows": [
+    {
+      "window": 1,
+      "scan": 44,
+      "states": 83,
+      "entry_dispatch": 155893071,
+      "frame": 13,
+      "level": 1,
+      "return_dispatch": 155893153
+    },
+    {
+      "window": 2,
+      "scan": 44,
+      "states": 83,
+      "entry_dispatch": 161132110,
+      "frame": 28,
+      "level": 1,
+      "return_dispatch": 161132192
+    },
+    {
+      "window": 3,
+      "scan": 44,
+      "states": 83,
+      "entry_dispatch": 161478115,
+      "frame": 29,
+      "level": 1,
+      "return_dispatch": 161478197
+    },
+    {
+      "window": 4,
+      "scan": 44,
+      "states": 83,
+      "entry_dispatch": 161808241,
+      "frame": 30,
+      "level": 1,
+      "return_dispatch": 161808323
+    },
+    {
+      "window": 5,
+      "scan": 44,
+      "states": 83,
+      "entry_dispatch": 162137070,
+      "frame": 31,
+      "level": 1,
+      "return_dispatch": 162137152
+    },
+    {
+      "window": 6,
+      "scan": 44,
+      "states": 83,
+      "entry_dispatch": 162465998,
+      "frame": 32,
+      "level": 1,
+      "return_dispatch": 162466080
+    },
+    {
+      "window": 7,
+      "scan": 44,
+      "states": 83,
+      "entry_dispatch": 162794918,
+      "frame": 33,
+      "level": 1,
+      "return_dispatch": 162795000
+    },
+    {
+      "window": 8,
+      "scan": 172,
+      "states": 83,
+      "entry_dispatch": 162979874,
+      "frame": 34,
+      "level": 1,
+      "return_dispatch": 162979956
+    },
+    {
+      "window": 9,
+      "scan": 45,
+      "states": 83,
+      "entry_dispatch": 163613710,
+      "frame": 36,
+      "level": 1,
+      "return_dispatch": 163613792
+    },
+    {
+      "window": 10,
+      "scan": 173,
+      "states": 83,
+      "entry_dispatch": 163655689,
+      "frame": 36,
+      "level": 1,
+      "return_dispatch": 163655771
+    },
+    {
+      "window": 11,
+      "scan": 50,
+      "states": 83,
+      "entry_dispatch": 164259626,
+      "frame": 38,
+      "level": 1,
+      "return_dispatch": 164259708
+    },
+    {
+      "window": 12,
+      "scan": 178,
+      "states": 83,
+      "entry_dispatch": 164295609,
+      "frame": 38,
+      "level": 1,
+      "return_dispatch": 164295691
+    },
+    {
+      "window": 13,
+      "scan": 49,
+      "states": 83,
+      "entry_dispatch": 164910544,
+      "frame": 40,
+      "level": 1,
+      "return_dispatch": 164910626
+    },
+    {
+      "window": 14,
+      "scan": 177,
+      "states": 83,
+      "entry_dispatch": 164929522,
+      "frame": 40,
+      "level": 1,
+      "return_dispatch": 164929604
+    },
+    {
+      "window": 15,
+      "scan": 46,
+      "states": 83,
+      "entry_dispatch": 165546797,
+      "frame": 42,
+      "level": 1,
+      "return_dispatch": 165546879
+    },
+    {
+      "window": 16,
+      "scan": 174,
+      "states": 83,
+      "entry_dispatch": 165576781,
+      "frame": 42,
+      "level": 1,
+      "return_dispatch": 165576863
+    },
+    {
+      "window": 17,
+      "scan": 224,
+      "states": 82,
+      "entry_dispatch": 166180718,
+      "frame": 44,
+      "level": 1,
+      "return_dispatch": 166180799
+    },
+    {
+      "window": 18,
+      "scan": 75,
+      "states": 83,
+      "entry_dispatch": 166182521,
+      "frame": 44,
+      "level": 1,
+      "return_dispatch": 166182603
+    },
+    {
+      "window": 19,
+      "scan": 224,
+      "states": 82,
+      "entry_dispatch": 166216682,
+      "frame": 44,
+      "level": 1,
+      "return_dispatch": 166216763
+    },
+    {
+      "window": 20,
+      "scan": 203,
+      "states": 83,
+      "entry_dispatch": 166218485,
+      "frame": 44,
+      "level": 1,
+      "return_dispatch": 166218567
+    },
+    {
+      "window": 21,
+      "scan": 224,
+      "states": 82,
+      "entry_dispatch": 166831031,
+      "frame": 45,
+      "level": 1,
+      "return_dispatch": 166831112
+    },
+    {
+      "window": 22,
+      "scan": 77,
+      "states": 83,
+      "entry_dispatch": 166831190,
+      "frame": 45,
+      "level": 1,
+      "return_dispatch": 166831272
+    },
+    {
+      "window": 23,
+      "scan": 224,
+      "states": 82,
+      "entry_dispatch": 166862472,
+      "frame": 46,
+      "level": 1,
+      "return_dispatch": 166862553
+    },
+    {
+      "window": 24,
+      "scan": 205,
+      "states": 83,
+      "entry_dispatch": 166864274,
+      "frame": 46,
+      "level": 1,
+      "return_dispatch": 166864356
+    },
+    {
+      "window": 25,
+      "scan": 224,
+      "states": 82,
+      "entry_dispatch": 167477945,
+      "frame": 47,
+      "level": 1,
+      "return_dispatch": 167478026
+    },
+    {
+      "window": 26,
+      "scan": 82,
+      "states": 83,
+      "entry_dispatch": 167479748,
+      "frame": 47,
+      "level": 1,
+      "return_dispatch": 167479830
+    },
+    {
+      "window": 27,
+      "scan": 224,
+      "states": 82,
+      "entry_dispatch": 167500178,
+      "frame": 47,
+      "level": 1,
+      "return_dispatch": 167500259
+    },
+    {
+      "window": 28,
+      "scan": 210,
+      "states": 83,
+      "entry_dispatch": 167500337,
+      "frame": 47,
+      "level": 1,
+      "return_dispatch": 167500419
+    },
+    {
+      "window": 29,
+      "scan": 224,
+      "states": 82,
+      "entry_dispatch": 168123826,
+      "frame": 49,
+      "level": 1,
+      "return_dispatch": 168123907
+    },
+    {
+      "window": 30,
+      "scan": 72,
+      "states": 83,
+      "entry_dispatch": 168125629,
+      "frame": 49,
+      "level": 1,
+      "return_dispatch": 168125711
+    },
+    {
+      "window": 31,
+      "scan": 224,
+      "states": 82,
+      "entry_dispatch": 168159790,
+      "frame": 49,
+      "level": 1,
+      "return_dispatch": 168159871
+    },
+    {
+      "window": 32,
+      "scan": 200,
+      "states": 83,
+      "entry_dispatch": 168161593,
+      "frame": 49,
+      "level": 1,
+      "return_dispatch": 168161675
+    },
+    {
+      "window": 33,
+      "scan": 224,
+      "states": 82,
+      "entry_dispatch": 168751613,
+      "frame": 51,
+      "level": 1,
+      "return_dispatch": 168751694
+    },
+    {
+      "window": 34,
+      "scan": 80,
+      "states": 83,
+      "entry_dispatch": 168753416,
+      "frame": 51,
+      "level": 1,
+      "return_dispatch": 168753498
+    },
+    {
+      "window": 35,
+      "scan": 224,
+      "states": 82,
+      "entry_dispatch": 168787580,
+      "frame": 51,
+      "level": 1,
+      "return_dispatch": 168787661
+    },
+    {
+      "window": 36,
+      "scan": 208,
+      "states": 83,
+      "entry_dispatch": 168789383,
+      "frame": 51,
+      "level": 1,
+      "return_dispatch": 168789465
+    },
+    {
+      "window": 37,
+      "scan": 18,
+      "states": 82,
+      "entry_dispatch": 169391500,
+      "frame": 53,
+      "level": 1,
+      "return_dispatch": 169391581
+    },
+    {
+      "window": 38,
+      "scan": 146,
+      "states": 82,
+      "entry_dispatch": 169433479,
+      "frame": 53,
+      "level": 1,
+      "return_dispatch": 169433560
+    },
+    {
+      "window": 39,
+      "scan": 19,
+      "states": 82,
+      "entry_dispatch": 169907265,
+      "frame": 55,
+      "level": 1,
+      "return_dispatch": 169907346
+    },
+    {
+      "window": 40,
+      "scan": 147,
+      "states": 82,
+      "entry_dispatch": 169926333,
+      "frame": 55,
+      "level": 1,
+      "return_dispatch": 169926414
+    },
+    {
+      "window": 41,
+      "scan": 30,
+      "states": 82,
+      "entry_dispatch": 170407767,
+      "frame": 56,
+      "level": 1,
+      "return_dispatch": 170407848
+    }
+  ],
+  "states": 3388,
+  "observed_scans": [
+    18,
+    19,
+    30,
+    44,
+    45,
+    46,
+    49,
+    50,
+    72,
+    75,
+    77,
+    80,
+    82,
+    146,
+    147,
+    172,
+    173,
+    174,
+    177,
+    178,
+    200,
+    203,
+    205,
+    208,
+    210,
+    224
+  ],
+  "validated_target_completed": true,
+  "child_exit_code": 0,
+  "trace_sha256": "7193819862980e476066d5eea621c8297cbfd4669d23d23dfe35b0d248c3e896",
+  "trace_bytes": 130470,
+  "canonical_assets_unchanged": true
+}

@@ -1,0 +1,382 @@
+{
+  "schema": "lezac-original-record-adjacent-v1",
+  "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "configured_players": 1,
+  "natural_scores": [
+    0,
+    0
+  ],
+  "record_begin": 6916,
+  "adjacent_begin": 7007,
+  "record_bytes": 91,
+  "adjacent_bytes": 13,
+  "original_span_bytes": 3224,
+  "sources": [
+    {
+      "case": "rank8",
+      "archive_sha256": "c6de5cd89abb49c9b838b81db2de0f307e89a709e9c56666092825920e3a1b2b",
+      "original_report_sha256": "2c24906133785eff69e92b8f28b4637baa0467ecf2fd56a519b9d4ad98e8491a",
+      "producer_sha256": "a5013ef4071a746316dad341e830404b28eeb8b9d9407307f031cb0a10cd45c9",
+      "full_ram_samples": 9
+    },
+    {
+      "case": "rank7-control",
+      "archive_sha256": "3ec07af2116c6b4457cde795dd73124c21c54f7aa4e0009ab2dceb88e1e985c7",
+      "original_report_sha256": "64beef311e660efc5f7936c8320239ca254cb68c9fa890b917ceae48abf5dcc1",
+      "producer_sha256": "6bec508aeff1d7fb4772e76c0acd9a1fe9e356dd307830092b23d88f0fc78e57",
+      "full_ram_samples": 9
+    },
+    {
+      "case": "rank8-held",
+      "archive_sha256": "48cf03d1e06facd3cce6cefc6c535fa43538a6b149ad280ca1b54b7ad83d51b9",
+      "original_report_sha256": "a4ba4ba6bf075c908a0d0e690e4146a3b13a4b9887bb621e00158e87f9f1befa",
+      "producer_sha256": "6bec508aeff1d7fb4772e76c0acd9a1fe9e356dd307830092b23d88f0fc78e57",
+      "full_ram_samples": 13
+    }
+  ],
+  "samples": [
+    {
+      "case": "rank8",
+      "checkpoint": "main-equal-zero",
+      "ordinal": 0,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 0,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "9bd5d5964daf1014b1874117e1ae6c64b0cb0b4e5c01a42832b2ac5e80cc9617",
+      "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114"
+    },
+    {
+      "case": "rank8",
+      "checkpoint": "level1-intro",
+      "ordinal": 1,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 0,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "b34203c20ea12ede1c6955d5db250bc5ac6b7d989bb60a0a7bd73d160674ddac",
+      "png_sha256": "ff5bb75aaf57eaee83d2c26ef5ce51fef0cd37b9463cc454c8465bb7e0a85438"
+    },
+    {
+      "case": "rank8",
+      "checkpoint": "natural-zero-gameplay",
+      "ordinal": 2,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 0,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "a83c2f5dc4044d5f67fb93b8277da3c7f75a3197bd8efbfd89878ec2a0d39292",
+      "png_sha256": "556d61e01e387a7b361c72f6f813da8b36f1a0041b658efccfac751b079a1159"
+    },
+    {
+      "case": "rank8",
+      "checkpoint": "game-over-before-ack",
+      "ordinal": 3,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 0,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "ba1425725367cfcdf298a857af0efeaa21cd7c19bd8546a8444d98d2c9a54df0",
+      "png_sha256": "c10eff6e87469a4225c8258b7efa5b8d48b325798bf42ea1b15b508050c55fd0"
+    },
+    {
+      "case": "rank8",
+      "checkpoint": "player1-empty",
+      "ordinal": 4,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 0,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "c32bafda2cf626f5a6a674a36f1d1c6e075ac1b360cf8d44c53d84e77214fa0d",
+      "png_sha256": "a113dda445fb5cbe37ff9df1ed3db9144c3e98b964a60042b3b419422f6d4872"
+    },
+    {
+      "case": "rank8",
+      "checkpoint": "player1-q",
+      "ordinal": 5,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 0,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "f54b9ed8ef7a4376da02363889bb808cf90adc46d5856abd6728a4256c9a7daf",
+      "png_sha256": "40b67cfe415f154a580a451552bd58fa68ec12b4abe9d413681fbec5dec354ac"
+    },
+    {
+      "case": "rank8",
+      "checkpoint": "after-player1-commit",
+      "ordinal": 6,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 1,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0000000008713a3a3a3a3a3a3a",
+      "raw_ram_sha256": "87c2060efc7333baac102719e48e3b4c29a2e65ec4a5b8201700e1795e1bd7dd",
+      "png_sha256": "fd32d45f6f805dc8179a29a32159a1a46be4a8996aa7cd8323b1e911a1127b38"
+    },
+    {
+      "case": "rank8",
+      "checkpoint": "player2-r",
+      "ordinal": 7,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 1,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0000000008713a3a3a3a3a3a3a",
+      "raw_ram_sha256": "87c2060efc7333baac102719e48e3b4c29a2e65ec4a5b8201700e1795e1bd7dd",
+      "png_sha256": "fd32d45f6f805dc8179a29a32159a1a46be4a8996aa7cd8323b1e911a1127b38"
+    },
+    {
+      "case": "rank8",
+      "checkpoint": "after-player2-commit",
+      "ordinal": 8,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 1,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0000000008713a3a3a3a3a3a3a",
+      "raw_ram_sha256": "87c2060efc7333baac102719e48e3b4c29a2e65ec4a5b8201700e1795e1bd7dd",
+      "png_sha256": "fd32d45f6f805dc8179a29a32159a1a46be4a8996aa7cd8323b1e911a1127b38"
+    },
+    {
+      "case": "rank7-control",
+      "checkpoint": "main-equal-zero",
+      "ordinal": 0,
+      "fixture": "record_adjacent_rank7.dat",
+      "committed": 0,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "b1d711895fbcd800c6996d4856703216d3374bad631b74255745062e11ae0959",
+      "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114"
+    },
+    {
+      "case": "rank7-control",
+      "checkpoint": "level1-intro",
+      "ordinal": 1,
+      "fixture": "record_adjacent_rank7.dat",
+      "committed": 0,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "594c0d1afd2e4aff56a610becc1a4bbbdd049d1b80d49613472d4b9668b67171",
+      "png_sha256": "a58ad3b7965ba10bf4a7b4a0d91a65833954baac6070b7bdfb5584e1990f1596"
+    },
+    {
+      "case": "rank7-control",
+      "checkpoint": "natural-zero-gameplay",
+      "ordinal": 2,
+      "fixture": "record_adjacent_rank7.dat",
+      "committed": 0,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "75e5897058337397caed7c317286779f6237235156c065564aa185ba937f702b",
+      "png_sha256": "2e9271850d045152ec36e85e722651ca574f97c6313ca0bf0797544b6fe52ef0"
+    },
+    {
+      "case": "rank7-control",
+      "checkpoint": "game-over-before-ack",
+      "ordinal": 3,
+      "fixture": "record_adjacent_rank7.dat",
+      "committed": 0,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "395fb5dd09d6c4cac3ed3fff0016aba11446c7ef263a8a5f7dc5309abeae1602",
+      "png_sha256": "4b1b093ff5356d4ee7fa08745b03932419d098d3d4d5887fd73ec8cfa62f6a08"
+    },
+    {
+      "case": "rank7-control",
+      "checkpoint": "player1-empty",
+      "ordinal": 4,
+      "fixture": "record_adjacent_rank7.dat",
+      "committed": 0,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "a7650c22b9b6cce67e86a3cd83d8873a57aede8e3d7ba8c4e62ff40838caadde",
+      "png_sha256": "0ed4a1c2c310aa5ed43a96c33ef416fed2c82fb06e1a271f315816099542c92a"
+    },
+    {
+      "case": "rank7-control",
+      "checkpoint": "player1-q",
+      "ordinal": 5,
+      "fixture": "record_adjacent_rank7.dat",
+      "committed": 0,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3affffffff087469652d373a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "e6847765c0964e3444dea62dc692df2d0c7226e623b72130b3135074a7d251dd",
+      "png_sha256": "e39b172a9cb27d94e59c339b02a47f6503ab64b76bc3b310b808f15cd84e60e8"
+    },
+    {
+      "case": "rank7-control",
+      "checkpoint": "after-player1-commit",
+      "ordinal": 6,
+      "fixture": "record_adjacent_rank7.dat",
+      "committed": 1,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a0000000008713a3a3a3a3a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "5879d3e57c2bf7d1747e811e53c5127374a60a69d2570066a06e740d3aeaa3b5",
+      "png_sha256": "53aee3678e6b92e9493ea52685f726a298c99faa94dfc91e6b2b437f7a0dce3f"
+    },
+    {
+      "case": "rank7-control",
+      "checkpoint": "player2-r",
+      "ordinal": 7,
+      "fixture": "record_adjacent_rank7.dat",
+      "committed": 1,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a0000000008713a3a3a3a3a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "e4da43f6e703d05856b0847bb714615618ebde73ab0fef63458c24a36d94ca05",
+      "png_sha256": "540a4fc852d182ff52736aeb059de1d8a605282115f23503040a9458d5756f28"
+    },
+    {
+      "case": "rank7-control",
+      "checkpoint": "after-final-observation-wait",
+      "ordinal": 8,
+      "fixture": "record_adjacent_rank7.dat",
+      "committed": 1,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a0000000008713a3a3a3a3a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "b74b7d2608ac44e29964282ba327c6c22a021ceeeae4a6b44d9d94d528663a5d",
+      "png_sha256": "540a4fc852d182ff52736aeb059de1d8a605282115f23503040a9458d5756f28"
+    },
+    {
+      "case": "rank8-held",
+      "checkpoint": "main-equal-zero",
+      "ordinal": 0,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 0,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "0d5db22cf93bf654ce837a7dfdff0a695f00a2c234850cb5922ec875b62f8796",
+      "png_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114"
+    },
+    {
+      "case": "rank8-held",
+      "checkpoint": "level1-intro",
+      "ordinal": 1,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 0,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "b49713a776acf652ef0f300b20977f941acfa925756bc5d89241bddc5b6c4264",
+      "png_sha256": "9f9e1810c6cf70ed0286231286434fadc6a962471212f55613db0e09a783d4af"
+    },
+    {
+      "case": "rank8-held",
+      "checkpoint": "natural-zero-gameplay",
+      "ordinal": 2,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 0,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "3b2a529fe6c10c05bcc8616e1c1b5c1d7f6e0e792736794151ec24cfd3fc51fc",
+      "png_sha256": "2820123d3f25c8e874abfc3ac751395b50f6726ec09f6dbb21dfe5860cc5eba9"
+    },
+    {
+      "case": "rank8-held",
+      "checkpoint": "game-over-before-ack",
+      "ordinal": 3,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 0,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "e95b504f0a77f7cee181d83daff2ad75cb6808ffe73023cff8236b5586c5d5ce",
+      "png_sha256": "89c2ae51eb5d1e09b51c5c8c66246b97140bdb732d435402dfc16df1f242e92c"
+    },
+    {
+      "case": "rank8-held",
+      "checkpoint": "player1-empty",
+      "ordinal": 4,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 0,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "966d3a635a9aac5d007bfa9d8d8dbd4ba1cb3e3ab92bc33320d43a3fab982585",
+      "png_sha256": "62a44b93bc4de8e28df46c9998ae067e42cf92ce7438e9222dba75053c0ca2d8"
+    },
+    {
+      "case": "rank8-held",
+      "checkpoint": "player1-q",
+      "ordinal": 5,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 0,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0087e900f0601200f000000000",
+      "raw_ram_sha256": "727b2b47c54312390eb9dba7d760ec2321a50fc7df3ccaa49e4c1bb714bcd256",
+      "png_sha256": "19c778f5e7b8da99c8ac8ffc723d404bfa314c0508c7796c796034c28b7afed0"
+    },
+    {
+      "case": "rank8-held",
+      "checkpoint": "commit-return-held-first",
+      "ordinal": 6,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 1,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0000000008713a3a3a3a3a3a3a",
+      "raw_ram_sha256": "2984a7c5bd6617513519c313ffc9c16afd2dae45b5e82a0add09f0e9cb744a95",
+      "png_sha256": "f67124547fbd3087424edc243f95dd3519e8f50ad03c84a88e1515cd08f1b98c"
+    },
+    {
+      "case": "rank8-held",
+      "checkpoint": "commit-return-held-second",
+      "ordinal": 7,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 1,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0000000008713a3a3a3a3a3a3a",
+      "raw_ram_sha256": "7d2c1acb4f7fa4cbc62f6745f7ecb40803c882f88225a69df8636b5b2ba975d9",
+      "png_sha256": "d1e28d7cc5b699971b620ddf2e8589a974c9bde2e8f0c46d0dca96d9f6038dd5"
+    },
+    {
+      "case": "rank8-held",
+      "checkpoint": "commit-return-held-third",
+      "ordinal": 8,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 1,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0000000008713a3a3a3a3a3a3a",
+      "raw_ram_sha256": "5ad3b4474699e4188ba2414cfe9aeab258aae43313caa01cd12774cb589b38b7",
+      "png_sha256": "9716770320563e4a67b366732ae1a26c928836e0058892443c22110cfafab099"
+    },
+    {
+      "case": "rank8-held",
+      "checkpoint": "commit-return-held-last",
+      "ordinal": 9,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 1,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0000000008713a3a3a3a3a3a3a",
+      "raw_ram_sha256": "5ad3b4474699e4188ba2414cfe9aeab258aae43313caa01cd12774cb589b38b7",
+      "png_sha256": "9716770320563e4a67b366732ae1a26c928836e0058892443c22110cfafab099"
+    },
+    {
+      "case": "rank8-held",
+      "checkpoint": "after-return-release",
+      "ordinal": 10,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 1,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0000000008713a3a3a3a3a3a3a",
+      "raw_ram_sha256": "5ad3b4474699e4188ba2414cfe9aeab258aae43313caa01cd12774cb589b38b7",
+      "png_sha256": "9716770320563e4a67b366732ae1a26c928836e0058892443c22110cfafab099"
+    },
+    {
+      "case": "rank8-held",
+      "checkpoint": "player2-r",
+      "ordinal": 11,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 1,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0000000008713a3a3a3a3a3a3a",
+      "raw_ram_sha256": "5ad3b4474699e4188ba2414cfe9aeab258aae43313caa01cd12774cb589b38b7",
+      "png_sha256": "9716770320563e4a67b366732ae1a26c928836e0058892443c22110cfafab099"
+    },
+    {
+      "case": "rank8-held",
+      "checkpoint": "after-final-observation-wait",
+      "ordinal": 12,
+      "fixture": "record_adjacent_zero.dat",
+      "committed": 1,
+      "records_hex": "00000000087469652d6f6e653a00000000087469652d74776f3a00000000087469652d333a3a3a00000000087469652d343a3a3a00000000087469652d353a3a3a00000000087469652d363a3a3a00000000087469652d373a3a3a",
+      "adjacent_hex": "0000000008713a3a3a3a3a3a3a",
+      "raw_ram_sha256": "5ad3b4474699e4188ba2414cfe9aeab258aae43313caa01cd12774cb589b38b7",
+      "png_sha256": "9716770320563e4a67b366732ae1a26c928836e0058892443c22110cfafab099"
+    }
+  ],
+  "frame_dispatch_parity_proven": false,
+  "original_fault_ip_unproven": true
+}

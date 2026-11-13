@@ -1,0 +1,45 @@
+set(CMAKE_GET_RUNTIME_DEPENDENCIES_PLATFORM windows+pe)
+set(CMAKE_GET_RUNTIME_DEPENDENCIES_TOOL objdump)
+set(CMAKE_GET_RUNTIME_DEPENDENCIES_COMMAND [==[@CMAKE_OBJDUMP@]==])
+set(runtime_hints [==[@LEZAC_SDL2_RUNTIME_HINTS@]==])
+list(APPEND runtime_hints [==[@LEZAC_MINGW_COMPILER_DIR@]==])
+
+if(NOT EXISTS "${CMAKE_GET_RUNTIME_DEPENDENCIES_COMMAND}")
+    message(FATAL_ERROR "MinGW runtime dependency scanner not found: ${CMAKE_GET_RUNTIME_DEPENDENCIES_COMMAND}")
+endif()
+if(NOT DEFINED ENV{SystemRoot} OR "$ENV{SystemRoot}" STREQUAL "")
+    message(FATAL_ERROR "SystemRoot is required to distinguish Windows system DLLs")
+endif()
+
+include([==[@CMAKE_CURRENT_SOURCE_DIR@/tools/windows_runtime_policy.cmake]==])
+lezac_windows_runtime_policy(system_root system_regex "$ENV{SystemRoot}")
+
+file(GET_RUNTIME_DEPENDENCIES
+    EXECUTABLES "${LEZAC_RUNTIME_EXECUTABLE}"
+    DIRECTORIES ${runtime_hints}
+    RESOLVED_DEPENDENCIES_VAR resolved
+    UNRESOLVED_DEPENDENCIES_VAR unresolved
+    CONFLICTING_DEPENDENCIES_PREFIX conflicts
+    PRE_EXCLUDE_REGEXES "^api-ms-" "^ext-ms-"
+    POST_EXCLUDE_REGEXES "${system_regex}"
+)
+if(conflicts_FILENAMES)
+    message(FATAL_ERROR "Conflicting Windows runtime DLLs: ${conflicts_FILENAMES}")
+endif()
+if(unresolved)
+    message(FATAL_ERROR "Unresolved Windows runtime DLLs: ${unresolved}")
+endif()
+foreach(dependency IN LISTS resolved)
+    string(REPLACE "\\" "/" normalized_dependency "${dependency}")
+    string(TOLOWER "${normalized_dependency}" normalized_dependency)
+    string(FIND "${normalized_dependency}" "${system_root}/" system_prefix)
+    if(system_prefix EQUAL 0)
+        message(FATAL_ERROR "Windows system DLL escaped the runtime filter: ${dependency}")
+    endif()
+endforeach()
+if(resolved)
+    file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/."
+        TYPE SHARED_LIBRARY FILES ${resolved})
+endif()
+list(LENGTH resolved runtime_count)
+message(STATUS "windows_runtime=ok bundled_dlls=${runtime_count} unresolved=0 system_dlls=0")

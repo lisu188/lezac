@@ -1,0 +1,145 @@
+{
+  "status": "observed",
+  "scenario": "intro",
+  "audio": "dummy",
+  "normal_entry_point": true,
+  "gameplay_seeded": false,
+  "startup_timing_gated": false,
+  "physical_keys": true,
+  "manual_input": false,
+  "whole_game_parity": false,
+  "exe_sha256": "f7ecfa1eefb12dba4fe11dfc480696d4cd0552fe554f0e77a09c753207f02c3f",
+  "harness_sha256": "bb1ae66c7aa5efef1dcc3da08793c8dd60790be173e05a59a8dce458d22daf88",
+  "events": [
+    {
+      "kind": "key",
+      "key": "ctrl+2",
+      "seconds": 1.9102698960050475
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "1",
+      "code": 10,
+      "seconds": 2.1825546089967247
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+1",
+      "seconds": 2.2546844349999446
+    },
+    {
+      "kind": "key",
+      "key": "F11",
+      "seconds": 2.283795869007008
+    },
+    {
+      "kind": "key",
+      "key": "F12",
+      "seconds": 2.2987940250022803
+    },
+    {
+      "kind": "keydown",
+      "key": "Alt_L",
+      "seconds": 2.3345442909921985
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_1",
+      "code": 87,
+      "seconds": 2.350160086003598
+    },
+    {
+      "kind": "keyup",
+      "key": "Alt_L",
+      "seconds": 2.422746227995958
+    },
+    {
+      "kind": "key",
+      "key": "ctrl+1",
+      "seconds": 4.801595661003375
+    },
+    {
+      "kind": "key",
+      "key": "F12",
+      "seconds": 4.830168957996648
+    },
+    {
+      "kind": "key",
+      "key": "Return",
+      "seconds": 4.866312027006643
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 4.9217830109992065
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 7.237473993998719
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 7.45258620599634
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 7.668341648008209
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 7.884213434008416
+    },
+    {
+      "kind": "key",
+      "key": "Escape",
+      "seconds": 8.100267514004372
+    }
+  ],
+  "captures": [
+    {
+      "name": "natural-typing-checkpoint",
+      "seconds": 1.909670843015192,
+      "pixel_sha256": "262a264357582a0f87f81e27e2751990890d1c24f36fea2fe018a2198e05a621"
+    },
+    {
+      "name": "control-two-consumed-skip",
+      "seconds": 1.9815876870125066,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "fresh-one-intro",
+      "seconds": 2.253786396991927,
+      "pixel_sha256": "43ac57a4cbbbe258010410018b9986c1ec8ac21a674ee0b726d0a9b36fa3fb47"
+    },
+    {
+      "name": "intro-noncharacters-ignored",
+      "seconds": 2.334200781013351,
+      "pixel_sha256": "a39440534e51c3f16935825b170779237d58f24eb25ea726dc8037c8e3cdf248"
+    },
+    {
+      "name": "intro-alt-one-held",
+      "seconds": 2.422357881005155,
+      "pixel_sha256": "7dbc6143aef52193e8556f0445d4689e328f2e09a1306fad55d728f96f62e14a"
+    },
+    {
+      "name": "intro-alt-release-consumed-skip",
+      "seconds": 2.500815647013951,
+      "pixel_sha256": "0a08ac3302b0e2bef1baf77cb6ffc19cfc10e0fe4895e118daadc648bd4a9e4c"
+    },
+    {
+      "name": "intro-awaiting-fresh-character",
+      "seconds": 4.86595718699391,
+      "pixel_sha256": "0a08ac3302b0e2bef1baf77cb6ffc19cfc10e0fe4895e118daadc648bd4a9e4c"
+    },
+    {
+      "name": "fresh-return-gameplay",
+      "seconds": 4.921531744010281,
+      "pixel_sha256": "78557cd949d8f4ff370047eae5615fcf7971ebaf485734519c4a7e81df188f7e"
+    }
+  ],
+  "child_exit_code": 0
+}

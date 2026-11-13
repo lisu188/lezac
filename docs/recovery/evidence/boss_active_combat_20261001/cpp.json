@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "audio": "dummy",
+  "video": "dummy",
+  "exit_code": 0,
+  "stdout": "boss_active_combat_original=ok cases=1 samples=800 actor_states=5600 link_states=4800 effect_states=1843 views=12 compared_pixels=569088 different_pixels=0 seeded_case_boundary=1 per_tick_actor_seed=0 whole_game_parity=0 player_dying_states=180 player_waiting_states=48 shared_counter_steps=48 restarts=0 zero_reserve=0 input_reentry=1 key_events=66 bomb_states=835 shots=22 reentries=3 head_health_modified=0 seeded_bomb=0 physical_keyboard=0\n",
+  "stderr": "",
+  "exe_sha256": "7b859f104f6ff16bce53d038546462efdb4a25c9911a7319ae3d6a8fd49dad0c",
+  "source_sha256": "0b42875e2dc129561f05ab265095eb12d9cc9dfc1569fd970881247259b4a169",
+  "source_lf_sha256": "178142833dd0ae12fd4cb21f60f65345e3a4a2b08aabba65828a9045971430ba",
+  "production_replay": true,
+  "whole_game_parity": false,
+  "physical_keyboard": false
+}

@@ -1,0 +1,305 @@
+{
+  "passed": true,
+  "recorded_utc": "2026-10-09T03:05:18.681753+00:00",
+  "source": "/tmp/lezac-marker-writeback-20261009-t90",
+  "stage": "/mnt/c/Users/andrz/.codex/visualizations/2026/07/05/019f3283-94f8-7603-b1b5-c9d78bf86769/marker-writeback-source-t90",
+  "out": "/tmp/lezac-marker-writeback-checks-20261009-t90-v3",
+  "producer_sha256": "03d513709d6a2f452166b4514111a51c8f2e432c75295454d3102ac1d68ddbbe",
+  "actual_app_runtime_verified": false,
+  "full_game_build": false,
+  "whole_game_claim": false,
+  "commands": [
+    {
+      "label": "head",
+      "args": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "695229b64c7daf9a29b4066cb03050b39b3a31d36855184cf1fdd6e71d3fe1e1",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "sparse-paths",
+      "args": [
+        "git",
+        "sparse-checkout",
+        "add",
+        "/.gitattributes",
+        "/.github/workflows/ci.yml",
+        "/CMakeLists.txt",
+        "/docs/recovery/evidence/marker_storage_20261009/original.json",
+        "/docs/recovery/evidence/marker_storage_20261009/producer.py",
+        "/docs/recovery/evidence/marker_storage_20261009/repeat.json",
+        "/docs/recovery/marker_storage_writeback_2026-10-09.md",
+        "/src/app/app.cpp",
+        "/src/diagnostics/marker_storage_fixture.hpp",
+        "/src/diagnostics/transient_storage_fixture.hpp",
+        "/src/gameplay/actor_models.hpp",
+        "/src/gameplay/actor_slots.hpp",
+        "/tests/fixtures/marker_storage/expected.bin.gz",
+        "/tests/fixtures/marker_storage/requests.bin.gz",
+        "/tests/gameplay/marker_storage_probe.cpp",
+        "/tests/gameplay/transient_storage_probe.cpp",
+        "/tools/check_marker_storage_original.py",
+        "/tools/check_transient_storage_original.py",
+        "/tools/source_ownership.json",
+        "/tools/test_marker_storage_checker.py",
+        "/tools/test_transient_storage_checker.py"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "diff-check",
+      "args": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "c02d4a426e0959ded2d525cd06c78c0ba494b13ef67351cccf9557e50a76cc0b"
+    },
+    {
+      "label": "compile",
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O1",
+        "-I",
+        "/tmp/lezac-marker-writeback-20261009-t90/src",
+        "/tmp/lezac-marker-writeback-20261009-t90/tests/gameplay/marker_storage_probe.cpp",
+        "-o",
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "checker",
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-marker-writeback-20261009-t90/tools/check_marker_storage_original.py",
+        "--exe",
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+        "--root",
+        "/tmp/lezac-marker-writeback-20261009-t90",
+        "--out",
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/checker"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "b3d8f8ef431ca5fd0b4200c736088002016a003cb08369e21ae93f01ad0f411e",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "compile-sanitized",
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-O1",
+        "-g0",
+        "-fsanitize=address,undefined",
+        "-fno-omit-frame-pointer",
+        "-I",
+        "/tmp/lezac-marker-writeback-20261009-t90/src",
+        "/tmp/lezac-marker-writeback-20261009-t90/tests/gameplay/marker_storage_probe.cpp",
+        "-o",
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe-sanitized"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "sanitized",
+      "args": [
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe-sanitized",
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/checker/marker-helper-ciu1_nxb/requests.bin",
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/sanitized.bin"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "dbaeb27c6bd2fa86a99b7d20cdc51268ba7de2aae8560ea45111c74f837c2797",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "source-guardrails",
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-marker-writeback-20261009-t90/tools/check_source_guardrails.py"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "a59ad33ecade56852f9b8b154320f56410bd464b876df992e94f1402aae26128",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "gran-guardrail",
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-marker-writeback-20261009-t90/tools/check_gran_usage_guardrail.py"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "080d75f1346a58d15cf19eff3ae396ea6ca2f2ff5de1bfaf2379b513242cb417",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "checker-tools",
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-marker-writeback-20261009-t90/tools/test_marker_storage_checker.py",
+        "-v"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "b16100494beb3a79eebd8bee67d4b10127cc4f1e2d304ae8e241c2ba126dddeb"
+    },
+    {
+      "label": "app-syntax",
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-fsyntax-only",
+        "-DSDL_MAIN_HANDLED",
+        "-I/usr/include/SDL2",
+        "-I",
+        "/tmp/lezac-marker-writeback-20261009-t90/src",
+        "/tmp/lezac-marker-writeback-20261009-t90/src/app/app.cpp"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "configure",
+      "args": [
+        "cmake",
+        "-S",
+        "/tmp/lezac-marker-writeback-20261009-t90",
+        "-B",
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/configure",
+        "-G",
+        "Ninja",
+        "-DBUILD_TESTING=ON",
+        "-DCMAKE_BUILD_TYPE=Release"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "7135aa0fe375f07baeda0188ca746661c68a9c229648728d7becb9c9e2e89370",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "label": "registration",
+      "args": [
+        "ctest",
+        "--test-dir",
+        "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/configure",
+        "--show-only=json-v1",
+        "-R",
+        "^marker_storage_(helper_original|app_original|tools_contract)$"
+      ],
+      "returncode": 0,
+      "stdout_sha256": "d4de9f31d758c98ce371a9afc6b65eb7a31c8d40aeebc35352888383d15657b0",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "source_sha256": {
+    ".gitattributes": "96d730547961870f7a392e7b13d138296773c98e633d93908d55e6ecd5f345e8",
+    ".github/workflows/ci.yml": "ed93fbbd41f307bac466a297a5783d1e3ee7bae70bb4cc790c689beeca8852b3",
+    "CMakeLists.txt": "cff9863ffdea5bc4a16907b518fe850546b49fb8f101a0619141cfaf46912662",
+    "docs/recovery/evidence/marker_storage_20261009/original.json": "e89268bb8e0e8eefa984f52b77d2f1d20a0541f539f129b2a6e798084378d428",
+    "docs/recovery/evidence/marker_storage_20261009/producer.py": "478ff31441eacb8e1a15aa992aa929aca56633df4b4fd7c55ba912c4752603bb",
+    "docs/recovery/evidence/marker_storage_20261009/repeat.json": "72c6fd8af6f356fd0a104f98ec6850e09a370a903f3de42193021e52fc22143f",
+    "docs/recovery/marker_storage_writeback_2026-10-09.md": "3c9b231a49f9155af73740171a808063d2ec1442a7a3f004123978c9bcfbb568",
+    "src/app/app.cpp": "975798791affae01a08c3907d1118a3f5a18714cd798d8f3b29c0a74175a97d9",
+    "src/diagnostics/marker_storage_fixture.hpp": "109774c32631a648637b540f33c12c3a2a2985857179baa6d217e2827d9d0168",
+    "src/diagnostics/transient_storage_fixture.hpp": "6d3f8a747d1edc86fc3ff7afa0ebf021ea660775948d33857d8e71d600587d75",
+    "src/gameplay/actor_models.hpp": "5907fa7bf9745d426f4233b60516439960e2a35bc46f507b61598d08caad5c45",
+    "src/gameplay/actor_slots.hpp": "c674360d54ba79c6565a583b1127a4aca0e4137d2d56906bd4925daca758534b",
+    "tests/fixtures/marker_storage/expected.bin.gz": "9bc418f2a06b7c8a9e88c6a849f92751021a9b2809fea9bcf5622e3e4498ba39",
+    "tests/fixtures/marker_storage/requests.bin.gz": "1588b806e9cb2419400279857f2048914039f83c8e5067f3627b576c597fc660",
+    "tests/gameplay/marker_storage_probe.cpp": "f3a2b5694eba4c0b6b81f2c2ba52ad65e31d986facef9fa9b32352bde5d01a96",
+    "tests/gameplay/transient_storage_probe.cpp": "1e5add0f556708f038b99475e253c88a037553218c0cbfd0d06636be352608ed",
+    "tools/check_marker_storage_original.py": "30ac71925df2ee9b76097fc8b7b792a65f9830a1378fb311594b25c6fb595124",
+    "tools/check_transient_storage_original.py": "8245cc73f47a6ef675b4ab750c474e8f97cdfd7858c094b266ee5ef75230ce58",
+    "tools/source_ownership.json": "048ee7ec6f193514344e1194acb120a2749919e58fdf5710b150e5ef1f098cc5",
+    "tools/test_marker_storage_checker.py": "2f2ae206aa2750c6577cef59ad95fa00d5d6690a314756dcdb770836a3cc953c",
+    "tools/test_transient_storage_checker.py": "0079543e987e9e0314f8b5371b44d11563e52172ec3a2b0efc4e103aea009819"
+  },
+  "original_repeat_identity": {
+    "requests": {
+      "compressed_sha256": "1588b806e9cb2419400279857f2048914039f83c8e5067f3627b576c597fc660",
+      "raw_sha256": "d5dcdcd77111a5d5339b3e5428b1cad2bec14a956f1736e3e7dff786478852aa",
+      "bytes": 73256
+    },
+    "expected": {
+      "compressed_sha256": "9bc418f2a06b7c8a9e88c6a849f92751021a9b2809fea9bcf5622e3e4498ba39",
+      "raw_sha256": "c058adcf9b7a4657fb1574b1f97198100cc62570d4f57c5ab50919df6912fe85",
+      "bytes": 1587612
+    }
+  },
+  "compiled_comparison": {
+    "actual_sha256": "c058adcf9b7a4657fb1574b1f97198100cc62570d4f57c5ab50919df6912fe85",
+    "args": [
+      "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/probe",
+      "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/checker/marker-helper-ciu1_nxb/requests.bin",
+      "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/checker/marker-helper-ciu1_nxb/actual.bin"
+    ],
+    "audio": "dummy",
+    "compared_bytes": 1587600,
+    "compiled_helper": true,
+    "constructor_tails_only": true,
+    "directory": "/tmp/lezac-marker-writeback-checks-20261009-t90-v3/checker/marker-helper-ciu1_nxb",
+    "executable_sha256_after": "2e41627aa92a5cb851c2589cf9e6be560eb9ade2c7992b68d583c03a26121320",
+    "executable_sha256_before": "2e41627aa92a5cb851c2589cf9e6be560eb9ade2c7992b68d583c03a26121320",
+    "first_difference": null,
+    "fixtures": {
+      "expected": {
+        "bytes": 1587612,
+        "compressed_sha256": "9bc418f2a06b7c8a9e88c6a849f92751021a9b2809fea9bcf5622e3e4498ba39",
+        "raw_sha256": "c058adcf9b7a4657fb1574b1f97198100cc62570d4f57c5ab50919df6912fe85"
+      },
+      "requests": {
+        "bytes": 73256,
+        "compressed_sha256": "1588b806e9cb2419400279857f2048914039f83c8e5067f3627b576c597fc660",
+        "raw_sha256": "d5dcdcd77111a5d5339b3e5428b1cad2bec14a956f1736e3e7dff786478852aa"
+      }
+    },
+    "input_gate_and_sound_prefix_executed": false,
+    "masks_applied": false,
+    "natural_route": false,
+    "operations": 1008,
+    "passed": true,
+    "production_app": false,
+    "recorded_utc": "2026-10-09T03:05:19.756135+00:00",
+    "returncode": 0,
+    "seeded": true,
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout_sha256": "dbaeb27c6bd2fa86a99b7d20cdc51268ba7de2aae8560ea45111c74f837c2797",
+    "whole_game_claim": false
+  },
+  "deferred_existing_launch_guard": {
+    "passed": false,
+    "executed": false,
+    "reason": "disk reserve and 10,292,004B original text fixtures; remains required in CI"
+  },
+  "operations": 1008,
+  "compared_table_bytes": 1587600,
+  "sanitized_operations": 1008,
+  "app_syntax_verified": true,
+  "source_bytes": 4397048,
+  "build_bytes": 6365630,
+  "cap_bytes": 8388608
+}

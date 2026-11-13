@@ -1,0 +1,22 @@
+{
+  "status": "failed",
+  "version": "original",
+  "audio": "dummy",
+  "gameplay_seeded": false,
+  "delay_gates": false,
+  "physical_keys": true,
+  "manual_input": false,
+  "events": [],
+  "captures": [],
+  "observer_sha256": "faa9e99ed4da78e0515b65bb1a3853a962c00debef0551cf17da91e8f274e91d",
+  "probe_keys": [
+    "Num_Lock",
+    "down:Shift_L",
+    "raw:88",
+    "up:Shift_L"
+  ],
+  "expected_after_input": "intro",
+  "error": "original overlaps resident allocation",
+  "hooks_restored": 0,
+  "child_exit_code": 0
+}

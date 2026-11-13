@@ -29,6 +29,8 @@ struct MonsterSpawner {
     uint8_t cooldown = 0;
     uint8_t cooldownReset = 0;
     uint8_t animationDelay = 0;
+
+    bool operator==(const MonsterSpawner&) const = default;
 };
 
 struct LevelPortal {
@@ -36,6 +38,8 @@ struct LevelPortal {
     uint16_t x = 0;
     uint16_t y = 0;
     uint8_t marker = 0;
+
+    bool operator==(const LevelPortal&) const = default;
 };
 
 struct TileTriggerRule {
@@ -44,6 +48,8 @@ struct TileTriggerRule {
     uint16_t triggerKey = 0;
     std::array<uint8_t, 4> from{};
     std::array<uint8_t, 4> to{};
+
+    bool operator==(const TileTriggerRule&) const = default;
 };
 
 struct Level {
@@ -66,10 +72,19 @@ struct Level {
     std::vector<TileTriggerRule> tileTriggers;
     int startingObjectiveTiles = 0;
     int startingDestructibleTiles = 0;
+
+    bool operator==(const Level&) const = default;
 };
 
+struct DecodedLevelPlane {
+    std::vector<uint8_t> bytes;
+    std::vector<uint8_t> tail;
+};
+
+DecodedLevelPlane decodeLevelRle3WithTail(const std::vector<uint8_t>& encoded, size_t targetSize);
 std::vector<uint8_t> decodeLevelRle3(const std::vector<uint8_t>& encoded, size_t targetSize);
 MonsterSpawner parseMonsterSpawner(const std::array<uint8_t, 30>& rec);
+std::array<uint8_t, 30> packMonsterSpawner(const MonsterSpawner& spawner);
 LevelPortal parseLevelPortal(const std::array<uint8_t, 7>& rec);
 TileTriggerRule parseTileTriggerRule(const std::array<uint8_t, 14>& rec);
 std::vector<Level> loadRawLevels(const std::string& path);

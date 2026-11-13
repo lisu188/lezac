@@ -1,8 +1,50 @@
 # Port Completion Status
 
-Last reviewed: 2026-09-19
+Last reviewed: 2026-10-08
+
+The [2026-10-17 keyboard IRQ1 runtime](keyboard_irq_20261017.md) recovers the
+original held-control interrupt and pinned BIOS translation with two natural
+captures and an independent function oracle. Active device-clock delivery and
+App cadence integration remain incomplete; broad completion claims stay false.
+
+The [JollyCloud rain recovery](jolly_cloud_rain_2026-10-08.md) replaces the
+invented four immediate rewards with the original shared 46-tick map producer.
+Bounded compiled production helpers match 293 original-instruction samples
+and 1,664,782 scalar/map/active-debris bytes, including capacity and final-tick
+boundaries. App lifecycle tests and hosted exact-head validation are separate
+gates. Natural cloud pickup, full-frame rain presentation and whole-game
+completion/fidelity remain unproven; no broad claim is changed.
+
+The [current-main recovery convergence](recovery_convergence_2026-10-08.md)
+combines the exact reviewed collapse, sound and pickup heads with main's
+constructor-velocity fix. Local provenance and bounded checks preserve
+their contracts; fresh combined-tree Windows/Linux compiled, full-suite,
+package and review evidence remains required before merge. This integration
+does not change any broad completion or fidelity claim.
+
+The [collapse fracture actor oracle](collapse_actor_creation_2026-10-08.md)
+adds original-backed creation order, clean-slot record, placement, animation
+and capacity evidence over 2,476 controlled cases. It does not establish
+stale-slot inheritance, mixed actor pools, natural campaign completion,
+rendered parity or sound timing. Hosted compiled comparison remains a separate
+delivery gate; source/oracle checks alone do not prove C++ parity.
 
 The C++17/SDL2 reconstruction of `LEZAC.EXE` is not yet functionally complete.
+The [2026-10-08 PC speaker pitch correction](sound_pitch_2026-10-08.md) fixes
+frequency/reload inversion, low-frequency silence and pitch clamping. Its
+exhaustive compiled conversion and PCM checks are bounded opcode-model
+evidence, not native sound timing, priority-latch lifetime or whole-game parity.
+
+The [2026-10-08 signed-priority and interrupt-state recovery](sound_interrupt_state_2026-10-08.md)
+corrects the production latch's signed `JGE` comparison and verifies per-IRQ
+state transitions. The [clocked playback follow-up](clocked_sound_2026-10-08.md)
+integrates those transitions into interactive and replay scheduling, retaining
+priority through menus, pause and replacement requests. Original IRQ cadence
+and phase, hardware waveform and whole-game sound parity remain open.
+The PR #308 long-stall review finding has a bounded catch-up implementation:
+discarded time advances logical IRQ state without PCM allocation, while only
+the latest 200 ms is synthesized. Exact logical-state and bounded-output tests
+are required on the fresh head; skipped-interval PCM equivalence is not claimed.
 The earlier claim was based on a subsystem inventory and compatible tests,
 not a complete comparison with original behavior. The 2026-09-05 player and
 collapse captures exposed absent pickup handling and a placeholder collapse
@@ -64,6 +106,330 @@ reported by the diagnostic; CTest exercises these paths on every run.
   (`--capture-frame-sequence`)
 
 ## Open Original-Evidence Items
+
+The [actor-constructor velocity recovery](actor_constructor_velocity_2026-10-08.md)
+adds 131,072 complete original constructor executions and preserves its
+signed-WORD -32768 exception. Transient creation now shares the original clamp
+with bomb construction. The compiled comparison distinguishes actual transient
+Y creation from the shared X helper; natural out-of-range reachability, other
+actor fields and whole-game fidelity remain unproved. Broad flags are unchanged.
+
+The [complete collapse updater oracle](collapse_update_oracle_2026-10-08.md)
+executes original `1000:5102` without instruction patches or call stubs. It
+independently reproduces all 27 retained native routine cases and supplies
+2,395 controlled cases for full live debris/collapse records, both map planes,
+RNG, destruction and fragment-word counters through the production updater.
+The corrected oracle executes four original startup instructions to initialize
+the record-table bases before every case. This repairs the PR #314 harness
+precondition behind 90 live-record compaction mismatches. All corrected outputs
+match retained Linux and Windows compiled outputs; all inputs and 27 native
+cross-checks are unchanged. Production C++ is unchanged and fresh-head CI is
+required separately. The failed fixture and diagnostics remain preserved.
+Actor creation executes but actor records, sound state, presentation, natural
+routes and whole-game fidelity are not compared. Broad claims remain false.
+
+The [complete debris updater oracle](debris_update_oracle_2026-10-08.md)
+executes the original full debris pass without call stubs or instruction
+patches. It independently reproduces 18 retained native collision/retirement
+cases and provides 1,061 controlled cases for complete live record, map-plane,
+count and RNG comparison through the production updater. Spark count is zero
+by setup; sound, rendering, full collapse updates and natural route completion
+remain outside the comparison. This closes no broad OPEN item or global flag.
+
+The [live sound deadline review repair](clocked_sound_live_deadline_2026-10-08.md)
+removes host-scheduling assumptions from menu/pause diagnostics, adds final
+production-clock servicing and two deliberately stalled live regressions.
+This is a diagnostic reliability repair, not evidence of original hardware
+timing or whole-game sound fidelity. All broad completion/fidelity flags remain
+unchanged; hosted compiled validation is required before merge.
+
+The [pickup post-allocation recovery](pickup_post_init_runtime_2026-10-08.md)
+restores unconditional tail-animation initialization after a pickup constructor
+attempt, including a full-pool refusal. Its 480 executed-original controlled
+cases cover animation/count/RNG boundaries and distinguish the fourteen-pickup
+cap. Natural saturation, inherited animated bombs, subsequent updates, rendering,
+sound and whole-game parity remain unproved; no broad completion flag changes.
+
+The [original collapse seeding geometry](collapse_seed_geometry_2026-10-08.md)
+recovers simultaneous rectangle expansion in place of a four-neighbor flood.
+The 1,124-case executed-original fixture includes 540 unchanged shipped-map
+components and 540 controlled-clearing variants. The latter are not natural
+route evidence. The production geometry regression does not close all seeder
+record fields, full collapse update, explosion playback or campaign fidelity;
+all broad completion and original-fidelity flags remain false.
+
+The [controlled collapse contact helper execution](collapse_contact_helpers_2026-10-08.md)
+adds 9,184 complete original forward/reverse helper cases, including new debris
+allocation, 1,248 capacity failures and 672 partial-allocation failures. The C++
+runtime blend is exposed through a shared helper for byte-exact production
+regression. This does not close full collapse update, natural explosion
+playback, unflagged collapse-group allocation, actor or campaign fidelity.
+All broad completion and original-fidelity flags remain false.
+
+The [natural Level 4 support-column regression](natural_level4_support_column_runtime_2026-10-08.md)
+extends the unchanged third-objective route through tick 11740 and an ordinary
+stationary Medium-bomb placement at tick 11466. Its original-only fixture has
+2380 RGB presentations and 4700 mapped boundaries, including 640 added
+boundaries after the identical trusted prefix. All 7018 atomic native snapshots
+are coherent without normalization and independently retained. The endpoint
+has three objectives, 244 of 305 required destroyed structures, 22 health and
+four Medium bombs. Level 4 is not complete; campaign completion remains 3/7.
+This does not establish an aggregate reverse-engineering percentage, a new
+full-prefix comparison, all-actor/clock/sound parity or any broad completion claim.
+
+The [natural Level 4 health reward](natural_level4_health_reward_runtime_2026-10-07.md)
+adds an ordinary-input branch through the original's 22-to-55 health pickup.
+Its regression compares 2000 RGB presentations, 3940 mapped boundaries and
+3878 actor boundaries, including inherited reward/score-marker animation bytes.
+Levels 1..3 have verified completion routes; Level 4 remains incomplete and
+all broad whole-game completion/fidelity flags remain false. Three of seven
+completed levels is campaign coverage, not an overall reverse-engineering percentage.
+
+The [natural Level 4 third objective and return portal](natural_level4_third_objective_runtime_2026-10-07.md)
+extend the unchanged ordinary route through all three objectives, the return
+portal and tick 11420. The self-contained replay compares 2060 RGB frames and
+4060 mapped boundaries against closed original-only observations. All 6058
+atomic DS snapshots pass independent coherence checks without normalization.
+It ends with 22 health, five Medium bombs and 244 of 305 required destroyed
+structures. Level 4 remains incomplete, and Levels 1-3 remain the only completed
+campaign levels established by this route. This is not an aggregate reverse
+engineering percentage or all-actor, timing, sound or natural two-player parity.
+All broad completion/fidelity flags remain false.
+
+The [2026-10-07 natural Level 4 portal comparison](natural_level4_portal_runtime_2026-10-07.md)
+extends the first-objective route through an ordinary teleport at tick 10633
+and the second pickup at tick 10662. It compares 1360 original RGB frames and
+2660 mapped boundaries, with 3958 coherent atomic native snapshots. The route
+ends with two objectives, 144 destroyed structures, 22 health and eight Medium
+bombs. Level 4 completion, later campaigns, full actor/clock/sound equivalence
+and physical timing remain open; no broad completion/fidelity flag changes.
+
+The [natural Level 4 first-objective regression](natural_level4_first_objective_runtime_2026-10-07.md)
+extends the ordinary route through tick 9760. It compares 400 full RGB frames
+and 740 mapped boundaries, including 339 fresh Level 4 presentations, with all
+1078 retained DS snapshots independently coherent and no normalization. The
+first objective is collected at tick 9680 with 42 health and nine Medium bombs;
+the endpoint has one objective, 105 destroyed structures and 38 health. This is
+not Level 4 completion: the route requires three objectives and 305 destroyed
+structures. Three of seven completed levels remains the campaign coverage
+metric, not an aggregate reverse-engineering percentage. All broad OPEN items
+and completion/fidelity flags remain unchanged.
+
+The [natural Level 3 results and Level 4 handoff regression](natural_level3_handoff_runtime_2026-10-06.md)
+extends the unchanged ordinary-input prefix through Level 3 completion and
+Level 4 entry. It compares 90 full RGB frames and 120 mapped boundaries,
+including 58 result-loop frames and 29 playable Level 4 frames. The score
+becomes 46290; 66 health, zero reserves and ammunition `[200,10,0,0]` carry
+over, while the selected weapon resets to Small. This is completion coverage
+for three of seven levels on the composed one-player route, not an aggregate
+reverse-engineering percentage. Level 4 completion, later campaigns, full
+actor/clock/sound state and all four broad OPEN items remain unverified.
+The earlier gate-only checkpoint below remains independently scoped.
+
+The [natural bomb visual-field regression](natural_bomb_visual_runtime_2026-10-07.md)
+checks 354 ordinary Level 4 Medium-bomb observations, covering the resolved
+collision hotspot and all four sprite-descriptor bytes in addition to the
+separately compared motion/countdown fields. Its compact fixture contains only
+native actor/visual bytes. This is a field-mapping regression, not a new
+continuous route replay; owner attribution, constructor inputs, opaque actor
+bytes, other natural bomb types and every broad OPEN item remain unchanged.
+
+The [natural Level 3 empty-collapse completion gate](natural_level3_completion_gate_runtime_2026-10-06.md)
+matches 486 original RGB frames, 972 mapped/lifecycle/bounded monster boundaries
+and 970 raw-derived terrain boundaries through tick 8905. All 1455 new native pre/present/post DS
+snapshots are retained and validated. Nine objectives and 167 destroyed
+structures satisfy the actual seven-objective/148-structure requirements; the
+first eligible empty-collapse post-update sample agrees with C++ outro entry.
+The original stops before its blocking results sequence, so Level 3 results,
+Level 4 handoff and complete Level 3 campaign verification are still open.
+This scoped suffix does not claim a new full-prefix C++ comparison or all-actor,
+clock/sound byte equivalence. All broad OPEN items/global flags stay unchanged.
+
+The [2026-10-06 Medium/Large overlap](natural_level3_medium_large_runtime_2026-10-06.md)
+uses a separate ordinary-input branch after the verified tick-8100 fork. Its
+321 full RGB frames and 642 mapped boundaries match the original, with all
+960 new raw DS records retained. It reaches nine objectives and 132 of 148
+required destroyed cells, 18 beyond the earlier verified frontier. The seven-
+objective gate is already met; 16 more destroyed cells and a natural completion
+transition remain. Eight mapped-state and 24 raw collapse-field/count mutations
+are rejected. This is not full-prefix C++ parity, all actor bytes or Level 3
+completion; all four broad OPEN items and global flags remain unchanged.
+
+The [2026-10-06 corrected ammunition continuation](natural_level3_corrected_ammo_runtime_2026-10-06.md)
+extends the ordinary Level 3 route from tick 8100 to 8750. Its 651 full RGB
+presentations and 1,302 mapped boundaries match the original, with 1,950 new
+raw DS records and eight rejected mutations. Both versions reach nine objectives
+and 114 destroyed tiles, spending one Large and two Medium bombs. The original
+prefix is independently repeated, not a full-prefix C++ parity claim. Level 3
+completion, later levels, all actor bytes and broad completion/fidelity flags
+remain open.
+
+The [2026-10-06 reward-pickup phase recovery](reward_pickup_phase_2026-10-06.md)
+restores per-player reward latches, the conversion random draw, in-place score
+markers and player-phase grants. An unchanged Level 3 route matches 748 RGB
+frames and 1,496 mapped boundaries through the yellow reward pickup; it still
+ends at nine objectives and 110 destroyed tiles. The all-kind helper and opcode
+tests are distinct from this scoped native observation. The initial full local
+Level 3 return regression exhausted RAM output space and is not claimed as
+passing. All broad completion/fidelity flags remain open.
+
+The [shipped Level 3 gate inspection](level3_completion_gate_2026-10-06.md)
+confirms seven required objectives and 148 required destroyed physical-damage
+cells. The independently retained original-backed tick-8750 checkpoint has nine
+objectives and 114 destroyed cells: the objective requirement is already met,
+and 34 more destroyed cells remain. The deterministic denominator regression
+now pins objective requirements and checks both gates independently across all
+seven shipped levels. This is not Level 3 completion or whole-game fidelity;
+all four broad OPEN items and global flags remain unchanged.
+
+The [2026-10-06 level-export metadata correction](level_export_denominator_metadata_2026-10-06.md)
+aligns all seven exported and committed destruction denominators with physical
+word tags and the original `fieldB` headers. The runtime loader already used
+this calculation; the change does not alter gameplay completion or prove a
+newly completed level. The exporter regression verifies the original bank,
+boundary words and semantic regeneration without rewriting resource files.
+All broad OPEN items and global completion/fidelity flags remain unchanged.
+
+The [natural Level 3 return regression](natural_level3_return_runtime_2026-10-05.md)
+recovers the dirty-gated ammunition panel through an ordinary reserve loss and
+reentry. Its full route compares 6038 RGB frames, 12000 mapped boundaries and
+1422 added lifecycle boundaries, reaching eight objectives and 93 of 148
+destroyed structures. Live Medium ammunition refills from eight to ten without
+repainting the original's retained `08`. Level 3 completion, later levels and
+all broad completion/fidelity flags remain open.
+
+The [2026-10-05 natural campaign regression](natural_campaign_runtime_2026-10-05.md)
+promotes the retained ordinary Level 1/2 completion and Level 3 entry route to
+a self-contained full production replay. It checks 2,761 native-observed RGB
+presentations and 5,446 mapped boundaries through three Level 2 objectives,
+the 61-percent empty-collapse completion gate, result reels and carried health,
+reserves and ammunition. The shorter zero-objective routes below are separate
+evidence, not a statement that no earlier route finished Level 2. Later levels,
+full actor state and broad whole-game completion/fidelity flags remain open.
+
+The [ordinary Level 3 objective regression](natural_level3_objective_runtime_2026-10-05.md)
+adds a fresh original-backed 650-frame movement/bomb/pickup segment after that
+unchanged prefix. Its full replay checks 3,411 RGB frames and 6,746 mapped
+boundaries, ending with one objective, 36 destroyed structures, 62 health and
+one reserve. This is not Level 3 completion or all-actor/campaign fidelity;
+all four broad OPEN items and global flags remain unchanged.
+
+The [second Level 3 pickup regression](natural_level3_second_objective_runtime_2026-10-05.md)
+adds 320 ordinary movement/jump frames without another bomb. Its complete
+4758-tick route compares 3731 full RGB frames and 7386 mapped boundaries,
+ending with two objectives, 36 destroyed structures, 62 health and one reserve.
+It retains native-only provenance and rejects 20 semantic/fixture, fourteen
+producer and 291 typed/map/palette mutations. Level 3 completion, all actor
+fields and whole-game fidelity remain unverified; all four broad OPEN items
+and global flags remain unchanged.
+
+The [third Level 3 pickup regression](natural_level3_third_objective_runtime_2026-10-05.md)
+adds 500 ordinary movement/jump frames and one Medium bomb. Its complete
+5258-tick route compares 4231 full RGB frames and 8386 mapped boundaries,
+ending with three objectives, 36 destroyed structures, 46 health and one reserve.
+It retains native-only provenance and rejects 22 semantic/fixture, twelve
+producer and 291 typed/map/palette mutations. Level 3 completion, all actor
+fields and whole-game fidelity remain unverified; all four broad OPEN items
+and global flags remain unchanged.
+
+The [natural Level 3 portal return](natural_level3_portal_runtime_2026-10-05.md)
+adds 970 ordinary frames through the lower shaft, three more objectives and a
+natural teleport. The full 6228-tick route matches 5201 RGB frames and 10326
+mapped boundaries, ending with six objectives and 57 destroyed structures.
+It recovers the original floor sampling, consumed Down banks, preserved motion
+carries and animated arrival marker without the port's invented cooldown.
+Thirty semantic/fixture, twelve producer and 291 typed/map/palette mutations
+are rejected. Level 3 completion, natural two-player/pool saturation, all actor
+fields and whole-game fidelity remain unverified; all four broad OPEN items
+and global flags stay unchanged.
+
+The [natural Level 3 portal escape](natural_level3_portal_escape_runtime_2026-10-05.md)
+adds a separately pinned 500-frame ordinary-input branch after tick 6109.
+Its full 6609-tick route compares 5582 RGB frames and 11088 mapped boundaries,
+collecting objectives seven and eight without a death/reentry transition or
+reserve loss. It ends with eight objectives and 80 of 148 required destroyed
+tiles, so Level 3 is still incomplete. Tick 6354 retains seven objectives,
+26 energy, one reserve and thirteen Medium bombs for the next ordinary-input
+fork. Thirty-eight semantic/fixture, twelve producer and 291 typed/map/palette
+mutations are rejected. The earlier portal fixture and all four broad OPEN
+items/global flags remain unchanged; all-actor and whole-game fidelity are
+not claimed.
+
+The [2026-10-05 natural Level 2 table comparison](natural_level2_runtime_2026-10-05.md)
+adds two 500-frame ordinary-input routes after the pinned Level 1 completion
+and handoff. Both match all displayed RGB pixels and mapped states. One also
+matches 6,050 live debris-record observations, 4,151 collapse-record observations
+and 1,339 naturally spawned kind-1/2 monster states through 1,000 present/post
+boundaries. The compact regression drives the normal SDL input/production loop
+without per-tick state injections. Both routes collect zero objectives and
+do not complete Level 2. Complete campaigns, other actors/fields and physical
+timing remain open; no broad OPEN item or global fidelity flag changes.
+
+The [2026-10-05 shipped-profile constructor replay](shipped_monster_profiles_runtime_2026-10-05.md)
+now exercises all 15 shipped Level 1..6 spawner profiles through native
+construction, then 64 continuous actor updates for each of three RNG seeds.
+Two independent original captures agree byte-for-byte; the C++ production
+spawner and monster update paths match 45 constructors and 2,880 updates.
+This verifies the shipped kind 1..4 profiles, behaviors 3/4, animation,
+hotspots, RNG, descriptor selection and bounded room trajectories. Spawn
+positions, allocation allowance, countdown, terrain and initial player state
+are explicitly controlled, and per-tick player targets are exogenous in C++.
+Actual level geometry, natural spawning timing, full player/world updates,
+actor-pool interactions and campaigns remain unverified. It closes no broad
+OPEN item and changes no whole-game completion or fidelity flag.
+
+The [2026-10-04 tile-damage recovery](monster_tile_damage_runtime_2026-10-04.md)
+matches 1,312 seeded full native behavior-4 updates, including 552 impacts,
+96 fatal conversions and 96 post-motion-only damage placements. It restores
+the missing impact-sprite entries for kinds 5..8 and corrects earlier compact
+writeback HP attribution: original health is actor byte +0x24, not +3.
+Natural constructors, other behaviors and repeated/campaign trajectories
+remain unverified. All four broad items remain OPEN and global flags unchanged.
+
+The [2026-10-04 signed-coordinate recovery](monster_coordinate_word_wrap_runtime_2026-10-04.md)
+matches 768 seeded full native behavior-4 writebacks across kinds 1..8, including
+120 positive and 120 negative coordinate-word wraps. The recovered monster
+path now narrows its coordinates after common integration while the generic
+32-bit API and other callers remain unchanged. General out-of-map scans, later
+updates, other actor/behavior boundaries, natural routes and whole-game fidelity
+remain unverified. This closes no broad OPEN item or global completion flag.
+
+The [2026-10-04 monster coordinate-writeback recovery](monster_coordinate_writeback_runtime_2026-10-04.md)
+matches 256 seeded full native writebacks for kinds 1..8, including 112 positions
+outside the port's former level-bound clamps. The production clamp removal is
+original-backed; next-update out-of-map reads, coordinate-word overflow, natural
+trajectories and whole-game actor/campaign fidelity remain unverified. This
+does not close any of the four OPEN items or change global fidelity flags.
+
+The [2026-10-01 Level 1 completion-gate recovery](level1_completion_gate_runtime_2026-10-01.md)
+fixes premature results entry, dirty-only objective palette requests, and
+gameplay ticking during results. An ordinary-input route with default reserves
+matches 305 full original frames and 610 mapped states through the native
+empty-collapse gate. The subsequent [results-reel recovery](level1_results_runtime_2026-10-01.md)
+matches 42 native loop-boundary frames, the whole bonus award, digit reels,
+and delayed RNG draws while gameplay remains frozen. The subsequent
+[unskipped typing recovery](level1_typing_runtime_2026-10-01.md) matches 89 native
+draw-before-delay windows and their five-column color/shadow writes, with score
+and RNG frozen until the final character delay. The subsequent
+[natural handoff recovery](level1_handoff_runtime_2026-10-01.md) carries the
+spent ammunition through ordinary results/intro acknowledgments and restores
+the full level palette without resetting its animation phase. It matches
+twelve native Level 2 entry frames, 24 mapped states and both complete map
+planes. A [longer pickup-landing route](pickup_landing_runtime_2026-10-01.md)
+matches 600 additional natural Level 2 frames and fixes the pickup indicator
+origin after ground snap/drop. It reaches player damage and structural collapse
+but no objective collection or level completion; its permanent regression is
+a small seeded C++ indicator-lifetime probe. A subsequent
+[walker ledge recovery](walker_ledge_runtime_2026-10-01.md) extends the route to
+900 Level 2 frames and fixes an off-screen monster turn concealed by the
+earlier camera coverage. The RGB, mapped-state and newly decoded monster-motion
+projections match; a 32-frame seeded walker probe provides the permanent
+regression. This route destroys 87 structures but collects no objective and
+loses one objective tile, so it is not a Level 2 finish. Complete Level 2 progression,
+typing skip/escape, two-player/English
+native handoffs and physical presentation cadence remain open; these checks
+do not change the whole-game completion flags or provide an overall
+completion percentage.
 
 The [two-player key-ownership recovery](key_ownership_runtime_2026-09-19.md)
 checks 84 original physical-key samples and fixes reversed P1/P2 movement
@@ -308,7 +674,19 @@ reentry-wait states. It corrects death descriptor latching, the active sprite
 bank and waiting-player placement. Mixed flame masses, actual reentry input,
 long waits, longer natural combat and two-player interactions remain open. Unused post-defeat
 link bookkeeping and actual VGA palette/HUD comparison are not covered by
-these defeat fixtures.
+these defeat fixtures. The subsequent
+[controlled full-health combat replay](boss_active_combat_runtime_2026-10-01.md)
+adds 800 continuous updates without reducing head health or planting a bomb,
+with 22 ordinary shots, three fire-latch reentries and 12 exact normalized
+playfield views. This combines firing and death/reentry under the controlled
+case-boundary setup; it does not prove a natural campaign or full-health victory.
+The separate [extended full-health replay](boss_extended_combat_runtime_2026-10-01.md)
+now covers a controlled boss defeat and cleanup across 3,200 continuous updates:
+96 ordinary shots, ten fire-latch reentries, all seven fatal conversions at
+sample 1,714, complete boss-bomb cleanup at 1,833, and 15 matching normalized
+views. This removes the missing controlled full-health defeat evidence, but
+does not establish natural campaign/level completion, ordinary starting
+reserves, physical keyboard input or actual VGA/HUD fidelity.
 
 - `natural_forward_debris_writeback_3d2d` — natural forward debris writeback
   at `1000:3D2D`. **Now OBSERVED; the blend formula remains open.**
@@ -365,7 +743,7 @@ these defeat fixtures.
   the evidence is one monster kind (1), one behaviour (3), one level, so
   behaviours 1/2/5/6, other kinds, per-tick tile-embedding
   damage, mode-2 corpse physics, contact multiplicity beyond 0/1, the
-  bottom-edge `0x4D..0x52` jump-through semantics, the `0x7FF` gravity clamp,
+  bottom-edge `0x4D..0x52` jump-through semantics,
   the player's own collision box and two-player are all unevidenced.
   **Narrowed.** Two of the listed gaps are now closed by level-2 captures:
   *other levels* -- `tests/fixtures/actor_contact_original_level2.txt` gives
@@ -376,9 +754,43 @@ these defeat fixtures.
   (`trunc(-vx/2)` then restore-to-speed-with-reflected-sign), all replayed
   through the port's live rules by `actor_contact_level2_evidence`; and
   *behaviour 4*, whose contact response is now runtime-confirmed by the
-  behaviour-4 capture below. The `0x7FF` gravity clamp remains INFERRED --
-  the level-2 fall peaks at `vy = 704`, so the clamp is still unexercised by
-  any capture, and the fixture records `gravity_clamp_exercised=0`.
+  behaviour-4 capture below. The historical level-2 fall peaks at `vy = 704`
+  and still records `gravity_clamp_exercised=0`. The later
+  [walker gravity word capture](walker_gravity_word_runtime_2026-10-03.md)
+  confirms the signed `0x7FF` limit in 32 seeded cases, including two word-wrap
+  boundaries, and corrects the port's wide-addition mismatch. This does not
+  establish a natural terminal-speed fall or close the broader contact item.
+
+  **Behavior-2 gravity narrowed.** Two later
+  [timed-actor gravity captures](timed_gravity_word_runtime_2026-10-03.md) agree
+  on 64 seeded boundaries each for kind 12 timed actors and kind 13 small bombs.
+  They confirm word wrapping before the signed terminal-speed limit and twenty
+  landing snaps, correcting the shared timed helper's wide-addition mismatch.
+  Full-helper and actual corpse/bomb caller tests separately check velocities
+  and supported landing Y. Native observations end before friction/integration;
+  this does not close mode-2 corpse physics, timer/animation lifecycle, natural
+  spawning/trajectories or the broader contact item.
+
+  **Dying-player gravity narrowed.** Two independent
+  [P1/P2 original captures](dying_player_gravity_word_runtime_2026-10-03.md)
+  each record 64 seeded behavior-2 boundaries on the real kind-0 player
+  records at `DS:1B88/1BAE`, with actual actor pointers verified. They confirm
+  four word wraps before the signed limit and twenty supported landing snaps,
+  correcting the separate dying-player helper. Full helper and real P1/P2
+  `updateWithControls()` tests check velocities and supported landing Y.
+  The native phase ends before friction/integration; natural death/timer,
+  animation/reentry and full player-motion fidelity remain unproven. This
+  narrows the existing OPEN item without closing it.
+
+  **Active-player airborne gravity narrowed.** Two fresh independent
+  [P1/P2 original captures](active_player_gravity_word_runtime_2026-10-04.md)
+  each reproduce 32 seeded active airborne boundaries on the real kind-0
+  records. Selected actor-parameter guards avoid confusing their normalized
+  behavior locals. Four word wraps correct the active helper's wide-addition
+  mismatch; landing/posture/rebound are unchanged. Full helper and real P1/P2
+  frame callers check velocity. Native observations end before input/integration;
+  bottom gating, landing, full player motion and natural trajectories are not
+  established. The complete captures are retained, and this item stays OPEN.
 
 - `behavior4_motion_runtime_fixture` — **Partially recovered, still open.** A level-2 tick-locked
   capture (`tests/fixtures/behavior4_motion_original_level2.txt`,
@@ -433,7 +845,14 @@ these defeat fixtures.
   persistent 8.8 fractions and one top collision. The near-player phases are
   explicitly seeded, not natural routes. Other kinds and remaining levels,
   two-player targeting and full floor/side runtime coverage remain outside
-  these focused captures;
+  these focused captures. A subsequent
+  [176-case original motion capture](flyer_contact_motion_runtime_2026-10-04.md)
+  now verifies seeded floor/ceiling/side combinations, tile-class boundaries,
+  steering/contact order and both fractional carries across kinds 1..8 with
+  explicit shared actor profiles. It corrects the common monster side-response
+  word NEG before signed division at eight seeded `-32768` boundaries. Natural
+  constructors/profiles, trajectories and all-level geometry, animation/damage,
+  two-player interactions and full actor writeback remain unproven;
   the item stays open. See `behavior4_runtime_2026-08-10.md`. Screenshot review
   is not paired pixel parity, so `visual_claim=0` remains unchanged.
 ## Guardrails

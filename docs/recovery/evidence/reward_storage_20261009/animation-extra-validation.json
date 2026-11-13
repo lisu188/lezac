@@ -1,0 +1,190 @@
+{
+  "app_executed": false,
+  "commands": [
+    {
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-O1",
+        "-g0",
+        "-fsanitize=address,undefined",
+        "-fno-omit-frame-pointer",
+        "-I",
+        "/tmp/lezac-marker-writeback-20261009-t90/src",
+        "/mnt/c/Users/andrz/.codex/visualizations/2026/07/05/019f3283-94f8-7603-b1b5-c9d78bf86769/reward-animation-probe-t91.cpp",
+        "-o",
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-probe-sanitized"
+      ],
+      "label": "compile-sanitized",
+      "returncode": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-probe-sanitized",
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-input.bin",
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-sanitized.bin"
+      ],
+      "label": "sanitized",
+      "returncode": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "b0c62098420e9aaf051a9d46e28dac348b428752d31bafa5f648a33454fbf616"
+    },
+    {
+      "args": [
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-probe",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-empty.bin",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-empty-out.bin"
+      ],
+      "label": "reject-empty",
+      "returncode": 1,
+      "stderr_sha256": "cf4be3851152288ab06e4616841d84eb25915c0e6d529dc695bce7236ebe565a",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-probe",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-short_magic.bin",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-short_magic-out.bin"
+      ],
+      "label": "reject-short_magic",
+      "returncode": 1,
+      "stderr_sha256": "cf4be3851152288ab06e4616841d84eb25915c0e6d529dc695bce7236ebe565a",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-probe",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-wrong_magic.bin",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-wrong_magic-out.bin"
+      ],
+      "label": "reject-wrong_magic",
+      "returncode": 1,
+      "stderr_sha256": "cf4be3851152288ab06e4616841d84eb25915c0e6d529dc695bce7236ebe565a",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-probe",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-short_count.bin",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-short_count-out.bin"
+      ],
+      "label": "reject-short_count",
+      "returncode": 1,
+      "stderr_sha256": "312d0a812c4ac903df26fab025abec64729e7cca7a5c45caa953372425fb0b84",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-probe",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-zero_count.bin",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-zero_count-out.bin"
+      ],
+      "label": "reject-zero_count",
+      "returncode": 1,
+      "stderr_sha256": "321e952728f2844703f8fd26d11143c5ffc86f2e02eadf7818f2c5f293317a19",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-probe",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-excessive_count.bin",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-excessive_count-out.bin"
+      ],
+      "label": "reject-excessive_count",
+      "returncode": 1,
+      "stderr_sha256": "321e952728f2844703f8fd26d11143c5ffc86f2e02eadf7818f2c5f293317a19",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-probe",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-missing_active.bin",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-missing_active-out.bin"
+      ],
+      "label": "reject-missing_active",
+      "returncode": 1,
+      "stderr_sha256": "312d0a812c4ac903df26fab025abec64729e7cca7a5c45caa953372425fb0b84",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-probe",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-short_active.bin",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-short_active-out.bin"
+      ],
+      "label": "reject-short_active",
+      "returncode": 1,
+      "stderr_sha256": "312d0a812c4ac903df26fab025abec64729e7cca7a5c45caa953372425fb0b84",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-probe",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-missing_backup.bin",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-missing_backup-out.bin"
+      ],
+      "label": "reject-missing_backup",
+      "returncode": 1,
+      "stderr_sha256": "312d0a812c4ac903df26fab025abec64729e7cca7a5c45caa953372425fb0b84",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-probe",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-short_backup.bin",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-short_backup-out.bin"
+      ],
+      "label": "reject-short_backup",
+      "returncode": 1,
+      "stderr_sha256": "312d0a812c4ac903df26fab025abec64729e7cca7a5c45caa953372425fb0b84",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-probe",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-missing_final_byte.bin",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-missing_final_byte-out.bin"
+      ],
+      "label": "reject-missing_final_byte",
+      "returncode": 1,
+      "stderr_sha256": "312d0a812c4ac903df26fab025abec64729e7cca7a5c45caa953372425fb0b84",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "/tmp/lezac-reward-native-validation-20261009-t91/animation-probe",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-trailing_byte.bin",
+        "/tmp/lezac-reward-native-validation-20261009-t91/bad-trailing_byte-out.bin"
+      ],
+      "label": "reject-trailing_byte",
+      "returncode": 1,
+      "stderr_sha256": "c68bf52d76ecf89624ca75de0f3c6bde522c8d5784d138147d16c533a980c5b9",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "earlier_missing_sanitized_executable_failure": true,
+  "earlier_shell_compile_parser_failure": true,
+  "full_reward_cpp_comparison": false,
+  "malformed_rejections": [
+    "empty",
+    "short_magic",
+    "wrong_magic",
+    "short_count",
+    "zero_count",
+    "excessive_count",
+    "missing_active",
+    "short_active",
+    "missing_backup",
+    "short_backup",
+    "missing_final_byte",
+    "trailing_byte"
+  ],
+  "malformed_requests_rejected": 12,
+  "passed": true,
+  "recorded_utc": "2026-10-09T03:42:44.088884+00:00",
+  "root_bytes": 633077,
+  "sanitized_animation_cases": 5668,
+  "sanitized_output_sha256": "c0751b7ca768d87e26eb7fa5ac8a09ad60d3a3be08826410bc8410cf13ef5308"
+}

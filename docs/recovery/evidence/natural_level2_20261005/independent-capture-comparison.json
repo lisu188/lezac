@@ -1,0 +1,11 @@
+{
+  "status": "match",
+  "captures": 2,
+  "boundaries_each": 1000,
+  "projected_body_sha256": "4a84d976b440c1dfc34863b9bceba1f7711edea84740f080f4cfa1226239e580",
+  "capture_local_header_hashes_excluded": [
+    "ds_stream_sha256",
+    "native_extension_sha256"
+  ],
+  "all_DS_bytes_compared": false
+}

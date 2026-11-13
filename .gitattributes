@@ -1,5 +1,242 @@
 *.sh text eol=lf
 *.py text eol=lf
 *.route text eol=lf
+tools/original_interrupt_probe/** text eol=lf
+tests/fixtures/interrupt_dispatch/** -text
+tools/dos_time_probe/** text eol=lf
+tests/fixtures/dos_time/** -text
+tools/dos_timer_probe/** text eol=lf
+tests/fixtures/dos_timer/** -text
+tests/fixtures/pic_work_clock/** -text
+tools/pic_clock_probe/** text eol=lf
+# Unified-patch context retains pinned upstream indentation and blank lines.
+tools/pic_clock_probe/*.patch -whitespace
+tests/fixtures/frame_elapsed/** -text
+tests/fixtures/frame_clock/** -text
+tests/fixtures/frame_display/** -text
+tests/fixtures/frame_display_controls/** -text
+tests/fixtures/full_pacing/** -text
+tools/full_pacing_probe/** text eol=lf
+tools/full_pacing_probe/*.patch -whitespace
+tests/fixtures/pacing_device_clock/** -text
+tools/pacing_clock_probe/** text eol=lf
+tools/pacing_clock_probe/*.patch -whitespace
+tests/fixtures/crt_keyboard/** -text
+tools/crt_keyboard_probe/** text eol=lf
+tools/crt_keyboard_probe/*.patch -whitespace
+tests/fixtures/game_keyboard/** -text
+tools/game_keyboard_probe/** text eol=lf
+tools/game_keyboard_probe/*.patch -whitespace
+tests/fixtures/frame_hud/** -text
+tests/fixtures/hud_objective/** -text
+tests/fixtures/render_view_gate/** -text
+tools/frame_hud_probe/** text eol=lf
+tools/frame_hud_probe/*.patch -whitespace
+tests/fixtures/frame_foreground/** -text
+tests/fixtures/frame_view_copy/** -text
+tests/fixtures/frame_camera/** -text
+tests/fixtures/standalone_camera/** -text
+tests/fixtures/player_start/** -text
+tests/fixtures/frame_world_raster/** -text
+tests/fixtures/frame_spawner/** -text
+tests/fixtures/frame_render/** -text
+tests/fixtures/reserve_hud/** -text
+tests/fixtures/ammo_hud/** -text
+tests/fixtures/waiting_placement/** -text
+tests/fixtures/frame_waiting/** -text
+tests/fixtures/frame_prefix/** -text
+tests/fixtures/gran_loader/** -text
+tests/fixtures/actor_animation/** -text
+tests/fixtures/boss_links/** -text
+tests/fixtures/frame_actor_entry/** -text
+tests/fixtures/actor_precontact/** -text
+tests/fixtures/actor_contact/** -text
+tests/fixtures/actor_finish/** -text
+tests/fixtures/actor_tile_flags/** -text
+tests/fixtures/actor_expiry/** -text
+tests/fixtures/transient_removal/** -text
+tests/fixtures/transient_motion/** -text
+tests/fixtures/transient_update/** -text
+tests/fixtures/collapse_update/** -text
+tests/fixtures/frame_transient_queues/** -text
+tests/fixtures/actor_steering/** -text
+tests/fixtures/actor_motion/** -text
+tests/fixtures/nonplayer_motion/** -text
+tests/fixtures/nonplayer_loop/** -text
+tests/fixtures/player_motion/** -text
+tests/fixtures/actor_update/** -text
+tests/fixtures/frame_tail/** -text
+tests/fixtures/player_post/** -text
+tools/frame_foreground_probe/** text eol=lf
+tools/frame_foreground_probe/*.patch -whitespace
+tests/fixtures/foreground_live/** -text
+tools/frame_foreground_live_probe/** text eol=lf
+tools/frame_display_probe/** text eol=lf
+tools/frame_display_probe/*.patch -whitespace
+tools/frame_clock_probe/** text eol=lf
+tools/frame_clock_probe/*.patch -whitespace
+tools/timer_irq_probe/** text eol=lf
+tests/fixtures/timer_irq/** -text
+tests/fixtures/startup_timing/** -text
+tests/fixtures/crt_delay/** -text
+tests/fixtures/frame_pacing/** -text
+tools/frame_pacing_probe/** text eol=lf
+tests/fixtures/end_screen_*.rgb binary
+tests/fixtures/end_screen_original.json -text
+tests/fixtures/records_page_*.rgb binary
+tests/fixtures/records_page_*.dat binary
+tests/fixtures/records_page_original.json -text
 .gitattributes text eol=lf
+tests/fixtures/transient_storage/** -text
+docs/recovery/evidence/transient_storage_20261009/** -text
+docs/recovery/evidence/transient_animation_backup_20261009/** -text
+tests/gameplay/collapse_update_original.json -text
+tests/gameplay/collapse_update_original.bin.gz -text
+tests/gameplay/collapse_actor_creation_original.json -text
+tests/gameplay/collapse_actor_creation_original.bin.gz -text
+tests/fixtures/collapse_steps_original.txt -text
+tests/fixtures/fracture_actor_original.txt -text
+tests/gameplay/collapse_seed_geometry_original.json -text
+tests/gameplay/debris_update_original.json -text
+tests/gameplay/debris_update_original.bin.gz -text
+tests/fixtures/debris_impacts_original.txt -text
+tests/fixtures/debris_rest_original.txt -text
+tests/gameplay/collapse_seed_geometry_original.bin.gz -text
+tests/gameplay/actor_constructor_velocity_original.json -text
+tests/gameplay/actor_constructor_velocity_original.bin.gz -text
+tests/gameplay/collapse_contacts_original.json -text
+tests/gameplay/collapse_contacts_original.bin.gz -text
+tests/gameplay/collapse_seed_history_original.json -text
+tests/gameplay/collapse_seed_history_original.bin.gz -text
+tests/gameplay/collapse_lane_history_original.json -text
+tests/gameplay/collapse_lane_history_original.bin.gz -text
+tests/gameplay/collapse_support_history_original.json -text
+tests/gameplay/collapse_support_history_original.bin.gz -text
+tests/gameplay/flame_contact_word_original.json -text
+tests/gameplay/pickup_post_init_original.json -text
+tests/gameplay/pickup_post_init_original.bin.gz -text
 tests/fixtures/level1_original/** -text
+tests/fixtures/level1_results/** -text
+tests/fixtures/startup_rng_original/** -text
+tests/fixtures/startup_held_fire_original/** -text
+tests/fixtures/main_menu_original/** -text
+tests/fixtures/intro_recognition/** -text
+docs/recovery/evidence/main_menu_natural_20260930.json -text
+docs/recovery/evidence/main_menu_modifiers_20260930.json -text
+docs/recovery/evidence/menu_held_choice_original_20260930.json -text
+docs/recovery/evidence/intro_buffer_original_20260930.json -text
+docs/recovery/evidence/intro_queued_buffer_original_20260930.json -text
+docs/recovery/evidence/menu_held_two_original_20260930.json -text
+docs/recovery/evidence/main_menu_return_original_20261001.json -text
+docs/recovery/evidence/main_menu_return_cpp_20261001.json -text
+docs/recovery/evidence/main_menu_return_cpp_negative_20261001.json -text
+docs/recovery/evidence/main_menu_characters_20261001/** -text
+docs/recovery/evidence/main_menu_characters_20261001/focused_ctest.log -diff
+docs/recovery/evidence/bios_menu_input_20261001/** -text
+docs/recovery/evidence/legacy_keypad_20261001/** -text
+docs/recovery/evidence/boss_active_combat_20261001/** -text
+tests/fixtures/boss_active_combat_original_level7.txt.gz -text
+docs/recovery/evidence/boss_extended_combat_20261001/** -text
+tests/fixtures/boss_extended_combat_original_level7.txt.gz -text
+docs/recovery/evidence/level1_completion_gate_2026-10-01/** -text
+docs/recovery/evidence/level1_results_2026-10-01/** -text
+tools/capture_original_level1_typing.py -text
+tests/fixtures/level1_typing/** -text
+docs/recovery/evidence/level1_typing_2026-10-01/** -text
+tools/capture_original_level1_handoff.py -text
+tests/fixtures/level1_handoff/** -text
+docs/recovery/evidence/level1_handoff_2026-10-01/** -text
+tests/fixtures/pickup_landing_original.bin -text
+docs/recovery/evidence/pickup_landing_2026-10-01/** -text
+tests/fixtures/walker_ledge_original.bin -text
+docs/recovery/evidence/walker_ledge_2026-10-01/** -text
+docs/recovery/evidence/walker_ledge_2026-10-01/focused_ctest.log -diff
+tests/fixtures/natural_level2/** -text
+docs/recovery/evidence/natural_level2_20261005/** -text
+tests/fixtures/natural_campaign/** -text
+docs/recovery/evidence/natural_campaign_20261005/** -text
+tests/fixtures/natural_level3_objective/** -text
+docs/recovery/evidence/natural_level3_objective_20261005/** -text
+tests/fixtures/natural_level3_second_objective/** -text
+docs/recovery/evidence/natural_level3_second_objective_20261005/** -text
+tests/fixtures/natural_level3_third_objective/** -text
+docs/recovery/evidence/natural_level3_third_objective_20261005/** -text
+tests/fixtures/natural_level3_portal/** -text
+docs/recovery/evidence/natural_level3_portal_20261005/** -text
+tests/fixtures/natural_level3_portal_escape/** -text
+docs/recovery/evidence/natural_level3_portal_escape_20261005/** -text
+tests/fixtures/natural_level3_return/** -text
+docs/recovery/evidence/natural_level3_return_20261005/** -text
+tests/fixtures/natural_level3_completion_gate/** -text
+docs/recovery/evidence/natural_level3_completion_gate_20261006/** -text
+tests/fixtures/natural_level3_handoff/** -text
+docs/recovery/evidence/natural_level3_handoff_20261006/** -text
+tests/fixtures/natural_level4_first_objective/** -text
+docs/recovery/evidence/natural_level4_first_objective_20261007/** -text
+tests/fixtures/natural_level4_portal/** -text
+docs/recovery/evidence/natural_level4_portal_20261007/** -text
+tests/fixtures/natural_level4_third_objective/** -text
+docs/recovery/evidence/natural_level4_third_objective_20261007/** -text
+tests/fixtures/natural_level4_health_reward/** -text
+tests/fixtures/natural_level4_support_column/** -text
+docs/recovery/evidence/natural_level4_support_column_20261008/** -text
+tests/fixtures/natural_level4_outside_column/** -text
+docs/recovery/evidence/natural_level4_outside_column_20261103/** -text
+tests/fixtures/natural_level4_bridge_access/** -text
+docs/recovery/evidence/natural_level4_bridge_access_20261103/** -text
+tests/fixtures/natural_level4_bridge_escape/** -text
+tests/fixtures/natural_level4_left_return/** -text
+tests/fixtures/collapse_magnitude_wrap_original.json.gz -text
+docs/recovery/evidence/natural_level4_bridge_escape_20261103/** -text
+docs/recovery/evidence/natural_level4_left_return_20261103/** -text
+# Preserve byte-attributed original observations and frozen producer inputs.
+docs/recovery/evidence/corpse_animation_prologue_20261009/** -text
+docs/recovery/evidence/reward_animation_mode_20261009/** -text
+docs/recovery/evidence/production_actor_lifecycle_20261009/** -text
+tests/fixtures/marker_storage/*.bin.gz binary
+tests/fixtures/reward_storage/*.bin.gz binary
+docs/recovery/evidence/reward_storage_20261009/** -text
+tests/fixtures/corpse_storage/*.bin.gz binary
+docs/recovery/evidence/corpse_storage_20261009/** -text
+tests/gameplay/collapse_continuity_original.json -text
+tests/gameplay/collapse_continuity_original.bin.gz -text
+tests/gameplay/collapse_contact_continuity_original.json -text
+tests/gameplay/collapse_contact_continuity_original.bin.gz -text
+tests/gameplay/physics_dispatch_original.json -text
+tests/gameplay/physics_dispatch_original.bin.gz -text
+tests/gameplay/collapse_map_original.json -text
+tests/gameplay/collapse_map_original.bin.gz -text
+tests/gameplay/collapse_map_events.json.gz -text
+tests/gameplay/map_planes_original.json -text
+tests/gameplay/map_planes_original.bin.gz -text
+tests/gameplay/map_planes_expected.bin.gz -text
+tests/gameplay/collapse_removal_original.json -text
+tests/gameplay/collapse_removal_original.bin.gz -text
+tests/gameplay/outside_map_seeding_original.json -text
+tests/gameplay/outside_map_seeding_original.bin.gz -text
+tests/gameplay/outside_map_seeding_events.json.gz -text
+tests/gameplay/wrapped_debris_original.json -text
+tests/gameplay/wrapped_debris_original.bin.gz -text
+tests/gameplay/wrapped_debris_events.json.gz -text
+# Decoder fixtures are checksummed byte-for-byte on every platform.
+tests/fixtures/level_rle_tail_original.json.gz -text
+tests/fixtures/startup_map_original.json -text
+tests/fixtures/startup_map_original.bin.gz -text
+tests/fixtures/abort_map_original.json -text
+tests/fixtures/abort_map_original.bin.gz -text
+tests/fixtures/original_work_clock/** -text
+tools/original_work_probe/** text eol=lf
+tests/fixtures/viewport_width/** -text
+tests/fixtures/survivor_viewport/** -text
+tests/fixtures/keyboard_irq/** -text
+tools/keyboard_irq_probe/** text eol=lf
+tests/fixtures/keyboard_device/** -text
+tools/keyboard_device_probe/** text eol=lf
+tests/gameplay/debris_wrap_original.json -text
+tests/gameplay/debris_phase_original.json -text
+tests/gameplay/debris_phase_original.bin.gz -text
+tests/gameplay/debris_wrap_original.bin.gz -text
+tests/fixtures/natural_level4_cavity_bomb/** -text
+tests/fixtures/two_player_fire_stress_original.json -text
+tests/fixtures/two_player_reentry_original.json -text
+docs/recovery/evidence/natural_level4_cavity_bomb_20261104/** -text

@@ -8,7 +8,12 @@ if(NOT DEFINED INSTALL_DIR)
     message(FATAL_ERROR "INSTALL_DIR is required")
 endif()
 
-file(REMOVE_RECURSE "${INSTALL_DIR}")
+# A fresh prefix prevents stale DLLs from masking an incomplete installation.
+string(RANDOM LENGTH 12 ALPHABET 0123456789abcdef install_suffix)
+set(INSTALL_DIR "${INSTALL_DIR}/run-${install_suffix}")
+if(EXISTS "${INSTALL_DIR}")
+    message(FATAL_ERROR "install smoke prefix already exists: ${INSTALL_DIR}")
+endif()
 set(install_command "${CMAKE_COMMAND}" --install "${BUILD_DIR}" --prefix "${INSTALL_DIR}")
 if(NOT CONFIG STREQUAL "")
     list(APPEND install_command --config "${CONFIG}")
@@ -72,6 +77,16 @@ if(WIN32)
     set(sdl2_runtime 1)
 endif()
 
+set(path_isolated 0)
+if(WIN32)
+    if(NOT DEFINED ENV{SystemRoot} OR "$ENV{SystemRoot}" STREQUAL "")
+        message(FATAL_ERROR "SystemRoot is required for isolated Windows validation")
+    endif()
+    set(ENV{PATH} "$ENV{SystemRoot}/System32;$ENV{SystemRoot}")
+    set(path_isolated 1)
+endif()
+set(ENV{SDL_VIDEODRIVER} dummy)
+set(ENV{SDL_AUDIODRIVER} dummy)
 execute_process(
     COMMAND "${exe_path}" --validate
     WORKING_DIRECTORY "${INSTALL_DIR}"
@@ -86,4 +101,4 @@ if(NOT validate_output MATCHES "level_7=140x52 objective_tile=106 required_bonus
     message(FATAL_ERROR "installed executable validation output changed\n${validate_output}")
 endif()
 
-message("install_layout=ok resources=${resource_count} sdl2_runtime=${sdl2_runtime} validate=1 prefix=${INSTALL_DIR}")
+message("install_layout=ok resources=${resource_count} sdl2_runtime=${sdl2_runtime} validate=1 path_isolated=${path_isolated} prefix=${INSTALL_DIR}")

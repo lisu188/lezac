@@ -1,0 +1,47 @@
+{
+  "actual_library_mapping_verified": true,
+  "asset_sha256": {
+    "LEZAC.EXE": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
+  },
+  "calls_stubbed": 0,
+  "complete_memory_observer_control": true,
+  "compressed_bytes": 1823471,
+  "compressed_sha256": "127f9730f92ad487d2a7434fb07e99e94a470c577acf85c3154e815dd9794ec9",
+  "coverage": {
+    "actual_callers": 24,
+    "cases": 7028,
+    "ordered_writes": 673658,
+    "original_player_instruction_sites": 899,
+    "outcome_0": 7024,
+    "outcome_1": 4,
+    "register_states": 3561155
+  },
+  "full_frame_claim": false,
+  "hardware_io": 0,
+  "instruction_patches": 0,
+  "interrupts_delivered": 0,
+  "later_state_injected": false,
+  "natural_capture": false,
+  "ordered_writes_reconstruct_memory": true,
+  "original_code_bytes_verified": 43552,
+  "production_app_comparison": false,
+  "projection_bytes": 49667615,
+  "projection_sha256": "8a222f50144d047d8be896713bf68a4e854af3519d4656f79646ffdef9f70715",
+  "raw_memory_published": false,
+  "schema": "lezac-controlled-player-motion-v1",
+  "source_sha256": {
+    "actor_contact_oracle.py": "05a7ceda0d19cb69c6d52afb952ae5a1e5d110e65564d349238bbc4d985ea7a6",
+    "actor_motion_oracle.py": "807063aa1c347b0bb415666f37e475cc0c3d274c4aa17c653e1848aecbb5409b",
+    "actor_precontact_oracle.py": "acd412b048d7872287764a9881f4edadd2b0fe676006a0e8ed022914f537af60",
+    "actor_steering_oracle.py": "c7db982d16f62e83743cf87a606e8585ce9d5a0fc547807bdc1e9e5c0ee637fc",
+    "ammo_hud_oracle.py": "40d3698b61cf7703e16a7277a9fa33fb15ea973a2f299d3458df99fe0026153e",
+    "boss_links_oracle.py": "b7d2264e4b5548aac4eb7af2db95c849c8ef34902ff2ab97feb179c7e020c7b4",
+    "frame_actor_entry_oracle.py": "cccc50c4c7304796ba7203c026d2a494a057e454e9ce9928563af195c165349e",
+    "frame_camera_oracle.py": "7f277672f407c3d8054ef954e2b16958a139d827d9f3b2da0c7a36ed717d90b9",
+    "frame_spawner_oracle.py": "dbf1661df4c07ed0d422a764c6d2c31a8ca623e5b23d4ae6c8317783ffcc049f",
+    "frame_waiting_oracle.py": "b2183e5c47d80f9c57a6c9292eb84566c912eeab905628aa2b01330258306db3",
+    "player_motion_oracle.py": "263135543adb830df0ed3fb6ac6a9269522735a341feb76e8aae6ee63c300d04"
+  },
+  "unicorn_library_sha256": "ddb196ec82b52e502c18e4a34478bf7b9f61c83c2ebaa95c74d8ded45a95da9c",
+  "unicorn_version": "2.1.4"
+}

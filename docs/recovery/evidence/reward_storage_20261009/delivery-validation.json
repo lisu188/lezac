@@ -1,0 +1,264 @@
+{
+  "actual_app_runtime_verified": false,
+  "app_syntax_verified": true,
+  "binding_operations": 1800,
+  "both_ci_hosts_wired": true,
+  "commands": [
+    {
+      "args": [
+        "git",
+        "sparse-checkout",
+        "add",
+        "/.gitattributes",
+        "/.github/workflows/ci.yml",
+        "/CMakeLists.txt",
+        "/docs/recovery/evidence/reward_storage_20261009/animation-extra-validation.json",
+        "/docs/recovery/evidence/reward_storage_20261009/capture-reward-storage-t91-v3.py",
+        "/docs/recovery/evidence/reward_storage_20261009/native-validation.json",
+        "/docs/recovery/evidence/reward_storage_20261009/original.json",
+        "/docs/recovery/evidence/reward_storage_20261009/repeat.json",
+        "/docs/recovery/evidence/reward_storage_20261009/reward-animation-probe-t91.cpp",
+        "/docs/recovery/evidence/reward_storage_20261009/validate-reward-animation-extra-t91.py",
+        "/docs/recovery/evidence/reward_storage_20261009/validate-reward-native-t91.py",
+        "/src/app/app.cpp",
+        "/src/diagnostics/reward_storage_fixture.hpp",
+        "/src/gameplay/actor_models.hpp",
+        "/src/gameplay/actor_slots.hpp",
+        "/tests/fixtures/reward_storage/expected.bin.gz",
+        "/tests/fixtures/reward_storage/requests.bin.gz",
+        "/tests/gameplay/reward_storage_probe.cpp",
+        "/tools/check_marker_storage_original.py",
+        "/tools/check_reward_storage_original.py",
+        "/tools/source_ownership.json",
+        "/tools/test_marker_storage_checker.py",
+        "/tools/test_reward_storage_checker.py",
+        "/tools/test_reward_storage_protocol.py"
+      ],
+      "label": "sparse-paths",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "label": "diff-check",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-reward-writeback-20261009-t92/tools/test_reward_storage_checker.py",
+        "-v"
+      ],
+      "label": "reward-checker-contract",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-reward-writeback-20261009-t92/tools/test_marker_storage_checker.py",
+        "-v"
+      ],
+      "label": "marker-checker-contract",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-reward-writeback-20261009-t92/tools/test_transient_storage_checker.py",
+        "-v"
+      ],
+      "label": "transient-checker-contract",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O1",
+        "-I",
+        "/tmp/lezac-reward-writeback-20261009-t92/src",
+        "/tmp/lezac-reward-writeback-20261009-t92/tests/gameplay/actor_slots_test.cpp",
+        "-o",
+        "/tmp/lezac-reward-delivery-checks-20261009-t92-v2/binding"
+      ],
+      "label": "compile-binding",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O1",
+        "-I",
+        "/tmp/lezac-reward-writeback-20261009-t92/src",
+        "/tmp/lezac-reward-writeback-20261009-t92/tests/gameplay/marker_storage_probe.cpp",
+        "-o",
+        "/tmp/lezac-reward-delivery-checks-20261009-t92-v2/marker"
+      ],
+      "label": "compile-marker",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O1",
+        "-I",
+        "/tmp/lezac-reward-writeback-20261009-t92/src",
+        "/tmp/lezac-reward-writeback-20261009-t92/tests/gameplay/transient_storage_probe.cpp",
+        "-o",
+        "/tmp/lezac-reward-delivery-checks-20261009-t92-v2/transient"
+      ],
+      "label": "compile-transient",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "/tmp/lezac-reward-delivery-checks-20261009-t92-v2/binding"
+      ],
+      "label": "binding",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-reward-writeback-20261009-t92/tools/test_reward_storage_protocol.py",
+        "--root",
+        "/tmp/lezac-reward-writeback-20261009-t92",
+        "--exe",
+        "/tmp/lezac-reward-writeback-build-20261009-t92/probe",
+        "--out",
+        "/tmp/lezac-reward-delivery-checks-20261009-t92-v2/protocol"
+      ],
+      "label": "reward-protocol",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-reward-writeback-20261009-t92/tools/check_marker_storage_original.py",
+        "--root",
+        "/tmp/lezac-reward-writeback-20261009-t92",
+        "--exe",
+        "/tmp/lezac-reward-delivery-checks-20261009-t92-v2/marker",
+        "--out",
+        "/tmp/lezac-reward-marker-regression-20261009-t92-v2"
+      ],
+      "label": "marker-regression",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-reward-writeback-20261009-t92/tools/check_transient_storage_original.py",
+        "--root",
+        "/tmp/lezac-reward-writeback-20261009-t92",
+        "--exe",
+        "/tmp/lezac-reward-delivery-checks-20261009-t92-v2/transient",
+        "--out",
+        "/tmp/lezac-reward-transient-regression-20261009-t92-v2"
+      ],
+      "label": "transient-regression",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-reward-writeback-20261009-t92/tools/check_source_guardrails.py"
+      ],
+      "label": "source-guardrails",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "python3",
+        "-S",
+        "-B",
+        "/tmp/lezac-reward-writeback-20261009-t92/tools/check_gran_usage_guardrail.py"
+      ],
+      "label": "gran-guardrail",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "c++",
+        "-std=c++17",
+        "-fsyntax-only",
+        "-DSDL_MAIN_HANDLED",
+        "-I/usr/include/SDL2",
+        "-I",
+        "/tmp/lezac-reward-writeback-20261009-t92/src",
+        "/tmp/lezac-reward-writeback-20261009-t92/src/app/app.cpp"
+      ],
+      "label": "app-syntax",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "cmake",
+        "-S",
+        "/tmp/lezac-reward-writeback-20261009-t92",
+        "-B",
+        "/tmp/lezac-reward-delivery-checks-20261009-t92-v2/configure",
+        "-G",
+        "Ninja",
+        "-DBUILD_TESTING=ON",
+        "-DCMAKE_BUILD_TYPE=Release"
+      ],
+      "label": "configure",
+      "returncode": 0
+    },
+    {
+      "args": [
+        "ctest",
+        "--test-dir",
+        "/tmp/lezac-reward-delivery-checks-20261009-t92-v2/configure",
+        "--show-only=json-v1",
+        "-R",
+        "^reward_storage_(helper_original|app_original|helper_protocol|app_protocol|tools_contract)$"
+      ],
+      "label": "registration",
+      "returncode": 0
+    }
+  ],
+  "existing_launch_visual_guard_deferred": "retained 10,292,004B text fixtures exceed local reserve cap; remains required in CI",
+  "full_game_build": false,
+  "malformed_compiled_requests_rejected": 34,
+  "marker_operations": 1008,
+  "passed": true,
+  "recorded_utc": "2026-10-09T04:04:23.950995+00:00",
+  "reward_tests_registered": 5,
+  "root_bytes": {
+    "/tmp/lezac-reward-delivery-checks-20261009-t92-v2": 1217401,
+    "/tmp/lezac-reward-marker-regression-20261009-t92-v2": 3401545,
+    "/tmp/lezac-reward-transient-regression-20261009-t92-v2": 872641,
+    "/tmp/lezac-reward-writeback-20261009-t92": 4693957
+  },
+  "transient_operations": 256
+}

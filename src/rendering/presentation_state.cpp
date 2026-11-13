@@ -1,7 +1,9 @@
 #include "rendering/presentation_state.hpp"
 #include "rendering/color.hpp"
+#include "rendering/canvas.hpp"
 #include "resources/palette.hpp"
 #include "resources/levels.hpp"
+#include "gameplay/map_plane_memory.hpp"
 #include <algorithm>
 #include <stdexcept>
 
@@ -20,14 +22,28 @@ using resources::vga6To8;
 // palette 22) from the live RNG at each game start (file 0x7f64).
 // Pitch is latched at initialization: 320 for P1, 160 for split-screen.
 // Later viewport narrowing does not regenerate or repack this buffer.
-void PresentationState::buildBackdropBuffer(int playerCount, core::TurboRandom& random) {
-    backdropPitch_ = playerCount > 1 ? 160 : 320;
+void PresentationState::initializeBackdropBuffer(int playerCount) {
+    initializeBackdropBufferForPitch(playerCount > 1 ? 160 : 320);
+}
+
+void PresentationState::initializeBackdropBufferForPitch(int pitch) {
+    if (pitch < 160 || pitch > 320 || pitch % 8 != 0)
+        throw std::invalid_argument("Backdrop pitch differs from the original tile geometry");
+    backdropPitch_ = pitch;
     backdropBuffer_.resize(60000);
     // Driver init fills exactly 60000 bytes, including byte wrap past 255.
     for (int k = 0; k < 60000; ++k) {
         backdropBuffer_[static_cast<size_t>(k)] =
             static_cast<uint8_t>(176 + k / (4 * backdropPitch_));
     }
+}
+
+void PresentationState::buildBackdropBuffer(int playerCount, core::TurboRandom& random) {
+    buildBackdropBufferForPitch(playerCount > 1 ? 160 : 320, random);
+}
+
+void PresentationState::buildBackdropBufferForPitch(int pitch, core::TurboRandom& random) {
+    initializeBackdropBufferForPitch(pitch);
     // City skyline: the original generates ten buildings from the live
     // Turbo Pascal RNG on each game start (file 0x7f64). Building 1 is
     // the fixed wide base (cols 0..160, top row 130); each of the others
@@ -94,6 +110,22 @@ uint8_t PresentationState::backdropByte(size_t offset, const std::vector<uint8_t
     return tile < liveTiles.size() ? liveTiles[tile] : 0;
 }
 
+uint8_t PresentationState::backdropAddress(size_t address, const std::vector<uint8_t>& liveTiles,
+                                         const std::vector<uint16_t>& liveWords,
+                                         const gameplay::MapPlaneMemory* memory) const {
+    if (address > 65536) throw std::out_of_range("backdrop address exceeds adjacent byte");
+    if (address < 8) return 0;
+    const size_t offset = address - 8;
+    if (offset < 60000) {
+        if (offset >= backdropBuffer_.size()) throw std::out_of_range("backdrop payload is not initialized");
+        return backdropBuffer_[offset];
+    }
+    if (offset < 60008) return backdropHeapPadding_[offset - 60000];
+    const size_t tile = offset - 60008;
+    if (memory) return memory->readObjectAddress(tile, liveTiles, liveWords);
+    return tile < liveTiles.size() ? liveTiles[tile] : 0;
+}
+
 void PresentationState::updateRedPalette(uint16_t frame) {
     if (frame % 5 != 0) return;
     uint8_t red = redPalettePhase_;
@@ -107,42 +139,141 @@ void PresentationState::updateRedPalette(uint16_t frame) {
     if (redPalettePhase_ > 63) redPalettePhase_ = 20;
 }
 
-void PresentationState::resetHudForLevel() {
-    hudPaletteQueue_ = {};
-    hudColumnReady_ = {};
+void PresentationState::resetHudObjectivesForLevel() {
+    // 2AFF..2BD2 reset objectives before the intro without clearing fade entries.
+    hudPaletteQueue_.count = 0;
     hudPreviousCollected_ = 20000;
     hudPreviousDestruction_ = 200;
     hudDestructionPercent_ = 0;
+    hudBonusComplete_ = false;
+    hudDestructionComplete_ = false;
+}
+
+void PresentationState::resetHudForLevel() {
+    outroBackdrop_.clear();
+    outroIndices_.clear();
+    outroIndexedPixels_.clear();
+    hudPaletteQueue_ = {};
+    hudColumnReady_ = {};
+    hudEnergy_ = {};
+    hudAmmoPanels_ = {};
+    resetHudObjectivesForLevel();
     for (int index : {224, 245, 246}) palette_[index] = initialPalette_[index];
 }
 
 void PresentationState::beginOriginalPlay(bool fromMenu) {
     if (fromMenu && !originalPlayInitialized_) {
-        std::fill(backdropBuffer_.begin(), backdropBuffer_.end(), 0);
+        std::fill(backdropBuffer_.begin(), backdropBuffer_.end(), uint8_t{0});
         originalPlayInitialized_ = true;
     }
 }
 
-void PresentationState::prepareHudObjectives(uint16_t frame, int collected, int destructionPercent) {
-    if ((frame % 30) == 0) hudDestructionPercent_ = destructionPercent;
+void PresentationState::prepareHudObjectives(uint16_t frame, int collected, int destructionPercent,
+                                             int requiredBonus, int requiredDestruction, const HudWordWriter& writeShared) {
+    collected = static_cast<uint16_t>(collected);
+    if ((frame % 30) == 0) hudDestructionPercent_ = static_cast<uint8_t>(destructionPercent);
+    // 79E8 calls 3184 only when an objective display is dirty.
+    if (collected == hudPreviousCollected_ && hudDestructionPercent_ == hudPreviousDestruction_) return;
+    // 319B seeds DS:2072; 3169 moves left after each of the two digits.
+    uint16_t cursor = 0xd028;
+    if (writeShared) writeShared(cursor);
+    const auto advanceDigits = [&] {
+        for (int digit = 0; digit < 2; ++digit) {
+            cursor = static_cast<uint16_t>(cursor - 9);
+            if (writeShared) writeShared(cursor);
+        }
+    };
     if (collected != hudPreviousCollected_) {
         hudPreviousCollected_ = collected;
         hudPaletteQueue_.request(245, {63, 63, 63}, {1, 1, 41});
+        if (core::hudBonusRemaining(static_cast<uint16_t>(requiredBonus), static_cast<uint16_t>(collected)) == 0)
+            hudBonusComplete_ = true;
+        advanceDigits();
     }
     if (hudDestructionPercent_ != hudPreviousDestruction_) {
         hudPreviousDestruction_ = hudDestructionPercent_;
         hudPaletteQueue_.request(246, {63, 63, 63}, {1, 1, 41});
+        cursor = 0xe428;
+        if (writeShared) writeShared(cursor);
+        if (core::hudDestructionRemaining(static_cast<uint8_t>(requiredDestruction),
+                                         static_cast<uint8_t>(hudDestructionPercent_)) == 0)
+            hudDestructionComplete_ = true;
+        advanceDigits();
     }
+    // 325B requests the shared border whenever that dirty-only helper runs.
+    if (hudBonusComplete_ && hudDestructionComplete_)
+        hudPaletteQueue_.request(224, {63, 63, 63}, {1, 1, 41});
 }
 
 void PresentationState::updateHudScores(int playerCount, const std::array<uint32_t, 2>& scores,
-                                       const std::array<bool, 2>& dead, const std::array<int, 2>& deathTimers) {
+                                       const std::array<bool, 2>& dead, const std::array<int, 2>& deathTimers,
+                                       const HudWordWriter& writeShared, std::array<uint16_t, 2> hudX) {
     for (int i = 0; i < playerCount; ++i) {
         hudScores_[i].setValue(scores[i]);
         if (dead[i] && deathTimers[i] == 0) continue;
+        // 7FE4/7FF8 write the score-table offset even when the reel is settled.
+        if (writeShared) writeShared(static_cast<uint16_t>(i * 46));
+        const bool paint = hudScores_[i].phase < 2;
         hudScores_[i].advance();
+        if (paint && writeShared) {
+            uint16_t cursor = static_cast<uint16_t>(0xdc00u + hudX[i]);
+            writeShared(cursor); // 124B, followed by nine 1271 increments.
+            for (size_t digit = 0; digit < hudScores_[i].current.size(); ++digit) {
+                cursor = static_cast<uint16_t>(cursor + 9);
+                writeShared(cursor);
+            }
+        }
         hudColumnReady_[i] = true;
     }
+}
+
+void PresentationState::updateHudEnergy(size_t player, uint16_t value, uint8_t globalState) {
+    // 7F40 excludes waiting and out players from the actor/HUD pass.
+    if (globalState == 1) hudEnergy_.at(player).observe(value);
+}
+
+void PresentationState::updateHudEnergy(size_t player, uint16_t value, uint8_t globalState, uint8_t& physicalCache) {
+    if (globalState != 1) return;
+    auto& bar = hudEnergy_.at(player);
+    bar.cached = physicalCache;
+    if (physicalCache != value) physicalCache = static_cast<uint8_t>(value);
+    bar.observe(value);
+}
+
+void PresentationState::beginResultScore(size_t player, uint32_t value) {
+    auto& reel = hudScores_.at(player);
+    reel.setValue(value);
+    reel.prepareTargets();
+}
+
+void PresentationState::advanceResultScore(size_t player) {
+    hudScores_.at(player).advance();
+    hudColumnReady_.at(player) = true;
+}
+
+void PresentationState::freezeOutroBackdrop(const Canvas& canvas) {
+    if (canvas.pixels().size() != kScreenW * kScreenH) throw std::runtime_error("results backdrop is not a full VGA frame");
+    outroBackdrop_ = canvas.pixels();
+    outroIndices_ = canvas.paletteIndices();
+    outroIndexedPixels_ = canvas.indexedPixels();
+}
+
+std::vector<uint32_t> PresentationState::resolveOutroBackdrop() const {
+    auto pixels = outroBackdrop_;
+    for (size_t i = 0; i < pixels.size(); ++i) {
+        if (outroIndexedPixels_.at(i)) pixels[i] = argb(palette_, outroIndices_.at(i));
+    }
+    return pixels;
+}
+
+void PresentationState::sampleHudInventory(size_t player, gameplay::BombInventory& inventory, uint8_t globalState) {
+    // 7C49..7C74 runs before refill/fire/switch; 32AB gates the icon separately.
+    if (globalState != 1 || inventory.hudDirty == 0) return;
+    auto& panel = hudAmmoPanels_.at(player);
+    if (inventory.hudDirty > 1) panel.icon = inventory.selected;
+    panel.count = std::min<uint8_t>(static_cast<uint8_t>(inventory.counts.at(
+        static_cast<size_t>(inventory.selected))), 99);
+    inventory.hudDirty = 0;
 }
 
 void PresentationState::advanceHudPalette() {
@@ -163,11 +294,16 @@ void PresentationState::beginLevel(size_t mapTileCount) {
 }
 
 std::vector<uint8_t> PresentationState::decodeLevelPlane(const std::vector<uint8_t>& encoded, size_t outputSize) {
+    return decodeLevelPlaneWithTail(encoded, outputSize).bytes;
+}
+
+resources::DecodedLevelPlane PresentationState::decodeLevelPlaneWithTail(
+        const std::vector<uint8_t>& encoded, size_t outputSize) {
     if (backdropBuffer_.size() != 60000 || encoded.size() > backdropBuffer_.size()) {
         throw std::runtime_error("level decoder background buffer bounds");
     }
     std::copy(encoded.begin(), encoded.end(), backdropBuffer_.begin());
-    return resources::decodeLevelRle3(backdropBuffer_, outputSize);
+    return resources::decodeLevelRle3WithTail(backdropBuffer_, outputSize);
 }
 
 void PresentationState::writeBackdropPrefix(const std::vector<uint8_t>& bytes) {
@@ -177,8 +313,9 @@ void PresentationState::writeBackdropPrefix(const std::vector<uint8_t>& bytes) {
 
 PresentationSnapshot PresentationState::snapshot() const {
     return {palette_, backdropBuffer_, backdropPitch_, redPalettePhase_, backdropHeapPadding_, backdropMapTileCount_,
-            initialPalette_, hudScores_, hudPaletteQueue_, hudColumnReady_, hudPreviousCollected_,
-            hudPreviousDestruction_, hudDestructionPercent_, originalPlayInitialized_};
+            initialPalette_, hudScores_, hudEnergy_, hudAmmoPanels_, hudPaletteQueue_, hudColumnReady_, hudPreviousCollected_,
+            hudPreviousDestruction_, hudDestructionPercent_, originalPlayInitialized_,
+            hudBonusComplete_, hudDestructionComplete_, outroBackdrop_, outroIndices_, outroIndexedPixels_};
 }
 
 void PresentationState::restore(const PresentationSnapshot& state) {
@@ -190,12 +327,19 @@ void PresentationState::restore(const PresentationSnapshot& state) {
     backdropMapTileCount_ = state.mapTileCount;
     initialPalette_ = state.initialPalette;
     hudScores_ = state.hudScores;
+    hudEnergy_ = state.hudEnergy;
+    hudAmmoPanels_ = state.hudAmmoPanels;
     hudPaletteQueue_ = state.hudPaletteQueue;
     hudColumnReady_ = state.hudColumnReady;
     hudPreviousCollected_ = state.hudPreviousCollected;
     hudPreviousDestruction_ = state.hudPreviousDestruction;
     hudDestructionPercent_ = state.hudDestructionPercent;
     originalPlayInitialized_ = state.originalPlayInitialized;
+    hudBonusComplete_ = state.hudBonusComplete;
+    hudDestructionComplete_ = state.hudDestructionComplete;
+    outroBackdrop_ = state.outroBackdrop;
+    outroIndices_ = state.outroIndices;
+    outroIndexedPixels_ = state.outroIndexedPixels;
 }
 
 }

@@ -33,6 +33,23 @@
   - validation performed
   - any known limitations or follow-up work
 
+### Code review gate
+
+- Always inspect review submissions, inline review threads, and conversation
+  comments, including bot feedback, for every pull request. Check again after
+  each push or rebase and immediately before merging the current head.
+- Include historical feedback when continuing work. For findings on merged
+  pull requests, verify whether the current code actually contains a fix.
+- Investigate actionable findings and add focused regression coverage where
+  appropriate. Record each finding's disposition and the reviewed commit.
+  Outdated, dismissed, or resolved feedback is not proof that a bug was fixed.
+- Do not merge with unaddressed actionable findings. Green CI is not a code
+  review, and an empty review history is not approval. When no external review
+  exists, state that explicitly and perform a focused review of the diff.
+- Resolve review threads only after verifying the fix or documenting an
+  evidence-backed reason that the finding does not apply. Never dismiss or
+  resolve feedback merely to clear the merge gate.
+
 ## Safety rules
 
 - Merge pull requests only after required checks or equivalent local validation

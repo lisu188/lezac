@@ -1,0 +1,97 @@
+{
+  "status": "observed",
+  "version": "original",
+  "audio": "dummy",
+  "gameplay_seeded": false,
+  "delay_gates": false,
+  "physical_keys": true,
+  "manual_input": false,
+  "captures": [
+    {
+      "name": "before-hold",
+      "seconds": 0,
+      "full_menu": false,
+      "pixel_sha256": "7d1bc09d43fab7db08fcd2e9370ce96840a8a1693075dec7aa424b85c10bde17"
+    },
+    {
+      "name": "hold-0.15",
+      "seconds": 0.15003137598978356,
+      "full_menu": true,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "hold-1.0",
+      "seconds": 1.000071674992796,
+      "full_menu": false,
+      "pixel_sha256": "8e1f59ec9b1fdce9f6914877a56ce5bf5254b95f8affd96a8a1e1620a18f535f"
+    },
+    {
+      "name": "hold-2.0",
+      "seconds": 2.0000495569838677,
+      "full_menu": false,
+      "pixel_sha256": "ac2c698fe5854d8db6d1980272a35e31dc9ca41d4257712d70f58760a6c3309d"
+    },
+    {
+      "name": "hold-3.0",
+      "seconds": 3.000062593986513,
+      "full_menu": false,
+      "pixel_sha256": "c874747a34d043f11fafb77e1b3cd6a088819ef355fd440c29b6b36e5e66abab"
+    },
+    {
+      "name": "released",
+      "seconds": 3.180263804999413,
+      "full_menu": false,
+      "pixel_sha256": "30737cf5c09a42e7950eb84ce0a1ee7bc0d3894c1b79cb39e429ed7370ccf4fb"
+    },
+    {
+      "name": "fresh-press",
+      "seconds": 3.4613734649901744,
+      "full_menu": false,
+      "pixel_sha256": "9587368dcdee8d52d3e418fe719cc353c2aa6a8c9660f5add4ebe784a0003e7b"
+    }
+  ],
+  "events": [
+    {
+      "kind": "keydown",
+      "key": "1",
+      "seconds": 0
+    },
+    {
+      "kind": "keyup",
+      "key": "1",
+      "seconds": 3.0301828929805197
+    },
+    {
+      "kind": "press",
+      "key": "1",
+      "seconds": 3.21130378099042
+    }
+  ],
+  "observer_sha256": "896459868114f63da1ce0b95ca43c32e672d8f118e44aabe8d02b183143425bf",
+  "resident_segment": 402,
+  "resident_mcb": "4d92010001000000524e475741544348",
+  "code_segment": 685,
+  "data_segment": 3407,
+  "temporary_gate_sha256": "33f358eeae0fd697d30d357c9963841763a53106a59e407689e34d24fa6ac02c",
+  "dosbox_sha256": "9213fb131e11cb195bdff40c24513740ce497c5caf1cef1900ad1faad5c5026b",
+  "x_repeat": "Keyboard Control:\n  auto repeat:  on    key click percent:  0    LED mask:  00000000\n  XKB indicators:\n    00: Caps Lock:   off    01: Num Lock:    off    02: Scroll Lock: off\n    03: Compose:     off    04: Kana:        off    05: Sleep:       off\n    06: Suspend:     off    07: Mute:        off    08: Misc:        off\n    09: Mail:        off    10: Charging:    off    11: Shift Lock:  off\n    12: Group 2:     off    13: Mouse Keys:  off\n  auto repeat delay:  660    repeat rate:  25\n  auto repeating keys:  00ffffffdffffbbf\n                        fadfffefffedffff\n                        9fffffffffffffff\n                        fff7ffffffffffff\n  bell percent:  50    bell pitch:  400    bell duration:  100\nPointer Control:\n  acceleration:  2/1    threshold:  4\nScreen Saver:\n  prefer blanking:  yes    allow exposures:  yes\n  timeout:  600    cycle:  600\nColors:\n  default colormap:  0x20    BlackPixel:  0x0    WhitePixel:  0xffffff\nFont Path:\n  /usr/share/fonts/X11/misc,/usr/share/fonts/X11/cyrillic,/usr/share/fonts/X11/Type1,built-ins\nDPMS (Display Power Management Signaling):\n  Server does not have the DPMS Extension\n",
+  "before_rng": {
+    "phase": "before-held-choice",
+    "clock_calls": 1,
+    "draws": 0,
+    "rng": 471602955,
+    "clock_cx": 5899,
+    "clock_dx": 7196,
+    "initialized_rng": 471602955,
+    "clock_registers": {
+      "cs": 685,
+      "ds": 3407,
+      "ss": 6590,
+      "return_ip": 9654
+    },
+    "phase_registers": [],
+    "first_draws": []
+  },
+  "hooks_restored": 1,
+  "child_exit_code": 0
+}

@@ -1,0 +1,289 @@
+{
+  "cases": [
+    {
+      "index": 0,
+      "profile": [
+        2,
+        2,
+        17,
+        3,
+        3,
+        50,
+        0,
+        0,
+        false
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 1,
+      "profile": [
+        2,
+        1,
+        17,
+        3,
+        3,
+        50,
+        0,
+        0,
+        false
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 2,
+      "profile": [
+        2,
+        2,
+        17,
+        3,
+        2,
+        50,
+        0,
+        0,
+        false
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 3,
+      "profile": [
+        2,
+        1,
+        17,
+        3,
+        2,
+        50,
+        0,
+        0,
+        false
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 4,
+      "profile": [
+        17,
+        16,
+        17,
+        50,
+        49,
+        50,
+        0,
+        0,
+        false
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 5,
+      "profile": [
+        2,
+        1,
+        17,
+        3,
+        2,
+        50,
+        1,
+        0,
+        false
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 6,
+      "profile": [
+        2,
+        1,
+        17,
+        3,
+        2,
+        50,
+        2,
+        0,
+        false
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 7,
+      "profile": [
+        2,
+        1,
+        17,
+        3,
+        2,
+        50,
+        2,
+        1024,
+        false
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 8,
+      "profile": [
+        2,
+        2,
+        17,
+        3,
+        3,
+        50,
+        0,
+        1024,
+        false
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 9,
+      "profile": [
+        2,
+        1,
+        17,
+        3,
+        2,
+        50,
+        0,
+        0,
+        true
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 10,
+      "profile": [
+        0,
+        1,
+        0,
+        0,
+        0,
+        50,
+        0,
+        0,
+        false
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 11,
+      "profile": [
+        0,
+        1,
+        1,
+        0,
+        0,
+        50,
+        0,
+        0,
+        false
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 12,
+      "profile": [
+        0,
+        1,
+        99,
+        0,
+        0,
+        50,
+        0,
+        0,
+        false
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 13,
+      "profile": [
+        0,
+        1,
+        100,
+        0,
+        0,
+        50,
+        0,
+        0,
+        false
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 14,
+      "profile": [
+        0,
+        1,
+        32767,
+        0,
+        0,
+        50,
+        0,
+        0,
+        false
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 15,
+      "profile": [
+        0,
+        1,
+        32768,
+        0,
+        0,
+        50,
+        0,
+        0,
+        false
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    },
+    {
+      "index": 16,
+      "profile": [
+        0,
+        1,
+        65535,
+        0,
+        0,
+        50,
+        0,
+        0,
+        false
+      ],
+      "full_endpoint_flags": true,
+      "full_memory_control_identical": true
+    }
+  ],
+  "producer_sha256": "a67d0e679b96698ad73963e9e150d7a630938f4d8f0cda7157ddc7941664b956",
+  "original_executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "source_ram_sha256": "8e3223f76d347104e3362ffe1bf491b385d31f66ebfe380cba9a33c61afbdcf1",
+  "font_sha256": "3d9405837becfd6ad6c111e5af106fd44d2280dbaf615d10ad717e39e5787925",
+  "projection_sha256": "5c2d97a9784074e947b4348f7e1985b65eda4c600ba5c94a92ddb19ff8684ed4",
+  "projection_bytes": 28453,
+  "compressed_sha256": "39ace5bd6d40ed9aad306a011ea46dacbdf1fbb400138e1959a1ee00d5c14396",
+  "compressed_bytes": 2061,
+  "original_calls_stubbed": 0,
+  "instruction_patches": 0,
+  "source_code_bytes_verified": 43552,
+  "natural_gameplay_claim": false,
+  "unicorn": "2.1.4"
+}

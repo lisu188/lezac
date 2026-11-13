@@ -1,0 +1,34 @@
+Internal ctest changing into directory: /dev/shm/lezac-level3-lower-objectives-20261005/build
+Test project /dev/shm/lezac-level3-lower-objectives-20261005/build
+      Start  70: launch_marker_level6_original
+ 1/14 Test  #70: launch_marker_level6_original .......................................   Passed    0.35 sec
+      Start  71: launch_marker_level6_capture_contract
+ 2/14 Test  #71: launch_marker_level6_capture_contract ...............................   Passed    0.14 sec
+      Start  72: launch_marker_level6_fixture_guard
+ 3/14 Test  #72: launch_marker_level6_fixture_guard ..................................   Passed   12.29 sec
+      Start  73: launch_marker_level7_original
+ 4/14 Test  #73: launch_marker_level7_original .......................................   Passed    0.30 sec
+      Start  74: launch_marker_level7_capture_contract
+ 5/14 Test  #74: launch_marker_level7_capture_contract ...............................   Passed    0.08 sec
+      Start  75: launch_marker_level7_fixture_guard
+ 6/14 Test  #75: launch_marker_level7_fixture_guard ..................................   Passed   12.60 sec
+      Start 110: key_ownership_original
+ 7/14 Test #110: key_ownership_original ..............................................   Passed    0.16 sec
+      Start 111: key_ownership_capture_self_check
+ 8/14 Test #111: key_ownership_capture_self_check ....................................   Passed    0.11 sec
+      Start 112: key_ownership_fixture_guard
+ 9/14 Test #112: key_ownership_fixture_guard .........................................   Passed    0.77 sec
+      Start 133: autoplayer_portal_weapon_route_dummy
+10/14 Test #133: autoplayer_portal_weapon_route_dummy ................................   Passed    0.16 sec
+      Start 246: sound_callsite_debug_capture_helper_portal_teleport_sound_dry_run
+11/14 Test #246: sound_callsite_debug_capture_helper_portal_teleport_sound_dry_run ...   Passed    0.02 sec
+      Start 561: portal_sound
+12/14 Test #561: portal_sound ........................................................   Passed    0.07 sec
+      Start 562: portal_cooldowns
+13/14 Test #562: portal_cooldowns ....................................................   Passed    0.01 sec
+      Start 645: key_ownership_live_xvfb
+14/14 Test #645: key_ownership_live_xvfb .............................................   Passed    9.73 sec
+
+100% tests passed, 0 tests failed out of 14
+
+Total Test time (real) =  36.82 sec

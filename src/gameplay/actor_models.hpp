@@ -15,6 +15,18 @@ inline constexpr uint8_t kLaunchPadMarkerFrame = 0x5b;
 inline constexpr uint8_t kLaunchPadMarkerKind = 0x0b;
 inline constexpr uint8_t kLaunchPadMarkerMode = 5;
 inline constexpr int16_t kLaunchPadMarkerVelocityY8 = -200;
+inline constexpr uint8_t kPortalMarkerFirstFrame = 0x4a;
+inline constexpr uint8_t kPortalMarkerLastFrame = 0x4f;
+inline constexpr uint8_t kPortalMarkerDelay = 2;
+inline constexpr uint8_t kPortalMarkerTimer = 8;
+
+inline constexpr int16_t clampConstructedActorVelocity8(int16_t velocity) {
+    // 1000:2FC1..3001: WORD abs(-32768) stays negative and passes JLE.
+    if (velocity == -32768) return velocity;
+    if (velocity < -0x07ff) return -0x07ff;
+    if (velocity > 0x07ff) return 0x07ff;
+    return velocity;
+}
 
 enum class SharedActorKind { Effect, Marker, Bomb, Monster, Reward };
 
@@ -36,6 +48,10 @@ struct BombProfile {
 struct BombInventory {
     std::array<int, 4> counts{200, 20, 6, 0};
     BombType selected = BombType::Small;
+    // DS:1B75 + player: 1 refreshes digits, >1 also refreshes the icon.
+    uint8_t hudDirty = 2;
+
+    bool operator==(const BombInventory&) const = default;
 };
 
 struct Bomb {
@@ -58,6 +74,8 @@ struct Bomb {
     int8_t hotspotY = -1;
     uint64_t actorOrder = 0;
     uint64_t bossVisualOrder = 0;
+
+    bool operator==(const Bomb&) const = default;
 };
 
 struct Flash {
@@ -65,20 +83,8 @@ struct Flash {
     int y = 0;
     int timer = 12;
     uint8_t power = 1;
-};
 
-struct LaunchPadMarker {
-    int x = 0;
-    int y = 0;
-    uint8_t fracX = 0;
-    uint8_t fracY = 0;
-    int16_t velocityX8 = 0;
-    int16_t velocityY8 = kLaunchPadMarkerVelocityY8;
-    uint8_t timer = kLaunchPadMarkerTimer;
-    uint8_t frame = kLaunchPadMarkerFrame;
-    uint8_t kind = kLaunchPadMarkerKind;
-    uint8_t mode = kLaunchPadMarkerMode;
-    uint64_t actorOrder = 0;
+    bool operator==(const Flash&) const = default;
 };
 
 struct ActorAnimation {
@@ -111,7 +117,40 @@ struct ActorAnimation {
         }
         return true;
     }
+
+    bool operator==(const ActorAnimation&) const = default;
 };
+
+struct LaunchPadMarker {
+    int x = 0;
+    int y = 0;
+    uint8_t fracX = 0;
+    uint8_t fracY = 0;
+    int16_t velocityX8 = 0;
+    int16_t velocityY8 = kLaunchPadMarkerVelocityY8;
+    uint8_t timer = kLaunchPadMarkerTimer;
+    uint8_t frame = kLaunchPadMarkerFrame;
+    uint8_t kind = kLaunchPadMarkerKind;
+    uint8_t mode = kLaunchPadMarkerMode;
+    uint64_t actorOrder = 0;
+    ActorAnimation animation{0, 0, 0, 0, 0, 0, 1};
+
+    bool operator==(const LaunchPadMarker&) const = default;
+};
+
+inline bool advanceLaunchPadMarker(LaunchPadMarker& marker, const ActorAnimation& backup, uint32_t logicTick) {
+    const bool advanced = marker.animation.advance(backup);
+    if (advanced) marker.frame = marker.animation.current;
+    marker.timer = static_cast<uint8_t>(marker.timer - (logicTick & 1u));
+    if (marker.timer == 0) return advanced;
+    const int x = marker.fracX + marker.velocityX8;
+    const int y = marker.fracY + marker.velocityY8;
+    marker.x = static_cast<int16_t>(marker.x + (x >> 8));
+    marker.y = static_cast<int16_t>(marker.y + (y >> 8));
+    marker.fracX = static_cast<uint8_t>(x);
+    marker.fracY = static_cast<uint8_t>(y);
+    return advanced;
+}
 
 struct TransientActor {
     int x = 0;
@@ -127,7 +166,24 @@ struct TransientActor {
     ActorAnimation animation{0, 0, 0, 0, 0, 0, 1};
     uint64_t actorOrder = 0;
     uint64_t bossVisualOrder = 0;
+    ActorAnimation animationBackup{0, 0, 0, 0, 0, 0, 0};
+
+    bool operator==(const TransientActor&) const = default;
 };
+
+inline bool advanceTransientActor(TransientActor& actor, uint32_t logicTick) {
+    const bool advanced = actor.animation.advance(actor.animationBackup);
+    if (advanced) actor.spriteIndex = static_cast<uint8_t>(actor.animation.current - 1);
+    actor.timer = static_cast<uint8_t>(actor.timer - (logicTick & 1u));
+    if (actor.timer == 0) return advanced;
+    const int y = actor.fracY + actor.vy8;
+    const int x = actor.fracX + actor.vx8;
+    actor.y = static_cast<int16_t>(actor.y + (y >> 8));
+    actor.x = static_cast<int16_t>(actor.x + (x >> 8));
+    actor.fracY = static_cast<uint8_t>(y);
+    actor.fracX = static_cast<uint8_t>(x);
+    return advanced;
+}
 
 struct Player {
     float x = 24.0f;
@@ -150,7 +206,32 @@ struct Player {
     uint8_t spriteIndex = 0;
     uint16_t dropTicks = 0;
     bool singlePixelSprite = false;
+
+    bool operator==(const Player&) const = default;
 };
+
+inline constexpr std::array<uint8_t, 2> monsterAnimationSelectors(uint8_t kind) {
+    // DS:0080/0081 pairs used by the shipped kind-1..4 constructors.
+    switch (kind) {
+        case 1: return {1, 2};
+        case 2: return {11, 11};
+        case 3: return {12, 12};
+        case 4: return {13, 13};
+        default: return {11, 11};
+    }
+}
+
+inline constexpr std::array<int, 2> monsterAnimationSetRange(uint8_t selector) {
+    // DS:0058 pairs are one-based; the port's sprite indexes are zero-based.
+    switch (selector) {
+        case 1: return {43, 44};
+        case 2: return {45, 46};
+        case 11: return {39, 41};
+        case 12: return {49, 51};
+        case 13: return {53, 55};
+        default: return {39, 41};
+    }
+}
 
 struct ActiveMonster {
     int x = 0;
@@ -160,6 +241,9 @@ struct ActiveMonster {
     uint8_t fracX = 0;
     uint8_t fracY = 0;
     uint8_t kind = 0;
+    // Original actor +3/+4, retained independently of the animation cursor.
+    uint8_t animationSetLeft = 0;
+    uint8_t animationSetRight = 0;
     uint8_t behavior = 0;
     uint16_t ai0 = 0;
     uint16_t ai1 = 0;
@@ -178,6 +262,7 @@ struct ActiveMonster {
     // A facing reselection resets the cursor to the new range base without
     // touching animFrame, so the flip becomes visible at the next boundary.
     uint8_t animCursor = 0;
+    ActorAnimation animationBackup{0, 0, 0, 0, 0, 0, 0};
     // Original actor byte +0x14: the collision-space y is visual_y - hotspotY
     // (1000:629D `mov al,es:[di+0x14]; cbw; ... sub`). monster.y stores the
     // COLLISION-space y; rendering adds hotspotY back. Value 6 for kind 1 is
@@ -197,7 +282,10 @@ struct ActiveMonster {
     int motionTimer = 0;
     // Recovered original 2x2 tile-cell edge scan, computed once per tick from
     // the PRE-integration position by the caller (updateMonsters).
-    struct EdgeFlags { bool top = false, bottom = false, left = false, right = false; };
+    struct EdgeFlags {
+        bool top = false, bottom = false, left = false, right = false;
+        bool operator==(const EdgeFlags&) const = default;
+    };
     EdgeFlags edges;
     int animTick = 0;
     bool deathCredited = false;
@@ -219,7 +307,43 @@ struct ActiveMonster {
     uint64_t bossVisualOrder = 0;
     bool bossDebris = false;
     uint16_t bossGroup = 0;
+
+    bool operator==(const ActiveMonster&) const = default;
 };
+
+inline ActorAnimation monsterAnimation(const ActiveMonster& monster) {
+    return {static_cast<uint8_t>(monster.animCursor + 1),
+            static_cast<uint8_t>(monster.animStart + 1),
+            static_cast<uint8_t>(monster.animEnd + 1),
+            static_cast<uint8_t>(monster.animTick), monster.animDelay,
+            monster.animMode, monster.animStep};
+}
+
+inline void setMonsterAnimation(ActiveMonster& monster, const ActorAnimation& animation) {
+    monster.animCursor = static_cast<uint8_t>(animation.current - 1);
+    monster.animStart = static_cast<uint8_t>(animation.first - 1);
+    monster.animEnd = static_cast<uint8_t>(animation.last - 1);
+    monster.animTick = animation.counter;
+    monster.animDelay = animation.delay;
+    monster.animMode = animation.mode;
+    monster.animStep = animation.step;
+}
+
+inline bool advanceMonsterAnimation(ActiveMonster& monster) {
+    auto animation = monsterAnimation(monster);
+    const bool advanced = animation.advance(monster.animationBackup);
+    setMonsterAnimation(monster, animation);
+    if (advanced) monster.animFrame = monster.animCursor;
+    return advanced;
+}
+
+inline constexpr std::array<int, 2> monsterFacingFrameRange(const ActiveMonster& monster) {
+    const bool right = monster.vx8 > 0;
+    uint8_t selector = right ? monster.animationSetRight : monster.animationSetLeft;
+    // Existing seeded diagnostics construct monsters without the spawner.
+    if (selector == 0) selector = monsterAnimationSelectors(monster.kind)[right ? 1 : 0];
+    return monsterAnimationSetRange(selector);
+}
 
 enum class BonusType : uint8_t {
     Present,
@@ -243,7 +367,136 @@ struct BonusDrop {
     uint8_t timer = 100;
     bool collected = false;
     uint64_t actorOrder = 0;
+    ActorAnimation animation{0, 0, 0, 0, 0, 0, 1};
+
+    bool operator==(const BonusDrop&) const = default;
 };
+
+struct BonusDropStep {
+    bool animationAdvanced = false;
+    bool converted = false;
+    TransientActor conversion;
+};
+
+inline uint8_t corpseTimerFromRemainingUpdates(int remaining, uint32_t tick) {
+    return remaining <= 0 ? 0 : static_cast<uint8_t>((remaining + (tick & 1u)) / 2);
+}
+
+template <typename Motion>
+inline bool advanceCorpseMotion(ActiveMonster& corpse, uint8_t& timer, uint32_t tick, Motion motion) {
+    motion(corpse.x, corpse.y, corpse.vx8, corpse.vy8, corpse.fracX, corpse.fracY);
+    corpse.x = static_cast<int16_t>(corpse.x);
+    corpse.y = static_cast<int16_t>(corpse.y);
+    timer = static_cast<uint8_t>(timer - (tick & 1u));
+    const bool expired = timer == 0 || timer == 0xff;
+    corpse.stateTimer = expired ? 0 : 2 * timer - static_cast<int>((tick + 1) & 1u);
+    return expired;
+}
+
+struct CorpseRewardConversion {
+    bool hasReward = false;
+    BonusDrop reward;
+    TransientActor fade;
+};
+
+template <typename Hotspot>
+inline CorpseRewardConversion convertCorpseReward(const ActiveMonster& corpse, uint8_t roll, Hotspot hotspot) {
+    CorpseRewardConversion result;
+    const int visualY = static_cast<int16_t>(corpse.y + corpse.hotspotY);
+    if (roll >= 40) {
+        constexpr std::array<uint8_t, 7> upperBounds{{65, 71, 78, 83, 89, 93, 100}};
+        size_t index = 0;
+        while (index + 1 < upperBounds.size() && roll > upperBounds[index]) ++index;
+        result.hasReward = true;
+        auto& reward = result.reward;
+        reward.x = corpse.x;
+        reward.y = visualY;
+        reward.type = static_cast<BonusType>(index);
+        reward.hotspotY = hotspot(static_cast<uint8_t>(62 + index));
+        reward.actorOrder = corpse.actorOrder;
+        reward.vx8 = corpse.vx8;
+        reward.vy8 = static_cast<int16_t>(corpse.vy8 - 200);
+        reward.fracX = corpse.fracX;
+        reward.fracY = corpse.fracY;
+        reward.animation = monsterAnimation(corpse);
+        reward.animation.mode = 0;
+    } else {
+        auto& fade = result.fade;
+        fade.x = corpse.x;
+        fade.y = visualY;
+        fade.kind = 0;
+        fade.timer = 18;
+        fade.fracX = corpse.fracX;
+        fade.fracY = corpse.fracY;
+        fade.spriteIndex = 68;
+        fade.hotspotY = hotspot(69);
+        fade.animation = ActorAnimation::initialize(69, 79, 2, 1);
+        fade.actorOrder = corpse.actorOrder;
+        fade.animationBackup = corpse.animationBackup;
+    }
+    return result;
+}
+
+template <typename Motion, typename Random, typename Hotspot>
+inline BonusDropStep advanceBonusDrop(BonusDrop& drop, const ActorAnimation& backup,
+        uint32_t tick, const std::array<bool, 2>& touching, std::array<uint8_t, 2>& pending,
+        Motion motion, Random random, Hotspot hotspot) {
+    BonusDropStep result;
+    result.animationAdvanced = drop.animation.advance(backup);
+    int x = static_cast<int16_t>(drop.x);
+    int y = static_cast<int16_t>(static_cast<int>(drop.y) - static_cast<int8_t>(drop.hotspotY));
+    bool collected = false;
+    int16_t markerVelocity = 0;
+    // Both contacts use the original reward kind, including a second pickup.
+    for (size_t player = 0; player < touching.size(); ++player) {
+        if (touching[player] && !pending[player]) {
+            pending[player] = static_cast<uint8_t>(drop.type) + 1;
+            markerVelocity = static_cast<int16_t>(-100 * random());
+            collected = true;
+        }
+    }
+    if (collected) {
+        constexpr std::array<uint8_t, 7> scoreSprites{{88, 86, 87, 88, 89, 86, 90}};
+        auto& marker = result.conversion;
+        marker.x = x;
+        marker.vy8 = markerVelocity;
+        marker.fracX = drop.fracX;
+        marker.fracY = drop.fracY;
+        // This dispatch retains cached behavior 2; later passes use behavior 5.
+        motion(marker.x, y, marker.vx8, marker.vy8, marker.fracX, marker.fracY);
+        marker.kind = 0x0b;
+        marker.timer = static_cast<uint8_t>(26 - (tick & 1u));
+        marker.spriteIndex = scoreSprites.at(static_cast<size_t>(drop.type)) - 1;
+        marker.hotspotY = hotspot(marker.spriteIndex);
+        marker.y = static_cast<int16_t>(y + static_cast<int8_t>(marker.hotspotY));
+        marker.actorOrder = drop.actorOrder;
+        marker.animation = drop.animation;
+        marker.animation.mode = 0;
+        marker.animationBackup = backup;
+        result.converted = drop.collected = true;
+        return result;
+    }
+    motion(x, y, drop.vx8, drop.vy8, drop.fracX, drop.fracY);
+    drop.x = static_cast<float>(x);
+    drop.y = static_cast<float>(static_cast<int16_t>(y + static_cast<int8_t>(drop.hotspotY)));
+    drop.timer = static_cast<uint8_t>(drop.timer - (tick & 1u));
+    if (drop.timer == 0 || drop.timer == 0xff) {
+        auto& fade = result.conversion;
+        fade.kind = 0;
+        fade.x = x;
+        fade.y = static_cast<int>(drop.y);
+        fade.fracX = drop.fracX;
+        fade.fracY = drop.fracY;
+        fade.timer = 18;
+        fade.spriteIndex = 73;
+        fade.hotspotY = hotspot(fade.spriteIndex);
+        fade.animation = ActorAnimation::initialize(74, 79, 2, 1);
+        fade.actorOrder = drop.actorOrder;
+        fade.animationBackup = backup;
+        result.converted = drop.collected = true;
+    }
+    return result;
+}
 
 struct State2VisualCursor {
     uint8_t current = kState2VisualStartFrame;
@@ -254,6 +507,8 @@ struct State2VisualCursor {
     uint8_t mode = 1;
     int8_t step = 1;
     bool active = false;
+
+    bool operator==(const State2VisualCursor&) const = default;
 };
 
 struct State2VisualRow {
@@ -273,6 +528,8 @@ struct State2EffectEntry {
     uint8_t row2 = 0;
     uint8_t spriteIndex = 0;
     bool active = false;
+
+    bool operator==(const State2EffectEntry&) const = default;
 };
 
 struct SharedActorEntry {
@@ -280,6 +537,12 @@ struct SharedActorEntry {
     SharedActorKind kind;
     size_t index;
 };
+
+inline int8_t blendFlameVelocity(int own, int incoming, uint8_t mass, int weight) {
+    // 1000:47DF..4850 wraps the signed numerator to a word before IDIV.
+    const int16_t numerator = static_cast<int16_t>(own * mass + incoming * weight);
+    return static_cast<int8_t>(numerator / (mass + weight));
+}
 
 inline bool originalState2VisualRow(uint8_t frame, State2VisualRow& row) {
     if (frame < kState2VisualStartFrame || frame > kState2VisualEndFrame) {

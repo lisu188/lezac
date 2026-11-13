@@ -11,6 +11,17 @@ public:
     explicit SoundEngine(const resources::SoundBank& sounds) : sounds_(sounds) {}
     const resources::SoundBank& bank() const { return sounds_; }
     SoundLatch latch() const { return soundLatch_; }
+    uint16_t requestCursor() const { return requestCursor_; }
+    uint8_t requestSelector() const { return requestSelector_; }
+    // DS:2074 also holds the generic tile-damage footprint, without a request.
+    void writeSharedCursor(uint16_t cursor) { requestCursor_ = cursor; }
+    void setRequestAttemptCounting(bool enabled) { countRequestAttempts_ = enabled; }
+    uint64_t requestAttemptCount() const { return requestAttemptCount_; }
+    void clearRequestAttemptCount() { requestAttemptCount_ = 0; }
+    SoundInterruptState interruptState() const { return soundInterrupt_; }
+    SoundClockState clockState() const { return soundClock_; }
+    SoundInterruptWorkState interruptWorkState() const { return soundInterruptWork_; }
+    SpeakerToneState speakerState() const { return speaker_; }
     SoundPlaybackSnapshot lastPumped() const {
         return {lastPumpedSoundRecord_, lastPumpedSoundOffset_, lastPumpedSoundSelector_};
     }
@@ -21,6 +32,11 @@ public:
     void clearCompatibilityAttempts() { compatibilitySoundAttempts_.clear(); }
     // Explicit replay operations preserve existing diagnostic seed boundaries.
     void restoreLatchForFixture(SoundLatch latch) { soundLatch_ = latch; }
+    void restoreRequestForFixture(uint16_t cursor, uint8_t selector) {
+        requestCursor_ = cursor;
+        requestSelector_ = selector;
+    }
+    void restoreInterruptForFixture(SoundInterruptState state) { soundInterrupt_ = state; }
     void restorePlaybackForFixture(SoundPlaybackSnapshot playback) {
         lastPumpedSoundRecord_ = playback.record;
         lastPumpedSoundOffset_ = playback.offset;
@@ -31,8 +47,9 @@ public:
     uint8_t soundStepGateTick(size_t stepIndex) const;
     uint8_t soundStepPeriodTicks(size_t stepIndex) const;
     uint16_t soundStopCursorFor(uint16_t cursor) const;
-    void appendToneSamples(std::vector<int16_t>& samples, uint16_t period,
-                       int sampleCount, int amplitude, double& phase) const;
+    static uint16_t speakerDivisorForFrequency(uint16_t frequency);
+    void appendToneSamples(std::vector<int16_t>& samples, uint16_t frequency,
+                       int sampleCount, int amplitude, SpeakerToneState& tone) const;
     std::vector<int16_t> synthesizeSoundCursor(uint16_t cursor) const;
     std::vector<int16_t> synthesizeSound(size_t index) const;
     std::vector<int16_t> synthesizeDirectSweep(uint16_t startCursor) const;
@@ -42,14 +59,35 @@ public:
     bool latchSoundRequest(uint16_t cursor, uint8_t selector);
     bool requestSoundCursor(uint16_t cursor, uint8_t selector);
     bool requestSoundOffset(uint16_t offset, uint8_t selector);
-    void clearSoundLatch();
+    // One original INT 1Ch transition. Host scheduling is deliberately separate.
+    SoundInterruptAction advanceSoundInterrupt();
+    // Complete recovered INT1C/CRT execution on the canonical latch/counters.
+    // Caller registers are private adapter state; IRQ cadence is still separate.
+    SoundInterruptAction advanceSoundInterruptWorkOrdered();
+    // Persistent default BIOS-clock playback; no SDL or gameplay-tick dependency.
+    std::vector<int16_t> renderClockedSamples(size_t sampleCount);
+    // Advance discarded host-time samples without allocating PCM. Returns
+    // the number of active interrupt transitions actually visited.
+    uint64_t skipClockedSamples(uint64_t sampleCount);
+    std::vector<int16_t> renderClockedTail(uint64_t sampleCount);
+    void clearSoundLatch(bool silenceSpeaker = false);
     bool playCompatibilitySound(size_t hookSlot);
     std::vector<int16_t> pumpSoundLatch();
     std::vector<int16_t> playSound(size_t index, bool outputEnabled);
 
 private:
+    void applyClockedInterrupt();
+    void advanceSpeakerPhase(uint64_t sampleCount);
     const resources::SoundBank& sounds_;
     SoundLatch soundLatch_;
+    uint16_t requestCursor_ = 0;
+    uint8_t requestSelector_ = 0;
+    bool countRequestAttempts_ = false;
+    uint64_t requestAttemptCount_ = 0;
+    SoundInterruptState soundInterrupt_;
+    SoundClockState soundClock_;
+    SoundInterruptWorkState soundInterruptWork_;
+    SpeakerToneState speaker_;
     int lastPumpedSoundRecord_ = -1;
     uint16_t lastPumpedSoundOffset_ = 0;
     uint8_t lastPumpedSoundSelector_ = 0;

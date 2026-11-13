@@ -1,0 +1,429 @@
+{
+  "status": "failed",
+  "exe_sha256": "9a37e3a064f6e9dc947c18ce2a085132551f1f1438e95f325b4f528ec4caf92d",
+  "harness_sha256": "e85f0c2b73472a9d2461c0f8c9feb293d0c41fbcfa94ddcc83239e2a617ac83b",
+  "audio": "dummy",
+  "normal_entry_point": true,
+  "gameplay_seeded": false,
+  "queued_key_check_gated": true,
+  "startup_timing_gated": false,
+  "captures": [
+    {
+      "name": "natural-italian-line0-step02",
+      "pixel_sha256": "7d1bc09d43fab7db08fcd2e9370ce96840a8a1693075dec7aa424b85c10bde17",
+      "seconds": 1.5560534689866472
+    },
+    {
+      "name": "italian-full",
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914",
+      "seconds": 14.036286882997956
+    },
+    {
+      "name": "italian-unsupported-choices-ignored",
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914",
+      "seconds": 16.516433425975265
+    },
+    {
+      "name": "italian-caps-choice-ignored",
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914",
+      "seconds": 16.63925559297786
+    },
+    {
+      "name": "english-queued-selection-consumed",
+      "pixel_sha256": "1ba172f477005a57a01132e42042e54a5d1454f5b7361ceba9cab8b36a715b58",
+      "seconds": 16.939849356975174
+    },
+    {
+      "name": "english-unsupported-choices-ignored",
+      "pixel_sha256": "1ba172f477005a57a01132e42042e54a5d1454f5b7361ceba9cab8b36a715b58",
+      "seconds": 19.26392162698903
+    },
+    {
+      "name": "italian-escape-skips-consumed",
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914",
+      "seconds": 19.56160837999778
+    },
+    {
+      "name": "italian-keypad-off-ignored",
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914",
+      "seconds": 19.769296774989925
+    },
+    {
+      "name": "fresh-num-selection-intro",
+      "pixel_sha256": "acdc4ecf8df36a589d5ca6d390940b4d1ef9481e37ddf785e94d32205ee801d9",
+      "seconds": 20.022084903001087
+    },
+    {
+      "name": "num-game-return-menu",
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914",
+      "seconds": 20.62889558597817
+    }
+  ],
+  "events": [
+    {
+      "keys": [
+        "Shift_L"
+      ],
+      "seconds": 1.556056240980979
+    },
+    {
+      "keys": [
+        "Shift_R"
+      ],
+      "seconds": 1.68304802197963
+    },
+    {
+      "keys": [
+        "Control_L"
+      ],
+      "seconds": 1.8106142079923302
+    },
+    {
+      "keys": [
+        "Control_R"
+      ],
+      "seconds": 1.9392728559905663
+    },
+    {
+      "keys": [
+        "Alt_L"
+      ],
+      "seconds": 2.0716540399880614
+    },
+    {
+      "keys": [
+        "Alt_R"
+      ],
+      "seconds": 2.1994789489835966
+    },
+    {
+      "keys": [
+        "Super_L"
+      ],
+      "seconds": 2.3275826199969742
+    },
+    {
+      "keys": [
+        "Super_R"
+      ],
+      "seconds": 2.455630462995032
+    },
+    {
+      "keys": [
+        "Caps_Lock"
+      ],
+      "seconds": 2.585426257981453
+    },
+    {
+      "keys": [
+        "Num_Lock"
+      ],
+      "seconds": 2.7147972849779762
+    },
+    {
+      "keys": [
+        "Scroll_Lock"
+      ],
+      "seconds": 2.843418946984457
+    },
+    {
+      "keys": [
+        "Caps_Lock"
+      ],
+      "seconds": 2.9712991089909337
+    },
+    {
+      "keys": [
+        "Return"
+      ],
+      "seconds": 14.18903522999608
+    },
+    {
+      "keys": [
+        "KP_Enter"
+      ],
+      "seconds": 14.296164485975169
+    },
+    {
+      "keys": [
+        "s"
+      ],
+      "seconds": 14.402535963978153
+    },
+    {
+      "keys": [
+        "space"
+      ],
+      "seconds": 14.511521756998263
+    },
+    {
+      "keys": [
+        "F5"
+      ],
+      "seconds": 14.624381167988759
+    },
+    {
+      "keys": [
+        "Prior"
+      ],
+      "seconds": 14.733128475985723
+    },
+    {
+      "keys": [
+        "Next"
+      ],
+      "seconds": 14.841183510987321
+    },
+    {
+      "keys": [
+        "shift+l"
+      ],
+      "seconds": 14.950102025992237
+    },
+    {
+      "keys": [
+        "ctrl+l"
+      ],
+      "seconds": 15.062256435980089
+    },
+    {
+      "keys": [
+        "alt+l"
+      ],
+      "seconds": 15.174624304985628
+    },
+    {
+      "keys": [
+        "shift+1"
+      ],
+      "seconds": 15.283280395990005
+    },
+    {
+      "keys": [
+        "shift+2"
+      ],
+      "seconds": 15.395054634980625
+    },
+    {
+      "kind": "keydown",
+      "keys": [
+        "Return"
+      ],
+      "seconds": 15.509861261991318
+    },
+    {
+      "kind": "keyup",
+      "keys": [
+        "Return"
+      ],
+      "seconds": 16.50237993898918
+    },
+    {
+      "keys": [
+        "Caps_Lock"
+      ],
+      "seconds": 16.516436106991023
+    },
+    {
+      "keys": [
+        "l"
+      ],
+      "seconds": 16.51887285997509
+    },
+    {
+      "keys": [
+        "shift+l"
+      ],
+      "seconds": 16.639275086985435
+    },
+    {
+      "keys": [
+        "Caps_Lock"
+      ],
+      "seconds": 16.642143295001006
+    },
+    {
+      "keys": [
+        "1"
+      ],
+      "seconds": 16.765136243979214
+    },
+    {
+      "keys": [
+        "1",
+        "2"
+      ],
+      "seconds": 16.88817916897824
+    },
+    {
+      "keys": [
+        "Return"
+      ],
+      "seconds": 16.939864805986872
+    },
+    {
+      "keys": [
+        "KP_Enter"
+      ],
+      "seconds": 17.04759319598088
+    },
+    {
+      "keys": [
+        "s"
+      ],
+      "seconds": 17.153456132975407
+    },
+    {
+      "keys": [
+        "space"
+      ],
+      "seconds": 17.263869836984668
+    },
+    {
+      "keys": [
+        "F5"
+      ],
+      "seconds": 17.375717154995073
+    },
+    {
+      "keys": [
+        "Prior"
+      ],
+      "seconds": 17.48566892297822
+    },
+    {
+      "keys": [
+        "Next"
+      ],
+      "seconds": 17.59403210398159
+    },
+    {
+      "keys": [
+        "shift+l"
+      ],
+      "seconds": 17.701968907989794
+    },
+    {
+      "keys": [
+        "ctrl+l"
+      ],
+      "seconds": 17.813351995981066
+    },
+    {
+      "keys": [
+        "alt+l"
+      ],
+      "seconds": 17.92281056297361
+    },
+    {
+      "keys": [
+        "shift+1"
+      ],
+      "seconds": 18.030741993978154
+    },
+    {
+      "keys": [
+        "shift+2"
+      ],
+      "seconds": 18.14089326397516
+    },
+    {
+      "kind": "keydown",
+      "keys": [
+        "Return"
+      ],
+      "seconds": 18.252417310985038
+    },
+    {
+      "kind": "keyup",
+      "keys": [
+        "Return"
+      ],
+      "seconds": 19.25012545500067
+    },
+    {
+      "keys": [
+        "alt+F5"
+      ],
+      "seconds": 19.26392415398732
+    },
+    {
+      "keys": [
+        "Escape"
+      ],
+      "seconds": 19.386835424986202
+    },
+    {
+      "keys": [
+        "Escape"
+      ],
+      "seconds": 19.50977456200053
+    },
+    {
+      "keys": [
+        "Num_Lock"
+      ],
+      "seconds": 19.561610288976226
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_1",
+      "code": "87",
+      "shift": false,
+      "seconds": 19.56625004397938
+    },
+    {
+      "keys": [
+        "Num_Lock"
+      ],
+      "seconds": 19.769315839977935
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_1",
+      "code": "87",
+      "shift": false,
+      "seconds": 19.773136181989685
+    },
+    {
+      "keys": [
+        "Return"
+      ],
+      "seconds": 20.02208708197577
+    },
+    {
+      "keys": [
+        "Return"
+      ],
+      "seconds": 20.174945728998864
+    },
+    {
+      "keys": [
+        "Escape"
+      ],
+      "seconds": 20.32960795497638
+    },
+    {
+      "keys": [
+        "Escape"
+      ],
+      "seconds": 20.470486231992254
+    },
+    {
+      "keys": [
+        "Escape"
+      ],
+      "seconds": 20.593146726983832
+    },
+    {
+      "kind": "physical-keycode",
+      "key": "KP_1",
+      "code": "87",
+      "shift": true,
+      "seconds": 20.781023288000142
+    }
+  ],
+  "whole_game_parity": false,
+  "error": "fresh keypad selection did not leave the menu: num-shift",
+  "child_exit_code": 0
+}

@@ -17,12 +17,13 @@ from typing import Iterable, Tuple
 
 
 Image = Tuple[int, int, bytearray]
+_NETPBM_WHITESPACE = b" \t\r\n\v\f"
 
 
 def _netpbm_tokens(data: bytes) -> Iterable[bytes]:
     i = 0
     while i < len(data):
-        while i < len(data) and data[i] in b" \t\r\n":
+        while i < len(data) and data[i] in _NETPBM_WHITESPACE:
             i += 1
         if i < len(data) and data[i] == ord("#"):
             while i < len(data) and data[i] not in b"\r\n":
@@ -31,24 +32,27 @@ def _netpbm_tokens(data: bytes) -> Iterable[bytes]:
         if i >= len(data):
             break
         start = i
-        while i < len(data) and data[i] not in b" \t\r\n":
+        while i < len(data) and data[i] not in _NETPBM_WHITESPACE:
             i += 1
         yield data[start:i]
 
 
 def read_ppm(path: Path) -> Image:
     data = path.read_bytes()
-    tokens = list(_netpbm_tokens(data))
-    if len(tokens) < 4 or tokens[0] not in (b"P3", b"P6"):
+    tokens = iter(_netpbm_tokens(data))
+    header = tuple(next(tokens, b"") for _ in range(4))
+    if any(not token for token in header) or header[0] not in (b"P3", b"P6"):
         raise ValueError("not a P3/P6 PPM image")
-    magic = tokens[0]
-    width = int(tokens[1])
-    height = int(tokens[2])
-    maxval = int(tokens[3])
+    magic = header[0]
+    width = int(header[1])
+    height = int(header[2])
+    maxval = int(header[3])
+    if width <= 0 or height <= 0:
+        raise ValueError("invalid PPM dimensions")
     if maxval != 255:
         raise ValueError(f"unsupported PPM maxval {maxval}")
     if magic == b"P3":
-        values = [int(token) for token in tokens[4:]]
+        values = [int(token) for token in tokens]
         if len(values) != width * height * 3:
             raise ValueError("P3 payload size does not match dimensions")
         return width, height, bytearray(values)
@@ -66,13 +70,15 @@ def read_ppm(path: Path) -> Image:
         if ch == ord("#"):
             in_comment = True
             continue
-        if ch in b" \t\r\n":
+        if ch in _NETPBM_WHITESPACE:
             continue
         found += 1
-        while header_end < len(data) and data[header_end] not in b" \t\r\n":
+        while header_end < len(data) and data[header_end] not in _NETPBM_WHITESPACE:
             header_end += 1
-    while header_end < len(data) and data[header_end] in b" \t\r\n":
-        header_end += 1
+    if header_end >= len(data) or data[header_end] not in _NETPBM_WHITESPACE:
+        raise ValueError("P6 header is missing its raster separator")
+    # P6 has one separator after Maxval; following bytes are binary samples.
+    header_end += 1
     payload = data[header_end:]
     expected = width * height * 3
     if len(payload) < expected:

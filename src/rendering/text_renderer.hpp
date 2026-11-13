@@ -23,7 +23,8 @@ public:
     void text(int x, int y, const std::string& s, uint32_t color, bool large = false,
               uint32_t shadow = 0, int shadowDx = 1, int shadowDy = 1,
               bool nativePalette = false);
-    void drawSprite(const Sprite& sprite, int x0, int y0);
+    void drawSprite(const Sprite& sprite, int x0, int y0,
+                    uint8_t background = 0, uint8_t ink = 1);
 private:
     Canvas& canvas_;
     const Palette& palette_;

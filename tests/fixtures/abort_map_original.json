@@ -1,0 +1,974 @@
+{
+  "format": "lezac-abort-map-observation-v1",
+  "original_report_sha256": "7ae99141afa9e21b4312e102cee8dc41785412b961395345f59807434b60dbd5",
+  "producer_sha256": "0184c012ff9fa5003ee7777e3faffea7ec252e795bb24d82b757065827b4039f",
+  "binary_sha256": "e8ca58fc0b53ebaa8056920ad1aff006b9708d14887bbca36e0bea004d941049",
+  "levels_sha256": "d8b553871014108515d6af05b0853de8ccc22e4d3e44d63533ba1167fdc8c7b2",
+  "capture": {
+    "schema": "lezac-natural-map-reload-observation-v1",
+    "started_utc": "2026-10-10T04:20:26.048807+00:00",
+    "audio": "dummy",
+    "mixer_nosound": true,
+    "executable_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+    "locator_sha256": "b2e6a4fc80e6e612718baf10ff4aabc8e2c438524f5d24547b9a97fd483551fe",
+    "source_sha256": "0184c012ff9fa5003ee7777e3faffea7ec252e795bb24d82b757065827b4039f",
+    "assets": {
+      "BOMOMIMK.SPR": {
+        "bytes": 20168,
+        "sha256": "08dfd0e59ba191c52af2529bdfa140fd15a57829f0c6c13bbb78e156769ac0d1"
+      },
+      "BOMPAL.PAL": {
+        "bytes": 768,
+        "sha256": "f2559164074ca529ba6c275a9831b11c6da9e6317f09b3d9228c299d6f8f8319"
+      },
+      "CARO.CAR": {
+        "bytes": 8450,
+        "sha256": "949cce4db6071d6675a291c978d725c6e4ee1730b2c7a428bc1c8a8185cbd8d8"
+      },
+      "ENGLISH.DOC": {
+        "bytes": 3522,
+        "sha256": "e2fd2f2521b0277f2fca0c8f2a265408412542932bb6e977bf1ab3d0aabdfed9"
+      },
+      "FONTS.SPR": {
+        "bytes": 5425,
+        "sha256": "f65aa9bbba2a66ee69f1b279a32c448e36012feb53441fbbb8e64e31bee87a0e"
+      },
+      "GRAN.MST": {
+        "bytes": 399,
+        "sha256": "3f0cf17706d557ca863d6e39bfa6641fba777a88815ba3f0a22e5ac89e0e39e2"
+      },
+      "ITALIANO.DOC": {
+        "bytes": 4392,
+        "sha256": "5ea7481d3179e60b6f1229aa114dc4b47c95f7c1200c7888ad5c259f161317c1"
+      },
+      "LEZAC.EXE": {
+        "bytes": 52384,
+        "sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
+      },
+      "LIVELS.SCH": {
+        "bytes": 41047,
+        "sha256": "d8b553871014108515d6af05b0853de8ccc22e4d3e44d63533ba1167fdc8c7b2"
+      },
+      "PROEFS.SON": {
+        "bytes": 782,
+        "sha256": "b5bc702a27ac85554cc76a62fced07567921b07d5c16f2027a62fbc956df701d"
+      },
+      "PROVA.SPR": {
+        "bytes": 21250,
+        "sha256": "d6d6b634f8613251f6e82e9a15c5c68e2be437892bfa25c53eb4bcd9094188b7"
+      },
+      "RECS.DAT": {
+        "bytes": 92,
+        "sha256": "27197ebb56fb339e4d41baf6ad5282cd79bb66b642c81ae406e607a263c80eb8"
+      },
+      "SETUP.LOG": {
+        "bytes": 566,
+        "sha256": "4c86cd7436be442663b10b1425bbcd7a179b7955b67c23632bf20a8180144a14"
+      },
+      "SFONLEF.ZBG": {
+        "bytes": 34292,
+        "sha256": "b1b7cc03122510318c1a3670f151712406e9e3fa60aabd8fb558320766c3835c"
+      }
+    },
+    "samples": [
+      {
+        "name": "menu-initial",
+        "observed_utc": "2026-10-10T04:20:47.486623+00:00",
+        "ram_file": "menu-initial.ram.gz",
+        "raw_ram_bytes": 1048576,
+        "raw_ram_sha256": "d02195829271f420132a4bb8b65c707a6b3eb6654c3d79030d3247dce6e6d828",
+        "compressed_ram_bytes": 65428,
+        "compressed_ram_sha256": "51d28d959b24d0a938cbb12460e3e8f3e5fba469df1194d5341c97888490f648",
+        "code_segment": 417,
+        "data_segment": 3139,
+        "code_bytes_verified": 43552,
+        "relocated_code_differences": 0,
+        "pointers": {
+          "heap_start": [
+            0,
+            7346
+          ],
+          "heap_top": [
+            8,
+            16039
+          ],
+          "heap_limit": [
+            0,
+            40959
+          ],
+          "free_list": [
+            8,
+            16039
+          ],
+          "heap_error": [
+            169,
+            2753
+          ],
+          "sound": [
+            0,
+            7346
+          ],
+          "draw_buffer": [
+            8,
+            7395
+          ],
+          "sprites": [
+            0,
+            10958
+          ],
+          "backdrop": [
+            8,
+            12289
+          ],
+          "raw_objects": [
+            0,
+            0
+          ],
+          "raw_words": [
+            0,
+            0
+          ],
+          "objects": [
+            0,
+            0
+          ],
+          "words": [
+            0,
+            0
+          ]
+        },
+        "map_base_after_four_persistent_allocations": 256632,
+        "map_segment_windows_nonzero_bytes": 0,
+        "map_segment_windows_sha256": "fa43239bcee7b97ca62f007cc68487560a39e19f74f3dde7486db3f98df8e471",
+        "level": 0,
+        "map_cells": 0,
+        "frame_counter": 0,
+        "screenshot_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+        "screenshot_not_instruction_aligned": true
+      },
+      {
+        "name": "level1-intro-1",
+        "observed_utc": "2026-10-10T04:20:51.542034+00:00",
+        "ram_file": "level1-intro-1.ram.gz",
+        "raw_ram_bytes": 1048576,
+        "raw_ram_sha256": "98a04b55f385233af4ef7be1549f207932eeb915588b76434dc6ddf94977356d",
+        "compressed_ram_bytes": 66326,
+        "compressed_ram_sha256": "f3fc2827bceffd70309636249f0972ee2dc62ee69200ff105d9825d79002c665",
+        "code_segment": 417,
+        "data_segment": 3139,
+        "code_bytes_verified": 43552,
+        "relocated_code_differences": 0,
+        "pointers": {
+          "heap_start": [
+            0,
+            7346
+          ],
+          "heap_top": [
+            0,
+            16413
+          ],
+          "heap_limit": [
+            0,
+            40959
+          ],
+          "free_list": [
+            0,
+            16413
+          ],
+          "heap_error": [
+            169,
+            2753
+          ],
+          "sound": [
+            0,
+            7346
+          ],
+          "draw_buffer": [
+            8,
+            7395
+          ],
+          "sprites": [
+            0,
+            10958
+          ],
+          "backdrop": [
+            8,
+            12289
+          ],
+          "raw_objects": [
+            8,
+            16039
+          ],
+          "raw_words": [
+            8,
+            16164
+          ],
+          "objects": [
+            0,
+            16040
+          ],
+          "words": [
+            0,
+            16165
+          ]
+        },
+        "map_base_after_four_persistent_allocations": 256632,
+        "map_segment_windows_nonzero_bytes": 910,
+        "map_segment_windows_sha256": "a294f4942860df20d71f5fde80feeb4f87c3d85d5c4502e1d7ec65c43aeb93cd",
+        "level": 1,
+        "map_cells": 1980,
+        "frame_counter": 0,
+        "screenshot_sha256": "ba07854697006860b11f4406aa3eb43d29b072a0ba6980a6254cd1244242f2a8",
+        "screenshot_not_instruction_aligned": true
+      },
+      {
+        "name": "level1-running-1",
+        "observed_utc": "2026-10-10T04:20:52.596079+00:00",
+        "ram_file": "level1-running-1.ram.gz",
+        "raw_ram_bytes": 1048576,
+        "raw_ram_sha256": "a2eed206018f0861130dd00cd7a26a1bbfe53d7986dccc85956231beb137e074",
+        "compressed_ram_bytes": 50619,
+        "compressed_ram_sha256": "32b6cc5ab47851f9f54d5a8e21d105b7db0645c8d23d1e85c9862358e6361b85",
+        "code_segment": 417,
+        "data_segment": 3139,
+        "code_bytes_verified": 43552,
+        "relocated_code_differences": 0,
+        "pointers": {
+          "heap_start": [
+            0,
+            7346
+          ],
+          "heap_top": [
+            0,
+            16413
+          ],
+          "heap_limit": [
+            0,
+            40959
+          ],
+          "free_list": [
+            0,
+            16413
+          ],
+          "heap_error": [
+            169,
+            2753
+          ],
+          "sound": [
+            0,
+            7346
+          ],
+          "draw_buffer": [
+            8,
+            7395
+          ],
+          "sprites": [
+            0,
+            10958
+          ],
+          "backdrop": [
+            8,
+            12289
+          ],
+          "raw_objects": [
+            8,
+            16039
+          ],
+          "raw_words": [
+            8,
+            16164
+          ],
+          "objects": [
+            0,
+            16040
+          ],
+          "words": [
+            0,
+            16165
+          ]
+        },
+        "map_base_after_four_persistent_allocations": 256632,
+        "map_segment_windows_nonzero_bytes": 910,
+        "map_segment_windows_sha256": "a294f4942860df20d71f5fde80feeb4f87c3d85d5c4502e1d7ec65c43aeb93cd",
+        "level": 1,
+        "map_cells": 1980,
+        "frame_counter": 12,
+        "screenshot_sha256": "581e767c173a8ae4af5c9e9e82b6e7d6ee3ed96ab317701558523c85f0374f51",
+        "screenshot_not_instruction_aligned": true
+      },
+      {
+        "name": "game-over-after-escape-1",
+        "observed_utc": "2026-10-10T04:20:56.656569+00:00",
+        "ram_file": "game-over-after-escape-1.ram.gz",
+        "raw_ram_bytes": 1048576,
+        "raw_ram_sha256": "5be4c4432f3058e8c8284bdbd9378b3134ea9293bca770bed9424d2ecd8f685f",
+        "compressed_ram_bytes": 51353,
+        "compressed_ram_sha256": "f13c7db05a077cff33db5ff3e77be10f9d19e276e0ea58b3f1e3d220866f2f93",
+        "code_segment": 417,
+        "data_segment": 3139,
+        "code_bytes_verified": 43552,
+        "relocated_code_differences": 0,
+        "pointers": {
+          "heap_start": [
+            0,
+            7346
+          ],
+          "heap_top": [
+            0,
+            16413
+          ],
+          "heap_limit": [
+            0,
+            40959
+          ],
+          "free_list": [
+            0,
+            16413
+          ],
+          "heap_error": [
+            169,
+            2753
+          ],
+          "sound": [
+            0,
+            7346
+          ],
+          "draw_buffer": [
+            8,
+            7395
+          ],
+          "sprites": [
+            0,
+            10958
+          ],
+          "backdrop": [
+            8,
+            12289
+          ],
+          "raw_objects": [
+            8,
+            16039
+          ],
+          "raw_words": [
+            8,
+            16164
+          ],
+          "objects": [
+            0,
+            16040
+          ],
+          "words": [
+            0,
+            16165
+          ]
+        },
+        "map_base_after_four_persistent_allocations": 256632,
+        "map_segment_windows_nonzero_bytes": 910,
+        "map_segment_windows_sha256": "a294f4942860df20d71f5fde80feeb4f87c3d85d5c4502e1d7ec65c43aeb93cd",
+        "level": 1,
+        "map_cells": 1980,
+        "frame_counter": 13,
+        "screenshot_sha256": "191201c5694d0a2523051c18a1de5ec024e5a66b218baa8f31ed468de69aa989",
+        "screenshot_not_instruction_aligned": true
+      },
+      {
+        "name": "menu-after-abort-1",
+        "observed_utc": "2026-10-10T04:21:16.723007+00:00",
+        "ram_file": "menu-after-abort-1.ram.gz",
+        "raw_ram_bytes": 1048576,
+        "raw_ram_sha256": "6b801854ce55d922e3181986e6bea9dc6758814944a0543bdf2264af6a5b4269",
+        "compressed_ram_bytes": 71371,
+        "compressed_ram_sha256": "6941b1d9f4b9437bf0ba04313a4f77b27b9304b9e60531ddb7bed461574d0812",
+        "code_segment": 417,
+        "data_segment": 3139,
+        "code_bytes_verified": 43552,
+        "relocated_code_differences": 0,
+        "pointers": {
+          "heap_start": [
+            0,
+            7346
+          ],
+          "heap_top": [
+            0,
+            16413
+          ],
+          "heap_limit": [
+            0,
+            40959
+          ],
+          "free_list": [
+            0,
+            16413
+          ],
+          "heap_error": [
+            169,
+            2753
+          ],
+          "sound": [
+            0,
+            7346
+          ],
+          "draw_buffer": [
+            8,
+            7395
+          ],
+          "sprites": [
+            0,
+            10958
+          ],
+          "backdrop": [
+            8,
+            12289
+          ],
+          "raw_objects": [
+            8,
+            16039
+          ],
+          "raw_words": [
+            8,
+            16164
+          ],
+          "objects": [
+            0,
+            16040
+          ],
+          "words": [
+            0,
+            16165
+          ]
+        },
+        "map_base_after_four_persistent_allocations": 256632,
+        "map_segment_windows_nonzero_bytes": 910,
+        "map_segment_windows_sha256": "a294f4942860df20d71f5fde80feeb4f87c3d85d5c4502e1d7ec65c43aeb93cd",
+        "level": 1,
+        "map_cells": 1980,
+        "frame_counter": 13,
+        "screenshot_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+        "screenshot_not_instruction_aligned": true
+      },
+      {
+        "name": "level1-intro-2",
+        "observed_utc": "2026-10-10T04:21:20.780200+00:00",
+        "ram_file": "level1-intro-2.ram.gz",
+        "raw_ram_bytes": 1048576,
+        "raw_ram_sha256": "f678a5e31ae5e062aa57f62efec2c4003b3daa88f25e45cfb9b48bcf396e8ee5",
+        "compressed_ram_bytes": 71478,
+        "compressed_ram_sha256": "ed5e8c2f5c5af8e565ebe76f472488b452562c2854d35e59b14dc76649b2de18",
+        "code_segment": 417,
+        "data_segment": 3139,
+        "code_bytes_verified": 43552,
+        "relocated_code_differences": 0,
+        "pointers": {
+          "heap_start": [
+            0,
+            7346
+          ],
+          "heap_top": [
+            0,
+            16413
+          ],
+          "heap_limit": [
+            0,
+            40959
+          ],
+          "free_list": [
+            0,
+            16413
+          ],
+          "heap_error": [
+            169,
+            2753
+          ],
+          "sound": [
+            0,
+            7346
+          ],
+          "draw_buffer": [
+            8,
+            7395
+          ],
+          "sprites": [
+            0,
+            10958
+          ],
+          "backdrop": [
+            8,
+            12289
+          ],
+          "raw_objects": [
+            8,
+            16039
+          ],
+          "raw_words": [
+            8,
+            16164
+          ],
+          "objects": [
+            0,
+            16040
+          ],
+          "words": [
+            0,
+            16165
+          ]
+        },
+        "map_base_after_four_persistent_allocations": 256632,
+        "map_segment_windows_nonzero_bytes": 926,
+        "map_segment_windows_sha256": "5e0084c9287798d84a3b4aa8fb3009f9f5d5232bb1d2278d505bd1b6b71550c5",
+        "level": 1,
+        "map_cells": 1980,
+        "frame_counter": 0,
+        "screenshot_sha256": "8582191f8eb0bcb5cd3f8cff3210006d1a520372abe6da06d9cb89a3f661dd09",
+        "screenshot_not_instruction_aligned": true
+      },
+      {
+        "name": "level1-running-2",
+        "observed_utc": "2026-10-10T04:21:21.839934+00:00",
+        "ram_file": "level1-running-2.ram.gz",
+        "raw_ram_bytes": 1048576,
+        "raw_ram_sha256": "75345091a333403b23da5c1366ee72540048584378b565e34ae4482a6235ea05",
+        "compressed_ram_bytes": 50363,
+        "compressed_ram_sha256": "df3176fc795ef05db98d8132a4962099fd4a4eb9e598e0593c90593ca05323ee",
+        "code_segment": 417,
+        "data_segment": 3139,
+        "code_bytes_verified": 43552,
+        "relocated_code_differences": 0,
+        "pointers": {
+          "heap_start": [
+            0,
+            7346
+          ],
+          "heap_top": [
+            0,
+            16413
+          ],
+          "heap_limit": [
+            0,
+            40959
+          ],
+          "free_list": [
+            0,
+            16413
+          ],
+          "heap_error": [
+            169,
+            2753
+          ],
+          "sound": [
+            0,
+            7346
+          ],
+          "draw_buffer": [
+            8,
+            7395
+          ],
+          "sprites": [
+            0,
+            10958
+          ],
+          "backdrop": [
+            8,
+            12289
+          ],
+          "raw_objects": [
+            8,
+            16039
+          ],
+          "raw_words": [
+            8,
+            16164
+          ],
+          "objects": [
+            0,
+            16040
+          ],
+          "words": [
+            0,
+            16165
+          ]
+        },
+        "map_base_after_four_persistent_allocations": 256632,
+        "map_segment_windows_nonzero_bytes": 926,
+        "map_segment_windows_sha256": "5e0084c9287798d84a3b4aa8fb3009f9f5d5232bb1d2278d505bd1b6b71550c5",
+        "level": 1,
+        "map_cells": 1980,
+        "frame_counter": 12,
+        "screenshot_sha256": "839b0598af0594ea98ceb42e20658cc837df2e64ac86bb80efbd0aa0199d9a1a",
+        "screenshot_not_instruction_aligned": true
+      },
+      {
+        "name": "game-over-after-escape-2",
+        "observed_utc": "2026-10-10T04:21:25.899093+00:00",
+        "ram_file": "game-over-after-escape-2.ram.gz",
+        "raw_ram_bytes": 1048576,
+        "raw_ram_sha256": "fc58946a7b8c14fc49fe335aa17a0691a1ec9b3f9e4f720e3831f0dd277ec055",
+        "compressed_ram_bytes": 51404,
+        "compressed_ram_sha256": "1f1ae61d6af2dd801030710d6dd461f0f41d910bc1de3aaf8bec3147b3a6e7a4",
+        "code_segment": 417,
+        "data_segment": 3139,
+        "code_bytes_verified": 43552,
+        "relocated_code_differences": 0,
+        "pointers": {
+          "heap_start": [
+            0,
+            7346
+          ],
+          "heap_top": [
+            0,
+            16413
+          ],
+          "heap_limit": [
+            0,
+            40959
+          ],
+          "free_list": [
+            0,
+            16413
+          ],
+          "heap_error": [
+            169,
+            2753
+          ],
+          "sound": [
+            0,
+            7346
+          ],
+          "draw_buffer": [
+            8,
+            7395
+          ],
+          "sprites": [
+            0,
+            10958
+          ],
+          "backdrop": [
+            8,
+            12289
+          ],
+          "raw_objects": [
+            8,
+            16039
+          ],
+          "raw_words": [
+            8,
+            16164
+          ],
+          "objects": [
+            0,
+            16040
+          ],
+          "words": [
+            0,
+            16165
+          ]
+        },
+        "map_base_after_four_persistent_allocations": 256632,
+        "map_segment_windows_nonzero_bytes": 926,
+        "map_segment_windows_sha256": "5e0084c9287798d84a3b4aa8fb3009f9f5d5232bb1d2278d505bd1b6b71550c5",
+        "level": 1,
+        "map_cells": 1980,
+        "frame_counter": 13,
+        "screenshot_sha256": "b7f0e2f4445e8a8ec3a46c602e9fd27bcee563a5d33a64c88eaec9c10a98aa82",
+        "screenshot_not_instruction_aligned": true
+      },
+      {
+        "name": "menu-after-abort-2",
+        "observed_utc": "2026-10-10T04:21:45.984095+00:00",
+        "ram_file": "menu-after-abort-2.ram.gz",
+        "raw_ram_bytes": 1048576,
+        "raw_ram_sha256": "cd82a9d478c677503d6f4e3d3deb3b195340c1e117f12abc8bd94365e0822df3",
+        "compressed_ram_bytes": 71428,
+        "compressed_ram_sha256": "ec73e2e98ead3006ade6c0ff9773fd32d8adf34247231420d4a25388e6f93686",
+        "code_segment": 417,
+        "data_segment": 3139,
+        "code_bytes_verified": 43552,
+        "relocated_code_differences": 0,
+        "pointers": {
+          "heap_start": [
+            0,
+            7346
+          ],
+          "heap_top": [
+            0,
+            16413
+          ],
+          "heap_limit": [
+            0,
+            40959
+          ],
+          "free_list": [
+            0,
+            16413
+          ],
+          "heap_error": [
+            169,
+            2753
+          ],
+          "sound": [
+            0,
+            7346
+          ],
+          "draw_buffer": [
+            8,
+            7395
+          ],
+          "sprites": [
+            0,
+            10958
+          ],
+          "backdrop": [
+            8,
+            12289
+          ],
+          "raw_objects": [
+            8,
+            16039
+          ],
+          "raw_words": [
+            8,
+            16164
+          ],
+          "objects": [
+            0,
+            16040
+          ],
+          "words": [
+            0,
+            16165
+          ]
+        },
+        "map_base_after_four_persistent_allocations": 256632,
+        "map_segment_windows_nonzero_bytes": 926,
+        "map_segment_windows_sha256": "5e0084c9287798d84a3b4aa8fb3009f9f5d5232bb1d2278d505bd1b6b71550c5",
+        "level": 1,
+        "map_cells": 1980,
+        "frame_counter": 13,
+        "screenshot_sha256": "f7de733556986356bd542967922035ad931f69c54b009627b5f8f76edf3e3114",
+        "screenshot_not_instruction_aligned": true
+      },
+      {
+        "name": "level1-intro-3",
+        "observed_utc": "2026-10-10T04:21:50.045770+00:00",
+        "ram_file": "level1-intro-3.ram.gz",
+        "raw_ram_bytes": 1048576,
+        "raw_ram_sha256": "95feab41d3f0067d5212d2e99fc466b3fa37113fa5862ce657b84fdbca8b9e65",
+        "compressed_ram_bytes": 71513,
+        "compressed_ram_sha256": "cec1f843bcca8d6ef6a82ea71fe00b61133fca1d6d431259a82e5ad454e7b99f",
+        "code_segment": 417,
+        "data_segment": 3139,
+        "code_bytes_verified": 43552,
+        "relocated_code_differences": 0,
+        "pointers": {
+          "heap_start": [
+            0,
+            7346
+          ],
+          "heap_top": [
+            0,
+            16413
+          ],
+          "heap_limit": [
+            0,
+            40959
+          ],
+          "free_list": [
+            0,
+            16413
+          ],
+          "heap_error": [
+            169,
+            2753
+          ],
+          "sound": [
+            0,
+            7346
+          ],
+          "draw_buffer": [
+            8,
+            7395
+          ],
+          "sprites": [
+            0,
+            10958
+          ],
+          "backdrop": [
+            8,
+            12289
+          ],
+          "raw_objects": [
+            8,
+            16039
+          ],
+          "raw_words": [
+            8,
+            16164
+          ],
+          "objects": [
+            0,
+            16040
+          ],
+          "words": [
+            0,
+            16165
+          ]
+        },
+        "map_base_after_four_persistent_allocations": 256632,
+        "map_segment_windows_nonzero_bytes": 926,
+        "map_segment_windows_sha256": "5e0084c9287798d84a3b4aa8fb3009f9f5d5232bb1d2278d505bd1b6b71550c5",
+        "level": 1,
+        "map_cells": 1980,
+        "frame_counter": 0,
+        "screenshot_sha256": "ab546e3441530ab516d6e23b16674f0836cbfec860747b4f74edd5a8d2973416",
+        "screenshot_not_instruction_aligned": true
+      },
+      {
+        "name": "level1-running-3",
+        "observed_utc": "2026-10-10T04:21:51.105111+00:00",
+        "ram_file": "level1-running-3.ram.gz",
+        "raw_ram_bytes": 1048576,
+        "raw_ram_sha256": "4c21b8c0b0c4eabc7a9973a6fa7ee4b5d87e3b3407e5302bd535be8bf112babf",
+        "compressed_ram_bytes": 50614,
+        "compressed_ram_sha256": "22717ec6615829d7c171020773ee6e451223cc78ea8d53981cafee4ce71bc8e1",
+        "code_segment": 417,
+        "data_segment": 3139,
+        "code_bytes_verified": 43552,
+        "relocated_code_differences": 0,
+        "pointers": {
+          "heap_start": [
+            0,
+            7346
+          ],
+          "heap_top": [
+            0,
+            16413
+          ],
+          "heap_limit": [
+            0,
+            40959
+          ],
+          "free_list": [
+            0,
+            16413
+          ],
+          "heap_error": [
+            169,
+            2753
+          ],
+          "sound": [
+            0,
+            7346
+          ],
+          "draw_buffer": [
+            8,
+            7395
+          ],
+          "sprites": [
+            0,
+            10958
+          ],
+          "backdrop": [
+            8,
+            12289
+          ],
+          "raw_objects": [
+            8,
+            16039
+          ],
+          "raw_words": [
+            8,
+            16164
+          ],
+          "objects": [
+            0,
+            16040
+          ],
+          "words": [
+            0,
+            16165
+          ]
+        },
+        "map_base_after_four_persistent_allocations": 256632,
+        "map_segment_windows_nonzero_bytes": 926,
+        "map_segment_windows_sha256": "5e0084c9287798d84a3b4aa8fb3009f9f5d5232bb1d2278d505bd1b6b71550c5",
+        "level": 1,
+        "map_cells": 1980,
+        "frame_counter": 12,
+        "screenshot_sha256": "bdf1fd392ff46d0cd43057adce5ae9f50ea82d9c64bacd60493380dc1246399b",
+        "screenshot_not_instruction_aligned": true
+      }
+    ],
+    "inputs": [
+      {
+        "key": "1",
+        "observed_utc": "2026-10-10T04:20:47.508412+00:00"
+      },
+      {
+        "key": "Return",
+        "observed_utc": "2026-10-10T04:20:51.562926+00:00"
+      },
+      {
+        "key": "Escape",
+        "observed_utc": "2026-10-10T04:20:52.619869+00:00"
+      },
+      {
+        "key": "Return",
+        "observed_utc": "2026-10-10T04:20:56.678314+00:00"
+      },
+      {
+        "key": "1",
+        "observed_utc": "2026-10-10T04:21:16.743381+00:00"
+      },
+      {
+        "key": "Return",
+        "observed_utc": "2026-10-10T04:21:20.800962+00:00"
+      },
+      {
+        "key": "Escape",
+        "observed_utc": "2026-10-10T04:21:21.861248+00:00"
+      },
+      {
+        "key": "Return",
+        "observed_utc": "2026-10-10T04:21:25.935661+00:00"
+      },
+      {
+        "key": "1",
+        "observed_utc": "2026-10-10T04:21:46.005909+00:00"
+      },
+      {
+        "key": "Return",
+        "observed_utc": "2026-10-10T04:21:50.066069+00:00"
+      }
+    ],
+    "process_memory_opened_read_only": true,
+    "process_memory_writes": 0,
+    "injected_instructions": 0,
+    "resident_recorder": false,
+    "gameplay_state_seeded": false,
+    "clock_rng_or_heap_seeded": false,
+    "resource_io_executed": true,
+    "natural_menu_and_level1_only": true,
+    "natural_menu_abort_and_new_game_cycles": 2,
+    "arbitrary_reload_history_proven": false,
+    "failed_first_attempt_retained": "/tmp/lezac-original-map-reload-observation-20261010-t152",
+    "game_over_acknowledged_before_menu": true,
+    "menu_readiness_verified_by_equal_screenshots": true,
+    "atomic_ram_snapshots": true,
+    "frame_aligned_or_instruction_boundary_claim": false,
+    "unmodified_wall_clock_timing_claim": false,
+    "whole_game_complete": false,
+    "disk_guard_active": true,
+    "large_local_builds_deferred": true,
+    "child_pid": 825617,
+    "dosbox_sha256": "9213fb131e11cb195bdff40c24513740ce497c5caf1cef1900ad1faad5c5026b",
+    "code_segment": 417,
+    "data_segment": 3139,
+    "ram_base": 127792698093584,
+    "base_verified_from_original_heap_callback_and_dos_psp": true,
+    "status": "observed",
+    "passed": true,
+    "child_exit_code": 0,
+    "canonical_assets_unchanged": true
+  },
+  "frame_aligned": false,
+  "whole_game_complete": false
+}

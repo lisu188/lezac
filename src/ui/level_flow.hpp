@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ui/models.hpp"
+#include "core/hud.hpp"
 #include <functional>
 #include <utility>
 #include <vector>
@@ -19,17 +20,25 @@ public:
     void reset() { levelIntro_ = {}; levelOutro_ = {}; }
     static LevelIntroPattern makeLevelIntroPattern(const std::function<int(int, int)>& randomInclusive);
     static LevelIntroPattern capturedLevelIntroPattern();
+    static std::vector<OutroLine> gameOverLines(bool italian, const std::array<uint32_t, 2>& scores);
     void beginIntro(int levelIndex, LevelIntroPattern pattern, uint32_t now);
     size_t visibleLevelIntroCharacters(uint32_t now) const;
+    bool introWaitingForKey(uint32_t now) const;
+    void skipIntroTyping();
     void updateLevelIntro(uint32_t now);
     std::vector<OutroLine> levelOutroLines(bool italian) const;
     std::vector<OutroSegment> levelOutroSchedule(bool italian) const;
-    void beginOutro(uint32_t now, int destructionPercent,
-                    std::array<bool, 2> active, std::array<std::array<int, 4>, 2> bombCounts);
+    void beginOutro(uint32_t now, int destroyedCount,
+                    std::array<bool, 2> active, std::array<std::array<int, 4>, 2> bombCounts,
+                    const std::array<uint32_t, 2>& scores,
+                    const std::array<core::HudScoreReel, 2>& reels);
     void skipOutroTyping(uint32_t now, bool italian);
     void updateOutro(uint32_t now, bool italian,
+                     const std::function<void()>& preparePrelude,
                      const std::function<void(size_t, uint32_t)>& awardScore,
-                     const std::function<void()>& awardTick);
+                     const std::function<void(size_t)>& advanceScore,
+                     const std::function<void(size_t)>& awardTick,
+                     const std::function<void(size_t, uint32_t, uint32_t)>& typingBoundary = {});
     void finishOutro(const std::function<void(size_t, uint32_t)>& awardScore);
 private:
     bool interactiveEnabled_ = false;

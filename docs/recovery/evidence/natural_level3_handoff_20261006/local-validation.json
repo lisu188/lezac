@@ -1,0 +1,53 @@
+{
+  "status": "local_original_backed_handoff_regression_passed",
+  "built_cpp_source_sha256": "567e4023db2984253717745b467b39989070c6b6ef0909e572397b67f7a714fe",
+  "fresh_gcc13_release_binary_sha256": "f25e005ce78add7e2c90926c05440a08e70acd166fdd4924a138c325474db91f",
+  "cpp_gameplay_source_changed": false,
+  "old_gate_and_new_handoff_tests": {
+    "terminal": true,
+    "exit_code": 0,
+    "tests_passed": 4,
+    "seconds": 31.71,
+    "terminal_chunk": "860db4"
+  },
+  "source_and_claim_guardrails": {
+    "terminal": true,
+    "exit_code": 0,
+    "tests_passed": 8,
+    "terminal_chunk": "8f3e70"
+  },
+  "final_handoff_guard": {
+    "terminal": true,
+    "exit_code": 0,
+    "fixture_mutations_rejected": 24,
+    "producer_and_audit_mutations_rejected": 25,
+    "typed_mutations_rejected": 291,
+    "terminal_chunk": "a66015"
+  },
+  "final_handoff_comparison": {
+    "terminal": true,
+    "exit_code": 0,
+    "frames": 90,
+    "mapped_boundaries": 120,
+    "cpp_mutations_rejected": 43,
+    "terminal_chunk": "c047ed"
+  },
+  "native_pack_strict_player_binding_readback": {
+    "terminal": true,
+    "exit_code": 0,
+    "reference_sha256_unchanged": true,
+    "guard_input_sha256_unchanged": true,
+    "terminal_chunk": "197a42"
+  },
+  "native_snapshot_coherence": {
+    "boundaries": 148,
+    "differing_byte_observations": 11,
+    "globals_offsets": ["0x79a1", "0x79c4"],
+    "normalized_bytes": 0,
+    "cpp_full_state_parity_claim": false,
+    "terminal_chunk": "bbbf58"
+  },
+  "audio": "dummy",
+  "full_linux_and_windows_ci_pending": true,
+  "whole_game_complete": false
+}

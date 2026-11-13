@@ -18,6 +18,10 @@ struct UiActions {
     std::function<void()> recordsPageSound;
     std::function<void(int)> firePlayer;
     std::function<void(int)> adjustViewWidth;
+    std::function<void()> abortRun;
+    std::function<void()> prepareRecordsPage;
+    std::function<void()> prepareNameEntryPage;
+    std::function<bool()> canAdjustViewWidth;
 };
 
 class UiController {
@@ -29,8 +33,12 @@ public:
     void setPaused(bool value) { state_.paused = value; }
     void setShowBackground(bool value) { state_.showBackground = value; }
     void setItalian(bool value) { state_.italian = value; }
+    void beginMainMenu(uint32_t now) { state_.mainMenu = {true, now, kMainMenuFadeDurationMs, false}; }
+    MainMenuProgress mainMenuProgress(uint32_t now) const {
+        return ui::mainMenuProgress(state_.mainMenu, now, state_.italian);
+    }
     void onKey(Key key, bool& running, int levelIndex, int playerCount,
-               RecordStore& records, const UiActions& actions);
+               RecordStore& records, const UiActions& actions, uint32_t now = 0);
     bool shouldAcceptRepeatedNameEntryKey(Key key) const;
     static char recordCharForKey(Key key);
     static bool isPlayer1FireKey(Key key);
@@ -44,6 +52,8 @@ public:
     void cancelPendingRecord(RecordStore& records, const UiActions& actions);
     bool startNextPendingRecord(RecordStore& records, const UiActions& actions);
 private:
+    void finishEndRun(const UiActions& actions);
+    void enterRecordsPage(const UiActions& actions, bool playSound = false);
     UiState state_;
 };
 }

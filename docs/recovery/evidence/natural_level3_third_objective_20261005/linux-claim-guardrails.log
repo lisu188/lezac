@@ -1,0 +1,26 @@
+Internal ctest changing into directory: /dev/shm/lezac-third-pickup-regression-20261005/linux-build
+Test project /dev/shm/lezac-third-pickup-regression-20261005/linux-build
+      Start  29: port_completion_status
+ 1/10 Test  #29: port_completion_status ..........................   Passed    0.00 sec
+      Start 300: port_completion_status_checker
+ 2/10 Test #300: port_completion_status_checker ..................   Passed    0.48 sec
+      Start 304: port_completion_status_checker_selftest
+ 3/10 Test #304: port_completion_status_checker_selftest .........   Passed    0.06 sec
+      Start 305: visual_claim_guardrail
+ 4/10 Test #305: visual_claim_guardrail ..........................   Passed    0.23 sec
+      Start 306: visual_claim_guardrail_selftest
+ 5/10 Test #306: visual_claim_guardrail_selftest .................   Passed    0.06 sec
+      Start 307: visual_claim_promotion_entry_expectations
+ 6/10 Test #307: visual_claim_promotion_entry_expectations .......   Passed    0.34 sec
+      Start 308: visual_claim_promotion_candidate_expectations
+ 7/10 Test #308: visual_claim_promotion_candidate_expectations ...   Passed    0.46 sec
+      Start 309: visual_claim_promotion_plan_expectations
+ 8/10 Test #309: visual_claim_promotion_plan_expectations ........   Passed    0.75 sec
+      Start 310: visual_claim_promotion_manifest_expectations
+ 9/10 Test #310: visual_claim_promotion_manifest_expectations ....   Passed    0.64 sec
+      Start 311: visual_claim_promotion_workflow
+10/10 Test #311: visual_claim_promotion_workflow .................   Passed    0.08 sec
+
+100% tests passed, 0 tests failed out of 10
+
+Total Test time (real) =   3.12 sec

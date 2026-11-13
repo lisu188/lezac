@@ -1,0 +1,47 @@
+{
+  "actual_library_mapping_verified": true,
+  "asset_sha256": {
+    "LEZAC.EXE": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
+  },
+  "calls_stubbed": 0,
+  "complete_initial_seed_reconstruction": true,
+  "complete_memory_observer_control": true,
+  "compressed_bytes": 231225,
+  "compressed_sha256": "5821ed1b9cab839bba67c5dae0fc31c60b5ae57a48c08f447ccf8ab8bd3f6a29",
+  "coverage": {
+    "cases": 2576,
+    "completion_handoff": 1158,
+    "dac_writes": 40752,
+    "escape_handoff": 210,
+    "instructions": 688022,
+    "next_frame": 616,
+    "runtime_error": 576,
+    "view_change_handoff": 16,
+    "writes": 72808
+  },
+  "emulated_output_ports": [968, 969],
+  "full_frame_claim": false,
+  "hardware_inputs": 0,
+  "host_hardware_io": false,
+  "instruction_patches": 0,
+  "interrupts_delivered": 0,
+  "later_state_injected": false,
+  "natural_capture": false,
+  "natural_route": false,
+  "observer_control": "register-write-trace-versus-stop-only-code-hooks",
+  "ordered_writes_reconstruct_memory": true,
+  "original_code_bytes_verified": 43552,
+  "production_app_comparison": false,
+  "projection_bytes": 14476040,
+  "projection_sha256": "176eb02c288fb29c1f013e55f74781eb53055ad2f66c34bb5fc24246e6a9871a",
+  "raw_memory_published": false,
+  "schema": "lezac-controlled-frame-tail-v1",
+  "source_sha256": {
+    "actor_steering_oracle.py": "c7db982d16f62e83743cf87a606e8585ce9d5a0fc547807bdc1e9e5c0ee637fc",
+    "frame_camera_oracle.py": "7f277672f407c3d8054ef954e2b16958a139d827d9f3b2da0c7a36ed717d90b9",
+    "frame_tail_oracle.py": "e21de1f2c72fe3735cd552329321ae5891958ac5eca710d64634b4ffff730ebb"
+  },
+  "status": "passed",
+  "unicorn_library_sha256": "ddb196ec82b52e502c18e4a34478bf7b9f61c83c2ebaa95c74d8ded45a95da9c",
+  "unicorn_version": "2.1.4"
+}

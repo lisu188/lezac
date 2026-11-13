@@ -1,0 +1,30 @@
+{
+  "app_cadence_claim": false,
+  "bytes": 8917540,
+  "cases": 31296,
+  "early_core_slices": 14,
+  "files": [
+    {
+      "bytes": 192589,
+      "name": "data.bin.gz",
+      "sha256": "026320851b27828c536f546aa6fa794f4f0868c0b107d3fa6cf21b74df8edbcd"
+    },
+    {
+      "bytes": 1632,
+      "name": "origin.json",
+      "sha256": "b321cf25446b04eb528f7aaa7b07742c6158c8a77fb955beea064a636289b48d"
+    }
+  ],
+  "full_clock_claim": false,
+  "original_host_function_oracle_claim": false,
+  "original_irq_manifest_sha256": "1581397389b978a431865bc5c74aa1ffdb364d2d584fd0c4c1622d75b26ed6f6",
+  "port_cases": 20,
+  "schema": "lezac-keyboard-device-fixture-v1",
+  "sha256": "ef2820fea3fc8bd3cb5b8a95e1d877306a897aae256583e8b5b9fd1c07f7ba10",
+  "sources": {
+    "tools/keyboard_device_probe/build_oracle.py": "a23ad7e7a87a9287b51709b4113f3aac5311d2bbe4bdd06de8bce18a217ba26c",
+    "tools/keyboard_device_probe/oracle_driver.cpp": "decef7bbe9f7d53e586d1770fc9e2a95ab3027b9e015c680abaf4f8f4e915da7",
+    "tools/keyboard_device_probe/port_steps.py": "41fd9e5d93686a9e1c8c46043e54efe8877563c5a08cdc9b045be95168ec6092"
+  },
+  "whole_game_claim": false
+}

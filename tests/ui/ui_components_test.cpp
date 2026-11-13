@@ -46,7 +46,34 @@ int main() {
         ui.onKey(Key::P, running, 0, 2, records, actions);
         ui.onKey(Key::Insert, running, 0, 2, records, actions);
         require(events.back() == "fire2", "player-two fire mapping changed");
+        UiController widthUi;
+        widthUi.setMenu(false);
+        const size_t beforeWidth = events.size();
+        widthUi.onKey(Key::E, running, 0, 1, records, actions);
+        widthUi.onKey(Key::R, running, 0, 1, records, actions);
+        require(events.size() == beforeWidth + 2 && events[beforeWidth] == "width-8" && events.back() == "width8",
+                "original E/R direction or tile step changed");
+        widthUi.onKey(Key::E, running, 0, 2, records, actions);
+        widthUi.onKey(Key::R, running, 0, 2, records, actions);
+        widthUi.onKey(Key::P, running, 0, 1, records, actions);
+        widthUi.onKey(Key::E, running, 0, 1, records, actions);
+        widthUi.onKey(Key::R, running, 0, 1, records, actions);
+        require(events.size() == beforeWidth + 2, "width control escaped two-player or pause gating");
+        widthUi.onKey(Key::P, running, 0, 2, records, actions);
+        actions.canAdjustViewWidth = [] { return true; };
+        widthUi.onKey(Key::E, running, 0, 2, records, actions);
+        widthUi.onKey(Key::R, running, 0, 2, records, actions);
+        require(events.size() == beforeWidth + 4 && events.back() == "width8",
+                "configured two-player mode blocked its remaining player's width controls");
+        widthUi.onKey(Key::Insert, running, 0, 2, records, actions);
+        require(events.back() == "fire2", "survivor width capability stole player-two fire ownership");
+        actions.canAdjustViewWidth = [] { return false; };
+        widthUi.onKey(Key::E, running, 0, 1, records, actions);
+        require(events.size() == beforeWidth + 5, "disabled original width capability was ignored");
         ui.beginEndRun(EndReason::GameOver, 2, 2, 100, 200, records, actions);
+        require(ui.snapshot().page == MenuPage::GameOver && !records.hasPendingRecord() && events.back() == "reset",
+                "name entry bypassed the end-screen acknowledgement");
+        ui.onKey(Key::One, running, 2, 2, records, actions);
         require(events[events.size() - 2] == "reset" && events.back() == "prompt",
                 "record prompt preceded reset");
         require(records.pending().player == 1 && records.pending().level == 3,
@@ -74,19 +101,37 @@ int main() {
             "intro shared RNG draw order changed");
         flow.beginIntro(0, pattern, UINT32_MAX - 40);
         require(flow.visibleLevelIntroCharacters(40) == 2, "intro clock rollover changed");
-        flow.beginOutro(0, 10, {{true, true}}, {{{{0, 2, 0, 0}}, {{0, 3, 0, 0}}}});
+        const uint32_t introDuration = static_cast<uint32_t>(levelIntroCaption(0).size()) * kLevelIntroCharacterDelayMs;
+        require(!flow.introWaitingForKey(40) &&
+                !flow.introWaitingForKey(UINT32_MAX - 40 + introDuration - 1) &&
+                flow.introWaitingForKey(UINT32_MAX - 40 + introDuration), "intro final delay boundary changed");
+        flow.skipIntroTyping();
+        require(flow.intro().active && flow.introWaitingForKey(40) &&
+                flow.visibleLevelIntroCharacters(40) == levelIntroCaption(0).size(), "intro skip ended blocking wait");
+        flow.beginIntro(1, pattern, 100);
+        require(!flow.intro().typingSkipped && !flow.introWaitingForKey(100), "intro skip leaked to next level");
+        flow.beginOutro(0, 10, {{true, true}}, {{{{0, 2, 0, 0}}, {{0, 3, 0, 0}}}}, {{0, 0}}, {});
         const auto schedule = flow.levelOutroSchedule(true);
         events.clear();
         std::array<uint32_t, 2> scores{};
         auto award = [&](size_t player, uint32_t amount) {
             scores[player] += amount; events.push_back("score" + std::to_string(player));
         };
-        flow.updateOutro(schedule.back().end, true, award, [&] { events.push_back("rng"); });
-        require(scores == std::array<uint32_t, 2>{{300, 400}} &&
-                events == std::vector<std::string>({"score0", "rng", "score1", "rng"}),
+        flow.updateOutro(schedule.back().end, true, [] {}, award,
+                         [&](size_t player) { events.push_back("reel" + std::to_string(player)); },
+                         [&](size_t) { events.push_back("rng"); });
+        std::vector<std::string> expected;
+        for (size_t player = 0; player < 2; ++player) {
+            expected.push_back("score" + std::to_string(player));
+            for (uint32_t step = 0; step < flow.outro().reelSteps[player]; ++step) {
+                expected.push_back("reel" + std::to_string(player));
+                expected.push_back("rng");
+            }
+        }
+        require(scores == std::array<uint32_t, 2>{{300, 400}} && events == expected,
                 "outro award/RNG callback sequence changed");
         flow.finishOutro(award);
-        require(events.size() == 4 && !flow.outro().active, "outro awarded twice");
+        require(events == expected && !flow.outro().active, "outro awarded twice");
         std::cout << "ui_components=ok input=1 records=1 timing=1 callback_order=1 rng_order=1\n";
         return 0;
     } catch (const std::exception& error) {

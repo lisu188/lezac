@@ -1,0 +1,715 @@
+{
+  "actual_app_runtime_verified": false,
+  "compiled_rejections": 15,
+  "complete_output_preserved_losslessly": true,
+  "mutants": [
+    {
+      "changed_source_sha256": "d349ebf91f1272be597ef0f8e3a0713715a7ebde79d4464861bfaa2f5469eb55",
+      "commands": [
+        {
+          "args": [
+            "c++",
+            "-std=c++17",
+            "-O1",
+            "-I",
+            "/tmp/lezac-reward-mutant-skip-animation-20261009-t92/src",
+            "/tmp/lezac-reward-mutant-skip-animation-20261009-t92/tests/gameplay/reward_storage_probe.cpp",
+            "-o",
+            "/tmp/lezac-reward-mutant-skip-animation-20261009-t92/probe"
+          ],
+          "phase": "compile",
+          "returncode": 0
+        },
+        {
+          "args": [
+            "/tmp/lezac-reward-mutant-skip-animation-20261009-t92/probe",
+            "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/requests.bin",
+            "/tmp/lezac-reward-mutant-skip-animation-20261009-t92/actual.bin"
+          ],
+          "phase": "execute",
+          "returncode": 0
+        }
+      ],
+      "compiled": true,
+      "complete_execution": true,
+      "compressed_sha256": "4f9d4e2acd932b15074471f8f261fd7119b483963bd4bf5c4b66653a00db548b",
+      "first_difference": {
+        "actual": 9,
+        "actual_bytes": 7896482,
+        "area": "actors",
+        "expected": 6,
+        "expected_bytes": 7896482,
+        "operation": 1696,
+        "output_offset": 2686647,
+        "state_offset": 60
+      },
+      "lossless_replacement_verified": true,
+      "name": "skip-animation",
+      "output_bytes": 7896482,
+      "raw_sha256": "0527bf201eab4066b4a73ef4f28fe00807f01a5f13cd17b660747333ddb40994",
+      "rejected": true,
+      "root": "/tmp/lezac-reward-mutant-skip-animation-20261009-t92"
+    },
+    {
+      "changed_source_sha256": "dfba127f9b3468f52fd5860706c15f3144b89420d8e4886ced9d24b2c8fdf0a3",
+      "commands": [
+        {
+          "args": [
+            "c++",
+            "-std=c++17",
+            "-O1",
+            "-I",
+            "/tmp/lezac-reward-mutant-skip-reward-write-20261009-t92/src",
+            "/tmp/lezac-reward-mutant-skip-reward-write-20261009-t92/tests/gameplay/reward_storage_probe.cpp",
+            "-o",
+            "/tmp/lezac-reward-mutant-skip-reward-write-20261009-t92/probe"
+          ],
+          "phase": "compile",
+          "returncode": 0
+        },
+        {
+          "args": [
+            "/tmp/lezac-reward-mutant-skip-reward-write-20261009-t92/probe",
+            "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/requests.bin",
+            "/tmp/lezac-reward-mutant-skip-reward-write-20261009-t92/actual.bin"
+          ],
+          "phase": "execute",
+          "returncode": 0
+        }
+      ],
+      "compiled": true,
+      "complete_execution": true,
+      "compressed_sha256": "2d54ca265036ff39eb597c9e6bfb887a63b163285a609e4fca86893fb3d16904",
+      "first_difference": {
+        "actual": 56,
+        "actual_bytes": 7896482,
+        "area": "actors",
+        "expected": 120,
+        "expected_bytes": 7896482,
+        "operation": 2,
+        "output_offset": 1643,
+        "state_offset": 46
+      },
+      "lossless_replacement_verified": true,
+      "name": "skip-reward-write",
+      "output_bytes": 7896482,
+      "raw_sha256": "77f142e0ed8a1b19eea9e2abd71e91f71dec2954d6f684e15a4d2602f5e7869c",
+      "rejected": true,
+      "root": "/tmp/lezac-reward-mutant-skip-reward-write-20261009-t92"
+    },
+    {
+      "changed_source_sha256": "1ad18c5b6d051159407b23974f689a16fb2d73ba9e4cde608eec63f9db49df78",
+      "commands": [
+        {
+          "args": [
+            "c++",
+            "-std=c++17",
+            "-O1",
+            "-I",
+            "/tmp/lezac-reward-mutant-overwrite-dimensions-20261009-t92/src",
+            "/tmp/lezac-reward-mutant-overwrite-dimensions-20261009-t92/tests/gameplay/reward_storage_probe.cpp",
+            "-o",
+            "/tmp/lezac-reward-mutant-overwrite-dimensions-20261009-t92/probe"
+          ],
+          "phase": "compile",
+          "returncode": 0
+        },
+        {
+          "args": [
+            "/tmp/lezac-reward-mutant-overwrite-dimensions-20261009-t92/probe",
+            "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/requests.bin",
+            "/tmp/lezac-reward-mutant-overwrite-dimensions-20261009-t92/actual.bin"
+          ],
+          "phase": "execute",
+          "returncode": 0
+        }
+      ],
+      "compiled": true,
+      "complete_execution": true,
+      "compressed_sha256": "2338164f8f26f494d13d17c347a040ab2b9126a451e5b566508e92713ce5ee43",
+      "first_difference": {
+        "actual": 16,
+        "actual_bytes": 7896482,
+        "area": "visuals",
+        "expected": 10,
+        "expected_bytes": 7896482,
+        "operation": 1924,
+        "output_offset": 3049165,
+        "state_offset": 1198
+      },
+      "lossless_replacement_verified": true,
+      "name": "overwrite-dimensions",
+      "output_bytes": 7896482,
+      "raw_sha256": "f45f447abf4e97f923de17c0259051014b341565171f13992a8d66b15f41da79",
+      "rejected": true,
+      "root": "/tmp/lezac-reward-mutant-overwrite-dimensions-20261009-t92"
+    },
+    {
+      "changed_source_sha256": "a159f4e046bc6e0ebcc220cf0eefc88229dd23e25a2701ca5cc1f5cc12aa6b43",
+      "commands": [
+        {
+          "args": [
+            "c++",
+            "-std=c++17",
+            "-O1",
+            "-I",
+            "/tmp/lezac-reward-mutant-clear-backup-20261009-t92/src",
+            "/tmp/lezac-reward-mutant-clear-backup-20261009-t92/tests/gameplay/reward_storage_probe.cpp",
+            "-o",
+            "/tmp/lezac-reward-mutant-clear-backup-20261009-t92/probe"
+          ],
+          "phase": "compile",
+          "returncode": 0
+        },
+        {
+          "args": [
+            "/tmp/lezac-reward-mutant-clear-backup-20261009-t92/probe",
+            "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/requests.bin",
+            "/tmp/lezac-reward-mutant-clear-backup-20261009-t92/actual.bin"
+          ],
+          "phase": "execute",
+          "returncode": 0
+        }
+      ],
+      "compiled": true,
+      "complete_execution": true,
+      "compressed_sha256": "6409723c9bbf3174c2f5d5d22768840ad32d4f96fdced50be410b25ec65a6b51",
+      "first_difference": {
+        "actual": 0,
+        "actual_bytes": 7896482,
+        "area": "actors",
+        "expected": 43,
+        "expected_bytes": 7896482,
+        "operation": 201,
+        "output_offset": 317079,
+        "state_offset": 67
+      },
+      "lossless_replacement_verified": true,
+      "name": "clear-backup",
+      "output_bytes": 7896482,
+      "raw_sha256": "7b058abe14ce090fbab890e417058c879bbb02cc746468c7f5e59c42316862ae",
+      "rejected": true,
+      "root": "/tmp/lezac-reward-mutant-clear-backup-20261009-t92"
+    },
+    {
+      "changed_source_sha256": "c553f664979bc9d44456100c4726357b41aee21119339e6dbf6a972865b815b0",
+      "commands": [
+        {
+          "args": [
+            "c++",
+            "-std=c++17",
+            "-O1",
+            "-I",
+            "/tmp/lezac-reward-mutant-skip-sprite-conversion-20261009-t92/src",
+            "/tmp/lezac-reward-mutant-skip-sprite-conversion-20261009-t92/tests/gameplay/reward_storage_probe.cpp",
+            "-o",
+            "/tmp/lezac-reward-mutant-skip-sprite-conversion-20261009-t92/probe"
+          ],
+          "phase": "compile",
+          "returncode": 0
+        },
+        {
+          "args": [
+            "/tmp/lezac-reward-mutant-skip-sprite-conversion-20261009-t92/probe",
+            "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/requests.bin",
+            "/tmp/lezac-reward-mutant-skip-sprite-conversion-20261009-t92/actual.bin"
+          ],
+          "phase": "execute",
+          "returncode": 0
+        }
+      ],
+      "compiled": true,
+      "complete_execution": true,
+      "compressed_sha256": "5aab61e7b589979a54714f0de46fb3d9ceae022c04a0e84272be9ba572cb52ac",
+      "first_difference": {
+        "actual": 10,
+        "actual_bytes": 7896482,
+        "area": "visuals",
+        "expected": 16,
+        "expected_bytes": 7896482,
+        "operation": 201,
+        "output_offset": 318210,
+        "state_offset": 1198
+      },
+      "lossless_replacement_verified": true,
+      "name": "skip-sprite-conversion",
+      "output_bytes": 7896482,
+      "raw_sha256": "1ab190060a6d087fe8d0a8911d62d46fc087e0901999a90a45b076288d19c72b",
+      "rejected": true,
+      "root": "/tmp/lezac-reward-mutant-skip-sprite-conversion-20261009-t92"
+    },
+    {
+      "changed_source_sha256": "3d010169adce8927e8b75c35248979586b6d447007e9f305bf7c9fdf8b0f3c03",
+      "commands": [
+        {
+          "args": [
+            "c++",
+            "-std=c++17",
+            "-O1",
+            "-I",
+            "/tmp/lezac-reward-mutant-skip-transient-write-20261009-t92/src",
+            "/tmp/lezac-reward-mutant-skip-transient-write-20261009-t92/tests/gameplay/reward_storage_probe.cpp",
+            "-o",
+            "/tmp/lezac-reward-mutant-skip-transient-write-20261009-t92/probe"
+          ],
+          "phase": "compile",
+          "returncode": 0
+        },
+        {
+          "args": [
+            "/tmp/lezac-reward-mutant-skip-transient-write-20261009-t92/probe",
+            "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/requests.bin",
+            "/tmp/lezac-reward-mutant-skip-transient-write-20261009-t92/actual.bin"
+          ],
+          "phase": "execute",
+          "returncode": 0
+        }
+      ],
+      "compiled": true,
+      "complete_execution": true,
+      "compressed_sha256": "bc955b667ed0b66336db787c4601c5a07ddb83408d6e5dff59722bb2d4fc5b22",
+      "first_difference": {
+        "actual": 19,
+        "actual_bytes": 7896482,
+        "area": "actors",
+        "expected": 0,
+        "expected_bytes": 7896482,
+        "operation": 201,
+        "output_offset": 317050,
+        "state_offset": 38
+      },
+      "lossless_replacement_verified": true,
+      "name": "skip-transient-write",
+      "output_bytes": 7896482,
+      "raw_sha256": "af2b3d04fb42d678644ca15a3ff795c3395103cd132b0c6579f3af395686d31f",
+      "rejected": true,
+      "root": "/tmp/lezac-reward-mutant-skip-transient-write-20261009-t92"
+    },
+    {
+      "changed_source_sha256": "64d1c2cf4ddbaade1f7d5d960f5f55a37aefc6f54109d48da43dd3a093399aa9",
+      "commands": [
+        {
+          "args": [
+            "c++",
+            "-std=c++17",
+            "-O1",
+            "-I",
+            "/tmp/lezac-reward-mutant-one-player-only-20261009-t92/src",
+            "/tmp/lezac-reward-mutant-one-player-only-20261009-t92/tests/gameplay/reward_storage_probe.cpp",
+            "-o",
+            "/tmp/lezac-reward-mutant-one-player-only-20261009-t92/probe"
+          ],
+          "phase": "compile",
+          "returncode": 0
+        },
+        {
+          "args": [
+            "/tmp/lezac-reward-mutant-one-player-only-20261009-t92/probe",
+            "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/requests.bin",
+            "/tmp/lezac-reward-mutant-one-player-only-20261009-t92/actual.bin"
+          ],
+          "phase": "execute",
+          "returncode": 0
+        }
+      ],
+      "compiled": true,
+      "complete_execution": true,
+      "compressed_sha256": "3cd672a0e8014099bdfdfd9f61d78e362178f3ff1238963681e7ea1e26d3e4d2",
+      "first_difference": {
+        "actual": 19,
+        "actual_bytes": 7896482,
+        "area": "actors",
+        "expected": 11,
+        "expected_bytes": 7896482,
+        "operation": 1753,
+        "output_offset": 2776970,
+        "state_offset": 38
+      },
+      "lossless_replacement_verified": true,
+      "name": "one-player-only",
+      "output_bytes": 7896482,
+      "raw_sha256": "ee09a58ea773b35f36cb436921ca684c884218c645e673f51429143b7a582309",
+      "rejected": true,
+      "root": "/tmp/lezac-reward-mutant-one-player-only-20261009-t92"
+    },
+    {
+      "changed_source_sha256": "1f4acfd415f7b7bf8197d08bbe54f318c9e4547815b7dc8764120f53784e1619",
+      "commands": [
+        {
+          "args": [
+            "c++",
+            "-std=c++17",
+            "-O1",
+            "-I",
+            "/tmp/lezac-reward-mutant-block-second-player-20261009-t92/src",
+            "/tmp/lezac-reward-mutant-block-second-player-20261009-t92/tests/gameplay/reward_storage_probe.cpp",
+            "-o",
+            "/tmp/lezac-reward-mutant-block-second-player-20261009-t92/probe"
+          ],
+          "phase": "compile",
+          "returncode": 0
+        },
+        {
+          "args": [
+            "/tmp/lezac-reward-mutant-block-second-player-20261009-t92/probe",
+            "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/requests.bin",
+            "/tmp/lezac-reward-mutant-block-second-player-20261009-t92/actual.bin"
+          ],
+          "phase": "execute",
+          "returncode": 0
+        }
+      ],
+      "compiled": true,
+      "complete_execution": true,
+      "compressed_sha256": "b6e7d2e8d94327c3836eae03d674f1b0cea44faf8fea61c0601e3eea07db58ac",
+      "first_difference": {
+        "actual": 106,
+        "actual_bytes": 7896482,
+        "area": "scalars",
+        "expected": 19,
+        "expected_bytes": 7896482,
+        "operation": 1810,
+        "output_offset": 2868852,
+        "state_offset": 1575
+      },
+      "lossless_replacement_verified": true,
+      "name": "block-second-player",
+      "output_bytes": 7896482,
+      "raw_sha256": "4cd687e0f519a071268394f053f512c305a5a925c6a3bcc70c95f01659415992",
+      "rejected": true,
+      "root": "/tmp/lezac-reward-mutant-block-second-player-20261009-t92"
+    },
+    {
+      "changed_source_sha256": "3a735cee4aca51af82265f2d9b6ab9c5833fbe351dcc321e3546cd666ecb7b6a",
+      "commands": [
+        {
+          "args": [
+            "c++",
+            "-std=c++17",
+            "-O1",
+            "-I",
+            "/tmp/lezac-reward-mutant-ignore-pending-gate-20261009-t92/src",
+            "/tmp/lezac-reward-mutant-ignore-pending-gate-20261009-t92/tests/gameplay/reward_storage_probe.cpp",
+            "-o",
+            "/tmp/lezac-reward-mutant-ignore-pending-gate-20261009-t92/probe"
+          ],
+          "phase": "compile",
+          "returncode": 0
+        },
+        {
+          "args": [
+            "/tmp/lezac-reward-mutant-ignore-pending-gate-20261009-t92/probe",
+            "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/requests.bin",
+            "/tmp/lezac-reward-mutant-ignore-pending-gate-20261009-t92/actual.bin"
+          ],
+          "phase": "execute",
+          "returncode": 0
+        }
+      ],
+      "compiled": true,
+      "complete_execution": true,
+      "compressed_sha256": "22dccf31a9198ddbaeb273f5dbc89005aa42332d6ebcc52bd6c8346416c02eaf",
+      "first_difference": {
+        "actual": 120,
+        "actual_bytes": 7896482,
+        "area": "actors",
+        "expected": 220,
+        "expected_bytes": 7896482,
+        "operation": 1867,
+        "output_offset": 2957668,
+        "state_offset": 46
+      },
+      "lossless_replacement_verified": true,
+      "name": "ignore-pending-gate",
+      "output_bytes": 7896482,
+      "raw_sha256": "2596767849edd42275f38d0693ce60ac29486cd84ee3a0c006d9d922d5f81eaf",
+      "rejected": true,
+      "root": "/tmp/lezac-reward-mutant-ignore-pending-gate-20261009-t92"
+    },
+    {
+      "changed_source_sha256": "0d37a782cf31ed28eeb37c236d718744d703564529ad706a84a35ac5cbe574e2",
+      "commands": [
+        {
+          "args": [
+            "c++",
+            "-std=c++17",
+            "-O1",
+            "-I",
+            "/tmp/lezac-reward-mutant-pickup-skip-gravity-20261009-t92/src",
+            "/tmp/lezac-reward-mutant-pickup-skip-gravity-20261009-t92/tests/gameplay/reward_storage_probe.cpp",
+            "-o",
+            "/tmp/lezac-reward-mutant-pickup-skip-gravity-20261009-t92/probe"
+          ],
+          "phase": "compile",
+          "returncode": 0
+        },
+        {
+          "args": [
+            "/tmp/lezac-reward-mutant-pickup-skip-gravity-20261009-t92/probe",
+            "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/requests.bin",
+            "/tmp/lezac-reward-mutant-pickup-skip-gravity-20261009-t92/actual.bin"
+          ],
+          "phase": "execute",
+          "returncode": 0
+        }
+      ],
+      "compiled": true,
+      "complete_execution": true,
+      "compressed_sha256": "da7d909794474d01d24ac626e789964f8d0d9aab75fc6b09b6ce4eebdb919816",
+      "first_difference": {
+        "actual": 156,
+        "actual_bytes": 7896482,
+        "area": "actors",
+        "expected": 220,
+        "expected_bytes": 7896482,
+        "operation": 1696,
+        "output_offset": 2686633,
+        "state_offset": 46
+      },
+      "lossless_replacement_verified": true,
+      "name": "pickup-skip-gravity",
+      "output_bytes": 7896482,
+      "raw_sha256": "2e7ca5e3a7d450ede67b273767a11f1b48d7c725ece0cee708266d04795084af",
+      "rejected": true,
+      "root": "/tmp/lezac-reward-mutant-pickup-skip-gravity-20261009-t92"
+    },
+    {
+      "changed_source_sha256": "9a78ce25abd23e6a768f5fe6f3523aff9d81a2211045cd2f94cef7d3c46bb4e6",
+      "commands": [
+        {
+          "args": [
+            "c++",
+            "-std=c++17",
+            "-O1",
+            "-I",
+            "/tmp/lezac-reward-mutant-lose-pickup-fraction-20261009-t92/src",
+            "/tmp/lezac-reward-mutant-lose-pickup-fraction-20261009-t92/tests/gameplay/reward_storage_probe.cpp",
+            "-o",
+            "/tmp/lezac-reward-mutant-lose-pickup-fraction-20261009-t92/probe"
+          ],
+          "phase": "compile",
+          "returncode": 0
+        },
+        {
+          "args": [
+            "/tmp/lezac-reward-mutant-lose-pickup-fraction-20261009-t92/probe",
+            "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/requests.bin",
+            "/tmp/lezac-reward-mutant-lose-pickup-fraction-20261009-t92/actual.bin"
+          ],
+          "phase": "execute",
+          "returncode": 0
+        }
+      ],
+      "compiled": true,
+      "complete_execution": true,
+      "compressed_sha256": "27d252106a7152a6dff690411a0455901b0420f4fa4e073b69b46b35122c2ca9",
+      "first_difference": {
+        "actual": 0,
+        "actual_bytes": 7896482,
+        "area": "actors",
+        "expected": 171,
+        "expected_bytes": 7896482,
+        "operation": 1696,
+        "output_offset": 2686635,
+        "state_offset": 48
+      },
+      "lossless_replacement_verified": true,
+      "name": "lose-pickup-fraction",
+      "output_bytes": 7896482,
+      "raw_sha256": "92f25e8a5a61ec30bc6b2f642c97a8d8b06a76e532b8dd5cc6a1aab3a8994c50",
+      "rejected": true,
+      "root": "/tmp/lezac-reward-mutant-lose-pickup-fraction-20261009-t92"
+    },
+    {
+      "changed_source_sha256": "3a14e2825636d89ebcd9183bdd08636bef143c0d3a47745d071666b9da1b2ccb",
+      "commands": [
+        {
+          "args": [
+            "c++",
+            "-std=c++17",
+            "-O1",
+            "-I",
+            "/tmp/lezac-reward-mutant-skip-pickup-mode-clear-20261009-t92/src",
+            "/tmp/lezac-reward-mutant-skip-pickup-mode-clear-20261009-t92/tests/gameplay/reward_storage_probe.cpp",
+            "-o",
+            "/tmp/lezac-reward-mutant-skip-pickup-mode-clear-20261009-t92/probe"
+          ],
+          "phase": "compile",
+          "returncode": 0
+        },
+        {
+          "args": [
+            "/tmp/lezac-reward-mutant-skip-pickup-mode-clear-20261009-t92/probe",
+            "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/requests.bin",
+            "/tmp/lezac-reward-mutant-skip-pickup-mode-clear-20261009-t92/actual.bin"
+          ],
+          "phase": "execute",
+          "returncode": 0
+        }
+      ],
+      "compiled": true,
+      "complete_execution": true,
+      "compressed_sha256": "0c9471df800ab9b948a3d750c6f321976b175874004e55b36ef83038ec56217a",
+      "first_difference": {
+        "actual": 1,
+        "actual_bytes": 7896482,
+        "area": "actors",
+        "expected": 0,
+        "expected_bytes": 7896482,
+        "operation": 1696,
+        "output_offset": 2686652,
+        "state_offset": 65
+      },
+      "lossless_replacement_verified": true,
+      "name": "skip-pickup-mode-clear",
+      "output_bytes": 7896482,
+      "raw_sha256": "cf63dad915e0e07a1b5abd04567befa96e7227e02cbf37e9dafc2783d9f8ede3",
+      "rejected": true,
+      "root": "/tmp/lezac-reward-mutant-skip-pickup-mode-clear-20261009-t92"
+    },
+    {
+      "changed_source_sha256": "2b842de13dbc428dc3564b6dc595140d9374f0245e68dcc592f6797de8f984e4",
+      "commands": [
+        {
+          "args": [
+            "c++",
+            "-std=c++17",
+            "-O1",
+            "-I",
+            "/tmp/lezac-reward-mutant-wrong-expiry-sprite-20261009-t92/src",
+            "/tmp/lezac-reward-mutant-wrong-expiry-sprite-20261009-t92/tests/gameplay/reward_storage_probe.cpp",
+            "-o",
+            "/tmp/lezac-reward-mutant-wrong-expiry-sprite-20261009-t92/probe"
+          ],
+          "phase": "compile",
+          "returncode": 0
+        },
+        {
+          "args": [
+            "/tmp/lezac-reward-mutant-wrong-expiry-sprite-20261009-t92/probe",
+            "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/requests.bin",
+            "/tmp/lezac-reward-mutant-wrong-expiry-sprite-20261009-t92/actual.bin"
+          ],
+          "phase": "execute",
+          "returncode": 0
+        }
+      ],
+      "compiled": true,
+      "complete_execution": true,
+      "compressed_sha256": "5d76ed04a4e687522037a3bed75c95a688f97455c545243dfd8e917d3bcbb0bd",
+      "first_difference": {
+        "actual": 62,
+        "actual_bytes": 7896482,
+        "area": "visuals",
+        "expected": 67,
+        "expected_bytes": 7896482,
+        "operation": 201,
+        "output_offset": 318213,
+        "state_offset": 1201
+      },
+      "lossless_replacement_verified": true,
+      "name": "wrong-expiry-sprite",
+      "output_bytes": 7896482,
+      "raw_sha256": "67741ca6fe8e8ed00d50d6a69ebf63f9ce6d42db1a12470b10ad2237fb2925f5",
+      "rejected": true,
+      "root": "/tmp/lezac-reward-mutant-wrong-expiry-sprite-20261009-t92"
+    },
+    {
+      "changed_source_sha256": "0be78dac12df7f0639bb0acc59fec548898ff556c32870266838472ebface261",
+      "commands": [
+        {
+          "args": [
+            "c++",
+            "-std=c++17",
+            "-O1",
+            "-I",
+            "/tmp/lezac-reward-mutant-wrong-expiry-timer-20261009-t92/src",
+            "/tmp/lezac-reward-mutant-wrong-expiry-timer-20261009-t92/tests/gameplay/reward_storage_probe.cpp",
+            "-o",
+            "/tmp/lezac-reward-mutant-wrong-expiry-timer-20261009-t92/probe"
+          ],
+          "phase": "compile",
+          "returncode": 0
+        },
+        {
+          "args": [
+            "/tmp/lezac-reward-mutant-wrong-expiry-timer-20261009-t92/probe",
+            "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/requests.bin",
+            "/tmp/lezac-reward-mutant-wrong-expiry-timer-20261009-t92/actual.bin"
+          ],
+          "phase": "execute",
+          "returncode": 0
+        }
+      ],
+      "compiled": true,
+      "complete_execution": true,
+      "compressed_sha256": "99c9662a8dcf6eea07d2a8067111ecfb85d50003ac2f0c6d0b8bc0aae9efc737",
+      "first_difference": {
+        "actual": 0,
+        "actual_bytes": 7896482,
+        "area": "actors",
+        "expected": 18,
+        "expected_bytes": 7896482,
+        "operation": 201,
+        "output_offset": 317052,
+        "state_offset": 40
+      },
+      "lossless_replacement_verified": true,
+      "name": "wrong-expiry-timer",
+      "output_bytes": 7896482,
+      "raw_sha256": "12443dd9e3631dca17a2cad76a223188a538282c1b76dbddc98485ba6d1f9d55",
+      "rejected": true,
+      "root": "/tmp/lezac-reward-mutant-wrong-expiry-timer-20261009-t92"
+    },
+    {
+      "changed_source_sha256": "b6bec6b96917b92bf7172306173a50e89bb2f6384c4cb494a5d502d222e013aa",
+      "commands": [
+        {
+          "args": [
+            "c++",
+            "-std=c++17",
+            "-O1",
+            "-I",
+            "/tmp/lezac-reward-mutant-unphased-timer-20261009-t92/src",
+            "/tmp/lezac-reward-mutant-unphased-timer-20261009-t92/tests/gameplay/reward_storage_probe.cpp",
+            "-o",
+            "/tmp/lezac-reward-mutant-unphased-timer-20261009-t92/probe"
+          ],
+          "phase": "compile",
+          "returncode": 0
+        },
+        {
+          "args": [
+            "/tmp/lezac-reward-mutant-unphased-timer-20261009-t92/probe",
+            "/tmp/lezac-reward-writeback-helper-20261009-t92/reward-helper-0l1yfodq/requests.bin",
+            "/tmp/lezac-reward-mutant-unphased-timer-20261009-t92/actual.bin"
+          ],
+          "phase": "execute",
+          "returncode": 0
+        }
+      ],
+      "compiled": true,
+      "complete_execution": true,
+      "compressed_sha256": "55c4216159ca9c0377c90d399a14f3f6ec2ea1d36f4ea373862cde791af0f8a0",
+      "first_difference": {
+        "actual": 99,
+        "actual_bytes": 7896482,
+        "area": "actors",
+        "expected": 100,
+        "expected_bytes": 7896482,
+        "operation": 2,
+        "output_offset": 1637,
+        "state_offset": 40
+      },
+      "lossless_replacement_verified": true,
+      "name": "unphased-timer",
+      "output_bytes": 7896482,
+      "raw_sha256": "c04521fb4ddbeb43350125fe11c7a9a639f93ef94ce8fabb29971f11b222a7fc",
+      "rejected": true,
+      "root": "/tmp/lezac-reward-mutant-unphased-timer-20261009-t92"
+    }
+  ],
+  "passed": true,
+  "recorded_utc": "2026-10-09T04:03:06.899733+00:00",
+  "source_unchanged": true
+}

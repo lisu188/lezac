@@ -1,0 +1,61 @@
+{
+  "actual_library_mapping_verified": true,
+  "asset_sha256": {
+    "LEZAC.EXE": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
+  },
+  "calls_stubbed": 0,
+  "cases": 6569,
+  "complete_memory_observer_control": true,
+  "compressed_bytes": 192433,
+  "compressed_sha256": "8e0c439726fbc436c2d6a6967b255a97b1a4d6260799970d9113ff3af9a84a05",
+  "continuous_actor_cases": 54,
+  "controlled_initial_memory": true,
+  "domains": [
+    6461,
+    54,
+    54
+  ],
+  "excluded_private_stack_profiles": 14,
+  "frozen_parent_entry_and_endpoint_checkpoints_verified": true,
+  "full_frame_claim": false,
+  "hardware_io": 0,
+  "input_bytes": 585,
+  "instruction_patches": 0,
+  "interrupts_delivered": 0,
+  "later_state_injected": false,
+  "natural_capture": false,
+  "normalized_private_stack": true,
+  "ordered_writes_reconstruct_memory": true,
+  "original_code_bytes_verified": 43552,
+  "outcomes": [
+    6539,
+    0,
+    30
+  ],
+  "parent_manifest_sha256": "5a92392c878cab569d73e108837835d429ef81062e605095892b21db2290ed6c",
+  "parent_projection_sha256": "07f6cc24b0e2460b23908306d34445cd1b4a5e0014253dc394ca2b3b945756b8",
+  "production_app_comparison": false,
+  "projection_bytes": 4296170,
+  "projection_sha256": "bde513f8fcd3ea59200697887afa9630ac90e099d93a6b91e633c8a3d63150e6",
+  "raw_memory_published": false,
+  "real_caller_cases": 54,
+  "result_bytes": 64,
+  "schema": "lezac-controlled-nonplayer-motion-prefix-v1",
+  "source_sha256": {
+    "tools/actor_contact_oracle.py": "05a7ceda0d19cb69c6d52afb952ae5a1e5d110e65564d349238bbc4d985ea7a6",
+    "tools/actor_motion_oracle.py": "807063aa1c347b0bb415666f37e475cc0c3d274c4aa17c653e1848aecbb5409b",
+    "tools/actor_precontact_oracle.py": "acd412b048d7872287764a9881f4edadd2b0fe676006a0e8ed022914f537af60",
+    "tools/actor_steering_oracle.py": "c7db982d16f62e83743cf87a606e8585ce9d5a0fc547807bdc1e9e5c0ee637fc",
+    "tools/ammo_hud_oracle.py": "40d3698b61cf7703e16a7277a9fa33fb15ea973a2f299d3458df99fe0026153e",
+    "tools/boss_links_oracle.py": "b7d2264e4b5548aac4eb7af2db95c849c8ef34902ff2ab97feb179c7e020c7b4",
+    "tools/check_actor_motion_fixture.py": "2d8ad3e09872e220573a08196abae3e75948f187c9a5fbb6c75c5a2b088a4459",
+    "tools/frame_actor_entry_oracle.py": "cccc50c4c7304796ba7203c026d2a494a057e454e9ce9928563af195c165349e",
+    "tools/frame_camera_oracle.py": "7f277672f407c3d8054ef954e2b16958a139d827d9f3b2da0c7a36ed717d90b9",
+    "tools/frame_spawner_oracle.py": "dbf1661df4c07ed0d422a764c6d2c31a8ca623e5b23d4ae6c8317783ffcc049f",
+    "tools/frame_waiting_oracle.py": "b2183e5c47d80f9c57a6c9292eb84566c912eeab905628aa2b01330258306db3",
+    "tools/nonplayer_motion_oracle.py": "6eb5708bafa6c8f19259baa8876e1b321e794daf2b9483a5af97d0a99dfaeef7"
+  },
+  "unicorn_library_sha256": "ddb196ec82b52e502c18e4a34478bf7b9f61c83c2ebaa95c74d8ded45a95da9c",
+  "unicorn_version": "2.1.4",
+  "whole_game_parity": false
+}

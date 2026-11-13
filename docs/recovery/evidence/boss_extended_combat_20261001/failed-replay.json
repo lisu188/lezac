@@ -1,0 +1,11 @@
+{
+  "status": "failed",
+  "exit_code": 1,
+  "stderr": "fatal: boss-continuous latched_fire_even sample=1793: route effect mismatch\n",
+  "source_sha256": "2abbe661ed6e74165c177a20bc29f22a04cc66edc9728256879d961f6a14b7dc",
+  "executable_sha256": "621013db5eac78c4b32a232a299f247c1247330cca9347cdb661142c06d5de62",
+  "audio": "dummy",
+  "video": "dummy",
+  "whole_game_parity": false,
+  "failure_scope": "diagnostic conflates visual and actor order; no passing replay claim"
+}

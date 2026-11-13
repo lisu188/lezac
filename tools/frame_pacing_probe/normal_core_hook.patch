@@ -1,0 +1,7 @@
+--- a/src/cpu/core_normal.cpp
++++ b/src/cpu/core_normal.cpp
+@@ -138,0 +139,2 @@
++#include "lezac_work_probe.h"
++
+@@ -141,0 +144 @@
++		LezacWorkProbe();

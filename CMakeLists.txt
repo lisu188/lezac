@@ -210,6 +210,7 @@ if(BUILD_TESTING)
         add_dependencies(${target} lezac_cpp)
     endfunction()
     add_executable(lezac_gameplay_api_test tests/gameplay_api_test.cpp)
+    target_compile_definitions(lezac_gameplay_api_test PRIVATE SDL_MAIN_HANDLED)
     target_link_libraries(lezac_gameplay_api_test PRIVATE lezac_gameplay)
     add_test(NAME gameplay_owned_fixture_api COMMAND lezac_gameplay_api_test)
     set_tests_properties(gameplay_owned_fixture_api PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}

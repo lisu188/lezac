@@ -95,7 +95,7 @@ class ContactFailureRetention(unittest.TestCase):
                 with ExitStack() as stack:
                     stack.enter_context(patch.object(checker, 'ROOT', root))
                     stack.enter_context(patch.object(checker, 'metadata', return_value={'cases': 9184}))
-                    stack.enter_context(patch.object(checker, 'source_files', return_value=[]))
+                    stack.enter_context(patch.object(checker, 'gameplay_source_text', return_value=''))
                     stack.enter_context(patch.object(checker, 'check_source'))
                     stack.enter_context(patch.object(checker, 'unpack', side_effect=unpack))
                     stack.enter_context(patch.object(checker.subprocess, 'run', side_effect=probe))

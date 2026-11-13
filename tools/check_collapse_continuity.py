@@ -1,4 +1,5 @@
 """Compare all original repeated-collapse boundaries in bounded input-only App batches."""
+from gameplay_source import gameplay_source_text
 import argparse
 import gzip
 import io
@@ -231,7 +232,7 @@ def main():
     if bool(args.exe) != bool(args.out):
         parser.error('--out is required only with --exe')
     data = history.metadata(args.profile)
-    source = '\n'.join(item.text for item in source_files(history.ROOT, ('app', 'gameplay'), 'runtime'))
+    source = gameplay_source_text(history.ROOT, headers=True)
     check_source(source)
     if args.self_check:
         self_check(data, source)

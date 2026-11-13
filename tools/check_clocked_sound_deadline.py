@@ -1,4 +1,5 @@
 """Guard live deadline assertions; compiled CTests exercise the actual loop."""
+from gameplay_source import gameplay_source_text
 from pathlib import Path
 
 from source_guardrails import function_ranges, mask_cpp
@@ -58,7 +59,7 @@ def check(app, cmake):
 
 
 def main():
-    app = (ROOT / 'src/app/app.cpp').read_text(encoding='utf-8')
+    app = gameplay_source_text(ROOT)
     cmake = (ROOT / 'CMakeLists.txt').read_text(encoding='utf-8')
     check(app, cmake)
     mutations = (

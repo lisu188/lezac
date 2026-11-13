@@ -1,4 +1,5 @@
 """Native fracture contracts and checker negative controls, not App acceptance."""
+from gameplay_source import gameplay_source_text
 from pathlib import Path
 import struct
 import subprocess
@@ -97,7 +98,7 @@ class FractureTests(unittest.TestCase):
         self.assertEqual(cell_cursors, 216)
 
     def test_source_writes_cell_cursor_before_fracture_rng_and_seeder(self):
-        source = (self.root / 'src/app/app.cpp').read_text(encoding='utf-8')
+        source = gameplay_source_text(self.root)
         body = source[source.index('    void updateCollapseRecords() {'):source.index('    void updateFlashes() {')]
         fracture = body[body.index('if (fracture)'):body.index('if (!fracture)')]
         statement = 'sound_.writeSharedCursor(static_cast<uint16_t>(cell));'
@@ -113,7 +114,7 @@ class FractureTests(unittest.TestCase):
             check(fracture.replace(statement, '', 1))
 
     def test_source_commits_only_early_fields_before_fracture(self):
-        source = (self.root / 'src/app/app.cpp').read_text(encoding='utf-8')
+        source = gameplay_source_text(self.root)
         body = source[source.index('    void updateCollapseRecords() {'):source.index('    void updateFlashes() {')]
         fracture = body.index('if (fracture)')
         for statement in ('collapseQueue_[slot].flags = record.flags;',

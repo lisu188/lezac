@@ -1,4 +1,5 @@
 """Compare input-only production collapse updates with complete original state."""
+from gameplay_source import gameplay_source_text
 import argparse
 import gzip
 import hashlib
@@ -337,7 +338,7 @@ def main():
         parser.error('--out is required only with --exe')
     data = metadata(args.profile)
     prefix = 'collapse_' + args.profile + '_history'
-    source = '\n'.join(item.text for item in source_files(ROOT, ('app', 'gameplay'), 'runtime'))
+    source = gameplay_source_text(ROOT, headers=True)
     check_source(source)
     if args.self_check:
         self_check(data, source)

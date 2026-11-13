@@ -1,4 +1,5 @@
 """Compare the live C++ contact helper with executed original pool/map records."""
+from gameplay_source import gameplay_source_text
 import argparse
 import gzip
 import hashlib
@@ -71,6 +72,8 @@ def contact_ranges(text, names):
     # preserving line positions and every function body.
     signature = 'damageLaneMemory(std::array<int*, 4> lanes = {})'
     parsed = text.replace(signature, 'auto ' + signature.replace('{}', '0 '))
+    parsed = re.sub(r'(?m)^([ \t]*)damageLaneMemory(\(std::array<int\*, 4> lanes\s*\))',
+                    r'\1auto damageLaneMemory\2', parsed)
     return function_ranges(parsed, names)
 
 
@@ -224,7 +227,7 @@ def main():
     mode.add_argument('--self-check', action='store_true')
     args = parser.parse_args()
     data = metadata()
-    source = '\n'.join(item.text for item in source_files(ROOT, ('app', 'gameplay'), 'runtime'))
+    source = gameplay_source_text(ROOT, headers=True)
     check_source(source)
     if args.self_check:
         count = 0

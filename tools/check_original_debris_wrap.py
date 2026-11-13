@@ -4,6 +4,8 @@ import gzip
 import hashlib
 import json
 import os
+from gameplay_source import gameplay_source_text
+from source_guardrails import source_files
 from pathlib import Path
 import struct
 import subprocess
@@ -86,9 +88,10 @@ def main():
             report.update(status='passed', cases=len(cases), compiled_cpp=False)
         else:
             report['phase'] = 'production_contract'
-            source = (ROOT / 'src/app/app.cpp').read_text(encoding='utf-8')
+            source = gameplay_source_text(ROOT)
             dispatch.contract(source)
-            protected[str(ROOT / 'src/app/app.cpp')] = sha((ROOT / 'src/app/app.cpp').read_bytes())
+            protected.update({str(item.path): sha(item.path.read_bytes())
+                              for item in source_files(ROOT, ('app', 'gameplay'), 'runtime')})
             incoming, actual, expected = (out / name for name in ('input.bin', 'actual.bin', 'expected.bin'))
             incoming.write_bytes(b'LZDU0001' + struct.pack('<I', len(cases)) + b''.join(row[0] for row in cases))
             expected.write_bytes(b''.join(row[1] for row in cases))

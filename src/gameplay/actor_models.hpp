@@ -50,6 +50,8 @@ struct BombInventory {
     BombType selected = BombType::Small;
     // DS:1B75 + player: 1 refreshes digits, >1 also refreshes the icon.
     uint8_t hudDirty = 2;
+
+    bool operator==(const BombInventory&) const = default;
 };
 
 struct Bomb {
@@ -72,6 +74,8 @@ struct Bomb {
     int8_t hotspotY = -1;
     uint64_t actorOrder = 0;
     uint64_t bossVisualOrder = 0;
+
+    bool operator==(const Bomb&) const = default;
 };
 
 struct Flash {
@@ -79,6 +83,8 @@ struct Flash {
     int y = 0;
     int timer = 12;
     uint8_t power = 1;
+
+    bool operator==(const Flash&) const = default;
 };
 
 struct ActorAnimation {
@@ -111,6 +117,8 @@ struct ActorAnimation {
         }
         return true;
     }
+
+    bool operator==(const ActorAnimation&) const = default;
 };
 
 struct LaunchPadMarker {
@@ -126,6 +134,8 @@ struct LaunchPadMarker {
     uint8_t mode = kLaunchPadMarkerMode;
     uint64_t actorOrder = 0;
     ActorAnimation animation{0, 0, 0, 0, 0, 0, 1};
+
+    bool operator==(const LaunchPadMarker&) const = default;
 };
 
 inline bool advanceLaunchPadMarker(LaunchPadMarker& marker, const ActorAnimation& backup, uint32_t logicTick) {
@@ -157,6 +167,8 @@ struct TransientActor {
     uint64_t actorOrder = 0;
     uint64_t bossVisualOrder = 0;
     ActorAnimation animationBackup{0, 0, 0, 0, 0, 0, 0};
+
+    bool operator==(const TransientActor&) const = default;
 };
 
 inline bool advanceTransientActor(TransientActor& actor, uint32_t logicTick) {
@@ -194,6 +206,8 @@ struct Player {
     uint8_t spriteIndex = 0;
     uint16_t dropTicks = 0;
     bool singlePixelSprite = false;
+
+    bool operator==(const Player&) const = default;
 };
 
 inline constexpr std::array<uint8_t, 2> monsterAnimationSelectors(uint8_t kind) {
@@ -268,7 +282,10 @@ struct ActiveMonster {
     int motionTimer = 0;
     // Recovered original 2x2 tile-cell edge scan, computed once per tick from
     // the PRE-integration position by the caller (updateMonsters).
-    struct EdgeFlags { bool top = false, bottom = false, left = false, right = false; };
+    struct EdgeFlags {
+        bool top = false, bottom = false, left = false, right = false;
+        bool operator==(const EdgeFlags&) const = default;
+    };
     EdgeFlags edges;
     int animTick = 0;
     bool deathCredited = false;
@@ -290,6 +307,8 @@ struct ActiveMonster {
     uint64_t bossVisualOrder = 0;
     bool bossDebris = false;
     uint16_t bossGroup = 0;
+
+    bool operator==(const ActiveMonster&) const = default;
 };
 
 inline ActorAnimation monsterAnimation(const ActiveMonster& monster) {
@@ -349,6 +368,8 @@ struct BonusDrop {
     bool collected = false;
     uint64_t actorOrder = 0;
     ActorAnimation animation{0, 0, 0, 0, 0, 0, 1};
+
+    bool operator==(const BonusDrop&) const = default;
 };
 
 struct BonusDropStep {
@@ -486,6 +507,8 @@ struct State2VisualCursor {
     uint8_t mode = 1;
     int8_t step = 1;
     bool active = false;
+
+    bool operator==(const State2VisualCursor&) const = default;
 };
 
 struct State2VisualRow {
@@ -505,6 +528,8 @@ struct State2EffectEntry {
     uint8_t row2 = 0;
     uint8_t spriteIndex = 0;
     bool active = false;
+
+    bool operator==(const State2EffectEntry&) const = default;
 };
 
 struct SharedActorEntry {

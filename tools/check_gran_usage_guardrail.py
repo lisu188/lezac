@@ -71,15 +71,30 @@ def direct_class_lines(text: str, class_name: str) -> set[int]:
 
 def check_source(root: Path) -> tuple[int, int, int, int, int, int, int]:
     sources = source_files(root, roles=("runtime", "diagnostics", "dispatch"))
+    composed = any(source.relative == "src/gameplay/gameplay_operations.cpp" for source in sources)
     found_debug = set()
     found_live = set()
     source_refs = load_refs = debug_refs = member_refs = live_consumer_refs = 0
     accessor_refs = alias_refs = json_load_refs = original_load_refs = 0
     live_refs: list[str] = []
+    operation_members = operation_aliases = 0
     for source in sources:
         lines = source.text.splitlines()
         ranges = function_ranges(lines) if "diagnostics" in source.roles else {}
         live_ranges = function_ranges(lines, LIVE_FUNCTIONS) if "runtime" in source.roles else {}
+        if composed and live_ranges:
+            if source.relative == "src/app/app.cpp":
+                start, end = live_ranges["spawnLevel7Boss"]
+                forwarding = "\n".join(lines[start - 1:end]).strip()
+                if forwarding != "void spawnLevel7Boss() { return gameplayReplay_.spawnLevel7Boss(); }":
+                    raise RuntimeError("unexpected App GRAN adapter implementation")
+                live_ranges = {}
+            elif source.relative == "src/gameplay/gameplay_operations.cpp":
+                masked = mask_cpp(source.text)
+                if len(re.findall(r"(?m)^void GameplayOperations::spawnLevel7Boss\(\)\s*\{", masked)) != 1:
+                    raise RuntimeError("unexpected composed GRAN consumer owner")
+            else:
+                raise RuntimeError("unexpected composed GRAN consumer source")
         if found_debug.intersection(ranges) or found_live.intersection(live_ranges):
             raise RuntimeError(f"{source.relative}: duplicate GRAN consumer definition")
         found_debug.update(ranges)
@@ -88,6 +103,8 @@ def check_source(root: Path) -> tuple[int, int, int, int, int, int, int]:
         catalog_header = runtime and source.relative == "src/resources/asset_catalog.hpp"
         app_source = runtime and source.relative == "src/app/app.cpp"
         members = direct_class_lines(source.text, "AssetCatalog" if catalog_header else "App")
+        operation_header = composed and runtime and source.relative == "src/gameplay/gameplay_operations.hpp"
+        operation_lines = direct_class_lines(source.text, "GameplayOperations") if operation_header else set()
         catalog_load = {}
         if runtime and source.relative == "src/resources/asset_catalog.cpp":
             require(source.text, "AssetCatalog AssetCatalog::load(AssetFormat format)", "catalog:loader")
@@ -111,6 +128,14 @@ def check_source(root: Path) -> tuple[int, int, int, int, int, int, int]:
                 accessor_refs += 1
             elif app_source and line_number in members and declaration == "const GranBank& gran_ = assets_.gran();":
                 alias_refs += 1
+            elif operation_header and line_number in operation_lines and declaration == "const GranBank& gran_;":
+                operation_members += 1
+            elif (composed and runtime and source.relative == "src/gameplay/gameplay_operations.cpp"
+                  and declaration == "gran_(assets_.gran()),"):
+                constructors = list(re.finditer(r"(?m)^GameplayOperations::GameplayOperations\(GameplayServices services\)\s*:\s*([^{};]*)\{", mask_cpp(source.text)))
+                if len(constructors) != 1 or not (constructors[0].start() <= source.text.index(line) < constructors[0].end()):
+                    raise RuntimeError("unexpected composed GRAN constructor alias")
+                operation_aliases += 1
             elif in_range(line_number, ranges):
                 debug_refs += 1
             elif in_range(line_number, live_ranges):
@@ -133,7 +158,35 @@ def check_source(root: Path) -> tuple[int, int, int, int, int, int, int]:
             f"original_load={original_load_refs} member={member_refs} "
             f"accessor={accessor_refs} alias={alias_refs}"
         )
+    if composed:
+        if (operation_members, operation_aliases) != (1, 1):
+            raise RuntimeError("unexpected composed GRAN ownership counts")
+        check_session_ownership(root)
     return source_refs, load_refs, debug_refs, member_refs, live_consumer_refs, accessor_refs, alias_refs
+
+
+def check_session_ownership(root: Path) -> None:
+    session = mask_cpp((root / "src/gameplay/game_session.hpp").read_text())
+    replay = mask_cpp((root / "src/diagnostics/gameplay/gameplay_replay.hpp").read_text())
+    operations = mask_cpp((root / "src/gameplay/gameplay_operations.hpp").read_text())
+    if not re.search(r"class GameSession final\s*:\s*private detail::GameplayOperations\s*\{", session):
+        raise RuntimeError("live session must privately own its operation base")
+    if not re.search(r"class GameplayReplay final\s*:\s*private gameplay::detail::GameplayOperations\s*\{", replay):
+        raise RuntimeError("diagnostic replay must privately own a separate operation base")
+    if "GameplayReplay" in session or re.search(r"\bfriend\b", session + operations):
+        raise RuntimeError("diagnostic access cannot expose live session storage")
+    if "GameplayFixture& fixture()" in session:
+        raise RuntimeError("live session cannot return mutable fixture storage")
+    for signature in (
+        "GameplayOperations(const GameplayOperations&) = delete;",
+        "GameplayOperations& operator=(const GameplayOperations&) = delete;",
+        "GameplayOperations(GameplayOperations&&) = delete;",
+        "GameplayOperations& operator=(GameplayOperations&&) = delete;",
+    ):
+        require(operations, signature, "owned operation aliases")
+    protected = re.search(r"class GameplayOperations\s*\{\s*protected:", operations)
+    if not protected or "public:" in operations[protected.end():]:
+        raise RuntimeError("operation storage and mutable helpers must remain protected")
 
 
 def check_cmake(root: Path) -> int:

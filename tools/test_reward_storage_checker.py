@@ -1,5 +1,6 @@
 """Negative controls for full reward fixture integrity, routing and execution."""
 import gzip
+from gameplay_source import gameplay_source_text
 from pathlib import Path
 import subprocess
 import tempfile
@@ -37,7 +38,7 @@ class RewardCheckerTest(unittest.TestCase):
         self.assertIsNotNone(checker.difference(raw + b'!', raw))
 
     def test_source_routing(self):
-        source = (ROOT / 'src/app/app.cpp').read_text(encoding='utf-8')
+        source = gameplay_source_text(ROOT)
         models = (ROOT / 'src/gameplay/actor_models.hpp').read_text(encoding='utf-8')
         checker.check_routing(source, models)
         tokens = ('advanceBonusDrop(', 'conversionBackup(drop.actorOrder)',

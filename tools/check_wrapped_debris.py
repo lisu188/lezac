@@ -4,6 +4,7 @@ import gzip
 import hashlib
 import json
 import os
+from gameplay_source import gameplay_source_text
 from pathlib import Path
 import struct
 import subprocess
@@ -90,7 +91,7 @@ def fixture():
         inputs.append(initial)
         states.append(state)
     assert (reads, writes) == (16, 8) and glyph_reads == report['raw_glyph_reads']
-    source_contract((ROOT / 'src/app/app.cpp').read_text(encoding='utf-8'))
+    source_contract(gameplay_source_text(ROOT))
     return struct.pack('<8sII', b'LZCM0001', COUNT, INITIAL) + b''.join(inputs), \
         struct.pack('<8sII', b'LZCN0001', COUNT, STATE) + b''.join(states)
 

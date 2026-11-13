@@ -1,5 +1,6 @@
 """Original contact staging, physical alias and strict comparison contracts."""
 from pathlib import Path
+from gameplay_source import gameplay_source_text
 import re
 import struct
 import subprocess
@@ -133,7 +134,7 @@ class ContactTests(unittest.TestCase):
             self.assertEqual(raw[0x770 + at:0x770 + at + len(expected) // 2], bytes.fromhex(expected))
 
     def test_production_source_binding_and_alias_mutations(self):
-        source = (self.root / 'src/app/app.cpp').read_text(encoding='utf-8')
+        source = gameplay_source_text(self.root)
         source_contract(source)
         original = body(source, 'writeContactWordGuardAlias')
         for statement in MAPPINGS:

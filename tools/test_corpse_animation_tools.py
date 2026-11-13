@@ -11,13 +11,13 @@ from unittest.mock import patch
 
 import check_corpse_animation_skip_mutant as checker
 import make_corpse_animation_skip_mutant as generator
+from source_guardrails import function_ranges
 
 
 class GeneratorTests(unittest.TestCase):
     def assert_production_corpse_result_scope(self, mutated):
-        start = mutated.index('    void updateMonsters(')
-        end = mutated.index('\n    void ', start + 1)
-        body = mutated[start:end]
+        first, last = function_ranges(mutated, ['updateMonsters'])['updateMonsters']
+        body = ''.join(mutated.splitlines(keepends=True)[first - 1:last])
         self.assertEqual(body.count(generator.DECLARATION), 1)
         self.assertLess(body.index(generator.DECLARATION), body.index('actorSlots_.writeCorpse('))
         self.assertLess(body.index('actorSlots_.writeCorpse('), body.index(generator.DEFERRED_PROLOGUE))
@@ -36,7 +36,7 @@ class GeneratorTests(unittest.TestCase):
         self.assertEqual(mutated.count(generator.DEFERRED_PROLOGUE), 1)
 
     def test_current_production_source_retains_corpse_result_scope(self):
-        source = Path(__file__).resolve().parents[1] / 'src/app/app.cpp'
+        source = Path(__file__).resolve().parents[1] / 'src/gameplay/gameplay_operations.cpp'
         original = source.read_bytes()
         normalized = original.decode('utf-8').replace('\r\n', '\n')
         mutated = generator.generate(normalized)

@@ -1,5 +1,6 @@
 """Negative controls for corpse fixture integrity, production routing and execution."""
 import gzip
+from gameplay_source import gameplay_source_text
 from pathlib import Path
 import subprocess
 import tempfile
@@ -36,7 +37,7 @@ class CorpseCheckerTest(unittest.TestCase):
         self.assertIsNotNone(checker.difference(raw + b'!', raw))
 
     def test_source_routing(self):
-        source = (ROOT / 'src/app/app.cpp').read_text(encoding='utf-8')
+        source = gameplay_source_text(ROOT)
         models = (ROOT / 'src/gameplay/actor_models.hpp').read_text(encoding='utf-8')
         checker.check_routing(source, models)
         for token in ('advanceCorpseMotion(monster, timer, logicTick_',
@@ -95,7 +96,7 @@ class CorpseCheckerTest(unittest.TestCase):
                     self.assertEqual((path.parent / 'actual.stderr').read_bytes(), b'error evidence')
 
     def test_boss_write_does_not_replace_generic_order_check(self):
-        source = (ROOT / 'src/app/app.cpp').read_text(encoding='utf-8')
+        source = gameplay_source_text(ROOT)
         models = (ROOT / 'src/gameplay/actor_models.hpp').read_text(encoding='utf-8')
         boss = 'actorSlots_.writeCorpse(monster.actorOrder,monster,static_cast<uint8_t>(monster.stateTimer),'
         motion = '                    expired = lezac::gameplay::advanceCorpseMotion(monster, timer, logicTick_,'

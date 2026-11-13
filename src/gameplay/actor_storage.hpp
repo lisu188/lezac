@@ -11,6 +11,7 @@ namespace lezac::gameplay {
 
 class ActorStorage {
 public:
+    bool operator==(const ActorStorage&) const = default;
     using Actor = std::array<uint8_t, 38>;
     using Visual = std::array<uint8_t, 8>;
     using Link = std::array<uint8_t, 16>;
@@ -26,6 +27,8 @@ public:
         uint8_t count = 0;
         uint8_t visualCount = 2;
         uint16_t success = 0;
+
+        bool operator==(const State&) const = default;
     };
 
     struct Construction {

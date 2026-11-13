@@ -14,7 +14,8 @@ import capture_original_debris_wrap as wrap
 import check_original_debris_dispatch as dispatch
 import check_original_debris_update as legacy
 from level1_fidelity import ASSETS
-from source_guardrails import function_ranges
+from source_guardrails import function_ranges, source_files
+from gameplay_source import gameplay_source_text
 
 ROOT = Path(__file__).resolve().parents[1]
 META = ROOT / 'tests/gameplay/debris_phase_original.json'
@@ -118,8 +119,9 @@ def main():
         else:
             report['phase'] = 'production_contract'
             source = ROOT / 'src/app/app.cpp'
-            contract(source.read_text(encoding='utf-8'))
-            protected[str(source)] = sha(source.read_bytes())
+            contract(gameplay_source_text(ROOT))
+            protected.update({str(item.path): sha(item.path.read_bytes())
+                              for item in source_files(ROOT, ('app', 'gameplay'), 'runtime')})
             incoming, actual = out / 'input.bin', out / 'actual.bin'
             incoming.write_bytes(b'LZDP0001' + struct.pack('<I', len(cases)) + b''.join(row[0] for row in cases))
             expected = b''.join(row[1] for row in cases)

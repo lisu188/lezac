@@ -9,6 +9,7 @@ namespace lezac::gameplay {
 
 class MonsterSpawnerStorage {
 public:
+    bool operator==(const MonsterSpawnerStorage&) const = default;
     using Record = std::array<uint8_t, 30>;
     // DS:74A8 is the dummy row; shipped source references select rows 1..8.
     using State = std::array<Record, 9>;

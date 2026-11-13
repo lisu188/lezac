@@ -1,4 +1,5 @@
 """Check repeated original seed histories through the production contact diagnostic."""
+from gameplay_source import gameplay_source_text
 import argparse
 import gzip
 import hashlib
@@ -176,7 +177,7 @@ def main():
     if bool(args.exe or args.extracted_exe) != bool(args.out):
         parser.error('--out is required only with an executable')
     data = metadata()
-    source = '\n'.join(item.text for item in source_files(ROOT, ('app', 'gameplay'), 'runtime'))
+    source = gameplay_source_text(ROOT, headers=True)
     check_source(source)
     if args.self_check:
         self_check(data, source)

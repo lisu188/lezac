@@ -1,4 +1,5 @@
 """Compare marker production paths with complete, pinned original CPU tables."""
+from gameplay_source import gameplay_source_text
 import argparse
 from datetime import datetime, timezone
 import gzip
@@ -96,7 +97,7 @@ def check(root, exe, out, production_app):
         constructor_tails_only=True, input_gate_and_sound_prefix_executed=False, directory=str(directory), fixtures={})
     try:
         require(sha((root / 'LEZAC.EXE').read_bytes()) == ORIGINAL_SHA, 'original executable hash mismatch')
-        check_routing((root / 'src/app/app.cpp').read_text(encoding='utf-8'))
+        check_routing(gameplay_source_text(root))
         report['executable_sha256_before'] = sha(exe.read_bytes())
         for label, (packed_sha, raw_sha) in FIXTURES.items():
             packed = (root / 'tests/fixtures/marker_storage' / (label + '.bin.gz')).read_bytes()

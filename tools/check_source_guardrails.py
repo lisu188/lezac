@@ -15,6 +15,7 @@ import check_gran_usage_guardrail as gran
 import check_port_completion_status as completion
 import check_sound_compatibility_hooks as sound
 import check_unevidenced_constants as uncertainty
+from gameplay_source import gameplay_source_text
 from source_guardrails import (
     check_inventory, diagnostic_source_text, diagnostic_text, function_ranges, ownership,
     source_files, source_text, unqualify_definitions,
@@ -269,7 +270,7 @@ class SourceGuardrailTests(unittest.TestCase):
             self.run_uncertainty()
 
     def test_sound_diagnostic_copy_cannot_replace_runtime(self):
-        source = source_text(ROOT, ("sound", "gameplay", "ui"))
+        source = gameplay_source_text(ROOT, owners=("sound", "ui"), headers=True)
         self.write("src/sound/sound.cpp", source)
         # A copied runtime snippet in diagnostics must not satisfy a live check.
         self.write("src/diagnostics/sound.cpp", diagnostic_text(ROOT) + "\n" + source)

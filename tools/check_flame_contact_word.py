@@ -1,4 +1,5 @@
 """Compare the production flame blend with executed original instruction records."""
+from gameplay_source import gameplay_source_text
 import argparse
 import hashlib
 import json
@@ -78,7 +79,7 @@ def fixture():
 
 
 def production_source():
-    app = '\n'.join(source.text for source in source_files(ROOT, 'app', 'runtime'))
+    app = gameplay_source_text(ROOT)
     gameplay = '\n'.join(source.text for source in source_files(ROOT, 'gameplay', 'runtime'))
     if 'blendFlameVelocity' not in function_ranges(gameplay, ['blendFlameVelocity']):
         raise ValueError('production flame blend helper is missing')

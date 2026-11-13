@@ -1,4 +1,5 @@
 """Keep the recovered clock on live paths, with the legacy pump diagnostic-only."""
+from gameplay_source import gameplay_source_text
 from pathlib import Path
 from functools import lru_cache
 
@@ -72,7 +73,7 @@ def check(app, engine, audio):
 
 
 def main():
-    app = (ROOT / "src/app/app.cpp").read_text(encoding="utf-8")
+    app = gameplay_source_text(ROOT)
     engine = (ROOT / "src/sound/sound_engine.cpp").read_text(encoding="utf-8")
     audio = (ROOT / "src/sound/sdl_audio_output.cpp").read_text(encoding="utf-8")
     check(app, engine, audio)

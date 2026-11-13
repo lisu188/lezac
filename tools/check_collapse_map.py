@@ -4,6 +4,7 @@ import gzip
 import hashlib
 import json
 import os
+from gameplay_source import gameplay_source_text
 from pathlib import Path
 import struct
 import subprocess
@@ -110,7 +111,7 @@ def fixture():
                     assert int.from_bytes(memory[location:location + size], 'little') == value
             state = expected[step * STATE:(step + 1) * STATE]
             assert memory[:65536] + memory[word_base:word_base + 65536] == state[26724:]
-    source_contract((ROOT / 'src/app/app.cpp').read_text(encoding='utf-8'))
+    source_contract(gameplay_source_text(ROOT))
     return metadata, rows
 
 
@@ -146,7 +147,7 @@ def self_check(rows):
             rejected += 1
         else:
             raise AssertionError('accepted truncated/trailing output')
-    text = (ROOT / 'src/app/app.cpp').read_text(encoding='utf-8')
+    text = gameplay_source_text(ROOT)
     for token in ('rectangle.translate(delta);', 'setMapWord(target, word);', 'setMapTile(cell, 0);'):
         try:
             source_contract(text.replace(token, '// removed boundary behavior'))

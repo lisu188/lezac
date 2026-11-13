@@ -23,6 +23,8 @@ struct CollapseRecord {
     uint16_t argMagnitude = 0;
     uint8_t affectedBytes = 0;
     int count = 0;
+
+    bool operator==(const CollapseRecord&) const = default;
 };
 
 // The low eleven-byte bank starts at DS:209E; mass is at DS:78D6 + index.
@@ -31,6 +33,8 @@ struct FlameRecord {
     int8_t vx = 0, vy = 0, subX = 0, subY = 0;
     uint8_t timer = 0, glyph = 0x75, variant = 0, mass = 1;
     uint16_t retainedWord = 0;  // +2 is not initialized by the flame seeder.
+
+    bool operator==(const FlameRecord&) const = default;
 };
 
 }  // namespace lezac::gameplay

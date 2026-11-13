@@ -11,6 +11,10 @@ namespace lezac::gameplay {
 // Original queue compaction moves live records without clearing the retired tail.
 template <typename Record>
 class RetainedRecordQueue {
+public:
+    bool operator==(const RetainedRecordQueue&) const = default;
+private:
+
     static_assert(std::is_trivially_copyable_v<Record>);
     std::vector<Record> slots_;
     size_t live_ = 0;

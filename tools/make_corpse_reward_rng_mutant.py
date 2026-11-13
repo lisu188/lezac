@@ -4,6 +4,8 @@ import hashlib
 import json
 from pathlib import Path
 
+from source_guardrails import function_ranges
+
 SOUND = '''        const uint16_t rewardSound =
             static_cast<uint16_t>(0xea74 + randomRangeValue(0, 20));
         requestSoundCursor(rewardSound, 4);
@@ -21,8 +23,9 @@ bool rewardRngMutation(const char* name) {
 
 
 def function(source, name):
-    start = source.index('    void ' + name + '(')
-    end = source.index('\n    void ', start + 1)
+    first, last = function_ranges(source, [name])[name]
+    lines = source.splitlines(keepends=True)
+    start, end = sum(map(len, lines[:first - 1])), sum(map(len, lines[:last]))
     return start, end, source[start:end]
 
 

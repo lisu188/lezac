@@ -1,4 +1,5 @@
 """Above-cell staging, constructor ownership and complete-state comparison controls."""
+from gameplay_source import gameplay_source_text
 from pathlib import Path
 import struct
 import tempfile
@@ -77,7 +78,7 @@ class AboveContactTests(unittest.TestCase):
         self.assertEqual((changed, untouched), (189, 147))
 
     def test_production_seed_phases_and_flag_gates_are_bound(self):
-        source = (self.root / 'src/app/app.cpp').read_text(encoding='utf-8')
+        source = gameplay_source_text(self.root)
         above_source_contract(source)
         original = body(source, 'updateCollapseRecords')
         for old, new in (

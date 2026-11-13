@@ -1,4 +1,5 @@
 """Strict prior-phase fixture, CLI routing and raw comparison regressions."""
+from gameplay_source import gameplay_source_text
 from pathlib import Path
 import struct
 import tempfile
@@ -57,7 +58,7 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(variants, {0, 1, 2, 3})
 
     def test_production_routing_and_expected_skip(self):
-        source = (self.root / 'src/app/app.cpp').read_text(encoding='utf-8')
+        source = gameplay_source_text(self.root)
         source_contract(source)
         for old, new in (
             ('damageLaneData_[0x661e] = history[0];', ''),

@@ -1,5 +1,6 @@
 """Compare corpse countdown/conversion production paths with pinned native tables."""
 import argparse
+from gameplay_source import gameplay_source_text
 from datetime import datetime, timezone
 import gzip
 import io
@@ -91,7 +92,7 @@ def check(root, exe, out, production_app):
         rendered_pixels_claim=False, directory=str(directory), fixtures={})
     try:
         require(sha((root / 'LEZAC.EXE').read_bytes()) == ORIGINAL_SHA, 'original executable hash mismatch')
-        check_routing((root / 'src/app/app.cpp').read_text(encoding='utf-8'),
+        check_routing(gameplay_source_text(root),
                       (root / 'src/gameplay/actor_models.hpp').read_text(encoding='utf-8'))
         report['executable_sha256_before'] = sha(exe.read_bytes())
         streams = {}

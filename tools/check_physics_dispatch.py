@@ -1,4 +1,5 @@
 """Compare uninterrupted production debris/collapse passes with original bytes."""
+from gameplay_source import gameplay_source_text
 import argparse
 import gzip
 import io
@@ -302,7 +303,7 @@ def main():
     if bool(args.exe) != bool(args.out):
         parser.error('--out is required only with --exe')
     data = metadata()
-    source = '\n'.join(item.text for item in source_files(ROOT, ('app', 'gameplay'), 'runtime'))
+    source = gameplay_source_text(ROOT, headers=True)
     check_source(source)
     if args.self_check:
         self_check(data, source)

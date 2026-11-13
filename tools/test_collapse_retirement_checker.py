@@ -1,4 +1,5 @@
 """Original retirement fixture contracts, separate from actual-App acceptance."""
+from gameplay_source import gameplay_source_text
 from pathlib import Path
 import struct
 import subprocess
@@ -60,7 +61,7 @@ class RetirementTests(unittest.TestCase):
         self.assertEqual(retired, 16)
 
     def test_source_commits_normal_record_before_timer_erase(self):
-        source = (self.root / 'src/app/app.cpp').read_text(encoding='utf-8')
+        source = gameplay_source_text(self.root)
         body = source[source.index('    void updateCollapseRecords() {'):source.index('    void updateFlashes() {')]
         commit = body.index('collapseQueue_[slot] = record;')
         remove = body.index('if (fracture || record.restTicks == 95)')

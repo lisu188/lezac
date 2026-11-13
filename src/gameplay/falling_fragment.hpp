@@ -18,6 +18,8 @@ struct DebrisRecord {
     uint8_t restTicks = 0;     // +8 u8: no-move ticks; retire at 100
     uint8_t lookup = 0;        // +9 u8: carried tile code (objectByte at seed)
     uint8_t aux = 0;           // +A u8: bit 7 = cascade spawned by this move
+
+    bool operator==(const DebrisRecord&) const = default;
 };
 
 template <typename Records, typename ReadWord, typename ReadObject, typename WriteWord>

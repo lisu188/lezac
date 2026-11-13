@@ -137,7 +137,7 @@ class IdentityCheckerTests(unittest.TestCase):
         self.assertEqual(manifest['replacements'], 1)
 
     def test_generator_matches_current_production_source(self):
-        source = Path(__file__).resolve().parents[1] / 'src/app/app.cpp'
+        source = Path(__file__).resolve().parents[1] / 'src/gameplay/gameplay_operations.cpp'
         original = source.read_bytes()
         output = self.root / 'production-mutant/app.cpp'
         manifest = generator.generate(source, output)

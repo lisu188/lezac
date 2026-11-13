@@ -13,6 +13,7 @@ import argparse
 import re
 from pathlib import Path
 
+from gameplay_source import gameplay_source_text
 from source_guardrails import source_text, diagnostic_text, mask_cpp
 
 
@@ -125,7 +126,7 @@ def require_collapsed(text: str, snippet: str, label: str) -> None:
 
 
 def check_source(root: Path) -> None:
-    runtime = source_text(root, ("sound", "gameplay", "ui"))
+    runtime = gameplay_source_text(root, owners=("sound", "ui"), headers=True)
     text = diagnostic_text(root)
     for snippet in EXPECTED_HELPER_SNIPPETS:
         require(runtime, snippet, "source")

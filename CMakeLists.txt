@@ -78,12 +78,20 @@ add_library(lezac_app_loop STATIC src/app/governed_loop.cpp)
 target_include_directories(lezac_app_loop PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_compile_features(lezac_app_loop PUBLIC cxx_std_23)
 
-add_executable(lezac_cpp src/main.cpp src/app/app.cpp src/app/sdl_runtime.cpp src/app/input_mapper.cpp
+add_library(lezac_gameplay STATIC src/gameplay/gameplay_operations.cpp)
+target_include_directories(lezac_gameplay PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src ${SDL2_INCLUDE_DIRS})
+target_link_libraries(lezac_gameplay PUBLIC lezac_core lezac_resources lezac_sound lezac_rendering lezac_ui)
+
+add_library(lezac_application OBJECT src/app/app.cpp src/app/sdl_runtime.cpp src/app/input_mapper.cpp
     src/diagnostics/frame_inspector.cpp)
+target_compile_definitions(lezac_application PRIVATE SDL_MAIN_HANDLED)
+target_include_directories(lezac_application PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src ${SDL2_INCLUDE_DIRS})
+target_compile_options(lezac_application PRIVATE ${SDL2_CFLAGS_OTHER})
+add_executable(lezac_cpp src/main.cpp $<TARGET_OBJECTS:lezac_application>)
 target_compile_definitions(lezac_cpp PRIVATE SDL_MAIN_HANDLED)
 target_include_directories(lezac_cpp PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_directories(lezac_cpp PRIVATE ${SDL2_LIBRARY_DIRS})
-target_link_libraries(lezac_cpp PRIVATE lezac_core lezac_resources lezac_sound lezac_sound_diagnostics lezac_rendering lezac_ui lezac_ui_diagnostics lezac_app_loop ${SDL2_LIBRARIES})
+target_link_libraries(lezac_cpp PRIVATE lezac_gameplay lezac_core lezac_resources lezac_sound lezac_sound_diagnostics lezac_rendering lezac_ui lezac_ui_diagnostics lezac_app_loop ${SDL2_LIBRARIES})
 target_compile_options(lezac_cpp PRIVATE ${SDL2_CFLAGS_OTHER})
 
 if(WIN32)
@@ -188,6 +196,29 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    function(lezac_add_gameplay_mutant target source)
+        add_executable(${target} src/main.cpp $<TARGET_OBJECTS:lezac_application> ${source})
+        foreach(property COMPILE_DEFINITIONS INCLUDE_DIRECTORIES LINK_DIRECTORIES LINK_LIBRARIES COMPILE_OPTIONS)
+            get_target_property(value lezac_cpp ${property})
+            if(value)
+                if(property STREQUAL "LINK_LIBRARIES")
+                    list(REMOVE_ITEM value lezac_gameplay)
+                endif()
+                set_target_properties(${target} PROPERTIES ${property} "${value}")
+            endif()
+        endforeach()
+        add_dependencies(${target} lezac_cpp)
+    endfunction()
+    add_executable(lezac_gameplay_api_test tests/gameplay_api_test.cpp)
+    target_compile_definitions(lezac_gameplay_api_test PRIVATE SDL_MAIN_HANDLED)
+    target_link_libraries(lezac_gameplay_api_test PRIVATE lezac_gameplay)
+    add_test(NAME gameplay_owned_fixture_api COMMAND lezac_gameplay_api_test)
+    set_tests_properties(gameplay_owned_fixture_api PROPERTIES WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+    add_test(NAME gameplay_live_no_fixture_bridge COMMAND lezac_cpp --debug-gameplay-live-ownership
+        ${CMAKE_CURRENT_BINARY_DIR}/live-session-ownership)
+    set_tests_properties(gameplay_live_no_fixture_bridge PROPERTIES TIMEOUT 15
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
     add_executable(lezac_frame_transient_queues_test tests/core/frame_transient_queues_test.cpp)
     target_link_libraries(lezac_frame_transient_queues_test PRIVATE lezac_core)
     add_test(NAME frame_transient_queues_unit COMMAND lezac_frame_transient_queues_test)
@@ -845,6 +876,8 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
+        add_test(NAME gameplay_ownership_guards COMMAND ${Python3_EXECUTABLE} -S -B
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_gameplay_ownership.py)
         add_test(NAME frame_transient_queues_fixture_contract COMMAND ${Python3_EXECUTABLE} -S -B
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_transient_queues_fixture.py
             --out ${CMAKE_CURRENT_BINARY_DIR}/frame-transient-queues.bin
@@ -2123,20 +2156,10 @@ if(BUILD_TESTING)
         set(LEZAC_CORPSE_SKIP_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/corpse-animation-skip/app.cpp)
         add_custom_command(OUTPUT ${LEZAC_CORPSE_SKIP_SOURCE}
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/make_corpse_animation_skip_mutant.py
-                --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp --out ${LEZAC_CORPSE_SKIP_SOURCE}
-            DEPENDS src/app/app.cpp tools/make_corpse_animation_skip_mutant.py
+                --source ${CMAKE_CURRENT_SOURCE_DIR}/src/gameplay/gameplay_operations.cpp --out ${LEZAC_CORPSE_SKIP_SOURCE}
+            DEPENDS src/gameplay/gameplay_operations.cpp tools/make_corpse_animation_skip_mutant.py
             VERBATIM)
-        get_target_property(LEZAC_CORPSE_SKIP_SOURCES lezac_cpp SOURCES)
-        list(REMOVE_ITEM LEZAC_CORPSE_SKIP_SOURCES src/app/app.cpp)
-        add_executable(lezac_corpse_animation_skip_mutant ${LEZAC_CORPSE_SKIP_SOURCES} ${LEZAC_CORPSE_SKIP_SOURCE})
-        foreach(property COMPILE_DEFINITIONS INCLUDE_DIRECTORIES LINK_DIRECTORIES LINK_LIBRARIES COMPILE_OPTIONS)
-            get_target_property(value lezac_cpp ${property})
-            if(value)
-                set_target_properties(lezac_corpse_animation_skip_mutant PROPERTIES ${property} "${value}")
-            endif()
-        endforeach()
-        # Serialize the two large App compilations and reuse the primary SDL DLL.
-        add_dependencies(lezac_corpse_animation_skip_mutant lezac_cpp)
+        lezac_add_gameplay_mutant(lezac_corpse_animation_skip_mutant ${LEZAC_CORPSE_SKIP_SOURCE})
         add_test(NAME corpse_animation_skip_mutant
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_corpse_animation_skip_mutant.py
                 --exe $<TARGET_FILE:lezac_corpse_animation_skip_mutant>
@@ -2634,16 +2657,9 @@ if(BUILD_TESTING)
         set(actor_identity_mutant_source ${CMAKE_CURRENT_BINARY_DIR}/actor-identity-mutant/app.cpp)
         add_custom_command(OUTPUT ${actor_identity_mutant_source}
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/make_corpse_identity_mutant.py
-                --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp --out ${actor_identity_mutant_source}
-            DEPENDS src/app/app.cpp tools/make_corpse_identity_mutant.py VERBATIM)
-        add_executable(lezac_actor_identity_mutant src/main.cpp ${actor_identity_mutant_source}
-            src/app/sdl_runtime.cpp src/app/input_mapper.cpp src/diagnostics/frame_inspector.cpp)
-        target_compile_definitions(lezac_actor_identity_mutant PRIVATE SDL_MAIN_HANDLED)
-        target_include_directories(lezac_actor_identity_mutant PRIVATE ${SDL2_INCLUDE_DIRS})
-        target_link_directories(lezac_actor_identity_mutant PRIVATE ${SDL2_LIBRARY_DIRS})
-        target_link_libraries(lezac_actor_identity_mutant PRIVATE lezac_core lezac_resources lezac_sound
-            lezac_sound_diagnostics lezac_rendering lezac_ui lezac_ui_diagnostics lezac_app_loop ${SDL2_LIBRARIES})
-        target_compile_options(lezac_actor_identity_mutant PRIVATE ${SDL2_CFLAGS_OTHER})
+                --source ${CMAKE_CURRENT_SOURCE_DIR}/src/gameplay/gameplay_operations.cpp --out ${actor_identity_mutant_source}
+            DEPENDS src/gameplay/gameplay_operations.cpp tools/make_corpse_identity_mutant.py VERBATIM)
+        lezac_add_gameplay_mutant(lezac_actor_identity_mutant ${actor_identity_mutant_source})
         add_test(NAME corpse_conversion_identity_mutant
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_corpse_identity_mutant.py
                 --exe $<TARGET_FILE:lezac_actor_identity_mutant>
@@ -4798,7 +4814,7 @@ if(BUILD_TESTING)
         set_tests_properties(gran_usage_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^gran_usage_guardrail=ok source_refs=26 load_refs=2 debug_refs=20 member_refs=1 live_consumer_refs=1 live_refs=0 ctest=3 docs=3 accessor_refs=1 alias_refs=1")
+                "^gran_usage_guardrail=ok source_refs=28 load_refs=2 debug_refs=20 member_refs=1 live_consumer_refs=1 live_refs=0 ctest=3 docs=3 accessor_refs=1 alias_refs=1")
 
         add_test(NAME gran_usage_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -8111,19 +8127,10 @@ if(BUILD_TESTING)
         set(LEZAC_REWARD_RNG_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/corpse-reward-rng-mutant/app.cpp)
         add_custom_command(OUTPUT ${LEZAC_REWARD_RNG_SOURCE}
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/make_corpse_reward_rng_mutant.py
-                --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp --out ${LEZAC_REWARD_RNG_SOURCE}
-            DEPENDS src/app/app.cpp tools/make_corpse_reward_rng_mutant.py
+                --source ${CMAKE_CURRENT_SOURCE_DIR}/src/gameplay/gameplay_operations.cpp --out ${LEZAC_REWARD_RNG_SOURCE}
+            DEPENDS src/gameplay/gameplay_operations.cpp tools/make_corpse_reward_rng_mutant.py
             VERBATIM)
-        get_target_property(LEZAC_REWARD_RNG_SOURCES lezac_cpp SOURCES)
-        list(REMOVE_ITEM LEZAC_REWARD_RNG_SOURCES src/app/app.cpp)
-        add_executable(lezac_corpse_reward_rng_mutant ${LEZAC_REWARD_RNG_SOURCES} ${LEZAC_REWARD_RNG_SOURCE})
-        foreach(property COMPILE_DEFINITIONS INCLUDE_DIRECTORIES LINK_DIRECTORIES LINK_LIBRARIES COMPILE_OPTIONS)
-            get_target_property(value lezac_cpp ${property})
-            if(value)
-                set_target_properties(lezac_corpse_reward_rng_mutant PROPERTIES ${property} "${value}")
-            endif()
-        endforeach()
-        add_dependencies(lezac_corpse_reward_rng_mutant lezac_cpp)
+        lezac_add_gameplay_mutant(lezac_corpse_reward_rng_mutant ${LEZAC_REWARD_RNG_SOURCE})
         foreach(existing_mutant IN ITEMS lezac_actor_identity_mutant lezac_corpse_animation_skip_mutant)
             if(TARGET ${existing_mutant})
                 add_dependencies(lezac_corpse_reward_rng_mutant ${existing_mutant})
@@ -8145,18 +8152,10 @@ if(BUILD_TESTING)
         set(LEZAC_DESCRIPTOR_BANK_SOURCE ${CMAKE_CURRENT_BINARY_DIR}/actor-descriptor-bank-mutant/app.cpp)
         add_custom_command(OUTPUT ${LEZAC_DESCRIPTOR_BANK_SOURCE}
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/make_actor_descriptor_bank_mutant.py
-                --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp --out ${LEZAC_DESCRIPTOR_BANK_SOURCE}
-            DEPENDS src/app/app.cpp tools/make_actor_descriptor_bank_mutant.py
+                --source ${CMAKE_CURRENT_SOURCE_DIR}/src/gameplay/gameplay_operations.cpp --out ${LEZAC_DESCRIPTOR_BANK_SOURCE}
+            DEPENDS src/gameplay/gameplay_operations.cpp tools/make_actor_descriptor_bank_mutant.py
             VERBATIM)
-        get_target_property(LEZAC_DESCRIPTOR_BANK_SOURCES lezac_cpp SOURCES)
-        list(REMOVE_ITEM LEZAC_DESCRIPTOR_BANK_SOURCES src/app/app.cpp)
-        add_executable(lezac_actor_descriptor_bank_mutant ${LEZAC_DESCRIPTOR_BANK_SOURCES} ${LEZAC_DESCRIPTOR_BANK_SOURCE})
-        foreach(property COMPILE_DEFINITIONS INCLUDE_DIRECTORIES LINK_DIRECTORIES LINK_LIBRARIES COMPILE_OPTIONS)
-            get_target_property(value lezac_cpp ${property})
-            if(value)
-                set_target_properties(lezac_actor_descriptor_bank_mutant PROPERTIES ${property} "${value}")
-            endif()
-        endforeach()
+        lezac_add_gameplay_mutant(lezac_actor_descriptor_bank_mutant ${LEZAC_DESCRIPTOR_BANK_SOURCE})
         add_dependencies(lezac_actor_descriptor_bank_mutant lezac_corpse_reward_rng_mutant)
         add_test(NAME actor_descriptor_bank_old_bank_mutant
             COMMAND ${Python3_EXECUTABLE} -S -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_descriptor_bank_mutant.py

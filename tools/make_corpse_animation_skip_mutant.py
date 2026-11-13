@@ -4,6 +4,8 @@ import hashlib
 import json
 from pathlib import Path
 
+from source_guardrails import function_ranges
+
 PROLOGUE = '''            // 1000:6078..615A precedes behavior dispatch, including corpses.
             const bool animationAdvanced = lezac::gameplay::advanceMonsterAnimation(monster);
             if (debugMonsterAnimationObserver_) debugMonsterAnimationObserver_(monster, animationAdvanced);
@@ -14,8 +16,9 @@ ANCHOR = '            const int damageRow = monster.y >> 3;\n'
 
 
 def generate(source):
-    start = source.index('    void updateMonsters(')
-    end = source.index('\n    void ', start + 1)
+    first, last = function_ranges(source, ['updateMonsters'])['updateMonsters']
+    lines = source.splitlines(keepends=True)
+    start, end = sum(map(len, lines[:first - 1])), sum(map(len, lines[:last]))
     body = source[start:end]
     if body.count(PROLOGUE) != 1 or body.count(ANCHOR) != 1:
         raise ValueError('unexpected production prologue layout')

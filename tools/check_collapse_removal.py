@@ -4,6 +4,7 @@ import gzip
 import hashlib
 import json
 import os
+from gameplay_source import gameplay_source_text
 from pathlib import Path
 import struct
 import subprocess
@@ -83,7 +84,7 @@ def fixture():
         incoming.append(initial)
         states.append(state)
     assert len(incoming) == COUNT and (reads, writes) == (372, 39)
-    source_contract((ROOT / 'src/app/app.cpp').read_text(encoding='utf-8'))
+    source_contract(gameplay_source_text(ROOT))
     return report, struct.pack('<8sII', b'LZCM0001', COUNT, INITIAL) + b''.join(incoming), \
         struct.pack('<8sII', b'LZCN0001', COUNT, STATE) + b''.join(states)
 
@@ -116,7 +117,7 @@ def self_check(expected):
             rejected += 1
         else:
             raise AssertionError('accepted malformed removal output')
-    source = (ROOT / 'src/app/app.cpp').read_text(encoding='utf-8')
+    source = gameplay_source_text(ROOT)
     source_rejected = 0
     for statement in REMOVAL:
         assert source.count(statement) == 1

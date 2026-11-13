@@ -1,4 +1,5 @@
 """Compare production collapse geometry with executed original word-plane writes."""
+from gameplay_source import gameplay_source_text
 import argparse
 import gzip
 import hashlib
@@ -123,7 +124,7 @@ def main():
     parser.add_argument('--eight-neighbor-exe', type=Path)
     args = parser.parse_args()
     data = metadata()
-    source = '\n'.join(item.text for item in source_files(ROOT, 'app', 'runtime'))
+    source = gameplay_source_text(ROOT)
     check_source(source)
     if args.self_check:
         for statement in CONTRACT:

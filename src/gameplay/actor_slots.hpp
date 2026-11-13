@@ -15,6 +15,7 @@ namespace lezac::gameplay {
 // verified allocator's stable compaction or untouched inactive tail bytes.
 class ActorSlots {
 public:
+    bool operator==(const ActorSlots&) const = default;
     using State = ActorStorage::State;
     using Construction = ActorStorage::Construction;
     using Descriptor = ActorStorage::Descriptor;

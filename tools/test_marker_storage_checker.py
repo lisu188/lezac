@@ -1,5 +1,6 @@
 """Negative controls for marker fixture integrity, routing and comparisons."""
 import gzip
+from gameplay_source import gameplay_source_text
 from pathlib import Path
 import subprocess
 import tempfile
@@ -42,7 +43,7 @@ class MarkerCheckerTest(unittest.TestCase):
         self.assertIsNotNone(checker.difference(raw + b'x', raw))
 
     def test_source_routing_controls(self):
-        source = (ROOT / 'src/app/app.cpp').read_text(encoding='utf-8')
+        source = gameplay_source_text(ROOT)
         checker.check_routing(source)
         tokens = (
             'spawnLaunchPadMarker(static_cast<int>(player.x), localY);',
@@ -84,7 +85,7 @@ class MarkerCheckerTest(unittest.TestCase):
                 checker.check_routing(source.replace(retirement, 'marker.timer == 0', count))
 
     def test_neighbor_diagnostics_do_not_change_marker_scope(self):
-        source = (ROOT / 'src/app/app.cpp').read_text(encoding='utf-8')
+        source = gameplay_source_text(ROOT)
         start, end = checker.marker_diagnostic_bounds(source)
         neighbor = '''    void neighboringProbe%s() {
         legacyActorSeedsEnabled_ = false;

@@ -12,12 +12,15 @@ import make_corpse_reward_rng_mutant as generator
 
 class RewardRngToolsTest(unittest.TestCase):
     def test_mutations_preserve_diagnostic_and_draw_count(self):
-        source = (Path(__file__).resolve().parents[1] / 'src/app/app.cpp').read_text(encoding='utf-8')
+        app = Path(__file__).resolve().parents[1] / 'src/app/app.cpp'
+        original = app.read_bytes()
+        source = (Path(__file__).resolve().parents[1] / 'src/gameplay/gameplay_operations.cpp').read_text(encoding='utf-8')
         mutant = generator.generate(source)
         for text in (source, mutant):
             self.assertEqual(generator.function(text, 'spawnExpiryParticles')[2].count('randomRangeValue(0, 600)'), 2)
-        self.assertEqual(generator.function(source, 'debugCorpseRewardAnimationMode')[2],
-                         generator.function(mutant, 'debugCorpseRewardAnimationMode')[2])
+        self.assertEqual(app.read_bytes(), original)
+        self.assertIn('void debugCorpseRewardAnimationMode(', original.decode('utf-8'))
+        self.assertNotIn('void debugCorpseRewardAnimationMode(', source)
         for mode in checker.CONTROLS:
             self.assertIn('rewardRngMutation("' + mode + '")', mutant)
         with self.assertRaises(ValueError):

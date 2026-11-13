@@ -1,4 +1,5 @@
 """Adapt the legacy debris contract without changing pinned fixture dependencies."""
+from gameplay_source import gameplay_source_text
 import sys
 
 import check_original_debris_update as legacy
@@ -21,7 +22,7 @@ def contract(source):
 
 
 def self_check():
-    source = '\n'.join(item.text for item in source_files(legacy.ROOT, 'app', 'runtime'))
+    source = gameplay_source_text(legacy.ROOT)
     contract(source)
     changes = (
         (PHYSICS, ''),

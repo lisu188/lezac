@@ -1,4 +1,5 @@
 """Verify original map accesses and replay them through the production memory accessor."""
+from gameplay_source import gameplay_source_text
 import argparse
 import gzip
 import hashlib
@@ -122,7 +123,7 @@ def main():
     parser.add_argument('--self-check', action='store_true')
     args = parser.parse_args()
     data = metadata()
-    source = (ROOT / 'src/app/app.cpp').read_text(encoding='utf-8')
+    source = gameplay_source_text(ROOT)
     required = contract(source)
     request, expected = streams(data)
     if args.self_check:

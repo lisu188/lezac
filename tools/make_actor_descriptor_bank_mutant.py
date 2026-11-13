@@ -4,12 +4,15 @@ import hashlib
 import json
 from pathlib import Path
 
+from source_guardrails import function_ranges
+
 SELECTION = '        const auto& bank = levelIndex_ == 6 ? altSprites_ : sprites_;\n'
 
 
 def function(source):
-    start = source.index('    lezac::gameplay::ActorSlots::Descriptor actorSpriteDescriptor(')
-    end = source.index('\n    void adoptUnorderedActors(', start)
+    first, last = function_ranges(source, ['actorSpriteDescriptor'])['actorSpriteDescriptor']
+    lines = source.splitlines(keepends=True)
+    start, end = sum(map(len, lines[:first - 1])), sum(map(len, lines[:last]))
     return start, end, source[start:end]
 
 

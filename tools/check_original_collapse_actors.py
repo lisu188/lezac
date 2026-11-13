@@ -1,4 +1,5 @@
 """Compare production collapse actor creation with executed original records."""
+from gameplay_source import gameplay_source_text
 import argparse
 import gzip
 import hashlib
@@ -198,7 +199,7 @@ def main():
     mode.add_argument('--self-check', action='store_true')
     args = parser.parse_args()
     data = metadata()
-    source = '\n'.join(item.text for item in source_files(ROOT, 'app', 'runtime'))
+    source = gameplay_source_text(ROOT)
     contract(source)
     cases = list(records(data))
     if args.self_check:

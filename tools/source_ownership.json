@@ -174,7 +174,12 @@
         "src/gameplay/damage_lane_memory.hpp",
         "src/gameplay/map_plane_memory.hpp",
         "src/gameplay/fracture_records.hpp",
-        "src/gameplay/initial_damage_data.hpp"
+        "src/gameplay/initial_damage_data.hpp",
+        "src/gameplay/session_support.hpp",
+        "src/gameplay/gameplay_fixture.hpp",
+        "src/gameplay/gameplay_operations.hpp",
+        "src/gameplay/gameplay_operations.cpp",
+        "src/gameplay/game_session.hpp"
       ]
     },
     "app": {
@@ -213,7 +218,8 @@
         "src/diagnostics/sound/sound_evidence_diagnostics.cpp",
         "src/diagnostics/sound/sound_synthesis_diagnostics.cpp",
         "src/diagnostics/ui_diagnostics.cpp",
-        "src/diagnostics/ui_diagnostics.hpp"
+        "src/diagnostics/ui_diagnostics.hpp",
+        "src/diagnostics/gameplay/gameplay_replay.hpp"
       ]
     }
   }

@@ -3,6 +3,7 @@ import contextlib
 import gzip
 import io
 import json
+from gameplay_source import gameplay_source_text
 from pathlib import Path
 import struct
 import tempfile
@@ -84,7 +85,7 @@ class DebrisPhaseTests(unittest.TestCase):
         self.assertEqual((len(cases), differences), (360, 127))
 
     def test_source_order_and_consumer_mutations(self):
-        source = (checker.ROOT / 'src/app/app.cpp').read_text(encoding='utf-8')
+        source = gameplay_source_text(checker.ROOT)
         checker.contract(source)
         changes = (('updateWithControls(FrameControls{}, 0.0f);', 'updateDebrisRecords();'),
             ('++logicTick_;\n        prepareHudObjectives();', 'prepareHudObjectives();'),

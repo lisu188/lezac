@@ -1,4 +1,5 @@
 """Compare compiled pickup post-allocation initialization with executed original bytes."""
+from gameplay_source import gameplay_source_text
 import argparse
 import gzip
 import hashlib
@@ -153,7 +154,7 @@ def compare_vectors(expected, actual, rows):
 
 
 def self_check(expected, rows):
-    app = (ROOT / 'src/app/app.cpp').read_text(encoding='utf-8')
+    app = gameplay_source_text(ROOT)
     cmake = (ROOT / 'CMakeLists.txt').read_text(encoding='utf-8')
     workflow = (ROOT / '.github/workflows/ci.yml').read_text(encoding='utf-8')
     source_contract(app, cmake, workflow)

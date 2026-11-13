@@ -12,7 +12,7 @@ import make_actor_descriptor_bank_mutant as generator
 
 class DescriptorBankToolsTest(unittest.TestCase):
     def test_generator_changes_only_production_bank_selection(self):
-        source = (Path(__file__).resolve().parents[1] / 'src/app/app.cpp').read_text(encoding='utf-8')
+        source = (Path(__file__).resolve().parents[1] / 'src/gameplay/gameplay_operations.cpp').read_text(encoding='utf-8')
         mutant = generator.generate(source)
         old_start, old_end, body = generator.function(source)
         new_start, new_end, changed = generator.function(mutant)

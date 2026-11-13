@@ -1,4 +1,5 @@
 """Compare compiled transient creation/shared clamp with original constructor output."""
+from gameplay_source import gameplay_source_text
 import argparse
 import gzip
 import hashlib
@@ -107,7 +108,7 @@ def compare_vectors(expected, actual):
 
 def self_check(expected):
     compare_vectors(expected, expected)
-    app = (ROOT / 'src/app/app.cpp').read_text(encoding='utf-8')
+    app = gameplay_source_text(ROOT)
     models = (ROOT / 'src/gameplay/actor_models.hpp').read_text(encoding='utf-8')
     cmake = (ROOT / 'CMakeLists.txt').read_text(encoding='utf-8')
     workflow = (ROOT / '.github/workflows/ci.yml').read_text(encoding='utf-8')

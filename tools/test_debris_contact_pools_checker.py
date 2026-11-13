@@ -1,4 +1,5 @@
 """Direct impact routing, physical guards and strict comparison controls."""
+from gameplay_source import gameplay_source_text
 from pathlib import Path
 import struct
 import tempfile
@@ -78,7 +79,7 @@ class DebrisContactTests(unittest.TestCase):
         self.assertEqual((staged, preserved), (72, 24))
 
     def test_updater_and_cli_binding_reject_source_mutants(self):
-        source = (self.root / 'src/app/app.cpp').read_text(encoding='utf-8')
+        source = gameplay_source_text(self.root)
         direct_source_contract(source)
         for old, new in (
                 ('bool physicalDebrisUpdate = false', 'bool physicalDebrisUpdate = true'),

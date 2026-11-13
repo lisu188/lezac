@@ -66,7 +66,7 @@ jobs:
             --capture "$RUNNER_TEMP/monster-writeback-capture"
       - name: Preserve native capture and failures
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: monster-writeback-original
           path: |

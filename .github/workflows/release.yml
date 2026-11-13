@@ -39,12 +39,12 @@ jobs:
           python3 -B tools/test_startup_rng.py --isolated-package --exe "$RUNNER_TEMP/lezac-package-extracted/lezac/lezac_cpp" --out package-startup-checks
       - name: Preserve extracted-package startup evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: package-startup-linux
           path: package-startup-checks/
           if-no-files-found: ignore
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: lezac-linux-x86_64
           path: lezac-linux-x86_64.tar.gz
@@ -92,12 +92,12 @@ jobs:
           python -B tools/test_startup_rng.py --isolated-package --exe "$extracted/lezac/lezac_cpp.exe" --out package-startup-checks
       - name: Preserve extracted-package startup evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: package-startup-windows
           path: package-startup-checks/
           if-no-files-found: ignore
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: lezac-windows-x86_64
           path: lezac-windows-x86_64.zip

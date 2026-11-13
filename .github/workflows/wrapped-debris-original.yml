@@ -42,7 +42,7 @@ jobs:
           --unicorn-path "$RUNNER_TEMP/lezac-unicorn" --out build/wrapped-debris-original
       - name: Preserve original states and observer evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wrapped-debris-original-linux
           path: build/wrapped-debris-original/

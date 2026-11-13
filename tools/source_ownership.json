@@ -15,6 +15,8 @@
         "src/core/actor_update.hpp",
         "src/core/frame_tail.hpp",
         "src/core/player_post.hpp",
+        "src/core/frame_actor_pass.hpp",
+        "src/core/frame_iteration.hpp",
         "src/core/actor_precontact.hpp",
         "src/core/actor_real48.hpp",
         "src/core/actor_steering.hpp",

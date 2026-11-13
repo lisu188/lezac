@@ -1,0 +1,320 @@
+{
+  "address_coordinates": "linear-byte-offset",
+  "audit_source": "tools/rea_prefix_audit.py",
+  "audit_source_sha256": "acf74525b08220c0d976d10509c9d6592c772437628bc8990841356746924096",
+  "calls": [
+    {
+      "call_site": "0x17b28",
+      "evidence_id": "ev_913b6ed61183e1660edfba0b04f37f180b1e1b6568c1f6617a6dbb5e0cae9b3f",
+      "response_sha256": "7c6b259f34d8262983c8645319fdfc0a31a206007a5b77b4ca7c227d60cb1b4c",
+      "status": "direct",
+      "targets": [
+        "0x12f9f"
+      ]
+    },
+    {
+      "call_site": "0x17b5c",
+      "evidence_id": "ev_94e7138906eca68d6c5af262a9b2268b4d1595017d6c1317a8b3f228957d7bb4",
+      "response_sha256": "ec9b71cce679ee9a6f48ebb1ccd6916b9096df244692e5d58f79a9dab4949782",
+      "status": "direct",
+      "targets": [
+        "0x1a5a8"
+      ]
+    },
+    {
+      "call_site": "0x17c29",
+      "evidence_id": "ev_c6e91389d26a737cbbe476721c112a404a23472f93906b6e264eda175aa9ec73",
+      "response_sha256": "41bba7873c316d6c5d521c3732f976b6fc8440316fbcaa001c15fa8ddcac1258",
+      "status": "direct",
+      "targets": [
+        "0x106ab"
+      ]
+    }
+  ],
+  "decompilations": [
+    {
+      "advisory_not_compilable_source": true,
+      "evidence_id": "ev_c33426fffba0da866242157f1560ced9cc77a3270c31af0eb49c45b230f14adb",
+      "procedure": "0x12f9f",
+      "response_sha256": "17f57a33ced8e8931ddf54cbaa5d42bbab25eb3a6a5abb1ff6db375039f6b3ea",
+      "text_bytes": 1454,
+      "text_sha256": "de79622c87fc83bafd52bd0f88fe7772abb248ab28012a5617ed3755dd4421ad"
+    },
+    {
+      "advisory_not_compilable_source": true,
+      "evidence_id": "ev_e375ac7971897ac7b9d0378c3719005cb01f800fb3d9cc23c9c1783e7bc08862",
+      "procedure": "0x106ab",
+      "response_sha256": "6ae390e1cecf1df7d23dc43bcc37611978ad9591f63e92c7fffe3e5c6f57038d",
+      "text_bytes": 452,
+      "text_sha256": "b49e5ad779623e9ac0f0c79c6c2be177e266b6443a62fe837575881a2dc71c84"
+    }
+  ],
+  "full_frame_claim": false,
+  "guest_execution": false,
+  "guest_ram_exported": false,
+  "host": "WSL Ubuntu",
+  "instructions": [
+    {
+      "address": "0x17a57",
+      "bytes": "c606e87900",
+      "evidence_id": "ev_3b5a8529df21c44bfba40999349580e22cfdc334c563b225279c0be1117050c0",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "FALL_THROUGH"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [],
+        "kind": "fallthrough"
+      },
+      "length": 5,
+      "raw_disassembly": "MOV byte ptr [0x79e8],0x0",
+      "response_sha256": "76464e88780b81cfd27dda94d7154efa889f804b54155cb955ac07acf424fa00",
+      "status": "decoded"
+    },
+    {
+      "address": "0x17a7b",
+      "bytes": "a0a679",
+      "evidence_id": "ev_260514cde2ef264ad0a15fba4e982d675de46712fedfbc443235df9a7f7e1e19",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "FALL_THROUGH"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [],
+        "kind": "fallthrough"
+      },
+      "length": 3,
+      "raw_disassembly": "MOV AL,[0x79a6]",
+      "response_sha256": "85ffa58acdd8da3569c9557b808e14ea8c29be437495709e716bed0a43b95aa0",
+      "status": "decoded"
+    },
+    {
+      "address": "0x17aa7",
+      "bytes": "7403",
+      "evidence_id": "ev_507f1677d4748b2670f053c09d579abe3cedf7b2f9901c582ec5556e7946b36e",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "CONDITIONAL_JUMP"
+          }
+        ],
+        "computed": false,
+        "conditional": true,
+        "direct_destinations": [
+          "0x17aac"
+        ],
+        "kind": "jump"
+      },
+      "length": 2,
+      "raw_disassembly": "JZ 0x1000:7aac",
+      "response_sha256": "cfa3185f8b16764a8f95dd47f455bc3c91a95ecee8a5a0ed9cbf995ad47b43f0",
+      "status": "decoded"
+    },
+    {
+      "address": "0x17b13",
+      "bytes": "30e4",
+      "evidence_id": "ev_d74df01ee782c9d689539af5daefa6c41aa0f5fb6101335d152a7ed5d54495bd",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "FALL_THROUGH"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [],
+        "kind": "fallthrough"
+      },
+      "length": 2,
+      "raw_disassembly": "XOR AH,AH",
+      "response_sha256": "0f727fb44dbaad761528371f6e836915ad10bad5b939ca0ede10929a5678c0b1",
+      "status": "decoded"
+    },
+    {
+      "address": "0x17b28",
+      "bytes": "e874b4",
+      "evidence_id": "ev_baf7b8571d0336eb65603853c9ce800ffe6d6a898f86b84a5ce817c16c040d1d",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "UNCONDITIONAL_CALL"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [
+          "0x12f9f"
+        ],
+        "kind": "call"
+      },
+      "length": 3,
+      "raw_disassembly": "CALL 0x1000:2f9f",
+      "response_sha256": "d7cb55b7151b2062ecf5663498c66ed6897c20a2f95391c73b5c5375c12a403f",
+      "status": "decoded"
+    },
+    {
+      "address": "0x17b5c",
+      "bytes": "9aa8132019",
+      "evidence_id": "ev_24c96246a218e092418c7273f8c735a1d36894be86cc2dc56cbe98540fa87bd9",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "UNCONDITIONAL_CALL"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [
+          "0x1a5a8"
+        ],
+        "kind": "call"
+      },
+      "length": 5,
+      "raw_disassembly": "CALLF 0x1000:a5a8",
+      "response_sha256": "2514225b3a1653183e31a83a6dd8e867a64e0290f6bb3f7e5a1b49bb1b52b350",
+      "status": "decoded"
+    },
+    {
+      "address": "0x17c29",
+      "bytes": "e87f8a",
+      "evidence_id": "ev_55eb4fe9700275f3b458ccb43d83f465e4f8d00fb0cb180f1f5c844f939a6ac6",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "UNCONDITIONAL_CALL"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [
+          "0x106ab"
+        ],
+        "kind": "call"
+      },
+      "length": 3,
+      "raw_disassembly": "CALL 0x1000:06ab",
+      "response_sha256": "3bbfd02e651e7aad622a5566d6c1a90fcab00bbfdd0de588c0741ba8e32e427b",
+      "status": "decoded"
+    },
+    {
+      "address": "0x17c3d",
+      "bytes": "c70682200100",
+      "evidence_id": "ev_0f1f172c5967b60ffc3a0da439ce1d70b15eee04b32b20accbe5e1270232f2a6",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "FALL_THROUGH"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [],
+        "kind": "fallthrough"
+      },
+      "length": 6,
+      "raw_disassembly": "MOV word ptr [0x2082],0x1",
+      "response_sha256": "e31022a199d39160e0bcf3960bf9432b05f211c1b317aff9f4559a996f88ec10",
+      "status": "decoded"
+    },
+    {
+      "address": "0x17c54",
+      "bytes": "8b3e8220",
+      "evidence_id": "ev_eb04a0130c074dc90610e84fdf016ec1abdd9f35cccaa32dc8a91ea7c33fde94",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "FALL_THROUGH"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [],
+        "kind": "fallthrough"
+      },
+      "length": 4,
+      "raw_disassembly": "MOV DI,word ptr [0x2082]",
+      "response_sha256": "da2b815f3da1dd6c8fa9e4cb1ae1e05db22c8fc4c3fc7bf4a97a122853c80486",
+      "status": "decoded"
+    },
+    {
+      "address": "0x17e8a",
+      "bytes": "eb08",
+      "evidence_id": "ev_955499a3d264007bb12bf7e840e7756330d5ed7a9cfcf36a0762e374e8be0984",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "UNCONDITIONAL_JUMP"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [
+          "0x17e94"
+        ],
+        "kind": "jump"
+      },
+      "length": 2,
+      "raw_disassembly": "JMP 0x1000:7e94",
+      "response_sha256": "692349b1b964e24c9209897b27602aca1cd75ad7bfe515a13288700667f5b856",
+      "status": "decoded"
+    },
+    {
+      "address": "0x17ebb",
+      "bytes": "803ef97900",
+      "evidence_id": "ev_95f31a9c351fba362497870a3c0df1dc1d9bd5b1b40427af0bfd626fd224a3b2",
+      "flow": {
+        "classification_evidence": [
+          {
+            "source": "ghidra-listing-flow-type",
+            "value": "FALL_THROUGH"
+          }
+        ],
+        "computed": false,
+        "conditional": false,
+        "direct_destinations": [],
+        "kind": "fallthrough"
+      },
+      "length": 5,
+      "raw_disassembly": "CMP byte ptr [0x79f9],0x0",
+      "response_sha256": "1eaf763c21afc4071002b927fef82fdceb92283b73fe69927d78a310f15ef312",
+      "status": "decoded"
+    }
+  ],
+  "language": "x86:LE:16:Real Mode",
+  "limitations": [
+    "Static instruction and reference observations are not runtime proof.",
+    "Decompiler types and calling conventions are advisory, not recovered source.",
+    "The audit uses an explicit local MCP stdio server; it does not register REA in the app.",
+    "Ghidra applies MZ relocations in its ephemeral import, not in the target file."
+  ],
+  "load_evidence_id": "ev_0f9626911e7dcf5c8a9d92501ddd015fb7deeeafaa2e4b3fdc22b8fad31d72d8",
+  "load_segment": 4096,
+  "provider": {
+    "id": "ghidra",
+    "name": "Ghidra",
+    "version": "12.1.4"
+  },
+  "rea_version": "6.7.0",
+  "schema": "lezac-rea-ghidra-post-render-correlation-v1",
+  "session_calls": 19,
+  "session_closed": true,
+  "session_report_sha256": "09328fcae309e3b6795bf10bc769bb19c1acf6cc1530faa3d653ccddc5720760",
+  "target_preserved": true,
+  "target_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
+}
